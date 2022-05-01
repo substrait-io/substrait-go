@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+
+version: v1
+plugins:
+  - name: go
+    out: proto
+    opt: module=github.com/substrait-io/substrait-go/proto
