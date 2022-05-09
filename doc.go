@@ -4,4 +4,4 @@
 // (https://substrait.io).
 package substraitgo
 
-//go:generate buf generate https://github.com/substrait-io/substrait.git#branch=main
+//go:generate buf generate https://github.com/substrait-io/substrait.git#branch=v0.1.2
