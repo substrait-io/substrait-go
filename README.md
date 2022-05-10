@@ -4,25 +4,28 @@ Experimental Go bindings for [substrait](https://substrait.io)
 
 ## Generate from proto files
 
-initialize the submodule if you haven't yet done so:
+### Install buf
+
+First ensure you have `buf` installed by following https://docs.buf.build/installation.
+
+### Install go plugin
+
+Run the following to install the Go plugin for protobuf:
 
 ```bash
-git submodule update --init
+$ go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 ```
 
-Update the submodule for any upstream changes 
+Ensure that your GOPATH is on your path:
 
 ```bash
-git submodule update --remote substrait
+$ export PATH="$PATH:$(go env GOPATH)/bin"
 ```
 
-Then generate the files and copy them out
+### Run go generate
 
-```bash
-pushd substrait
-buf generate
-cp -r gen/proto/go/substrait/* ../proto
-popd
-```
+As long as buf and the Go protobuf plugin are installed, you can 
+simply run `go generate` to generate the updated `.pb.go` files. It
+will generate them by referencing the primary substrait-io repository.
 
-After this you can commit the updated `.pb.go` files.
+You can then commit the updated files.
