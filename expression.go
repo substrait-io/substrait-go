@@ -55,13 +55,72 @@ type FieldReference struct {
 	Root      RootRefType
 }
 
+func FuncArgFromProto(e *proto.FunctionArgument) (FuncArg, error) {
+	switch et := e.ArgType.(type) {
+	case *proto.FunctionArgument_Enum:
+		return Enum(et.Enum), nil
+	case *proto.FunctionArgument_Type:
+		return TypeFromProto(et.Type), nil
+	case *proto.FunctionArgument_Value:
+		return ExprFromProto(et.Value)
+	}
+	return nil, ErrNotImplemented
+}
+
 func ExprFromProto(e *proto.Expression) (Expression, error) {
 	switch et := e.RexType.(type) {
 	case *proto.Expression_Literal_:
 		return LiteralFromProto(et.Literal), nil
 	case *proto.Expression_Selection:
 	case *proto.Expression_ScalarFunction_:
+		var err error
+		args := make([]FuncArg, len(et.ScalarFunction.Arguments))
+		for i, a := range et.ScalarFunction.Arguments {
+			if args[i], err = FuncArgFromProto(a); err != nil {
+				return nil, err
+			}
+		}
+		return &ScalarFunction{
+			FuncRef:    et.ScalarFunction.FunctionReference,
+			Args:       args,
+			Options:    et.ScalarFunction.Options,
+			OutputType: TypeFromProto(et.ScalarFunction.OutputType),
+		}, nil
 	case *proto.Expression_WindowFunction_:
+		var err error
+		args := make([]FuncArg, len(et.WindowFunction.Arguments))
+		for i, a := range et.WindowFunction.Arguments {
+			if args[i], err = FuncArgFromProto(a); err != nil {
+				return nil, err
+			}
+		}
+
+		parts := make([]Expression, len(et.WindowFunction.Partitions))
+		for i, p := range et.WindowFunction.Partitions {
+			if parts[i], err = ExprFromProto(p); err != nil {
+				return nil, err
+			}
+		}
+
+		sorts := make([]SortField, len(et.WindowFunction.Sorts))
+		for i, s := range et.WindowFunction.Sorts {
+			if sorts[i], err = SortFieldFromProto(s); err != nil {
+				return nil, err
+			}
+		}
+
+		return &WindowFunction{
+			FuncRef:    et.WindowFunction.FunctionReference,
+			Args:       args,
+			Options:    et.WindowFunction.Options,
+			OutputType: TypeFromProto(et.WindowFunction.OutputType),
+			Phase:      et.WindowFunction.Phase,
+			Invocation: et.WindowFunction.Invocation,
+			Partitions: parts,
+			Sorts:      sorts,
+			LowerBound: BoundFromProto(et.WindowFunction.LowerBound),
+			UpperBound: BoundFromProto(et.WindowFunction.UpperBound),
+		}, nil
 	case *proto.Expression_IfThen_:
 	case *proto.Expression_SwitchExpression_:
 	case *proto.Expression_SingularOrList_:
