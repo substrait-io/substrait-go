@@ -8,53 +8,6 @@ import (
 	"github.com/substrait-io/substrait-go/proto"
 )
 
-type RootRefType interface{}
-
-var RootReference struct{}
-
-type OuterReference uint32
-
-type ReferenceSegment interface {
-	GetChild() ReferenceSegment
-}
-
-type MapKeyRef struct {
-	MapKey Literal
-	Child  ReferenceSegment
-}
-
-func (r *MapKeyRef) GetChild() ReferenceSegment { return r.Child }
-func (*MapKeyRef) isRefType()                   {}
-
-type StructFieldRef struct {
-	Field int32
-	Child ReferenceSegment
-}
-
-func (r *StructFieldRef) GetChild() ReferenceSegment { return r.Child }
-func (*StructFieldRef) isRefType()                   {}
-
-type ListElementRef struct {
-	Offset int32
-	Child  ReferenceSegment
-}
-
-func (r *ListElementRef) GetChild() ReferenceSegment { return r.Child }
-func (*ListElementRef) isRefType()                   {}
-
-type MaskExpression proto.Expression_MaskExpression
-
-func (*MaskExpression) isRefType() {}
-
-type Reference interface {
-	isRefType()
-}
-
-type FieldReference struct {
-	Reference Reference
-	Root      RootRefType
-}
-
 func FuncArgFromProto(e *proto.FunctionArgument) (FuncArg, error) {
 	switch et := e.ArgType.(type) {
 	case *proto.FunctionArgument_Enum:
@@ -72,6 +25,7 @@ func ExprFromProto(e *proto.Expression) (Expression, error) {
 	case *proto.Expression_Literal_:
 		return LiteralFromProto(et.Literal), nil
 	case *proto.Expression_Selection:
+		return FieldReferenceFromProto(et.Selection)
 	case *proto.Expression_ScalarFunction_:
 		var err error
 		args := make([]FuncArg, len(et.ScalarFunction.Arguments))
@@ -151,6 +105,9 @@ func ExprFromProto(e *proto.Expression) (Expression, error) {
 //  - A Nested expression
 type Expression interface {
 	FuncArg
+	RootRefType
+
+	GetType() Type
 	ToProto() *proto.Expression
 	Equals(Expression) bool
 }

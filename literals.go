@@ -52,9 +52,10 @@ type (
 type Literal interface {
 	// Literals are also Function arguments
 	FuncArg
+	RootRefType
 
-	// ValueType returns the full Type of the literal value
-	ValueType() Type
+	// GetType returns the full Type of the literal value
+	GetType() Type
 	// Equals only returns true if the rhs is a literal of the exact
 	// same type and value.
 	Equals(Expression) bool
@@ -67,7 +68,8 @@ type NullLiteral struct {
 	Type Type
 }
 
-func (n *NullLiteral) ValueType() Type { return n.Type }
+func (*NullLiteral) isRootRef()      {}
+func (n *NullLiteral) GetType() Type { return n.Type }
 func (n *NullLiteral) ToProtoLiteral() *proto.Expression_Literal {
 	return &proto.Expression_Literal{
 		Nullable:               true,
@@ -103,7 +105,8 @@ type PrimitiveLiteral[T PrimitiveLiteralValue] struct {
 	Type  Type
 }
 
-func (t *PrimitiveLiteral[T]) ValueType() Type { return t.Type }
+func (*PrimitiveLiteral[T]) isRootRef()      {}
+func (t *PrimitiveLiteral[T]) GetType() Type { return t.Type }
 func (t *PrimitiveLiteral[T]) ToProtoLiteral() *proto.Expression_Literal {
 	lit := &proto.Expression_Literal{
 		Nullable:               t.Type.GetNullability() == NullabilityNullable,
@@ -170,7 +173,8 @@ type NestedLiteral[T nestedLiteral] struct {
 	Type  Type
 }
 
-func (t *NestedLiteral[T]) ValueType() Type { return t.Type }
+func (*NestedLiteral[T]) isRootRef()      {}
+func (t *NestedLiteral[T]) GetType() Type { return t.Type }
 func (t *NestedLiteral[T]) ToProtoLiteral() *proto.Expression_Literal {
 	lit := &proto.Expression_Literal{
 		Nullable:               t.Type.GetNullability() == NullabilityNullable,
@@ -234,7 +238,8 @@ type MapLiteral struct {
 	Type  Type
 }
 
-func (t *MapLiteral) ValueType() Type { return t.Type }
+func (*MapLiteral) isRootRef()      {}
+func (t *MapLiteral) GetType() Type { return t.Type }
 func (t *MapLiteral) ToProtoLiteral() *proto.Expression_Literal {
 	lit := &proto.Expression_Literal{
 		Nullable:               t.Type.GetNullability() == NullabilityNullable,
@@ -287,7 +292,8 @@ type ByteSliceLiteral[T ~[]byte] struct {
 	Type  Type
 }
 
-func (t *ByteSliceLiteral[T]) ValueType() Type { return t.Type }
+func (*ByteSliceLiteral[T]) isRootRef()      {}
+func (t *ByteSliceLiteral[T]) GetType() Type { return t.Type }
 func (t *ByteSliceLiteral[T]) ToProtoLiteral() *proto.Expression_Literal {
 	lit := &proto.Expression_Literal{
 		Nullable:               t.Type.GetNullability() == NullabilityNullable,
@@ -333,7 +339,8 @@ type ProtoLiteral struct {
 	Type  Type
 }
 
-func (t *ProtoLiteral) ValueType() Type { return t.Type }
+func (*ProtoLiteral) isRootRef()      {}
+func (t *ProtoLiteral) GetType() Type { return t.Type }
 
 func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
 	lit := &proto.Expression_Literal{
@@ -420,7 +427,7 @@ func NewNestedLiteral[T StructLiteralValue | MapLiteralValue | ListLiteralValue]
 	case StructLiteralValue:
 		typeList := make([]Type, len(v))
 		for i, f := range v {
-			typeList[i] = f.ValueType()
+			typeList[i] = f.GetType()
 		}
 		return &NestedLiteral[StructLiteralValue]{
 			Value: v,
@@ -433,15 +440,15 @@ func NewNestedLiteral[T StructLiteralValue | MapLiteralValue | ListLiteralValue]
 			Value: v,
 			Type: &MapType{
 				Nullability: nullability,
-				Key:         v[0].Key.ValueType(),
-				Value:       v[0].Value.ValueType(),
+				Key:         v[0].Key.GetType(),
+				Value:       v[0].Value.GetType(),
 			}}
 	case ListLiteralValue:
 		return &NestedLiteral[ListLiteralValue]{
 			Value: v,
 			Type: &ListType{
 				Nullability: nullability,
-				Type:        v[0].ValueType(),
+				Type:        v[0].GetType(),
 			}}
 	}
 	panic("should not get here")
@@ -650,7 +657,7 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 		fields := make([]Literal, len(lit.Struct.Fields))
 		for i, f := range lit.Struct.Fields {
 			fields[i] = LiteralFromProto(f)
-			types[i] = fields[i].ValueType()
+			types[i] = fields[i].GetType()
 		}
 
 		return &NestedLiteral[StructLiteralValue]{
@@ -671,8 +678,8 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 			Type: &MapType{
 				Nullability:      nullability,
 				TypeVariationRef: l.TypeVariationReference,
-				Key:              ret[0].Key.ValueType(),
-				Value:            ret[0].Value.ValueType(),
+				Key:              ret[0].Key.GetType(),
+				Value:            ret[0].Value.GetType(),
 			}}
 	case *proto.Expression_Literal_List_:
 		ret := make(ListLiteralValue, len(lit.List.Values))
@@ -684,7 +691,7 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 			Type: &ListType{
 				Nullability:      nullability,
 				TypeVariationRef: l.TypeVariationReference,
-				Type:             ret[0].ValueType(),
+				Type:             ret[0].GetType(),
 			}}
 	case *proto.Expression_Literal_EmptyList:
 		return &NestedLiteral[ListLiteralValue]{

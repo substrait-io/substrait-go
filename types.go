@@ -225,6 +225,8 @@ type (
 	// a specific type.
 	Type interface {
 		FuncArg
+		RootRefType
+		GetType() Type
 		GetNullability() Nullability
 		GetTypeVariationReference() uint32
 		Equals(Type) bool
@@ -358,6 +360,8 @@ type PrimitiveType[T primitiveTypeIFace] struct {
 	TypeVariationRef uint32
 }
 
+func (*PrimitiveType[T]) isRootRef()                          {}
+func (s *PrimitiveType[T]) GetType() Type                     { return s }
 func (s *PrimitiveType[T]) GetNullability() Nullability       { return s.Nullability }
 func (s *PrimitiveType[T]) GetTypeVariationReference() uint32 { return s.TypeVariationRef }
 func (s *PrimitiveType[T]) Equals(rhs Type) bool {
@@ -405,6 +409,8 @@ type FixedLenType[T FixedChar | VarChar | FixedBinary] struct {
 	Length           int32
 }
 
+func (*FixedLenType[T]) isRootRef()                          {}
+func (s *FixedLenType[T]) GetType() Type                     { return s }
 func (s *FixedLenType[T]) GetNullability() Nullability       { return s.Nullability }
 func (s *FixedLenType[T]) GetTypeVariationReference() uint32 { return s.TypeVariationRef }
 func (s *FixedLenType[T]) Equals(rhs Type) bool {
@@ -427,6 +433,8 @@ type DecimalType struct {
 	Scale, Precision int32
 }
 
+func (*DecimalType) isRootRef()                          {}
+func (s *DecimalType) GetType() Type                     { return s }
 func (s *DecimalType) GetNullability() Nullability       { return s.Nullability }
 func (s *DecimalType) GetTypeVariationReference() uint32 { return s.TypeVariationRef }
 func (s *DecimalType) Equals(rhs Type) bool {
@@ -457,6 +465,8 @@ type StructType struct {
 	Types            []Type
 }
 
+func (*StructType) isRootRef()                          {}
+func (s *StructType) GetType() Type                     { return s }
 func (s *StructType) GetNullability() Nullability       { return s.Nullability }
 func (s *StructType) GetTypeVariationReference() uint32 { return s.TypeVariationRef }
 
@@ -506,6 +516,8 @@ type ListType struct {
 	Type Type
 }
 
+func (*ListType) isRootRef()                          {}
+func (s *ListType) GetType() Type                     { return s }
 func (s *ListType) GetNullability() Nullability       { return s.Nullability }
 func (s *ListType) GetTypeVariationReference() uint32 { return s.TypeVariationRef }
 
@@ -542,6 +554,8 @@ type MapType struct {
 	Key, Value       Type
 }
 
+func (*MapType) isRootRef()                          {}
+func (s *MapType) GetType() Type                     { return s }
 func (s *MapType) GetNullability() Nullability       { return s.Nullability }
 func (s *MapType) GetTypeVariationReference() uint32 { return s.TypeVariationRef }
 
@@ -701,6 +715,8 @@ type UserDefinedType struct {
 	TypeParameters   []TypeParam
 }
 
+func (*UserDefinedType) isRootRef()                          {}
+func (s *UserDefinedType) GetType() Type                     { return s }
 func (s *UserDefinedType) GetNullability() Nullability       { return s.Nullability }
 func (s *UserDefinedType) GetTypeVariationReference() uint32 { return s.TypeVariationRef }
 

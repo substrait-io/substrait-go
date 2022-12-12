@@ -6,4 +6,5 @@ import "errors"
 
 var (
 	ErrNotImplemented = errors.New("not implemented")
+	ErrInvalidType    = errors.New("invalid type")
 )

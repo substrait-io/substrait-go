@@ -141,6 +141,8 @@ type ScalarFunction struct {
 	OutputType Type
 }
 
+func (*ScalarFunction) isRootRef()      {}
+func (w *ScalarFunction) GetType() Type { return w.OutputType }
 func (s *ScalarFunction) ToProtoFuncArg() *proto.FunctionArgument {
 	return &proto.FunctionArgument{
 		ArgType: &proto.FunctionArgument_Value{
@@ -205,6 +207,8 @@ type WindowFunction struct {
 	LowerBound, UpperBound Bound
 }
 
+func (*WindowFunction) isRootRef()                   {}
+func (w *WindowFunction) GetType() Type              { return w.OutputType }
 func (w *WindowFunction) Equals(rhs Expression) bool { return false }
 
 func (w *WindowFunction) ToProto() *proto.Expression {
