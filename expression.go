@@ -51,8 +51,6 @@ type Reference interface {
 }
 
 type FieldReference struct {
-	funcArg
-
 	Reference Reference
 	Root      RootRefType
 }
@@ -78,6 +76,20 @@ func ExprFromProto(e *proto.Expression) (Expression, error) {
 	return nil, ErrNotImplemented
 }
 
+// Expression can be one of many different things as a generalized
+// expression. It could be:
+//
+//  - A literal
+//  - A Field Reference Selection
+//  - A Scalar Function expression
+//  - A Window Function expression
+//  - An If-Then statement
+//  - A Switch Expression
+//  - A Singular Or List
+//  - A Multiple Or List
+//  - A Cast expression
+//  - A Subquery
+//  - A Nested expression
 type Expression interface {
 	FuncArg
 	ToProto() *proto.Expression
@@ -85,8 +97,6 @@ type Expression interface {
 }
 
 type IfThen struct {
-	funcArg
-
 	IFs []struct {
 		If   Expression
 		Then Expression
@@ -95,16 +105,12 @@ type IfThen struct {
 }
 
 type Cast struct {
-	funcArg
-
 	Type            Type
 	Input           Expression
 	FailureBehavior CastFailBehavior
 }
 
-type SwitchExpression struct {
-	funcArg
-
+type SwitchExpr struct {
 	Match Expression
 	IFs   []struct {
 		If   Literal
@@ -114,57 +120,47 @@ type SwitchExpression struct {
 }
 
 type SinglularOrList struct {
-	funcArg
-
 	Value   Expression
 	Options []Expression
 }
 
 type MultiOrList struct {
-	funcArg
-
 	Value   Expression
 	Options []struct {
 		Fields []Expression
 	}
 }
 
-type Nested interface {
+type NestedExpr interface {
 	FuncArg
 
 	IsNullable() bool
 	TypeVariation() uint32
 }
 
-type Map struct {
-	funcArg
-
+type MapExpr struct {
 	Nullable         bool
 	TypeVariationRef uint32
 	KeyValues        []struct{ Key, Value Expression }
 }
 
-func (m *Map) IsNullable() bool      { return m.Nullable }
-func (m *Map) TypeVariation() uint32 { return m.TypeVariationRef }
+func (m *MapExpr) IsNullable() bool      { return m.Nullable }
+func (m *MapExpr) TypeVariation() uint32 { return m.TypeVariationRef }
 
-type Struct struct {
-	funcArg
-
+type StructExpr struct {
 	Nullable         bool
 	TypeVariationRef uint32
 	Fields           []Expression
 }
 
-func (s *Struct) IsNullable() bool      { return s.Nullable }
-func (s *Struct) TypeVariation() uint32 { return s.TypeVariationRef }
+func (s *StructExpr) IsNullable() bool      { return s.Nullable }
+func (s *StructExpr) TypeVariation() uint32 { return s.TypeVariationRef }
 
-type List struct {
-	funcArg
-
+type ListExpr struct {
 	Nullable         bool
 	TypeVariationRef uint32
 	Values           []Expression
 }
 
-func (l *List) IsNullable() bool      { return l.Nullable }
-func (l *List) TypeVariation() uint32 { return l.TypeVariationRef }
+func (l *ListExpr) IsNullable() bool      { return l.Nullable }
+func (l *ListExpr) TypeVariation() uint32 { return l.TypeVariationRef }

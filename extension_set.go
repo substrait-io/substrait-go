@@ -9,10 +9,13 @@ import (
 
 type Plan = proto.Plan
 
+// ExtID represents a specific extension type by its URI and Name.
 type ExtID struct {
 	URI, Name string
 }
 
+// ExtensionSet is a specific set of SimpleExtension declarations,
+// mapping anchor values to URIs and Names.
 type ExtensionSet struct {
 	uris           map[uint32]string
 	typeVariations map[uint32]ExtID
@@ -20,6 +23,8 @@ type ExtensionSet struct {
 	funcIDs        map[uint32]ExtID
 }
 
+// GetExtensionSet processes and returns the set of all extensions which
+// are depended on by the given Plan.
 func GetExtensionSet(plan *Plan) *ExtensionSet {
 	uris := make(map[uint32]string)
 	for _, uri := range plan.ExtensionUris {

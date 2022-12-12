@@ -24,8 +24,6 @@ func (CurrentRow) isBound()     {}
 func (Unbounded) isBound()      {}
 
 type ScalarFunction struct {
-	funcArg
-
 	FuncRef    uint32
 	Args       []FuncArg
 	Options    []*FunctionOption
@@ -33,8 +31,6 @@ type ScalarFunction struct {
 }
 
 type WindowFunction struct {
-	funcArg
-
 	FuncRef    uint32
 	Args       []FuncArg
 	Options    []*FunctionOption

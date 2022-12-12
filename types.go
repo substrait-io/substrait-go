@@ -57,6 +57,8 @@ const (
 	BehaviorThrowException = proto.Expression_Cast_FAILURE_BEHAVIOR_THROW_EXCEPTION
 )
 
+// TypeFromProto returns the appropriate Type object from a protobuf
+// type message.
 func TypeFromProto(t *proto.Type) Type {
 	switch t := t.Kind.(type) {
 	case *proto.Type_Bool:
@@ -208,16 +210,19 @@ type (
 
 	FunctionOption = proto.FunctionOption
 
+	// FuncArg corresponds to the protobuf FunctionArgument. Anything
+	// which could be a function argument should meet this interface.
+	// This is either an Expression, a Type, or an Enum (string).
 	FuncArg interface {
-		isFuncArg()
+		ToProtoFuncArg() *proto.FunctionArgument
 	}
 
 	SortKind interface {
 		isSortKind()
 	}
 
-	funcArg struct{}
-
+	// Type corresponds to the proto.Type message and represents
+	// a specific type.
 	Type interface {
 		FuncArg
 		GetNullability() Nullability
@@ -226,6 +231,8 @@ type (
 	}
 )
 
+// TypeToProto properly constructs the appropriate protobuf message
+// for the given type.
 func TypeToProto(t Type) *proto.Type {
 	switch t := t.(type) {
 	case *BooleanType:
@@ -338,66 +345,83 @@ func TypeToProto(t Type) *proto.Type {
 	panic("unimplemented type")
 }
 
-type primitiveType[T PrimitiveLiteralValue | []byte | IntervalYearToMonth | IntervalDayToSecond | UUID] struct {
-	funcArg
+type primitiveTypeIFace interface {
+	PrimitiveLiteralValue | []byte | IntervalYearToMonth |
+		IntervalDayToSecond | UUID
+}
 
+// PrimitiveType is a generic implementation of simple primitive types
+// which only need to track if they are nullable and if they are a type
+// variation.
+type PrimitiveType[T primitiveTypeIFace] struct {
 	Nullability      Nullability
 	TypeVariationRef uint32
 }
 
-func (s *primitiveType[T]) GetNullability() Nullability       { return s.Nullability }
-func (s *primitiveType[T]) GetTypeVariationReference() uint32 { return s.TypeVariationRef }
-func (s *primitiveType[T]) Equals(rhs Type) bool {
-	if o, ok := rhs.(*primitiveType[T]); ok {
+func (s *PrimitiveType[T]) GetNullability() Nullability       { return s.Nullability }
+func (s *PrimitiveType[T]) GetTypeVariationReference() uint32 { return s.TypeVariationRef }
+func (s *PrimitiveType[T]) Equals(rhs Type) bool {
+	if o, ok := rhs.(*PrimitiveType[T]); ok {
 		return *o == *s
 	}
 
 	return false
 }
 
+func (s *PrimitiveType[T]) ToProtoFuncArg() *proto.FunctionArgument {
+	return &proto.FunctionArgument{
+		ArgType: &proto.FunctionArgument_Type{Type: TypeToProto(s)},
+	}
+}
+
+// create type aliases to the generic structs
 type (
-	BooleanType      = primitiveType[bool]
-	Int8Type         = primitiveType[int8]
-	Int16Type        = primitiveType[int16]
-	Int32Type        = primitiveType[int32]
-	Int64Type        = primitiveType[int64]
-	Float32Type      = primitiveType[float32]
-	Float64Type      = primitiveType[float64]
-	StringType       = primitiveType[string]
-	BinaryType       = primitiveType[[]byte]
-	TimestampType    = primitiveType[Timestamp]
-	DateType         = primitiveType[Date]
-	TimeType         = primitiveType[Time]
-	TimestampTzType  = primitiveType[TimestampTz]
-	IntervalYearType = primitiveType[IntervalYearToMonth]
-	IntervalDayType  = primitiveType[IntervalDayToSecond]
-	UUIDType         = primitiveType[UUID]
-	FixedCharType    = fixedLenType[FixedChar]
-	VarCharType      = fixedLenType[VarChar]
-	FixedBinaryType  = fixedLenType[FixedBinary]
+	BooleanType      = PrimitiveType[bool]
+	Int8Type         = PrimitiveType[int8]
+	Int16Type        = PrimitiveType[int16]
+	Int32Type        = PrimitiveType[int32]
+	Int64Type        = PrimitiveType[int64]
+	Float32Type      = PrimitiveType[float32]
+	Float64Type      = PrimitiveType[float64]
+	StringType       = PrimitiveType[string]
+	BinaryType       = PrimitiveType[[]byte]
+	TimestampType    = PrimitiveType[Timestamp]
+	DateType         = PrimitiveType[Date]
+	TimeType         = PrimitiveType[Time]
+	TimestampTzType  = PrimitiveType[TimestampTz]
+	IntervalYearType = PrimitiveType[IntervalYearToMonth]
+	IntervalDayType  = PrimitiveType[IntervalDayToSecond]
+	UUIDType         = PrimitiveType[UUID]
+	FixedCharType    = FixedLenType[FixedChar]
+	VarCharType      = FixedLenType[VarChar]
+	FixedBinaryType  = FixedLenType[FixedBinary]
 )
 
-type fixedLenType[T FixedChar | VarChar | FixedBinary] struct {
-	funcArg
-
+// FixedLenType is any of the types which also need to track their specific
+// length as they have a fixed length.
+type FixedLenType[T FixedChar | VarChar | FixedBinary] struct {
 	Nullability      Nullability
 	TypeVariationRef uint32
 	Length           int32
 }
 
-func (s *fixedLenType[T]) GetNullability() Nullability       { return s.Nullability }
-func (s *fixedLenType[T]) GetTypeVariationReference() uint32 { return s.TypeVariationRef }
-func (s *fixedLenType[T]) Equals(rhs Type) bool {
-	if o, ok := rhs.(*fixedLenType[T]); ok {
+func (s *FixedLenType[T]) GetNullability() Nullability       { return s.Nullability }
+func (s *FixedLenType[T]) GetTypeVariationReference() uint32 { return s.TypeVariationRef }
+func (s *FixedLenType[T]) Equals(rhs Type) bool {
+	if o, ok := rhs.(*FixedLenType[T]); ok {
 		return *o == *s
 	}
 
 	return false
 }
 
-type DecimalType struct {
-	funcArg
+func (s *FixedLenType[T]) ToProtoFuncArg() *proto.FunctionArgument {
+	return &proto.FunctionArgument{
+		ArgType: &proto.FunctionArgument_Type{Type: TypeToProto(s)},
+	}
+}
 
+type DecimalType struct {
 	Nullability      Nullability
 	TypeVariationRef uint32
 	Scale, Precision int32
@@ -413,6 +437,12 @@ func (s *DecimalType) Equals(rhs Type) bool {
 	return false
 }
 
+func (s *DecimalType) ToProtoFuncArg() *proto.FunctionArgument {
+	return &proto.FunctionArgument{
+		ArgType: &proto.FunctionArgument_Type{Type: s.ToProto()},
+	}
+}
+
 func (t *DecimalType) ToProto() *proto.Type {
 	return &proto.Type{Kind: &proto.Type_Decimal_{
 		Decimal: &proto.Type_Decimal{
@@ -422,8 +452,6 @@ func (t *DecimalType) ToProto() *proto.Type {
 }
 
 type StructType struct {
-	funcArg
-
 	Nullability      Nullability
 	TypeVariationRef uint32
 	Types            []Type
@@ -465,9 +493,13 @@ func (t *StructType) ToProto() *proto.Type {
 			Nullability:            t.Nullability}}}
 }
 
-type ListType struct {
-	funcArg
+func (s *StructType) ToProtoFuncArg() *proto.FunctionArgument {
+	return &proto.FunctionArgument{
+		ArgType: &proto.FunctionArgument_Type{Type: s.ToProto()},
+	}
+}
 
+type ListType struct {
 	Nullability      Nullability
 	TypeVariationRef uint32
 
@@ -498,9 +530,13 @@ func (t *ListType) ToProto() *proto.Type {
 			TypeVariationReference: t.TypeVariationRef}}}
 }
 
-type MapType struct {
-	funcArg
+func (s *ListType) ToProtoFuncArg() *proto.FunctionArgument {
+	return &proto.FunctionArgument{
+		ArgType: &proto.FunctionArgument_Type{Type: s.ToProto()},
+	}
+}
 
+type MapType struct {
 	Nullability      Nullability
 	TypeVariationRef uint32
 	Key, Value       Type
@@ -531,13 +567,25 @@ func (t *MapType) ToProto() *proto.Type {
 			Value:                  TypeToProto(t.Value)}}}
 }
 
+func (s *MapType) ToProtoFuncArg() *proto.FunctionArgument {
+	return &proto.FunctionArgument{
+		ArgType: &proto.FunctionArgument_Type{Type: s.ToProto()},
+	}
+}
+
+// TypeParam represents a type parameter for a user defined type
 type TypeParam interface {
 	ToProto() *proto.Type_Parameter
 	Equals(TypeParam) bool
 }
 
+// rather than creating a new one of these for every call ToProto which
+// will always be the same empty object we can just create this once
+// and return the same one every time.
 var nullTypeParam = &proto.Type_Parameter_Null{}
 
+// NullParameter is an explicitly null/unspecified parameter, to select
+// the default value (if any).
 type NullParameter struct{}
 
 func (NullParameter) Equals(p TypeParam) bool {
@@ -549,6 +597,7 @@ func (NullParameter) ToProto() *proto.Type_Parameter {
 	return &proto.Type_Parameter{Parameter: nullTypeParam}
 }
 
+// DataTypeParameter is like the i32 in LIST<i32>
 type DataTypeParameter struct {
 	Type
 }
@@ -565,6 +614,7 @@ func (d *DataTypeParameter) ToProto() *proto.Type_Parameter {
 		DataType: TypeToProto(d.Type)}}
 }
 
+// BooleanParameter is a type parameter like <true> for a type.
 type BooleanParameter bool
 
 func (b BooleanParameter) Equals(p TypeParam) bool {
@@ -579,6 +629,7 @@ func (b BooleanParameter) ToProto() *proto.Type_Parameter {
 		Boolean: bool(b)}}
 }
 
+// IntegerParameter is the type parameter like 10 in VARCHAR<10>
 type IntegerParameter int64
 
 func (b IntegerParameter) Equals(p TypeParam) bool {
@@ -593,6 +644,7 @@ func (p IntegerParameter) ToProto() *proto.Type_Parameter {
 		Integer: int64(p)}}
 }
 
+// EnumParameter is a type parameter that is some enum value
 type EnumParameter string
 
 func (b EnumParameter) Equals(p TypeParam) bool {
@@ -607,6 +659,7 @@ func (p EnumParameter) ToProto() *proto.Type_Parameter {
 		Enum: string(p)}}
 }
 
+// StringParameter is a type parameter which is a string value
 type StringParameter string
 
 func (b StringParameter) Equals(p TypeParam) bool {
@@ -621,6 +674,8 @@ func (p StringParameter) ToProto() *proto.Type_Parameter {
 		String_: string(p)}}
 }
 
+// TypeParamFromProto converts a protobuf Type_Parameter message to
+// a TypeParam object for processing.
 func TypeParamFromProto(p *proto.Type_Parameter) TypeParam {
 	switch p := p.Parameter.(type) {
 	case *proto.Type_Parameter_Null:
@@ -640,8 +695,6 @@ func TypeParamFromProto(p *proto.Type_Parameter) TypeParam {
 }
 
 type UserDefinedType struct {
-	funcArg
-
 	Nullability      Nullability
 	TypeVariationRef uint32
 	TypeReference    uint32
@@ -690,6 +743,14 @@ func (t *UserDefinedType) ToProto() *proto.Type {
 		}}}
 }
 
-func (funcArg) isFuncArg() {}
+func (t *UserDefinedType) ToProtoFuncArg() *proto.FunctionArgument {
+	return &proto.FunctionArgument{
+		ArgType: &proto.FunctionArgument_Type{Type: t.ToProto()},
+	}
+}
 
-func (Enum) isFuncArg() {}
+func (e Enum) ToProtoFuncArg() *proto.FunctionArgument {
+	return &proto.FunctionArgument{
+		ArgType: &proto.FunctionArgument_Enum{Enum: string(e)},
+	}
+}
