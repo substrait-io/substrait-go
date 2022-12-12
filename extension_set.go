@@ -23,6 +23,21 @@ type ExtensionSet struct {
 	funcIDs        map[uint32]ExtID
 }
 
+func (e *ExtensionSet) DecodeType(anchor uint32) (v ExtID, ok bool) {
+	v, ok = e.typeIDs[anchor]
+	return
+}
+
+func (e *ExtensionSet) DecodeFunc(anchor uint32) (v ExtID, ok bool) {
+	v, ok = e.funcIDs[anchor]
+	return
+}
+
+func (e *ExtensionSet) DecodeTypeVariation(anchor uint32) (v ExtID, ok bool) {
+	v, ok = e.typeVariations[anchor]
+	return
+}
+
 // GetExtensionSet processes and returns the set of all extensions which
 // are depended on by the given Plan.
 func GetExtensionSet(plan *Plan) *ExtensionSet {
