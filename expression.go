@@ -8,34 +8,41 @@ import (
 	"github.com/substrait-io/substrait-go/proto"
 )
 
-func FuncArgFromProto(e *proto.FunctionArgument) (FuncArg, error) {
+func FuncArgFromProto(e *proto.FunctionArgument, baseSchema Type, ext ExtensionRegistry) (FuncArg, error) {
 	switch et := e.ArgType.(type) {
 	case *proto.FunctionArgument_Enum:
 		return Enum(et.Enum), nil
 	case *proto.FunctionArgument_Type:
 		return TypeFromProto(et.Type), nil
 	case *proto.FunctionArgument_Value:
-		return ExprFromProto(et.Value)
+		return ExprFromProto(et.Value, baseSchema, ext)
 	}
 	return nil, ErrNotImplemented
 }
 
-func ExprFromProto(e *proto.Expression) (Expression, error) {
+func ExprFromProto(e *proto.Expression, baseSchema Type, ext ExtensionRegistry) (Expression, error) {
 	switch et := e.RexType.(type) {
 	case *proto.Expression_Literal_:
 		return LiteralFromProto(et.Literal), nil
 	case *proto.Expression_Selection:
-		return FieldReferenceFromProto(et.Selection)
+		return FieldReferenceFromProto(et.Selection, baseSchema, ext)
 	case *proto.Expression_ScalarFunction_:
 		var err error
 		args := make([]FuncArg, len(et.ScalarFunction.Arguments))
 		for i, a := range et.ScalarFunction.Arguments {
-			if args[i], err = FuncArgFromProto(a); err != nil {
+			if args[i], err = FuncArgFromProto(a, baseSchema, ext); err != nil {
 				return nil, err
 			}
 		}
+
+		id, ok := ext.DecodeFunc(et.ScalarFunction.FunctionReference)
+		if !ok {
+			return nil, ErrNotFound
+		}
+
 		return &ScalarFunction{
 			FuncRef:    et.ScalarFunction.FunctionReference,
+			ID:         id,
 			Args:       args,
 			Options:    et.ScalarFunction.Options,
 			OutputType: TypeFromProto(et.ScalarFunction.OutputType),
@@ -44,27 +51,33 @@ func ExprFromProto(e *proto.Expression) (Expression, error) {
 		var err error
 		args := make([]FuncArg, len(et.WindowFunction.Arguments))
 		for i, a := range et.WindowFunction.Arguments {
-			if args[i], err = FuncArgFromProto(a); err != nil {
+			if args[i], err = FuncArgFromProto(a, baseSchema, ext); err != nil {
 				return nil, err
 			}
 		}
 
 		parts := make([]Expression, len(et.WindowFunction.Partitions))
 		for i, p := range et.WindowFunction.Partitions {
-			if parts[i], err = ExprFromProto(p); err != nil {
+			if parts[i], err = ExprFromProto(p, baseSchema, ext); err != nil {
 				return nil, err
 			}
 		}
 
 		sorts := make([]SortField, len(et.WindowFunction.Sorts))
 		for i, s := range et.WindowFunction.Sorts {
-			if sorts[i], err = SortFieldFromProto(s); err != nil {
+			if sorts[i], err = SortFieldFromProto(s, baseSchema, ext); err != nil {
 				return nil, err
 			}
 		}
 
+		id, ok := ext.DecodeFunc(et.WindowFunction.FunctionReference)
+		if !ok {
+			return nil, ErrNotFound
+		}
+
 		return &WindowFunction{
 			FuncRef:    et.WindowFunction.FunctionReference,
+			ID:         id,
 			Args:       args,
 			Options:    et.WindowFunction.Options,
 			OutputType: TypeFromProto(et.WindowFunction.OutputType),

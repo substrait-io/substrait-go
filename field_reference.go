@@ -3,6 +3,8 @@
 package substraitgo
 
 import (
+	"fmt"
+
 	"github.com/substrait-io/substrait-go/proto"
 )
 
@@ -18,6 +20,7 @@ func (OuterReference) isRootRef() {}
 
 type ReferenceSegment interface {
 	Reference
+	fmt.Stringer
 	GetChild() ReferenceSegment
 	GetType(Type) (Type, error)
 	ToProto() *proto.Expression_ReferenceSegment
@@ -52,6 +55,14 @@ func RefSegmentFromProto(p *proto.Expression_ReferenceSegment) ReferenceSegment 
 type MapKeyRef struct {
 	MapKey Literal
 	Child  ReferenceSegment
+}
+
+func (r *MapKeyRef) String() string {
+	var c string
+	if r.Child != nil {
+		c = r.Child.String()
+	}
+	return ".[" + r.MapKey.String() + "]" + c
 }
 
 func (r *MapKeyRef) ToProto() *proto.Expression_ReferenceSegment {
@@ -94,6 +105,15 @@ type StructFieldRef struct {
 	Child ReferenceSegment
 }
 
+func (r *StructFieldRef) String() string {
+	var c string
+	if r.Child != nil {
+		c = r.Child.String()
+	}
+
+	return fmt.Sprintf(".field(%d)%s", r.Field, c)
+}
+
 func (r *StructFieldRef) GetType(parentType Type) (Type, error) {
 	st, ok := parentType.(*StructType)
 	if !ok {
@@ -133,6 +153,14 @@ func (*StructFieldRef) isRefType()                   {}
 type ListElementRef struct {
 	Offset int32
 	Child  ReferenceSegment
+}
+
+func (r *ListElementRef) String() string {
+	var c string
+	if r.Child != nil {
+		c = r.Child.String()
+	}
+	return fmt.Sprintf(".[%d]%s", r.Offset, c)
 }
 
 func (r *ListElementRef) GetType(parentType Type) (Type, error) {
@@ -182,6 +210,18 @@ type FieldReference struct {
 }
 
 func (*FieldReference) isRootRef() {}
+
+func (f *FieldReference) String() string {
+	if f.Root == RootReference {
+		var typ string
+		if f.knownType != nil {
+			typ = " => " + f.knownType.String()
+		}
+		return f.Reference.(ReferenceSegment).String() + typ
+	}
+	return ""
+}
+
 func (f *FieldReference) ToProtoFuncArg() *proto.FunctionArgument {
 	return &proto.FunctionArgument{
 		ArgType: &proto.FunctionArgument_Value{Value: f.ToProto()},
@@ -233,7 +273,7 @@ func (f *FieldReference) GetType() Type {
 	return f.knownType
 }
 
-func FieldReferenceFromProto(p *proto.Expression_FieldReference) (*FieldReference, error) {
+func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema Type, ext ExtensionRegistry) (*FieldReference, error) {
 	var (
 		ref       Reference
 		root      RootRefType
@@ -243,7 +283,7 @@ func FieldReferenceFromProto(p *proto.Expression_FieldReference) (*FieldReferenc
 
 	switch rt := p.RootType.(type) {
 	case *proto.Expression_FieldReference_Expression:
-		if root, err = ExprFromProto(rt.Expression); err != nil {
+		if root, err = ExprFromProto(rt.Expression, baseSchema, ext); err != nil {
 			return nil, err
 		}
 	case *proto.Expression_FieldReference_OuterReference_:
@@ -255,7 +295,12 @@ func FieldReferenceFromProto(p *proto.Expression_FieldReference) (*FieldReferenc
 	switch rt := p.ReferenceType.(type) {
 	case *proto.Expression_FieldReference_DirectReference:
 		refseg := RefSegmentFromProto(rt.DirectReference)
-		if rootExpr, ok := root.(Expression); ok {
+		if root == RootReference && baseSchema != nil {
+			knownType, err = refseg.GetType(baseSchema)
+			if err != nil {
+				return nil, err
+			}
+		} else if rootExpr, ok := root.(Expression); ok {
 			knownType, err = refseg.GetType(rootExpr.GetType())
 			if err != nil {
 				return nil, err

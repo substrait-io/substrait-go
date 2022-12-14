@@ -9,6 +9,12 @@ import (
 
 type Plan = proto.Plan
 
+type ExtensionRegistry interface {
+	DecodeType(anchor uint32) (ExtID, bool)
+	DecodeFunc(anchor uint32) (ExtID, bool)
+	DecodeTypeVariation(anchor uint32) (ExtID, bool)
+}
+
 // ExtID represents a specific extension type by its URI and Name.
 type ExtID struct {
 	URI, Name string
@@ -21,6 +27,10 @@ type ExtensionSet struct {
 	typeVariations map[uint32]ExtID
 	typeIDs        map[uint32]ExtID
 	funcIDs        map[uint32]ExtID
+}
+
+func (e *ExtensionSet) GetTypeIDs() map[uint32]ExtID {
+	return e.typeIDs
 }
 
 func (e *ExtensionSet) DecodeType(anchor uint32) (v ExtID, ok bool) {

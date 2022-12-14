@@ -3,6 +3,10 @@
 package substraitgo
 
 import (
+	"fmt"
+	"reflect"
+	"strings"
+
 	"github.com/substrait-io/substrait-go/proto"
 )
 
@@ -214,6 +218,7 @@ type (
 	// which could be a function argument should meet this interface.
 	// This is either an Expression, a Type, or an Enum (string).
 	FuncArg interface {
+		fmt.Stringer
 		ToProtoFuncArg() *proto.FunctionArgument
 	}
 
@@ -226,6 +231,7 @@ type (
 	Type interface {
 		FuncArg
 		RootRefType
+		fmt.Stringer
 		GetType() Type
 		GetNullability() Nullability
 		GetTypeVariationReference() uint32
@@ -352,6 +358,25 @@ type primitiveTypeIFace interface {
 		IntervalDayToSecond | UUID
 }
 
+var primitiveNames = map[reflect.Type]string{
+	reflect.PointerTo(reflect.TypeOf(true)):           "boolean",
+	reflect.PointerTo(reflect.TypeOf(int8(0))):        "i8",
+	reflect.PointerTo(reflect.TypeOf(int16(0))):       "i16",
+	reflect.PointerTo(reflect.TypeOf(int32(0))):       "i32",
+	reflect.PointerTo(reflect.TypeOf(int64(0))):       "i64",
+	reflect.PointerTo(reflect.TypeOf(float32(0))):     "fp32",
+	reflect.PointerTo(reflect.TypeOf(float64(0))):     "fp64",
+	reflect.PointerTo(reflect.TypeOf([]byte{})):       "binary",
+	reflect.PointerTo(reflect.TypeOf("")):             "string",
+	reflect.PointerTo(reflect.TypeOf(Timestamp(0))):   "timestamp",
+	reflect.PointerTo(reflect.TypeOf(Date(0))):        "date",
+	reflect.PointerTo(reflect.TypeOf(Time(0))):        "time",
+	reflect.PointerTo(reflect.TypeOf(TimestampTz(0))): "timestamp_tz",
+	reflect.PointerTo(reflect.TypeOf(UUID{})):         "uuid",
+	reflect.TypeOf(&IntervalYearToMonth{}):            "interval_year",
+	reflect.TypeOf(&IntervalDayToSecond{}):            "interval_day",
+}
+
 // PrimitiveType is a generic implementation of simple primitive types
 // which only need to track if they are nullable and if they are a type
 // variation.
@@ -376,6 +401,14 @@ func (s *PrimitiveType[T]) ToProtoFuncArg() *proto.FunctionArgument {
 	return &proto.FunctionArgument{
 		ArgType: &proto.FunctionArgument_Type{Type: TypeToProto(s)},
 	}
+}
+
+func (s *PrimitiveType[T]) String() string {
+	var z *T
+	if n, ok := primitiveNames[reflect.TypeOf(z)]; ok {
+		return n
+	}
+	return reflect.TypeOf(z).Elem().Name()
 }
 
 // create type aliases to the generic structs
@@ -427,6 +460,12 @@ func (s *FixedLenType[T]) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 
+func (s *FixedLenType[T]) String() string {
+	var z *T
+	return fmt.Sprintf("%s<%d>",
+		reflect.TypeOf(z).Elem().Name(), s.Length)
+}
+
 type DecimalType struct {
 	Nullability      Nullability
 	TypeVariationRef uint32
@@ -457,6 +496,11 @@ func (t *DecimalType) ToProto() *proto.Type {
 			Scale: t.Scale, Precision: t.Precision,
 			Nullability:            t.Nullability,
 			TypeVariationReference: t.TypeVariationRef}}}
+}
+
+func (t *DecimalType) String() string {
+	return fmt.Sprintf("decimal<%d, %d>",
+		t.Precision, t.Scale)
 }
 
 type StructType struct {
@@ -503,10 +547,23 @@ func (t *StructType) ToProto() *proto.Type {
 			Nullability:            t.Nullability}}}
 }
 
-func (s *StructType) ToProtoFuncArg() *proto.FunctionArgument {
+func (t *StructType) ToProtoFuncArg() *proto.FunctionArgument {
 	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Type{Type: s.ToProto()},
+		ArgType: &proto.FunctionArgument_Type{Type: t.ToProto()},
 	}
+}
+
+func (t *StructType) String() string {
+	var b strings.Builder
+	b.WriteString("struct<")
+	for i, f := range t.Types {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(f.String())
+	}
+	b.WriteByte('>')
+	return b.String()
 }
 
 type ListType struct {
@@ -542,10 +599,14 @@ func (t *ListType) ToProto() *proto.Type {
 			TypeVariationReference: t.TypeVariationRef}}}
 }
 
-func (s *ListType) ToProtoFuncArg() *proto.FunctionArgument {
+func (t *ListType) ToProtoFuncArg() *proto.FunctionArgument {
 	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Type{Type: s.ToProto()},
+		ArgType: &proto.FunctionArgument_Type{Type: t.ToProto()},
 	}
+}
+
+func (t *ListType) String() string {
+	return "list<" + t.Type.String() + ">"
 }
 
 type MapType struct {
@@ -581,10 +642,14 @@ func (t *MapType) ToProto() *proto.Type {
 			Value:                  TypeToProto(t.Value)}}}
 }
 
-func (s *MapType) ToProtoFuncArg() *proto.FunctionArgument {
+func (t *MapType) ToProtoFuncArg() *proto.FunctionArgument {
 	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Type{Type: s.ToProto()},
+		ArgType: &proto.FunctionArgument_Type{Type: t.ToProto()},
 	}
+}
+
+func (t *MapType) String() string {
+	return "map<" + t.Key.String() + " => " + t.Value.String() + ">"
 }
 
 // TypeParam represents a type parameter for a user defined type
@@ -765,8 +830,69 @@ func (t *UserDefinedType) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 
+func (t *UserDefinedType) String() string {
+	return "user_defined_type"
+}
+
 func (e Enum) ToProtoFuncArg() *proto.FunctionArgument {
 	return &proto.FunctionArgument{
 		ArgType: &proto.FunctionArgument_Enum{Enum: string(e)},
 	}
+}
+
+func (e Enum) String() string { return string(e) }
+
+type NamedStruct struct {
+	Names  []string
+	Struct StructType
+}
+
+func (n *NamedStruct) String() string {
+	var b strings.Builder
+
+	// names are in depth-first order
+	nameIdx := 0
+
+	var writeType func(t Type)
+
+	writeType = func(t Type) {
+		switch t := t.(type) {
+		case *StructType:
+			b.WriteString("struct<")
+			for i, c := range t.Types {
+				if i != 0 {
+					b.WriteString(", ")
+				}
+				b.WriteString(n.Names[nameIdx])
+				nameIdx++
+				b.WriteString(": ")
+				writeType(c)
+			}
+			b.WriteString(">")
+		case *MapType:
+			b.WriteString("map<")
+			writeType(t.Key)
+			b.WriteString(",")
+			writeType(t.Value)
+			b.WriteString(">")
+		case *ListType:
+			b.WriteString("list<")
+			writeType(t.Type)
+			b.WriteString(">")
+		default:
+			b.WriteString(t.String())
+		}
+	}
+
+	for _, t := range n.Struct.Types {
+		b.WriteString("- ")
+		b.WriteString(n.Names[nameIdx])
+		b.WriteString(": ")
+		nameIdx++
+
+		writeType(t)
+		b.WriteString("\n")
+	}
+
+	return b.String()
 }

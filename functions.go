@@ -3,6 +3,8 @@
 package substraitgo
 
 import (
+	"strings"
+
 	"github.com/substrait-io/substrait-go/proto"
 	"golang.org/x/exp/slices"
 	pb "google.golang.org/protobuf/proto"
@@ -70,8 +72,8 @@ func (s *SortField) ToProto() *proto.SortField {
 	return ret
 }
 
-func SortFieldFromProto(f *proto.SortField) (sf SortField, err error) {
-	sf.Expr, err = ExprFromProto(f.Expr)
+func SortFieldFromProto(f *proto.SortField, baseSchema Type, ext ExtensionRegistry) (sf SortField, err error) {
+	sf.Expr, err = ExprFromProto(f.Expr, baseSchema, ext)
 	if err != nil {
 		return
 	}
@@ -135,14 +137,36 @@ func BoundFromProto(b *proto.Expression_WindowFunction_Bound) Bound {
 }
 
 type ScalarFunction struct {
-	FuncRef    uint32
+	FuncRef uint32
+	ID      ExtID
+
 	Args       []FuncArg
 	Options    []*FunctionOption
 	OutputType Type
 }
 
-func (*ScalarFunction) isRootRef()      {}
-func (w *ScalarFunction) GetType() Type { return w.OutputType }
+func (*ScalarFunction) isRootRef() {}
+
+func (s *ScalarFunction) String() string {
+	var b strings.Builder
+
+	b.WriteString(s.ID.Name)
+	b.WriteByte('(')
+
+	for i, arg := range s.Args {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(arg.String())
+	}
+
+	b.WriteString(") => ")
+	b.WriteString(s.OutputType.String())
+
+	return b.String()
+}
+
+func (s *ScalarFunction) GetType() Type { return s.OutputType }
 func (s *ScalarFunction) ToProtoFuncArg() *proto.FunctionArgument {
 	return &proto.FunctionArgument{
 		ArgType: &proto.FunctionArgument_Value{
@@ -194,7 +218,9 @@ func (s *ScalarFunction) Equals(rhs Expression) bool {
 }
 
 type WindowFunction struct {
-	FuncRef    uint32
+	FuncRef uint32
+	ID      ExtID
+
 	Args       []FuncArg
 	Options    []*FunctionOption
 	OutputType Type
@@ -207,7 +233,26 @@ type WindowFunction struct {
 	LowerBound, UpperBound Bound
 }
 
-func (*WindowFunction) isRootRef()                   {}
+func (*WindowFunction) isRootRef() {}
+
+func (w *WindowFunction) String() string {
+	var b strings.Builder
+
+	b.WriteString(w.ID.Name)
+	b.WriteByte('(')
+
+	for i, arg := range w.Args {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(arg.String())
+	}
+
+	b.WriteString(") => ")
+	b.WriteString(w.OutputType.String())
+
+	return b.String()
+}
 func (w *WindowFunction) GetType() Type              { return w.OutputType }
 func (w *WindowFunction) Equals(rhs Expression) bool { return false }
 

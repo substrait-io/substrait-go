@@ -4,6 +4,7 @@ package substraitgo
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/substrait-io/substrait-go/proto"
 	"golang.org/x/exp/slices"
@@ -53,6 +54,7 @@ type Literal interface {
 	// Literals are also Function arguments
 	FuncArg
 	RootRefType
+	fmt.Stringer
 
 	// GetType returns the full Type of the literal value
 	GetType() Type
@@ -68,7 +70,11 @@ type NullLiteral struct {
 	Type Type
 }
 
-func (*NullLiteral) isRootRef()      {}
+func (*NullLiteral) isRootRef() {}
+func (n *NullLiteral) String() string {
+	return "null(" + n.Type.String() + ")"
+}
+
 func (n *NullLiteral) GetType() Type { return n.Type }
 func (n *NullLiteral) ToProtoLiteral() *proto.Expression_Literal {
 	return &proto.Expression_Literal{
@@ -105,7 +111,10 @@ type PrimitiveLiteral[T PrimitiveLiteralValue] struct {
 	Type  Type
 }
 
-func (*PrimitiveLiteral[T]) isRootRef()      {}
+func (*PrimitiveLiteral[T]) isRootRef() {}
+func (t *PrimitiveLiteral[T]) String() string {
+	return fmt.Sprintf("%s(%v)", t.Type, t.Value)
+}
 func (t *PrimitiveLiteral[T]) GetType() Type { return t.Type }
 func (t *PrimitiveLiteral[T]) ToProtoLiteral() *proto.Expression_Literal {
 	lit := &proto.Expression_Literal{
@@ -173,7 +182,10 @@ type NestedLiteral[T nestedLiteral] struct {
 	Type  Type
 }
 
-func (*NestedLiteral[T]) isRootRef()      {}
+func (*NestedLiteral[T]) isRootRef() {}
+func (t *NestedLiteral[T]) String() string {
+	return fmt.Sprintf("%s(%v)", t.Type, t.Value)
+}
 func (t *NestedLiteral[T]) GetType() Type { return t.Type }
 func (t *NestedLiteral[T]) ToProtoLiteral() *proto.Expression_Literal {
 	lit := &proto.Expression_Literal{
@@ -238,7 +250,10 @@ type MapLiteral struct {
 	Type  Type
 }
 
-func (*MapLiteral) isRootRef()      {}
+func (*MapLiteral) isRootRef() {}
+func (t *MapLiteral) String() string {
+	return fmt.Sprintf("%s(%v)", t.Type, t.Value)
+}
 func (t *MapLiteral) GetType() Type { return t.Type }
 func (t *MapLiteral) ToProtoLiteral() *proto.Expression_Literal {
 	lit := &proto.Expression_Literal{
@@ -292,7 +307,10 @@ type ByteSliceLiteral[T ~[]byte] struct {
 	Type  Type
 }
 
-func (*ByteSliceLiteral[T]) isRootRef()      {}
+func (*ByteSliceLiteral[T]) isRootRef() {}
+func (t *ByteSliceLiteral[T]) String() string {
+	return fmt.Sprintf("%s(%v)", t.Type, t.Value)
+}
 func (t *ByteSliceLiteral[T]) GetType() Type { return t.Type }
 func (t *ByteSliceLiteral[T]) ToProtoLiteral() *proto.Expression_Literal {
 	lit := &proto.Expression_Literal{
@@ -341,7 +359,9 @@ type ProtoLiteral struct {
 
 func (*ProtoLiteral) isRootRef()      {}
 func (t *ProtoLiteral) GetType() Type { return t.Type }
-
+func (t *ProtoLiteral) String() string {
+	return fmt.Sprintf("%s(%s)", t.Type, t.Value)
+}
 func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
 	lit := &proto.Expression_Literal{
 		Nullable:               t.Type.GetNullability() == NullabilityNullable,
