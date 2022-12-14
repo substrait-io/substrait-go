@@ -571,9 +571,9 @@ func (t *StructType) ToProto() *proto.Type {
 			Nullability:            t.Nullability}}}
 }
 
-func (s *StructType) ToProtoFuncArg() *proto.FunctionArgument {
+func (t *StructType) ToProtoFuncArg() *proto.FunctionArgument {
 	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Type{Type: s.ToProto()},
+		ArgType: &proto.FunctionArgument_Type{Type: t.ToProto()},
 	}
 }
 
@@ -630,9 +630,9 @@ func (t *ListType) ToProto() *proto.Type {
 			TypeVariationReference: t.TypeVariationRef}}}
 }
 
-func (s *ListType) ToProtoFuncArg() *proto.FunctionArgument {
+func (t *ListType) ToProtoFuncArg() *proto.FunctionArgument {
 	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Type{Type: s.ToProto()},
+		ArgType: &proto.FunctionArgument_Type{Type: t.ToProto()},
 	}
 }
 
