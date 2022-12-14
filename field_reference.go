@@ -24,6 +24,7 @@ type ReferenceSegment interface {
 	GetChild() ReferenceSegment
 	GetType(Type) (Type, error)
 	ToProto() *proto.Expression_ReferenceSegment
+	Equals(ReferenceSegment) bool
 }
 
 func RefSegmentFromProto(p *proto.Expression_ReferenceSegment) ReferenceSegment {
@@ -98,7 +99,28 @@ func (r *MapKeyRef) GetType(parentType Type) (Type, error) {
 	return mt.Value, nil
 }
 func (r *MapKeyRef) GetChild() ReferenceSegment { return r.Child }
-func (*MapKeyRef) isRefType()                   {}
+func (r *MapKeyRef) Equals(rhs ReferenceSegment) bool {
+	if rhs, ok := rhs.(*MapKeyRef); ok {
+		if !r.MapKey.Equals(rhs.MapKey) {
+			return false
+		}
+
+		if r.Child == rhs.Child {
+			// both point to the same object or both are nil
+			return true
+		}
+
+		if (r.Child == nil && rhs.Child != nil) ||
+			(r.Child != nil && rhs.Child == nil) {
+			return false
+		}
+
+		return r.Child.Equals(rhs.Child)
+	}
+	return false
+}
+
+func (*MapKeyRef) isRefType() {}
 
 type StructFieldRef struct {
 	Field int32
@@ -148,7 +170,29 @@ func (r *StructFieldRef) ToProto() *proto.Expression_ReferenceSegment {
 }
 
 func (r *StructFieldRef) GetChild() ReferenceSegment { return r.Child }
-func (*StructFieldRef) isRefType()                   {}
+func (r *StructFieldRef) Equals(rhs ReferenceSegment) bool {
+	if rhs, ok := rhs.(*StructFieldRef); ok {
+		if r.Field != rhs.Field {
+			return false
+		}
+
+		if r.Child == rhs.Child {
+			// both point to the same object or both are nil
+			return true
+		}
+
+		if (r.Child == nil && rhs.Child != nil) ||
+			(r.Child != nil && rhs.Child == nil) {
+			return false
+		}
+
+		return r.Child.Equals(rhs.Child)
+	}
+
+	return false
+}
+
+func (*StructFieldRef) isRefType() {}
 
 type ListElementRef struct {
 	Offset int32
@@ -192,7 +236,28 @@ func (r *ListElementRef) ToProto() *proto.Expression_ReferenceSegment {
 }
 
 func (r *ListElementRef) GetChild() ReferenceSegment { return r.Child }
-func (*ListElementRef) isRefType()                   {}
+func (r *ListElementRef) Equals(rhs ReferenceSegment) bool {
+	if rhs, ok := rhs.(*ListElementRef); ok {
+		if r.Offset != rhs.Offset {
+			return false
+		}
+
+		if r.Child == rhs.Child {
+			// both point to the same object or both are nil
+			return true
+		}
+
+		if (r.Child == nil && rhs.Child != nil) ||
+			(r.Child != nil && rhs.Child == nil) {
+			return false
+		}
+
+		return r.Child.Equals(rhs.Child)
+	}
+
+	return false
+}
+func (*ListElementRef) isRefType() {}
 
 type MaskExpression proto.Expression_MaskExpression
 
@@ -239,9 +304,7 @@ func (f *FieldReference) ToProtoFieldRef() *proto.Expression_FieldReference {
 		}
 	}
 
-	if f.Root == RootReference {
-		ret.RootType = &proto.Expression_FieldReference_RootReference_{}
-	} else {
+	if f.Root != RootReference {
 		switch r := f.Root.(type) {
 		case Expression:
 			ret.RootType = &proto.Expression_FieldReference_Expression{
@@ -267,7 +330,53 @@ func (f *FieldReference) ToProto() *proto.Expression {
 	}
 }
 
-func (f *FieldReference) Equals(rhs Expression) bool { return false }
+func (f *FieldReference) Equals(rhs Expression) bool {
+	if rhs, ok := rhs.(*FieldReference); ok {
+		switch root := f.Root.(type) {
+		case OuterReference:
+			rhsRoot, ok := rhs.Root.(OuterReference)
+			if !ok {
+				return false
+			}
+
+			if rhsRoot != root {
+				return false
+			}
+		case Expression:
+			rhsExpr, ok := rhs.Root.(Expression)
+			if !ok {
+				return false
+			}
+
+			if !root.Equals(rhsExpr) {
+				return false
+			}
+		default:
+			if rhs.Root != RootReference {
+				return false
+			}
+		}
+
+		switch ref := f.Reference.(type) {
+		case ReferenceSegment:
+			rhs, ok := rhs.Reference.(ReferenceSegment)
+			if !ok {
+				return false
+			}
+
+			return ref.Equals(rhs)
+		case *MaskExpression:
+			rhs, ok := rhs.Reference.(*MaskExpression)
+			if !ok {
+				return false
+			}
+
+			return ref == rhs
+		}
+	}
+
+	return false
+}
 
 func (f *FieldReference) GetType() Type {
 	return f.knownType

@@ -5,10 +5,11 @@ package substraitgo
 import (
 	"bytes"
 	"fmt"
+	"reflect"
 
 	"github.com/substrait-io/substrait-go/proto"
 	"golang.org/x/exp/slices"
-	pb "google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // PrimitiveLiteralValue is a type constraint that represents
@@ -288,7 +289,10 @@ func (t *MapLiteral) ToProto() *proto.Expression {
 
 func (t *MapLiteral) Equals(rhs Expression) bool {
 	if other, ok := rhs.(*MapLiteral); ok {
-		return t.Type.Equals(other.Type)
+		return t.Type.Equals(other.Type) && slices.EqualFunc(t.Value, other.Value,
+			func(a, b struct{ Key, Value Literal }) bool {
+				return a.Key.Equals(b.Key) && a.Value.Equals(b.Value)
+			})
 	}
 	return false
 }
@@ -338,7 +342,8 @@ func (t *ByteSliceLiteral[T]) ToProto() *proto.Expression {
 
 func (t *ByteSliceLiteral[T]) Equals(rhs Expression) bool {
 	if other, ok := rhs.(*ByteSliceLiteral[T]); ok {
-		return bytes.Equal(t.Value, other.Value)
+		return t.Type.Equals(other.Type) &&
+			bytes.Equal(t.Value, other.Value)
 	}
 
 	return false
@@ -353,7 +358,7 @@ func (t *ByteSliceLiteral[T]) ToProtoFuncArg() *proto.FunctionArgument {
 // ProtoLiteral is a literal that is represented using its protobuf
 // message type such as a Decimal or UserDefinedType.
 type ProtoLiteral struct {
-	Value pb.Message
+	Value any
 	Type  Type
 }
 
@@ -369,8 +374,20 @@ func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
 	}
 
 	switch v := t.Value.(type) {
-	case *UserDefinedLiteral:
-		lit.LiteralType = &proto.Expression_Literal_UserDefined_{UserDefined: v}
+	case *anypb.Any:
+		udft := t.Type.(*UserDefinedType)
+		params := make([]*proto.Type_Parameter, len(udft.TypeParameters))
+		for i, p := range udft.TypeParameters {
+			params[i] = p.ToProto()
+		}
+
+		lit.LiteralType = &proto.Expression_Literal_UserDefined_{
+			UserDefined: &proto.Expression_Literal_UserDefined{
+				Value:          v,
+				TypeReference:  udft.TypeReference,
+				TypeParameters: params,
+			},
+		}
 	case *IntervalYearToMonth:
 		lit.LiteralType = &proto.Expression_Literal_IntervalYearToMonth_{
 			IntervalYearToMonth: v,
@@ -379,10 +396,22 @@ func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
 		lit.LiteralType = &proto.Expression_Literal_IntervalDayToSecond_{
 			IntervalDayToSecond: v,
 		}
-	case *VarChar:
-		lit.LiteralType = &proto.Expression_Literal_VarChar_{VarChar: v}
-	case *Decimal:
-		lit.LiteralType = &proto.Expression_Literal_Decimal_{Decimal: v}
+	case string:
+		lit.LiteralType = &proto.Expression_Literal_VarChar_{
+			VarChar: &proto.Expression_Literal_VarChar{
+				Value:  v,
+				Length: uint32(t.Type.(*VarCharType).Length),
+			},
+		}
+	case []byte:
+		typ := t.Type.(*DecimalType)
+		lit.LiteralType = &proto.Expression_Literal_Decimal_{
+			Decimal: &proto.Expression_Literal_Decimal{
+				Value:     v,
+				Precision: typ.Precision,
+				Scale:     typ.Scale,
+			},
+		}
 	}
 
 	return lit
@@ -396,7 +425,8 @@ func (t *ProtoLiteral) ToProto() *proto.Expression {
 
 func (t *ProtoLiteral) Equals(rhs Expression) bool {
 	if other, ok := rhs.(*ProtoLiteral); ok {
-		return pb.Equal(t.Value, other.Value)
+		return t.Type.Equals(other.Type) &&
+			reflect.DeepEqual(t.Value, other.Value)
 	}
 	return false
 }
@@ -407,17 +437,33 @@ func (t *ProtoLiteral) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 
-func NewPrimitiveLiteral[T PrimitiveLiteralValue](val T, nullable bool) Literal {
-	var nullability Nullability
+func getNullability(nullable bool) Nullability {
 	if nullable {
-		nullability = NullabilityNullable
-	} else {
-		nullability = NullabilityRequired
+		return NullabilityNullable
 	}
+	return NullabilityRequired
+}
+
+type newPrimitiveLiteralTypes interface {
+	bool | int8 | int16 | ~int32 | ~int64 |
+		float32 | float64 | string
+}
+
+func NewPrimitiveLiteral[T newPrimitiveLiteralTypes](val T, nullable bool) Literal {
 	return &PrimitiveLiteral[T]{
 		Value: val,
 		Type: &PrimitiveType[T]{
-			Nullability: nullability,
+			Nullability: getNullability(nullable),
+		},
+	}
+}
+
+func NewFixedCharLiteral(val FixedChar, nullable bool) *PrimitiveLiteral[FixedChar] {
+	return &PrimitiveLiteral[FixedChar]{
+		Value: val,
+		Type: &FixedCharType{
+			Nullability: getNullability(nullable),
+			Length:      int32(len(val)),
 		},
 	}
 }
@@ -436,12 +482,7 @@ type (
 // corresponding NewEmptyMapLiteral and NewEmptyListLiteral functions which
 // take the Type of the empty literal as an argument.
 func NewNestedLiteral[T StructLiteralValue | MapLiteralValue | ListLiteralValue](val T, nullable bool) Literal {
-	var nullability Nullability
-	if nullable {
-		nullability = NullabilityNullable
-	} else {
-		nullability = NullabilityRequired
-	}
+	nullability := getNullability(nullable)
 
 	switch v := any(val).(type) {
 	case StructLiteralValue:
@@ -477,16 +518,9 @@ func NewNestedLiteral[T StructLiteralValue | MapLiteralValue | ListLiteralValue]
 // NewEmptyMapLiteral creates an empty map literal of the provided key/value
 // types and marks the type as nullable or not.
 func NewEmptyMapLiteral(key, val Type, nullable bool) *MapLiteral {
-	var nullability Nullability
-	if nullable {
-		nullability = NullabilityNullable
-	} else {
-		nullability = NullabilityRequired
-	}
-
 	return &MapLiteral{
 		Type: &MapType{
-			Nullability: nullability,
+			Nullability: getNullability(nullable),
 			Key:         key,
 			Value:       val,
 		},
@@ -496,29 +530,132 @@ func NewEmptyMapLiteral(key, val Type, nullable bool) *MapLiteral {
 // NewEmptyListLiteral creates an empty list literal of the
 // type and marks the type as nullable or not.
 func NewEmptyListLiteral(t Type, nullable bool) *ListLiteral {
-	var nullability Nullability
-	if nullable {
-		nullability = NullabilityNullable
-	} else {
-		nullability = NullabilityRequired
-	}
-
 	return &NestedLiteral[ListLiteralValue]{
 		Type: &ListType{
-			Nullability: nullability,
+			Nullability: getNullability(nullable),
 			Type:        t,
 		}}
+}
+
+func NewByteSliceLiteral[T []byte | UUID](val T, nullable bool) *ByteSliceLiteral[T] {
+	return &ByteSliceLiteral[T]{
+		Value: val,
+		Type: &PrimitiveType[T]{
+			Nullability: getNullability(nullable),
+		},
+	}
+}
+
+func NewFixedBinaryLiteral(val FixedBinary, nullable bool) *ByteSliceLiteral[FixedBinary] {
+	return &ByteSliceLiteral[FixedBinary]{
+		Value: val,
+		Type: &FixedLenType[FixedBinary]{
+			Length:      int32(len(val)),
+			Nullability: getNullability(nullable),
+		},
+	}
+}
+
+type allLiteralTypes interface {
+	PrimitiveLiteralValue | nestedLiteral | MapLiteralValue |
+		[]byte | UUID | FixedBinary | *IntervalYearToMonth |
+		*IntervalDayToSecond | *VarChar | *Decimal | *UserDefinedLiteral
+}
+
+func NewLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {
+	switch v := any(val).(type) {
+	case bool:
+		return NewPrimitiveLiteral(v, nullable), nil
+	case int8:
+		return NewPrimitiveLiteral(v, nullable), nil
+	case int16:
+		return NewPrimitiveLiteral(v, nullable), nil
+	case int32:
+		return NewPrimitiveLiteral(v, nullable), nil
+	case int64:
+		return NewPrimitiveLiteral(v, nullable), nil
+	case float32:
+		return NewPrimitiveLiteral(v, nullable), nil
+	case float64:
+		return NewPrimitiveLiteral(v, nullable), nil
+	case string:
+		return NewPrimitiveLiteral(v, nullable), nil
+	case Timestamp:
+		return NewPrimitiveLiteral(v, nullable), nil
+	case TimestampTz:
+		return NewPrimitiveLiteral(v, nullable), nil
+	case Date:
+		return NewPrimitiveLiteral(v, nullable), nil
+	case Time:
+		return NewPrimitiveLiteral(v, nullable), nil
+	case FixedChar:
+		return NewFixedCharLiteral(v, nullable), nil
+	case UUID:
+		return NewByteSliceLiteral(v, nullable), nil
+	case []byte:
+		return NewByteSliceLiteral(v, nullable), nil
+	case FixedBinary:
+		return NewFixedBinaryLiteral(v, nullable), nil
+	case StructLiteralValue:
+		return NewNestedLiteral(v, nullable), nil
+	case ListLiteralValue:
+		return NewNestedLiteral(v, nullable), nil
+	case MapLiteralValue:
+		return NewNestedLiteral(v, nullable), nil
+	case *IntervalYearToMonth:
+		return &ProtoLiteral{
+			Value: v,
+			Type: &IntervalYearType{
+				Nullability: getNullability(nullable),
+			},
+		}, nil
+	case *IntervalDayToSecond:
+		return &ProtoLiteral{
+			Value: v,
+			Type: &IntervalDayType{
+				Nullability: getNullability(nullable),
+			},
+		}, nil
+	case *Decimal:
+		return &ProtoLiteral{
+			Value: v.Value,
+			Type: &DecimalType{
+				Nullability: getNullability(nullable),
+				Precision:   v.Precision,
+				Scale:       v.Scale,
+			},
+		}, nil
+	case *UserDefinedLiteral:
+		params := make([]TypeParam, len(v.TypeParameters))
+		for i, p := range v.TypeParameters {
+			params[i] = TypeParamFromProto(p)
+		}
+
+		return &ProtoLiteral{
+			Value: v.Value,
+			Type: &UserDefinedType{
+				Nullability:    getNullability(nullable),
+				TypeReference:  v.TypeReference,
+				TypeParameters: params,
+			},
+		}, nil
+	case *VarChar:
+		return &ProtoLiteral{
+			Value: v.Value,
+			Type: &VarCharType{
+				Nullability: getNullability(nullable),
+				Length:      int32(v.Length),
+			},
+		}, nil
+	}
+
+	return nil, ErrNotImplemented
 }
 
 // LiteralFromProto constructs the appropriate Literal struct from
 // a protobuf message.
 func LiteralFromProto(l *proto.Expression_Literal) Literal {
-	var nullability Nullability
-	if l.Nullable {
-		nullability = NullabilityNullable
-	} else {
-		nullability = NullabilityRequired
-	}
+	nullability := getNullability(l.Nullable)
 
 	switch lit := l.LiteralType.(type) {
 	case *proto.Expression_Literal_Boolean:
@@ -631,7 +768,7 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 			}}
 	case *proto.Expression_Literal_VarChar_:
 		return &ProtoLiteral{
-			Value: lit.VarChar,
+			Value: lit.VarChar.Value,
 			Type: &VarCharType{
 				Length:           int32(lit.VarChar.Length),
 				Nullability:      nullability,
@@ -648,7 +785,7 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 			}}
 	case *proto.Expression_Literal_Decimal_:
 		return &ProtoLiteral{
-			Value: lit.Decimal,
+			Value: lit.Decimal.Value,
 			Type: &DecimalType{
 				Scale:            lit.Decimal.Scale,
 				Precision:        lit.Decimal.Precision,
@@ -659,14 +796,14 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 	case *proto.Expression_Literal_TimestampTz:
 		return &PrimitiveLiteral[TimestampTz]{
 			Value: TimestampTz(lit.TimestampTz),
-			Type: &BooleanType{
+			Type: &TimestampTzType{
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
 			}}
 	case *proto.Expression_Literal_Uuid:
 		return &ByteSliceLiteral[UUID]{
 			Value: lit.Uuid,
-			Type: &BooleanType{
+			Type: &UUIDType{
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
 			}}
@@ -737,7 +874,7 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 		}
 
 		return &ProtoLiteral{
-			Value: lit.UserDefined,
+			Value: lit.UserDefined.Value,
 			Type: &UserDefinedType{
 				Nullability:      nullability,
 				TypeVariationRef: l.TypeVariationReference,

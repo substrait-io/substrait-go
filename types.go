@@ -358,7 +358,9 @@ type primitiveTypeIFace interface {
 		IntervalDayToSecond | UUID
 }
 
-var primitiveNames = map[reflect.Type]string{
+var emptyFixedChar FixedChar
+
+var typeNames = map[reflect.Type]string{
 	reflect.PointerTo(reflect.TypeOf(true)):           "boolean",
 	reflect.PointerTo(reflect.TypeOf(int8(0))):        "i8",
 	reflect.PointerTo(reflect.TypeOf(int16(0))):       "i16",
@@ -375,6 +377,9 @@ var primitiveNames = map[reflect.Type]string{
 	reflect.PointerTo(reflect.TypeOf(UUID{})):         "uuid",
 	reflect.TypeOf(&IntervalYearToMonth{}):            "interval_year",
 	reflect.TypeOf(&IntervalDayToSecond{}):            "interval_day",
+	reflect.TypeOf(&FixedBinary{}):                    "fixed_binary",
+	reflect.TypeOf(&emptyFixedChar):                   "fixed_char",
+	reflect.TypeOf(&VarChar{}):                        "varchar",
 }
 
 // PrimitiveType is a generic implementation of simple primitive types
@@ -405,7 +410,7 @@ func (s *PrimitiveType[T]) ToProtoFuncArg() *proto.FunctionArgument {
 
 func (s *PrimitiveType[T]) String() string {
 	var z *T
-	if n, ok := primitiveNames[reflect.TypeOf(z)]; ok {
+	if n, ok := typeNames[reflect.TypeOf(z)]; ok {
 		return n
 	}
 	return reflect.TypeOf(z).Elem().Name()
@@ -463,7 +468,7 @@ func (s *FixedLenType[T]) ToProtoFuncArg() *proto.FunctionArgument {
 func (s *FixedLenType[T]) String() string {
 	var z *T
 	return fmt.Sprintf("%s<%d>",
-		reflect.TypeOf(z).Elem().Name(), s.Length)
+		typeNames[reflect.TypeOf(z)], s.Length)
 }
 
 type DecimalType struct {
