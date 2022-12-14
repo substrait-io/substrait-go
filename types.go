@@ -157,6 +157,12 @@ func TypeFromProto(t *proto.Type) Type {
 			TypeVariationRef: t.FixedChar.TypeVariationReference,
 			Length:           t.FixedChar.Length,
 		}
+	case *proto.Type_Varchar:
+		return &VarCharType{
+			Nullability:      t.Varchar.Nullability,
+			TypeVariationRef: t.Varchar.TypeVariationReference,
+			Length:           t.Varchar.Length,
+		}
 	case *proto.Type_Decimal_:
 		return &DecimalType{
 			Nullability:      t.Decimal.Nullability,
@@ -377,9 +383,16 @@ var typeNames = map[reflect.Type]string{
 	reflect.PointerTo(reflect.TypeOf(UUID{})):         "uuid",
 	reflect.TypeOf(&IntervalYearToMonth{}):            "interval_year",
 	reflect.TypeOf(&IntervalDayToSecond{}):            "interval_day",
-	reflect.TypeOf(&FixedBinary{}):                    "fixed_binary",
-	reflect.TypeOf(&emptyFixedChar):                   "fixed_char",
+	reflect.TypeOf(&FixedBinary{}):                    "fixedbinary",
+	reflect.TypeOf(&emptyFixedChar):                   "char",
 	reflect.TypeOf(&VarChar{}):                        "varchar",
+}
+
+func strNullable(t Type) string {
+	if t.GetNullability() == NullabilityNullable {
+		return "?"
+	}
+	return ""
 }
 
 // PrimitiveType is a generic implementation of simple primitive types
@@ -411,9 +424,9 @@ func (s *PrimitiveType[T]) ToProtoFuncArg() *proto.FunctionArgument {
 func (s *PrimitiveType[T]) String() string {
 	var z *T
 	if n, ok := typeNames[reflect.TypeOf(z)]; ok {
-		return n
+		return n + strNullable(s)
 	}
-	return reflect.TypeOf(z).Elem().Name()
+	return reflect.TypeOf(z).Elem().Name() + strNullable(s)
 }
 
 // create type aliases to the generic structs
@@ -467,8 +480,8 @@ func (s *FixedLenType[T]) ToProtoFuncArg() *proto.FunctionArgument {
 
 func (s *FixedLenType[T]) String() string {
 	var z *T
-	return fmt.Sprintf("%s<%d>",
-		typeNames[reflect.TypeOf(z)], s.Length)
+	return fmt.Sprintf("%s<%d>%s",
+		typeNames[reflect.TypeOf(z)], s.Length, strNullable(s))
 }
 
 type DecimalType struct {
@@ -504,8 +517,8 @@ func (t *DecimalType) ToProto() *proto.Type {
 }
 
 func (t *DecimalType) String() string {
-	return fmt.Sprintf("decimal<%d, %d>",
-		t.Precision, t.Scale)
+	return fmt.Sprintf("decimal<%d,%d>%s",
+		t.Precision, t.Scale, strNullable(t))
 }
 
 type StructType struct {
@@ -568,6 +581,7 @@ func (t *StructType) String() string {
 		b.WriteString(f.String())
 	}
 	b.WriteByte('>')
+	b.WriteString(strNullable(t))
 	return b.String()
 }
 
@@ -611,7 +625,7 @@ func (t *ListType) ToProtoFuncArg() *proto.FunctionArgument {
 }
 
 func (t *ListType) String() string {
-	return "list<" + t.Type.String() + ">"
+	return "list<" + t.Type.String() + ">" + strNullable(t)
 }
 
 type MapType struct {
@@ -654,7 +668,7 @@ func (t *MapType) ToProtoFuncArg() *proto.FunctionArgument {
 }
 
 func (t *MapType) String() string {
-	return "map<" + t.Key.String() + " => " + t.Value.String() + ">"
+	return "map<" + t.Key.String() + "," + t.Value.String() + ">" + strNullable(t)
 }
 
 // TypeParam represents a type parameter for a user defined type
@@ -874,18 +888,22 @@ func (n *NamedStruct) String() string {
 				writeType(c)
 			}
 			b.WriteString(">")
+			b.WriteString(strNullable(t))
 		case *MapType:
 			b.WriteString("map<")
 			writeType(t.Key)
 			b.WriteString(",")
 			writeType(t.Value)
 			b.WriteString(">")
+			b.WriteString(strNullable(t))
 		case *ListType:
 			b.WriteString("list<")
 			writeType(t.Type)
 			b.WriteString(">")
+			b.WriteString(strNullable(t))
 		default:
 			b.WriteString(t.String())
+			b.WriteString(strNullable(t))
 		}
 	}
 

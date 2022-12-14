@@ -29,16 +29,18 @@ func TestTypeToString(t *testing.T) {
 		{&TimestampTzType{}, "timestamp_tz"},
 		{&IntervalYearType{}, "interval_year"},
 		{&IntervalDayType{}, "interval_day"},
-		{&UUIDType{}, "uuid"},
-		{&FixedBinaryType{Length: 10}, "fixed_binary<10>"},
-		{&FixedCharType{Length: 5}, "fixed_char<5>"},
+		{&UUIDType{Nullability: NullabilityNullable}, "uuid?"},
+		{&FixedBinaryType{Length: 10}, "fixedbinary<10>"},
+		{&FixedCharType{Length: 5}, "char<5>"},
 		{&VarCharType{Length: 15}, "varchar<15>"},
-		{&DecimalType{Scale: 2, Precision: 4}, "decimal<4, 2>"},
-		{&StructType{Types: []Type{&Int8Type{}, &DateType{}, &FixedCharType{Length: 5}}},
-			"struct<i8, date, fixed_char<5>>"},
+		{&DecimalType{Scale: 2, Precision: 4}, "decimal<4,2>"},
+		{&StructType{Nullability: NullabilityNullable, Types: []Type{
+			&Int8Type{Nullability: NullabilityNullable},
+			&DateType{Nullability: NullabilityRequired}, &FixedCharType{Length: 5}}},
+			"struct<i8?, date, char<5>>?"},
 		{&ListType{Type: &Int8Type{}}, "list<i8>"},
 		{&MapType{Key: &StringType{}, Value: &DecimalType{Precision: 10, Scale: 2}},
-			"map<string => decimal<10, 2>>"},
+			"map<string,decimal<10,2>>"},
 	}
 
 	for _, tt := range tests {
@@ -61,7 +63,7 @@ func TestLiteralToString(t *testing.T) {
 		exp string
 	}{
 		{&PrimitiveLiteral[int16]{Value: 0, Type: &Int16Type{}}, "i16(0)"},
-		{NewPrimitiveLiteral[int8](0, false), "i8(0)"},
+		{NewPrimitiveLiteral[int8](0, true), "i8?(0)"},
 		{NewNestedLiteral(ListLiteralValue{
 			NewNestedLiteral(MapLiteralValue{
 				{
@@ -73,9 +75,9 @@ func TestLiteralToString(t *testing.T) {
 					Value: NewFixedCharLiteral(FixedChar("bar"), false),
 				},
 			}, true),
-		}, false), "list<map<string => fixed_char<3>>>([map<string => fixed_char<3>>([{string(foo) fixed_char<3>(bar)} {string(baz) fixed_char<3>(bar)}])])"},
+		}, true), "list<map<string,char<3>>?>?([map<string,char<3>>?([{string(foo) char<3>(bar)} {string(baz) char<3>(bar)}])])"},
 		{MustLiteral(NewLiteral(float32(1.5), false)), "fp32(1.5)"},
-		{MustLiteral(NewLiteral(&VarChar{Value: "foobar", Length: 7}, false)), "varchar<7>(foobar)"},
+		{MustLiteral(NewLiteral(&VarChar{Value: "foobar", Length: 7}, true)), "varchar<7>?(foobar)"},
 	}
 
 	for _, tt := range tests {
