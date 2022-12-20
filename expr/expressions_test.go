@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package substraitgo_test
+package expr_test
 
 import (
 	"fmt"
@@ -9,7 +9,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	substraitgo "github.com/substrait-io/substrait-go"
+	"github.com/substrait-io/substrait-go/expr"
+	"github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/proto"
+	"github.com/substrait-io/substrait-go/types"
 	"google.golang.org/protobuf/encoding/protojson"
 	pb "google.golang.org/protobuf/proto"
 )
@@ -35,13 +38,13 @@ func ExampleExpression_scalarFunction() {
 		"relations": []
 	}`
 
-	var plan substraitgo.Plan
+	var plan types.Plan
 	if err := protojson.Unmarshal([]byte(planExt), &plan); err != nil {
 		panic(err)
 	}
 
 	// get the extension set
-	extSet := substraitgo.GetExtensionSet(&plan)
+	extSet := extensions.GetExtensionSet(&plan)
 
 	// json proto to represent of add(field_ref(0), float64(10))
 	const scalarFunction = `{
@@ -62,7 +65,7 @@ func ExampleExpression_scalarFunction() {
 	}
 
 	// convert from protobuf to Expression!
-	fromProto, err := substraitgo.ExprFromProto(&exprProto, nil, extSet)
+	fromProto, err := expr.ExprFromProto(&exprProto, nil, extSet)
 	if err != nil {
 		panic(err)
 	}
@@ -71,17 +74,17 @@ func ExampleExpression_scalarFunction() {
 	// having to construct the protobuf
 	const substraitext = `https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml`
 
-	var expr substraitgo.Expression = &substraitgo.ScalarFunction{
+	var expr expr.Expression = &expr.ScalarFunction{
 		FuncRef: 2,
-		ID:      substraitgo.ExtID{URI: substraitext, Name: "add"},
-		Args: []substraitgo.FuncArg{
-			&substraitgo.FieldReference{
-				Root:      substraitgo.RootReference,
-				Reference: &substraitgo.StructFieldRef{Field: 0},
+		ID:      extensions.ID{URI: substraitext, Name: "add"},
+		Args: []types.FuncArg{
+			&expr.FieldReference{
+				Root:      expr.RootReference,
+				Reference: &expr.StructFieldRef{Field: 0},
 			},
-			substraitgo.NewPrimitiveLiteral(float64(10), false),
+			expr.NewPrimitiveLiteral(float64(10), false),
 		},
-		OutputType: &substraitgo.Int32Type{},
+		OutputType: &types.Int32Type{},
 	}
 	// call ToProto to convert our manual expression to proto.Expression
 	toProto := expr.ToProto()

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package substraitgo
+package types
 
 import (
 	"fmt"
@@ -9,6 +9,8 @@ import (
 
 	"github.com/substrait-io/substrait-go/proto"
 )
+
+type Plan = proto.Plan
 
 type Nullability = proto.Type_Nullability
 
@@ -59,6 +61,14 @@ const (
 	BehaviorUnspecified    = proto.Expression_Cast_FAILURE_BEHAVIOR_UNSPECIFIED
 	BehaviorReturnNil      = proto.Expression_Cast_FAILURE_BEHAVIOR_RETURN_NULL
 	BehaviorThrowException = proto.Expression_Cast_FAILURE_BEHAVIOR_THROW_EXCEPTION
+)
+
+type (
+	IntervalYearToMonth = proto.Expression_Literal_IntervalYearToMonth
+	IntervalDayToSecond = proto.Expression_Literal_IntervalDayToSecond
+	VarChar             = proto.Expression_Literal_VarChar
+	Decimal             = proto.Expression_Literal_Decimal
+	UserDefinedLiteral  = proto.Expression_Literal_UserDefined
 )
 
 // TypeFromProto returns the appropriate Type object from a protobuf
@@ -236,7 +246,7 @@ type (
 	// a specific type.
 	Type interface {
 		FuncArg
-		RootRefType
+		isRootRef()
 		fmt.Stringer
 		GetType() Type
 		GetNullability() Nullability
@@ -360,8 +370,9 @@ func TypeToProto(t Type) *proto.Type {
 }
 
 type primitiveTypeIFace interface {
-	PrimitiveLiteralValue | []byte | IntervalYearToMonth |
-		IntervalDayToSecond | UUID
+	bool | int8 | int16 | ~int32 | ~int64 |
+		float32 | float64 | ~string |
+		[]byte | IntervalYearToMonth | IntervalDayToSecond | UUID
 }
 
 var emptyFixedChar FixedChar

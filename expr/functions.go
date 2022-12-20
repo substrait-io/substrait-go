@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package substraitgo
+package expr
 
 import (
 	"strings"
 
+	substraitgo "github.com/substrait-io/substrait-go"
+	"github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/proto"
+	"github.com/substrait-io/substrait-go/types"
 	"golang.org/x/exp/slices"
 	pb "google.golang.org/protobuf/proto"
 )
 
-func FuncArgsEqual(a, b FuncArg) bool {
+func FuncArgsEqual(a, b types.FuncArg) bool {
 	if a == b {
 		return true
 	}
@@ -23,15 +26,15 @@ func FuncArgsEqual(a, b FuncArg) bool {
 		}
 
 		return lhs.Equals(rhs)
-	case Type:
-		rhs, ok := b.(Type)
+	case types.Type:
+		rhs, ok := b.(types.Type)
 		if !ok {
 			return false
 		}
 
 		return lhs.Equals(rhs)
-	case Enum:
-		rhs, ok := b.(Enum)
+	case types.Enum:
+		rhs, ok := b.(types.Enum)
 		if !ok {
 			return false
 		}
@@ -45,7 +48,7 @@ func FuncArgsEqual(a, b FuncArg) bool {
 type (
 	SortField struct {
 		Expr Expression
-		Kind SortKind
+		Kind types.SortKind
 	}
 
 	Bound interface {
@@ -61,10 +64,10 @@ type (
 func (s *SortField) ToProto() *proto.SortField {
 	ret := &proto.SortField{Expr: s.Expr.ToProto()}
 	switch k := s.Kind.(type) {
-	case SortDirection:
+	case types.SortDirection:
 		ret.SortKind = &proto.SortField_Direction{
 			Direction: proto.SortField_SortDirection(k)}
-	case FunctionRef:
+	case types.FunctionRef:
 		ret.SortKind = &proto.SortField_ComparisonFunctionReference{
 			ComparisonFunctionReference: uint32(k)}
 	}
@@ -72,7 +75,7 @@ func (s *SortField) ToProto() *proto.SortField {
 	return ret
 }
 
-func SortFieldFromProto(f *proto.SortField, baseSchema Type, ext ExtensionRegistry) (sf SortField, err error) {
+func SortFieldFromProto(f *proto.SortField, baseSchema types.Type, ext ExtensionLookup) (sf SortField, err error) {
 	sf.Expr, err = ExprFromProto(f.Expr, baseSchema, ext)
 	if err != nil {
 		return
@@ -80,11 +83,11 @@ func SortFieldFromProto(f *proto.SortField, baseSchema Type, ext ExtensionRegist
 
 	switch k := f.SortKind.(type) {
 	case *proto.SortField_Direction:
-		sf.Kind = SortDirection(k.Direction)
+		sf.Kind = types.SortDirection(k.Direction)
 	case *proto.SortField_ComparisonFunctionReference:
-		sf.Kind = FunctionRef(k.ComparisonFunctionReference)
+		sf.Kind = types.FunctionRef(k.ComparisonFunctionReference)
 	default:
-		err = ErrNotImplemented
+		err = substraitgo.ErrNotImplemented
 	}
 	return
 }
@@ -138,11 +141,11 @@ func BoundFromProto(b *proto.Expression_WindowFunction_Bound) Bound {
 
 type ScalarFunction struct {
 	FuncRef uint32
-	ID      ExtID
+	ID      extensions.ID
 
-	Args       []FuncArg
-	Options    []*FunctionOption
-	OutputType Type
+	Args       []types.FuncArg
+	Options    []*types.FunctionOption
+	OutputType types.Type
 }
 
 func (*ScalarFunction) isRootRef() {}
@@ -175,7 +178,7 @@ func (s *ScalarFunction) GetOption(name string) []string {
 	return nil
 }
 
-func (s *ScalarFunction) GetType() Type { return s.OutputType }
+func (s *ScalarFunction) GetType() types.Type { return s.OutputType }
 func (s *ScalarFunction) ToProtoFuncArg() *proto.FunctionArgument {
 	return &proto.FunctionArgument{
 		ArgType: &proto.FunctionArgument_Value{
@@ -195,7 +198,7 @@ func (s *ScalarFunction) ToProto() *proto.Expression {
 			ScalarFunction: &proto.Expression_ScalarFunction{
 				FunctionReference: s.FuncRef,
 				Options:           s.Options,
-				OutputType:        TypeToProto(s.OutputType),
+				OutputType:        types.TypeToProto(s.OutputType),
 				Arguments:         args,
 			},
 		},
@@ -221,7 +224,7 @@ func (s *ScalarFunction) Equals(rhs Expression) bool {
 		}
 	}
 
-	return slices.EqualFunc(s.Options, other.Options, func(a, b *FunctionOption) bool {
+	return slices.EqualFunc(s.Options, other.Options, func(a, b *types.FunctionOption) bool {
 		return pb.Equal(a, b)
 	})
 }
@@ -260,15 +263,15 @@ func (s *ScalarFunction) Visit(visit VisitFunc) Expression {
 
 type WindowFunction struct {
 	FuncRef uint32
-	ID      ExtID
+	ID      extensions.ID
 
-	Args       []FuncArg
-	Options    []*FunctionOption
-	OutputType Type
+	Args       []types.FuncArg
+	Options    []*types.FunctionOption
+	OutputType types.Type
 
-	Phase      AggregationPhase
+	Phase      types.AggregationPhase
 	Sorts      []SortField
-	Invocation AggregationInvocation
+	Invocation types.AggregationInvocation
 	Partitions []Expression
 
 	LowerBound, UpperBound Bound
@@ -294,7 +297,7 @@ func (w *WindowFunction) String() string {
 
 	return b.String()
 }
-func (w *WindowFunction) GetType() Type              { return w.OutputType }
+func (w *WindowFunction) GetType() types.Type        { return w.OutputType }
 func (w *WindowFunction) Equals(rhs Expression) bool { return false }
 
 func (w *WindowFunction) ToProto() *proto.Expression {
@@ -341,7 +344,7 @@ func (w *WindowFunction) ToProto() *proto.Expression {
 				FunctionReference: w.FuncRef,
 				Arguments:         args,
 				Options:           w.Options,
-				OutputType:        TypeToProto(w.OutputType),
+				OutputType:        types.TypeToProto(w.OutputType),
 				Phase:             w.Phase,
 				Sorts:             sorts,
 				Invocation:        w.Invocation,

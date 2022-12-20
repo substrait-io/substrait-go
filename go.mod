@@ -5,6 +5,7 @@ module github.com/substrait-io/substrait-go
 go 1.18
 
 require (
+	github.com/alecthomas/participle/v2 v2.0.0-beta.5
 	github.com/goccy/go-yaml v1.9.7
 	github.com/stretchr/testify v1.8.1
 	golang.org/x/exp v0.0.0-20221211140036-ad323defaf05
