@@ -12,7 +12,45 @@ type ID struct {
 	URI, Name string
 }
 
-type Set struct {
+type Set interface {
+	Load(uri string, f *SimpleExtensionFile) error
+	RegisterFunction(uri string, def Function) error
+	RegisterTypeVariation(uri string, def *TypeVariation) error
+	RegisterType(uri string, def *Type) error
+	DecodeTypeVariation(anchor uint32) (ID, bool)
+	DecodeFunc(anchor uint32) (ID, bool)
+	DecodeType(anchor uint32) (ID, bool)
+	LookupTypeVariation(anchor uint32) (*TypeVariation, bool)
+	LookupType(anchor uint32) (*Type, bool)
+	LookupFunction(anchor uint32) (FunctionVariant, bool)
+
+	GetTypeAnchor(id ID) (uint32, bool)
+	GetFuncAnchor(id ID) (uint32, bool)
+	GetTypeVariationAnchor(id ID) (uint32, bool)
+}
+
+func NewSet() Set {
+	return &set{
+		uris: make(map[uint32]string),
+		funcMap: make(map[uint32]struct {
+			id  ID
+			def FunctionVariant
+		}),
+		funcs: make(map[ID]uint32),
+		types: make(map[ID]uint32),
+		typesMap: make(map[uint32]struct {
+			id  ID
+			def *Type
+		}),
+		typeVariationMap: make(map[uint32]struct {
+			id  ID
+			def *TypeVariation
+		}),
+		typeVariations: make(map[ID]uint32),
+	}
+}
+
+type set struct {
 	uris map[uint32]string
 
 	typesMap map[uint32]struct {
@@ -34,7 +72,7 @@ type Set struct {
 	funcs map[ID]uint32
 }
 
-func (e *Set) Load(uri string, f *SimpleExtensionFile) error {
+func (e *set) Load(uri string, f *SimpleExtensionFile) error {
 	_, err := e.addURI(uri)
 	if err != nil {
 		return err
@@ -73,7 +111,7 @@ func (e *Set) Load(uri string, f *SimpleExtensionFile) error {
 	return nil
 }
 
-func (e *Set) RegisterFunction(uri string, def Function) error {
+func (e *set) RegisterFunction(uri string, def Function) error {
 	if def == nil {
 		return substraitgo.ErrInvalidType
 	}
@@ -109,18 +147,10 @@ func (e *Set) RegisterFunction(uri string, def Function) error {
 		}
 	}
 
-	// if there's only one implementation of a function for a given URI
-	// then we need to also allow looking up by the regular name
-	// instead of the compound name: i.e. "add" in addition to "add:i8_i8"
-	if len(variants) == 1 {
-		id := ID{URI: uri, Name: variants[0].Name()}
-		return add(id, variants[0])
-	}
-
 	return nil
 }
 
-func (e *Set) RegisterTypeVariation(uri string, def *TypeVariation) error {
+func (e *set) RegisterTypeVariation(uri string, def *TypeVariation) error {
 	if def == nil {
 		return substraitgo.ErrInvalidType
 	}
@@ -149,7 +179,7 @@ func (e *Set) RegisterTypeVariation(uri string, def *TypeVariation) error {
 	return nil
 }
 
-func (e *Set) RegisterType(uri string, def *Type) error {
+func (e *set) RegisterType(uri string, def *Type) error {
 	if def == nil {
 		return substraitgo.ErrInvalidType
 	}
@@ -178,7 +208,7 @@ func (e *Set) RegisterType(uri string, def *Type) error {
 	return nil
 }
 
-func (e *Set) DecodeTypeVariation(anchor uint32) (ID, bool) {
+func (e *set) DecodeTypeVariation(anchor uint32) (ID, bool) {
 	t, ok := e.typeVariationMap[anchor]
 	if !ok {
 		return ID{}, false
@@ -187,7 +217,7 @@ func (e *Set) DecodeTypeVariation(anchor uint32) (ID, bool) {
 	return t.id, true
 }
 
-func (e *Set) DecodeFunc(anchor uint32) (ID, bool) {
+func (e *set) DecodeFunc(anchor uint32) (ID, bool) {
 	f, ok := e.funcMap[anchor]
 	if !ok {
 		return ID{}, false
@@ -196,7 +226,7 @@ func (e *Set) DecodeFunc(anchor uint32) (ID, bool) {
 	return f.id, true
 }
 
-func (e *Set) DecodeType(anchor uint32) (ID, bool) {
+func (e *set) DecodeType(anchor uint32) (ID, bool) {
 	t, ok := e.typesMap[anchor]
 	if !ok {
 		return ID{}, false
@@ -205,7 +235,7 @@ func (e *Set) DecodeType(anchor uint32) (ID, bool) {
 	return t.id, true
 }
 
-func (e *Set) LookupTypeVariation(anchor uint32) (*TypeVariation, bool) {
+func (e *set) LookupTypeVariation(anchor uint32) (*TypeVariation, bool) {
 	tv, ok := e.typeVariationMap[anchor]
 	if !ok {
 		return nil, false
@@ -213,7 +243,7 @@ func (e *Set) LookupTypeVariation(anchor uint32) (*TypeVariation, bool) {
 	return tv.def, true
 }
 
-func (e *Set) LookupType(anchor uint32) (*Type, bool) {
+func (e *set) LookupType(anchor uint32) (*Type, bool) {
 	t, ok := e.typesMap[anchor]
 	if !ok {
 		return nil, false
@@ -222,7 +252,7 @@ func (e *Set) LookupType(anchor uint32) (*Type, bool) {
 	return t.def, true
 }
 
-func (e *Set) LookupFunction(anchor uint32) (FunctionVariant, bool) {
+func (e *set) LookupFunction(anchor uint32) (FunctionVariant, bool) {
 	f, ok := e.funcMap[anchor]
 	if !ok {
 		return nil, false
@@ -231,28 +261,43 @@ func (e *Set) LookupFunction(anchor uint32) (FunctionVariant, bool) {
 	return f.def, true
 }
 
-func (e *Set) encodeType(anchor uint32, id ID) {
+func (e *set) GetTypeAnchor(id ID) (a uint32, ok bool) {
+	a, ok = e.types[id]
+	return
+}
+
+func (e *set) GetFuncAnchor(id ID) (a uint32, ok bool) {
+	a, ok = e.funcs[id]
+	return
+}
+
+func (e *set) GetTypeVariationAnchor(id ID) (a uint32, ok bool) {
+	a, ok = e.typeVariations[id]
+	return
+}
+
+func (e *set) encodeType(anchor uint32, id ID) {
 	tm := e.typesMap[anchor]
 	tm.id = id
 	e.typesMap[anchor] = tm
 	e.types[id] = anchor
 }
 
-func (e *Set) encodeTypeVariation(anchor uint32, id ID) {
+func (e *set) encodeTypeVariation(anchor uint32, id ID) {
 	tm := e.typeVariationMap[anchor]
 	tm.id = id
 	e.typeVariationMap[anchor] = tm
 	e.typeVariations[id] = anchor
 }
 
-func (e *Set) encodeFunc(anchor uint32, id ID) {
+func (e *set) encodeFunc(anchor uint32, id ID) {
 	f := e.funcMap[anchor]
 	f.id = id
 	e.funcMap[anchor] = f
 	e.funcs[id] = anchor
 }
 
-func (e *Set) findURI(uri string) (uint32, error) {
+func (e *set) findURI(uri string) (uint32, error) {
 	for k, v := range e.uris {
 		if v == uri {
 			return k, nil
@@ -261,7 +306,7 @@ func (e *Set) findURI(uri string) (uint32, error) {
 	return 0, substraitgo.ErrNotFound
 }
 
-func (e *Set) addURI(uri string) (uint32, error) {
+func (e *set) addURI(uri string) (uint32, error) {
 	sz := uint32(len(e.uris))
 	if _, ok := e.uris[sz]; ok {
 		return 0, substraitgo.ErrKeyExists
@@ -271,13 +316,13 @@ func (e *Set) addURI(uri string) (uint32, error) {
 	return sz, nil
 }
 
-func GetExtensionSet(plan *proto.Plan) *Set {
+func GetExtensionSet(plan *proto.Plan) Set {
 	uris := make(map[uint32]string)
 	for _, uri := range plan.ExtensionUris {
 		uris[uri.ExtensionUriAnchor] = uri.Uri
 	}
 
-	ret := &Set{
+	ret := &set{
 		uris: uris,
 		funcMap: make(map[uint32]struct {
 			id  ID

@@ -19,7 +19,7 @@ type TypeExpression struct {
 	Expr Expression `parser:"@@"`
 }
 
-func (t *TypeExpression) MarshalYAML() (interface{}, error) {
+func (t TypeExpression) MarshalYAML() (interface{}, error) {
 	return t.Expr.String(), nil
 }
 
@@ -41,6 +41,7 @@ func (t *TypeExpression) UnmarshalYAML(fn func(interface{}) error) error {
 			return err
 		}
 		*t = *exp
+		return nil
 	}
 
 	return substraitgo.ErrNotImplemented
