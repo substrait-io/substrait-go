@@ -353,17 +353,17 @@ func (t *mapType) Type(n types.Nullability) (types.Type, error) {
 
 var (
 	def = lexer.MustSimple([]lexer.SimpleRule{
-		{"whitespace", `[ \t]+`},
-		{"AnyType", `any[\d]?`},
-		{"Boolean", `boolean`},
-		{"IntType", `i(8|16|32|64)`},
-		{"FPType", `fp(32|64)`},
-		{"Temporal", `timestamp|timestamp_tz|date|time|interval_day|interval_year`},
-		{"BinaryType", `string|binary|uuid`},
-		{"LengthType", `fixedchar|varchar|fixedbinary`},
-		{"Int", `[-+]?\d+`},
-		{"Identifier", `[a-zA-Z_$][a-zA-Z_$0-9]*`},
-		{"Ident", `([a-zA-Z_]\w*)|[><,?]`},
+		{Name: "whitespace", Pattern: `[ \t]+`},
+		{Name: "AnyType", Pattern: `any[\d]?`},
+		{Name: "Boolean", Pattern: `boolean`},
+		{Name: "IntType", Pattern: `i(8|16|32|64)`},
+		{Name: "FPType", Pattern: `fp(32|64)`},
+		{Name: "Temporal", Pattern: `timestamp|timestamp_tz|date|time|interval_day|interval_year`},
+		{Name: "BinaryType", Pattern: `string|binary|uuid`},
+		{Name: "LengthType", Pattern: `fixedchar|varchar|fixedbinary`},
+		{Name: "Int", Pattern: `[-+]?\d+`},
+		{Name: "Identifier", Pattern: `[a-zA-Z_$][a-zA-Z_$0-9]*`},
+		{Name: "Ident", Pattern: `([a-zA-Z_]\w*)|[><,?]`},
 	})
 )
 
