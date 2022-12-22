@@ -71,6 +71,8 @@ func (s *AggregateFunctionVariant) ResolveType(argumentTypes []types.Type) (type
 func (s *AggregateFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
 }
+func (s *AggregateFunctionVariant) Decomposability() DecomposeType      { return s.impl.Decomposable }
+func (s *AggregateFunctionVariant) Intermediate() parser.TypeExpression { return s.impl.Intermediate }
 
 type WindowFunctionVariant struct {
 	name        string

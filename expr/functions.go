@@ -75,8 +75,8 @@ func (s *SortField) ToProto() *proto.SortField {
 	return ret
 }
 
-func SortFieldFromProto(f *proto.SortField, baseSchema types.Type, ext ExtensionLookup) (sf SortField, err error) {
-	sf.Expr, err = ExprFromProto(f.Expr, baseSchema, ext)
+func SortFieldFromProto(f *proto.SortField, baseSchema types.Type, ext ExtensionLookup, c *extensions.Collection) (sf SortField, err error) {
+	sf.Expr, err = ExprFromProto(f.Expr, baseSchema, ext, c)
 	if err != nil {
 		return
 	}
@@ -140,8 +140,9 @@ func BoundFromProto(b *proto.Expression_WindowFunction_Bound) Bound {
 }
 
 type ScalarFunction struct {
-	FuncRef uint32
-	ID      extensions.ID
+	FuncRef     uint32
+	ID          extensions.ID
+	Declaration *extensions.ScalarFunctionVariant
 
 	Args       []types.FuncArg
 	Options    []*types.FunctionOption
@@ -262,8 +263,9 @@ func (s *ScalarFunction) Visit(visit VisitFunc) Expression {
 }
 
 type WindowFunction struct {
-	FuncRef uint32
-	ID      extensions.ID
+	FuncRef     uint32
+	ID          extensions.ID
+	Declaration *extensions.WindowFunctionVariant
 
 	Args       []types.FuncArg
 	Options    []*types.FunctionOption

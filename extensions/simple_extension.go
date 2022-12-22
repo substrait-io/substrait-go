@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/goccy/go-yaml"
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/types/parser"
 )
@@ -91,33 +90,32 @@ func (TypeArg) toTypeString() string { return "type" }
 type ArgumentList []Argument
 
 func (a *ArgumentList) UnmarshalYAML(fn func(interface{}) error) error {
-	var args []yaml.MapSlice
+	var args []map[string]any
 	if err := fn(&args); err != nil {
 		return err
 	}
 
 	*a = make(ArgumentList, len(args))
 	for i, arg := range args {
-		props := arg.ToMap()
 		var (
 			name, desc string
 		)
-		if n, ok := props["name"]; ok {
+		if n, ok := arg["name"]; ok {
 			name = n.(string)
 		}
-		if d, ok := props["description"]; ok {
+		if d, ok := arg["description"]; ok {
 			desc = d.(string)
 		}
 
-		if opt, ok := props["options"]; ok {
+		if opt, ok := arg["options"]; ok {
 			(*a)[i] = EnumArg{
 				Name:        name,
 				Description: desc,
 				Options:     opt.([]string),
 			}
-		} else if val, ok := props["value"]; ok {
+		} else if val, ok := arg["value"]; ok {
 			var constant bool
-			if c, ok := props["constant"]; ok {
+			if c, ok := arg["constant"]; ok {
 				constant = c.(bool)
 			}
 
@@ -137,7 +135,7 @@ func (a *ArgumentList) UnmarshalYAML(fn func(interface{}) error) error {
 			})
 			(*a)[i] = arg
 
-		} else if typ, ok := props["type"]; ok {
+		} else if typ, ok := arg["type"]; ok {
 			(*a)[i] = TypeArg{
 				Name:        name,
 				Description: desc,
@@ -207,6 +205,19 @@ type ScalarFunction struct {
 	Impls       []ScalarFunctionImpl `yaml:",omitempty"`
 }
 
+func (s *ScalarFunction) GetVariants(uri string) []*ScalarFunctionVariant {
+	out := make([]*ScalarFunctionVariant, len(s.Impls))
+	for i, impl := range s.Impls {
+		out[i] = &ScalarFunctionVariant{
+			name:        s.Name,
+			description: s.Description,
+			uri:         uri,
+			impl:        impl,
+		}
+	}
+	return out
+}
+
 func (s *ScalarFunction) ResolveURI(uri string) []FunctionVariant {
 	out := make([]FunctionVariant, len(s.Impls))
 	for i, impl := range s.Impls {
@@ -242,6 +253,19 @@ type AggregateFunction struct {
 	Impls       []AggregateFunctionImpl
 }
 
+func (s *AggregateFunction) GetVariants(uri string) []*AggregateFunctionVariant {
+	out := make([]*AggregateFunctionVariant, len(s.Impls))
+	for i, impl := range s.Impls {
+		out[i] = &AggregateFunctionVariant{
+			name:        s.Name,
+			description: s.Description,
+			uri:         uri,
+			impl:        impl,
+		}
+	}
+	return out
+}
+
 func (s *AggregateFunction) ResolveURI(uri string) []FunctionVariant {
 	out := make([]FunctionVariant, len(s.Impls))
 	for i, impl := range s.Impls {
@@ -271,6 +295,19 @@ type WindowFunction struct {
 	Name        string
 	Description string
 	Impls       []WindowFunctionImpl
+}
+
+func (s *WindowFunction) GetVariants(uri string) []*WindowFunctionVariant {
+	out := make([]*WindowFunctionVariant, len(s.Impls))
+	for i, impl := range s.Impls {
+		out[i] = &WindowFunctionVariant{
+			name:        s.Name,
+			description: s.Description,
+			uri:         uri,
+			impl:        impl,
+		}
+	}
+	return out
 }
 
 func (s *WindowFunction) ResolveURI(uri string) []FunctionVariant {

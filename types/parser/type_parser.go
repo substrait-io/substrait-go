@@ -19,6 +19,8 @@ type TypeExpression struct {
 	Expr Expression `parser:"@@"`
 }
 
+func (t TypeExpression) String() string { return t.Expr.String() }
+
 func (t TypeExpression) MarshalYAML() (interface{}, error) {
 	return t.Expr.String(), nil
 }

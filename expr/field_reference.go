@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	substraitgo "github.com/substrait-io/substrait-go"
+	"github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/proto"
 	"github.com/substrait-io/substrait-go/types"
 )
@@ -395,7 +396,7 @@ func (f *FieldReference) Visit(VisitFunc) Expression {
 	return f
 }
 
-func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema types.Type, ext ExtensionLookup) (*FieldReference, error) {
+func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema types.Type, ext ExtensionLookup, c *extensions.Collection) (*FieldReference, error) {
 	var (
 		ref       Reference
 		root      RootRefType
@@ -405,7 +406,7 @@ func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema type
 
 	switch rt := p.RootType.(type) {
 	case *proto.Expression_FieldReference_Expression:
-		if root, err = ExprFromProto(rt.Expression, baseSchema, ext); err != nil {
+		if root, err = ExprFromProto(rt.Expression, baseSchema, ext, c); err != nil {
 			return nil, err
 		}
 	case *proto.Expression_FieldReference_OuterReference_:

@@ -4,6 +4,7 @@ package expr_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -16,6 +17,29 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	pb "google.golang.org/protobuf/proto"
 )
+
+const sampleYAML = `---
+scalar_functions:
+  -
+    name: "add"
+    description: "Add two values."
+    impls:
+      - args:
+          - name: x
+            value: i8
+          - name: y
+            value: i8
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i8
+`
+
+var collection extensions.Collection
+
+func init() {
+	collection.Load("https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml", strings.NewReader(sampleYAML))
+}
 
 func ExampleExpression_scalarFunction() {
 	// define extensions with no plan for now
@@ -65,7 +89,7 @@ func ExampleExpression_scalarFunction() {
 	}
 
 	// convert from protobuf to Expression!
-	fromProto, err := expr.ExprFromProto(&exprProto, nil, extSet)
+	fromProto, err := expr.ExprFromProto(&exprProto, nil, extSet, &collection)
 	if err != nil {
 		panic(err)
 	}

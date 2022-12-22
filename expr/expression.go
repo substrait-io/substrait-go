@@ -15,31 +15,34 @@ type ExtensionLookup interface {
 	DecodeType(uint32) (extensions.ID, bool)
 	DecodeFunc(uint32) (extensions.ID, bool)
 	DecodeTypeVariation(uint32) (extensions.ID, bool)
+	LookupScalarFunction(uint32, *extensions.Collection) (*extensions.ScalarFunctionVariant, bool)
+	LookupAggregateFunction(uint32, *extensions.Collection) (*extensions.AggregateFunctionVariant, bool)
+	LookupWindowFunction(uint32, *extensions.Collection) (*extensions.WindowFunctionVariant, bool)
 }
 
-func FuncArgFromProto(e *proto.FunctionArgument, baseSchema types.Type, ext ExtensionLookup) (types.FuncArg, error) {
+func FuncArgFromProto(e *proto.FunctionArgument, baseSchema types.Type, ext ExtensionLookup, c *extensions.Collection) (types.FuncArg, error) {
 	switch et := e.ArgType.(type) {
 	case *proto.FunctionArgument_Enum:
 		return types.Enum(et.Enum), nil
 	case *proto.FunctionArgument_Type:
 		return types.TypeFromProto(et.Type), nil
 	case *proto.FunctionArgument_Value:
-		return ExprFromProto(et.Value, baseSchema, ext)
+		return ExprFromProto(et.Value, baseSchema, ext, c)
 	}
 	return nil, substraitgo.ErrNotImplemented
 }
 
-func ExprFromProto(e *proto.Expression, baseSchema types.Type, ext ExtensionLookup) (Expression, error) {
+func ExprFromProto(e *proto.Expression, baseSchema types.Type, ext ExtensionLookup, c *extensions.Collection) (Expression, error) {
 	switch et := e.RexType.(type) {
 	case *proto.Expression_Literal_:
 		return LiteralFromProto(et.Literal), nil
 	case *proto.Expression_Selection:
-		return FieldReferenceFromProto(et.Selection, baseSchema, ext)
+		return FieldReferenceFromProto(et.Selection, baseSchema, ext, c)
 	case *proto.Expression_ScalarFunction_:
 		var err error
 		args := make([]types.FuncArg, len(et.ScalarFunction.Arguments))
 		for i, a := range et.ScalarFunction.Arguments {
-			if args[i], err = FuncArgFromProto(a, baseSchema, ext); err != nil {
+			if args[i], err = FuncArgFromProto(a, baseSchema, ext, c); err != nil {
 				return nil, err
 			}
 		}
@@ -49,32 +52,34 @@ func ExprFromProto(e *proto.Expression, baseSchema types.Type, ext ExtensionLook
 			return nil, substraitgo.ErrNotFound
 		}
 
+		decl, _ := ext.LookupScalarFunction(et.ScalarFunction.FunctionReference, c)
 		return &ScalarFunction{
-			FuncRef:    et.ScalarFunction.FunctionReference,
-			ID:         id,
-			Args:       args,
-			Options:    et.ScalarFunction.Options,
-			OutputType: types.TypeFromProto(et.ScalarFunction.OutputType),
+			FuncRef:     et.ScalarFunction.FunctionReference,
+			Declaration: decl,
+			ID:          id,
+			Args:        args,
+			Options:     et.ScalarFunction.Options,
+			OutputType:  types.TypeFromProto(et.ScalarFunction.OutputType),
 		}, nil
 	case *proto.Expression_WindowFunction_:
 		var err error
 		args := make([]types.FuncArg, len(et.WindowFunction.Arguments))
 		for i, a := range et.WindowFunction.Arguments {
-			if args[i], err = FuncArgFromProto(a, baseSchema, ext); err != nil {
+			if args[i], err = FuncArgFromProto(a, baseSchema, ext, c); err != nil {
 				return nil, err
 			}
 		}
 
 		parts := make([]Expression, len(et.WindowFunction.Partitions))
 		for i, p := range et.WindowFunction.Partitions {
-			if parts[i], err = ExprFromProto(p, baseSchema, ext); err != nil {
+			if parts[i], err = ExprFromProto(p, baseSchema, ext, c); err != nil {
 				return nil, err
 			}
 		}
 
 		sorts := make([]SortField, len(et.WindowFunction.Sorts))
 		for i, s := range et.WindowFunction.Sorts {
-			if sorts[i], err = SortFieldFromProto(s, baseSchema, ext); err != nil {
+			if sorts[i], err = SortFieldFromProto(s, baseSchema, ext, c); err != nil {
 				return nil, err
 			}
 		}
@@ -84,18 +89,20 @@ func ExprFromProto(e *proto.Expression, baseSchema types.Type, ext ExtensionLook
 			return nil, substraitgo.ErrNotFound
 		}
 
+		decl, _ := ext.LookupWindowFunction(et.WindowFunction.FunctionReference, c)
 		return &WindowFunction{
-			FuncRef:    et.WindowFunction.FunctionReference,
-			ID:         id,
-			Args:       args,
-			Options:    et.WindowFunction.Options,
-			OutputType: types.TypeFromProto(et.WindowFunction.OutputType),
-			Phase:      et.WindowFunction.Phase,
-			Invocation: et.WindowFunction.Invocation,
-			Partitions: parts,
-			Sorts:      sorts,
-			LowerBound: BoundFromProto(et.WindowFunction.LowerBound),
-			UpperBound: BoundFromProto(et.WindowFunction.UpperBound),
+			FuncRef:     et.WindowFunction.FunctionReference,
+			ID:          id,
+			Declaration: decl,
+			Args:        args,
+			Options:     et.WindowFunction.Options,
+			OutputType:  types.TypeFromProto(et.WindowFunction.OutputType),
+			Phase:       et.WindowFunction.Phase,
+			Invocation:  et.WindowFunction.Invocation,
+			Partitions:  parts,
+			Sorts:       sorts,
+			LowerBound:  BoundFromProto(et.WindowFunction.LowerBound),
+			UpperBound:  BoundFromProto(et.WindowFunction.UpperBound),
 		}, nil
 	case *proto.Expression_IfThen_:
 	case *proto.Expression_SwitchExpression_:
