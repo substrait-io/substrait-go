@@ -140,6 +140,7 @@ type Expression interface {
 	// an expression can also be the root of a reference
 	RootRefType
 
+	IsScalar() bool
 	// GetType returns the output type of this expression
 	GetType() types.Type
 	// ToProto converts this Expression and its arguments

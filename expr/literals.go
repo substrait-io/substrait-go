@@ -53,6 +53,7 @@ type Literal interface {
 	RootRefType
 	fmt.Stringer
 
+	IsScalar() bool
 	// GetType returns the full Type of the literal value
 	GetType() types.Type
 	// Equals only returns true if the rhs is a literal of the exact
@@ -67,6 +68,8 @@ type Literal interface {
 type NullLiteral struct {
 	Type types.Type
 }
+
+func (*NullLiteral) IsScalar() bool { return true }
 
 func (*NullLiteral) isRootRef() {}
 func (n *NullLiteral) String() string {
@@ -178,6 +181,7 @@ func (t *PrimitiveLiteral[T]) ToProtoFuncArg() *proto.FunctionArgument {
 }
 
 func (t *PrimitiveLiteral[T]) Visit(VisitFunc) Expression { return t }
+func (*PrimitiveLiteral[T]) IsScalar() bool               { return true }
 
 // NestedLiteral is either a Struct or List literal, both of which are
 // represented as a slice of other literals.
@@ -250,6 +254,7 @@ func (t *NestedLiteral[T]) ToProtoFuncArg() *proto.FunctionArgument {
 func (t *NestedLiteral[T]) Visit(VisitFunc) Expression {
 	return t
 }
+func (*NestedLiteral[T]) IsScalar() bool { return true }
 
 // MapLiteral is represented as a slice of Key/Value structs consisting
 // of other literals.
@@ -311,6 +316,7 @@ func (t *MapLiteral) ToProtoFuncArg() *proto.FunctionArgument {
 }
 
 func (t *MapLiteral) Visit(VisitFunc) Expression { return t }
+func (*MapLiteral) IsScalar() bool               { return true }
 
 // ByteSliceLiteral is any literal that is represnted as a byte slice.
 // As opposed to a string literal which can be compared with ==, a byte
@@ -365,6 +371,7 @@ func (t *ByteSliceLiteral[T]) ToProtoFuncArg() *proto.FunctionArgument {
 }
 
 func (t *ByteSliceLiteral[T]) Visit(VisitFunc) Expression { return t }
+func (*ByteSliceLiteral[T]) IsScalar() bool               { return true }
 
 // ProtoLiteral is a literal that is represented using its protobuf
 // message type such as a Decimal or UserDefinedType.
@@ -449,6 +456,7 @@ func (t *ProtoLiteral) ToProtoFuncArg() *proto.FunctionArgument {
 }
 
 func (t *ProtoLiteral) Visit(VisitFunc) Expression { return t }
+func (*ProtoLiteral) IsScalar() bool               { return true }
 
 func getNullability(nullable bool) types.Nullability {
 	if nullable {

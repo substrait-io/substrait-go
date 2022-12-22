@@ -149,6 +149,17 @@ type ScalarFunction struct {
 	OutputType types.Type
 }
 
+func (s *ScalarFunction) IsScalar() bool {
+	for _, arg := range s.Args {
+		if ex, ok := arg.(Expression); ok {
+			if !ex.IsScalar() {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 func (*ScalarFunction) isRootRef() {}
 
 func (s *ScalarFunction) String() string {
@@ -278,6 +289,8 @@ type WindowFunction struct {
 
 	LowerBound, UpperBound Bound
 }
+
+func (*WindowFunction) IsScalar() bool { return false }
 
 func (*WindowFunction) isRootRef() {}
 

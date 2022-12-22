@@ -395,6 +395,7 @@ func (f *FieldReference) GetType() types.Type {
 func (f *FieldReference) Visit(VisitFunc) Expression {
 	return f
 }
+func (*FieldReference) IsScalar() bool { return true }
 
 func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema types.Type, ext ExtensionLookup, c *extensions.Collection) (*FieldReference, error) {
 	var (
