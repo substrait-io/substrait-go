@@ -102,6 +102,8 @@ func ExprFromProto(e *proto.Expression, baseSchema Type, ext ExtensionRegistry) 
 	return nil, ErrNotImplemented
 }
 
+type VisitFunc func(Expression) Expression
+
 // Expression can be one of many different things as a generalized
 // expression. It could be:
 //
@@ -117,12 +119,45 @@ func ExprFromProto(e *proto.Expression, baseSchema Type, ext ExtensionRegistry) 
 //  - A Subquery
 //  - A Nested expression
 type Expression interface {
+	// an Expression can also be a function argument
 	FuncArg
+	// an expression can also be the root of a reference
 	RootRefType
 
+	// GetType returns the output type of this expression
 	GetType() Type
+	// ToProto converts this Expression and its arguments
+	// to the equivalent Protobuf objects.
 	ToProto() *proto.Expression
+	// Equals returns true if this expression and all of its
+	// arguments and their children etc. are equal to the passed
+	// in Expression.
 	Equals(Expression) bool
+	// Visit invokes the passed visit function for each child of the
+	// expression. The visit function can return its input expression
+	// as-is with no changes, or it can construct and return a
+	// replacement expression. If any children have been replaced, Visit
+	// will construct and return a new instance of this expression using
+	// the new children. Callers can use the Visit method to traverse
+	// and potentially rewrite the expression tree, in either pre or post
+	// order. Here is a pre-order example:
+	//
+	//   func preOrderVisit(e Expression) Expression {
+	//     // Replace some scalar function, leave everything else
+	//     // as-is. This check is before the call to Visit, so
+	//     // it's a pre-order traversal
+	//     if f, ok := e.(*ScalarFunction); ok {
+	//       return &ScalarFunction{
+	//         ID: ExtID{URI: "some other uri", Name: "some other func"},
+	//         Args: f.Args,
+	//         Options: f.Options,
+	//         OutputType: f.OutputType,
+	//       }
+	//     }
+	//     return e.Visit(preOrderVisit)
+	//   }
+	//   newExpr := preOrderVisit(oldExpr)
+	Visit(VisitFunc) Expression
 }
 
 type IfThen struct {

@@ -64,6 +64,7 @@ type Literal interface {
 	Equals(Expression) bool
 	ToProto() *proto.Expression
 	ToProtoLiteral() *proto.Expression_Literal
+	Visit(VisitFunc) Expression
 }
 
 // A NullLiteral is a typed null, so it just contains its type
@@ -103,6 +104,10 @@ func (n *NullLiteral) Equals(rhs Expression) bool {
 	}
 
 	return false
+}
+
+func (n *NullLiteral) Visit(VisitFunc) Expression {
+	return n
 }
 
 // PrimitiveLiteral represents a non-nested, non-null literal value
@@ -176,6 +181,8 @@ func (t *PrimitiveLiteral[T]) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 
+func (t *PrimitiveLiteral[T]) Visit(VisitFunc) Expression { return t }
+
 // NestedLiteral is either a Struct or List literal, both of which are
 // represented as a slice of other literals.
 type NestedLiteral[T nestedLiteral] struct {
@@ -244,6 +251,10 @@ func (t *NestedLiteral[T]) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 
+func (t *NestedLiteral[T]) Visit(VisitFunc) Expression {
+	return t
+}
+
 // MapLiteral is represented as a slice of Key/Value structs consisting
 // of other literals.
 type MapLiteral struct {
@@ -303,6 +314,8 @@ func (t *MapLiteral) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 
+func (t *MapLiteral) Visit(VisitFunc) Expression { return t }
+
 // ByteSliceLiteral is any literal that is represnted as a byte slice.
 // As opposed to a string literal which can be compared with ==, a byte
 // slice needs to use something like bytes.Equal
@@ -354,6 +367,8 @@ func (t *ByteSliceLiteral[T]) ToProtoFuncArg() *proto.FunctionArgument {
 		ArgType: &proto.FunctionArgument_Value{Value: t.ToProto()},
 	}
 }
+
+func (t *ByteSliceLiteral[T]) Visit(VisitFunc) Expression { return t }
 
 // ProtoLiteral is a literal that is represented using its protobuf
 // message type such as a Decimal or UserDefinedType.
@@ -436,6 +451,8 @@ func (t *ProtoLiteral) ToProtoFuncArg() *proto.FunctionArgument {
 		ArgType: &proto.FunctionArgument_Value{Value: t.ToProto()},
 	}
 }
+
+func (t *ProtoLiteral) Visit(VisitFunc) Expression { return t }
 
 func getNullability(nullable bool) Nullability {
 	if nullable {

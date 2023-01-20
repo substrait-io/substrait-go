@@ -166,6 +166,15 @@ func (s *ScalarFunction) String() string {
 	return b.String()
 }
 
+func (s *ScalarFunction) GetOption(name string) []string {
+	for _, o := range s.Options {
+		if name == o.Name {
+			return o.GetPreference()
+		}
+	}
+	return nil
+}
+
 func (s *ScalarFunction) GetType() Type { return s.OutputType }
 func (s *ScalarFunction) ToProtoFuncArg() *proto.FunctionArgument {
 	return &proto.FunctionArgument{
@@ -215,6 +224,38 @@ func (s *ScalarFunction) Equals(rhs Expression) bool {
 	return slices.EqualFunc(s.Options, other.Options, func(a, b *FunctionOption) bool {
 		return pb.Equal(a, b)
 	})
+}
+
+func (s *ScalarFunction) Visit(visit VisitFunc) Expression {
+	var args []FuncArg
+	for i, arg := range s.Args {
+		var after FuncArg
+		switch t := arg.(type) {
+		case Expression:
+			after = visit(t)
+		default:
+			after = arg
+		}
+
+		if args == nil && arg != after {
+			args = make([]FuncArg, len(s.Args))
+			for j := 0; j < i; j++ {
+				args[j] = s.Args[i]
+			}
+		}
+
+		if args != nil {
+			args[i] = after
+		}
+	}
+
+	if args == nil {
+		return s
+	}
+
+	out := *s
+	out.Args = args
+	return &out
 }
 
 type WindowFunction struct {
@@ -318,4 +359,36 @@ func (w *WindowFunction) ToProtoFuncArg() *proto.FunctionArgument {
 			Value: w.ToProto(),
 		},
 	}
+}
+
+func (w *WindowFunction) Visit(visit VisitFunc) Expression {
+	var args []FuncArg
+	for i, arg := range w.Args {
+		var after FuncArg
+		switch t := arg.(type) {
+		case Expression:
+			after = visit(t)
+		default:
+			after = arg
+		}
+
+		if args == nil && arg != after {
+			args = make([]FuncArg, len(w.Args))
+			for j := 0; j < i; j++ {
+				args[j] = w.Args[i]
+			}
+		}
+
+		if args != nil {
+			args[i] = after
+		}
+	}
+
+	if args == nil {
+		return w
+	}
+
+	out := *w
+	out.Args = args
+	return &out
 }

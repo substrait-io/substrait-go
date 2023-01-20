@@ -382,6 +382,10 @@ func (f *FieldReference) GetType() Type {
 	return f.knownType
 }
 
+func (f *FieldReference) Visit(VisitFunc) Expression {
+	return f
+}
+
 func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema Type, ext ExtensionRegistry) (*FieldReference, error) {
 	var (
 		ref       Reference
