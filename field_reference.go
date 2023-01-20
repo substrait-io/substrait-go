@@ -4,6 +4,7 @@ package substraitgo
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/substrait-io/substrait-go/proto"
 )
@@ -277,14 +278,20 @@ type FieldReference struct {
 func (*FieldReference) isRootRef() {}
 
 func (f *FieldReference) String() string {
-	if f.Root == RootReference {
-		var typ string
-		if f.knownType != nil {
-			typ = " => " + f.knownType.String()
-		}
-		return f.Reference.(ReferenceSegment).String() + typ
+	var b strings.Builder
+	if rootExpr, ok := f.Root.(Expression); ok {
+		b.WriteString("[root:(")
+		b.WriteString(rootExpr.String())
+		b.WriteString(")]")
+	} else if outerRef, ok := f.Root.(OuterReference); ok {
+		fmt.Fprintf(&b, "[outerRef:%d]", outerRef)
 	}
-	return ""
+
+	var typ string
+	if f.knownType != nil {
+		typ = " => " + f.knownType.String()
+	}
+	return b.String() + f.Reference.(ReferenceSegment).String() + typ
 }
 
 func (f *FieldReference) ToProtoFuncArg() *proto.FunctionArgument {
