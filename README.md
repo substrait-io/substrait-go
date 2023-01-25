@@ -2,6 +2,27 @@
 
 Experimental Go bindings for [substrait](https://substrait.io)
 
+## Note:
+
+This is work in progress still, things still to do:
+
+- [ ] Expression parsing
+- [ ] Reading in extension yamls
+- [ ] CI building and testing the implementation
+- [ ] Serialization/Deserialization of some expression types:
+  - [ ] IfThen
+  - [ ] SwitchExpression
+  - [ ] SingularOrList
+  - [ ] MultiOrList
+  - [ ] Cast
+  - [ ] Nested
+  - [ ] Subquery
+- [ ] Plan Building helpers
+
+As this is built out, you can expect refactors and other changes to the
+structure of the package for the time being. **The API should not yet be
+considered stable.**
+
 ## Generate from proto files
 
 ### Install buf
