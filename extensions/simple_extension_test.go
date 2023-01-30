@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/extensions"
 
-	//"gopkg.in/yaml.v3"
 	"github.com/goccy/go-yaml"
 )
 
