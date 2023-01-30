@@ -242,9 +242,9 @@ func (s *ScalarFunction) Equals(rhs Expression) bool {
 }
 
 func (s *ScalarFunction) Visit(visit VisitFunc) Expression {
-	var args []FuncArg
+	var args []types.FuncArg
 	for i, arg := range s.Args {
-		var after FuncArg
+		var after types.FuncArg
 		switch t := arg.(type) {
 		case Expression:
 			after = visit(t)
@@ -253,7 +253,7 @@ func (s *ScalarFunction) Visit(visit VisitFunc) Expression {
 		}
 
 		if args == nil && arg != after {
-			args = make([]FuncArg, len(s.Args))
+			args = make([]types.FuncArg, len(s.Args))
 			for j := 0; j < i; j++ {
 				args[j] = s.Args[i]
 			}
@@ -380,9 +380,9 @@ func (w *WindowFunction) ToProtoFuncArg() *proto.FunctionArgument {
 }
 
 func (w *WindowFunction) Visit(visit VisitFunc) Expression {
-	var args []FuncArg
+	var args []types.FuncArg
 	for i, arg := range w.Args {
-		var after FuncArg
+		var after types.FuncArg
 		switch t := arg.(type) {
 		case Expression:
 			after = visit(t)
@@ -391,7 +391,7 @@ func (w *WindowFunction) Visit(visit VisitFunc) Expression {
 		}
 
 		if args == nil && arg != after {
-			args = make([]FuncArg, len(w.Args))
+			args = make([]types.FuncArg, len(w.Args))
 			for j := 0; j < i; j++ {
 				args[j] = w.Args[i]
 			}

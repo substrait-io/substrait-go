@@ -489,12 +489,6 @@ func (s *FixedLenType[T]) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 
-func (s *FixedLenType[T]) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Type{Type: TypeToProto(s)},
-	}
-}
-
 func (s *FixedLenType[T]) String() string {
 	var z *T
 	return fmt.Sprintf("%s<%d>%s",
@@ -588,12 +582,6 @@ func (t *StructType) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 
-func (t *StructType) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Type{Type: t.ToProto()},
-	}
-}
-
 func (t *StructType) String() string {
 	var b strings.Builder
 	b.WriteString("struct<")
@@ -639,12 +627,6 @@ func (t *ListType) ToProto() *proto.Type {
 		List: &proto.Type_List{Nullability: t.Nullability,
 			Type:                   TypeToProto(t.Type),
 			TypeVariationReference: t.TypeVariationRef}}}
-}
-
-func (t *ListType) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Type{Type: t.ToProto()},
-	}
 }
 
 func (t *ListType) ToProtoFuncArg() *proto.FunctionArgument {

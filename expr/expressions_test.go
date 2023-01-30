@@ -9,9 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/expr"
-	"github.com/substrait-io/substrait-go/extensions"
+	ext "github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/proto"
 	"github.com/substrait-io/substrait-go/types"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -35,7 +34,7 @@ scalar_functions:
         return: i8
 `
 
-var collection extensions.Collection
+var collection ext.Collection
 
 func init() {
 	collection.Load("https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml", strings.NewReader(sampleYAML))
@@ -68,7 +67,7 @@ func ExampleExpression_scalarFunction() {
 	}
 
 	// get the extension set
-	extSet := extensions.GetExtensionSet(&plan)
+	extSet := ext.GetExtensionSet(&plan)
 
 	// json proto to represent of add(field_ref(0), float64(10))
 	const scalarFunction = `{
@@ -100,7 +99,7 @@ func ExampleExpression_scalarFunction() {
 
 	var expr expr.Expression = &expr.ScalarFunction{
 		FuncRef: 2,
-		ID:      extensions.ID{URI: substraitext, Name: "add"},
+		ID:      ext.ID{URI: substraitext, Name: "add"},
 		Args: []types.FuncArg{
 			&expr.FieldReference{
 				Root:      expr.RootReference,
@@ -134,47 +133,47 @@ func ExampleExpression_scalarFunction() {
 	// true
 }
 
-func sampleNestedExpr(substraitExtURI string) substraitgo.Expression {
+func sampleNestedExpr(substraitExtURI string) expr.Expression {
 	var (
-		addID         = substraitgo.ExtID{URI: substraitExtURI, Name: "add"}
+		addID         = ext.ID{URI: substraitExtURI, Name: "add"}
 		addRef uint32 = 2
-		subID         = substraitgo.ExtID{URI: substraitExtURI, Name: "subtract"}
+		subID         = ext.ID{URI: substraitExtURI, Name: "subtract"}
 		subRef uint32 = 3
-		mulID         = substraitgo.ExtID{URI: substraitExtURI, Name: "multiply"}
+		mulID         = ext.ID{URI: substraitExtURI, Name: "multiply"}
 		mulRef uint32 = 4
 	)
 
 	// add(literal, sub(ref, mul(literal, ref)))
-	exp := &substraitgo.ScalarFunction{
+	exp := &expr.ScalarFunction{
 		FuncRef:    addRef,
 		ID:         addID,
-		OutputType: &substraitgo.Float64Type{},
-		Args: []substraitgo.FuncArg{
-			substraitgo.NewPrimitiveLiteral(float64(1.0), false),
-			&substraitgo.ScalarFunction{
+		OutputType: &types.Float64Type{},
+		Args: []types.FuncArg{
+			expr.NewPrimitiveLiteral(float64(1.0), false),
+			&expr.ScalarFunction{
 				FuncRef:    subRef,
 				ID:         subID,
-				OutputType: &substraitgo.Float32Type{},
-				Args: []substraitgo.FuncArg{
-					&substraitgo.FieldReference{
-						Root: substraitgo.RootReference,
-						Reference: &substraitgo.StructFieldRef{
+				OutputType: &types.Float32Type{},
+				Args: []types.FuncArg{
+					&expr.FieldReference{
+						Root: expr.RootReference,
+						Reference: &expr.StructFieldRef{
 							Field: 3,
 						},
 					},
-					&substraitgo.ScalarFunction{
+					&expr.ScalarFunction{
 						FuncRef:    mulRef,
 						ID:         mulID,
-						OutputType: &substraitgo.Int64Type{},
-						Args: []substraitgo.FuncArg{
-							substraitgo.NewPrimitiveLiteral(int64(2), false),
-							&substraitgo.FieldReference{
-								Root: substraitgo.NewNestedLiteral(substraitgo.StructLiteralValue{
-									substraitgo.NewByteSliceLiteral([]byte("baz"), true),
-									substraitgo.NewPrimitiveLiteral("foobar", false),
-									substraitgo.NewPrimitiveLiteral(int32(5), false),
+						OutputType: &types.Int64Type{},
+						Args: []types.FuncArg{
+							expr.NewPrimitiveLiteral(int64(2), false),
+							&expr.FieldReference{
+								Root: expr.NewNestedLiteral(expr.StructLiteralValue{
+									expr.NewByteSliceLiteral([]byte("baz"), true),
+									expr.NewPrimitiveLiteral("foobar", false),
+									expr.NewPrimitiveLiteral(int32(5), false),
 								}, false),
-								Reference: &substraitgo.StructFieldRef{
+								Reference: &expr.StructFieldRef{
 									Field: 2,
 								},
 							},
@@ -224,49 +223,52 @@ func TestExpressionsRoundtrip(t *testing.T) {
 		"relations": []
 	}`
 
-	var plan substraitgo.Plan
+	var (
+		plan            types.Plan
+		emptyCollection ext.Collection
+	)
 	if err := protojson.Unmarshal([]byte(planExt), &plan); err != nil {
 		panic(err)
 	}
 	// get the extension set
-	extSet := substraitgo.GetExtensionSet(&plan)
+	extSet := ext.GetExtensionSet(&plan)
 
-	tests := []substraitgo.Expression{
+	tests := []expr.Expression{
 		sampleNestedExpr(substraitExtURI),
 		// TODO: add more nested field tests after parsing is implemented
 		//       which will make it easier to generate nested expressions
 		//       to test with.
 	}
 
-	for _, expr := range tests {
-		protoExpr := expr.ToProto()
-		out, err := substraitgo.ExprFromProto(protoExpr, nil, extSet)
+	for _, exp := range tests {
+		protoExpr := exp.ToProto()
+		out, err := expr.ExprFromProto(protoExpr, nil, extSet, &emptyCollection)
 		require.NoError(t, err)
-		assert.Truef(t, expr.Equals(out), "expected: %s\ngot: %s", expr, out)
+		assert.Truef(t, exp.Equals(out), "expected: %s\ngot: %s", exp, out)
 	}
 }
 
 func ExampleExpression_Visit() {
 	const substraitExtURI = "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
 	var (
-		expr                = sampleNestedExpr(substraitExtURI)
-		preVisit, postVisit substraitgo.VisitFunc
+		exp                 = sampleNestedExpr(substraitExtURI)
+		preVisit, postVisit expr.VisitFunc
 	)
 
-	preVisit = func(e substraitgo.Expression) substraitgo.Expression {
+	preVisit = func(e expr.Expression) expr.Expression {
 		fmt.Println(e)
 		return e.Visit(preVisit)
 	}
-	postVisit = func(e substraitgo.Expression) substraitgo.Expression {
+	postVisit = func(e expr.Expression) expr.Expression {
 		out := e.Visit(postVisit)
 		fmt.Println(e)
 		return out
 	}
 	fmt.Println("PreOrder:")
-	fmt.Println(expr.Visit(preVisit))
+	fmt.Println(exp.Visit(preVisit))
 	fmt.Println()
 	fmt.Println("PostOrder:")
-	fmt.Println(expr.Visit(postVisit))
+	fmt.Println(exp.Visit(postVisit))
 
 	// Output:
 	// PreOrder:
