@@ -1,0 +1,12 @@
+commitFormat: conventional
+branch:
+  main: release
+release: 'github'
+github:
+  repo: "substrait-go"
+  user: "substrait-io"
+changelog:
+  printAll: true
+  title: "v{{.Version}}"
+  showAuthors: false
+  showBodyAsheader: false
