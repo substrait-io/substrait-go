@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package substraitgo
+package expr
 
 import (
 	"fmt"
 	"strings"
 
+	substraitgo "github.com/substrait-io/substrait-go"
+	"github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/proto"
+	"github.com/substrait-io/substrait-go/types"
 )
 
 type RootRefType interface {
@@ -23,7 +26,7 @@ type ReferenceSegment interface {
 	Reference
 	fmt.Stringer
 	GetChild() ReferenceSegment
-	GetType(Type) (Type, error)
+	GetType(types.Type) (types.Type, error)
 	ToProto() *proto.Expression_ReferenceSegment
 	Equals(ReferenceSegment) bool
 }
@@ -83,14 +86,14 @@ func (r *MapKeyRef) ToProto() *proto.Expression_ReferenceSegment {
 	}
 }
 
-func (r *MapKeyRef) GetType(parentType Type) (Type, error) {
-	mt, ok := parentType.(*MapType)
+func (r *MapKeyRef) GetType(parentType types.Type) (types.Type, error) {
+	mt, ok := parentType.(*types.MapType)
 	if !ok {
-		return nil, ErrInvalidType
+		return nil, substraitgo.ErrInvalidType
 	}
 
 	if !r.MapKey.GetType().Equals(mt.Key) {
-		return nil, ErrInvalidType
+		return nil, substraitgo.ErrInvalidType
 	}
 
 	if r.Child != nil {
@@ -137,14 +140,14 @@ func (r *StructFieldRef) String() string {
 	return fmt.Sprintf(".field(%d)%s", r.Field, c)
 }
 
-func (r *StructFieldRef) GetType(parentType Type) (Type, error) {
-	st, ok := parentType.(*StructType)
+func (r *StructFieldRef) GetType(parentType types.Type) (types.Type, error) {
+	st, ok := parentType.(*types.StructType)
 	if !ok {
-		return nil, ErrInvalidType
+		return nil, substraitgo.ErrInvalidType
 	}
 
 	if len(st.Types) < int(r.Field) {
-		return nil, ErrInvalidType
+		return nil, substraitgo.ErrInvalidType
 	}
 
 	if r.Child != nil {
@@ -208,10 +211,10 @@ func (r *ListElementRef) String() string {
 	return fmt.Sprintf(".[%d]%s", r.Offset, c)
 }
 
-func (r *ListElementRef) GetType(parentType Type) (Type, error) {
-	lt, ok := parentType.(*ListType)
+func (r *ListElementRef) GetType(parentType types.Type) (types.Type, error) {
+	lt, ok := parentType.(*types.ListType)
 	if !ok {
-		return nil, ErrInvalidType
+		return nil, substraitgo.ErrInvalidType
 	}
 
 	if r.Child != nil {
@@ -272,7 +275,7 @@ type FieldReference struct {
 	Reference Reference
 	Root      RootRefType
 
-	knownType Type
+	knownType types.Type
 }
 
 func (*FieldReference) isRootRef() {}
@@ -385,25 +388,26 @@ func (f *FieldReference) Equals(rhs Expression) bool {
 	return false
 }
 
-func (f *FieldReference) GetType() Type {
+func (f *FieldReference) GetType() types.Type {
 	return f.knownType
 }
 
 func (f *FieldReference) Visit(VisitFunc) Expression {
 	return f
 }
+func (*FieldReference) IsScalar() bool { return true }
 
-func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema Type, ext ExtensionRegistry) (*FieldReference, error) {
+func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema types.Type, ext ExtensionLookup, c *extensions.Collection) (*FieldReference, error) {
 	var (
 		ref       Reference
 		root      RootRefType
-		knownType Type
+		knownType types.Type
 		err       error
 	)
 
 	switch rt := p.RootType.(type) {
 	case *proto.Expression_FieldReference_Expression:
-		if root, err = ExprFromProto(rt.Expression, baseSchema, ext); err != nil {
+		if root, err = ExprFromProto(rt.Expression, baseSchema, ext, c); err != nil {
 			return nil, err
 		}
 	case *proto.Expression_FieldReference_OuterReference_:

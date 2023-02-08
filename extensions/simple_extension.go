@@ -3,7 +3,11 @@
 package extensions
 
 import (
-	"github.com/goccy/go-yaml"
+	"reflect"
+	"strings"
+
+	substraitgo "github.com/substrait-io/substrait-go"
+	"github.com/substrait-io/substrait-go/types/parser"
 )
 
 type ParamType string
@@ -32,7 +36,7 @@ type TypeDef any
 type Type struct {
 	Name       string
 	Variadic   bool
-	Structure  TypeDef
+	Structure  TypeDef `yaml:",omitempty"`
 	Parameters []TypeParamDef
 }
 
@@ -45,13 +49,13 @@ const (
 
 type TypeVariation struct {
 	Name        string
-	Parent      TypeDef
+	Parent      parser.TypeExpression
 	Description string
 	Functions   TypeVariationFunctions
 }
 
 type Argument interface {
-	isArg()
+	toTypeString() string
 }
 
 type EnumArg struct {
@@ -60,16 +64,20 @@ type EnumArg struct {
 	Options     []string
 }
 
-func (EnumArg) isArg() {}
+func (EnumArg) toTypeString() string {
+	return "req"
+}
 
 type ValueArg struct {
 	Name        string `yaml:",omitempty"`
 	Description string `yaml:",omitempty"`
-	Value       TypeDef
+	Value       *parser.TypeExpression
 	Constant    bool `yaml:",omitempty"`
 }
 
-func (ValueArg) isArg() {}
+func (v ValueArg) toTypeString() string {
+	return v.Value.Expr.(*parser.Type).ShortType()
+}
 
 type TypeArg struct {
 	Name        string `yaml:",omitempty"`
@@ -77,47 +85,57 @@ type TypeArg struct {
 	Type        string
 }
 
-func (TypeArg) isArg() {}
+func (TypeArg) toTypeString() string { return "type" }
 
 type ArgumentList []Argument
 
 func (a *ArgumentList) UnmarshalYAML(fn func(interface{}) error) error {
-	var args []yaml.MapSlice
+	var args []map[string]any
 	if err := fn(&args); err != nil {
 		return err
 	}
 
 	*a = make(ArgumentList, len(args))
 	for i, arg := range args {
-		props := arg.ToMap()
 		var (
 			name, desc string
 		)
-		if n, ok := props["name"]; ok {
+		if n, ok := arg["name"]; ok {
 			name = n.(string)
 		}
-		if d, ok := props["description"]; ok {
+		if d, ok := arg["description"]; ok {
 			desc = d.(string)
 		}
 
-		if opt, ok := props["options"]; ok {
+		if opt, ok := arg["options"]; ok {
 			(*a)[i] = EnumArg{
 				Name:        name,
 				Description: desc,
 				Options:     opt.([]string),
 			}
-		} else if val, ok := props["value"]; ok {
+		} else if val, ok := arg["value"]; ok {
 			var constant bool
-			if c, ok := props["constant"]; ok {
+			if c, ok := arg["constant"]; ok {
 				constant = c.(bool)
 			}
-			(*a)[i] = ValueArg{
+
+			arg := ValueArg{
 				Name:        name,
 				Description: desc,
-				Value:       val,
+				Value:       new(parser.TypeExpression),
 				Constant:    constant,
 			}
-		} else if typ, ok := props["type"]; ok {
+			arg.Value.UnmarshalYAML(func(v any) error {
+				rv := reflect.ValueOf(v)
+				if rv.Type().Kind() != reflect.Ptr {
+					return substraitgo.ErrInvalidType
+				}
+				rv.Elem().Set(reflect.ValueOf(val))
+				return nil
+			})
+			(*a)[i] = arg
+
+		} else if typ, ok := arg["type"]; ok {
 			(*a)[i] = TypeArg{
 				Name:        name,
 				Description: desc,
@@ -155,21 +173,62 @@ type VariadicBehavior struct {
 	ParameterConsistency ParameterConsistency `yaml:"parameterConsistency,omitempty"`
 }
 
+type Function interface {
+	ResolveURI(uri string) []FunctionVariant
+}
+
 type ScalarFunctionImpl struct {
-	Args             ArgumentList        `yaml:",omitempty"`
-	Options          map[string]Option   `yaml:",omitempty"`
-	Variadic         VariadicBehavior    `yaml:",omitempty"`
-	SessionDependent bool                `yaml:"sessionDependent,omitempty"`
-	Deterministic    bool                `yaml:",omitempty"`
-	Nullability      NullabilityHandling `yaml:",omitempty"`
-	Return           TypeDef             `yaml:",omitempty"`
-	Implementation   map[string]string   `yaml:",omitempty"`
+	Args             ArgumentList          `yaml:",omitempty"`
+	Options          map[string]Option     `yaml:",omitempty"`
+	Variadic         VariadicBehavior      `yaml:",omitempty"`
+	SessionDependent bool                  `yaml:"sessionDependent,omitempty"`
+	Deterministic    bool                  `yaml:",omitempty"`
+	Nullability      NullabilityHandling   `yaml:",omitempty"`
+	Return           parser.TypeExpression `yaml:",omitempty"`
+	Implementation   map[string]string     `yaml:",omitempty"`
+}
+
+func (s *ScalarFunctionImpl) signatureKey() string {
+	var b strings.Builder
+	for i, a := range s.Args {
+		if i != 0 {
+			b.WriteByte('_')
+		}
+		b.WriteString(a.toTypeString())
+	}
+	return b.String()
 }
 
 type ScalarFunction struct {
 	Name        string               `yaml:",omitempty"`
 	Description string               `yaml:",omitempty,flow"`
 	Impls       []ScalarFunctionImpl `yaml:",omitempty"`
+}
+
+func (s *ScalarFunction) GetVariants(uri string) []*ScalarFunctionVariant {
+	out := make([]*ScalarFunctionVariant, len(s.Impls))
+	for i, impl := range s.Impls {
+		out[i] = &ScalarFunctionVariant{
+			name:        s.Name,
+			description: s.Description,
+			uri:         uri,
+			impl:        impl,
+		}
+	}
+	return out
+}
+
+func (s *ScalarFunction) ResolveURI(uri string) []FunctionVariant {
+	out := make([]FunctionVariant, len(s.Impls))
+	for i, impl := range s.Impls {
+		out[i] = &ScalarFunctionVariant{
+			name:        s.Name,
+			description: s.Description,
+			uri:         uri,
+			impl:        impl,
+		}
+	}
+	return out
 }
 
 type DecomposeType string
@@ -182,7 +241,7 @@ const (
 
 type AggregateFunctionImpl struct {
 	ScalarFunctionImpl `yaml:",inline"`
-	Intermediate       TypeDef
+	Intermediate       parser.TypeExpression
 	Ordered            bool
 	MaxSet             int
 	Decomposable       DecomposeType
@@ -192,6 +251,32 @@ type AggregateFunction struct {
 	Name        string
 	Description string
 	Impls       []AggregateFunctionImpl
+}
+
+func (s *AggregateFunction) GetVariants(uri string) []*AggregateFunctionVariant {
+	out := make([]*AggregateFunctionVariant, len(s.Impls))
+	for i, impl := range s.Impls {
+		out[i] = &AggregateFunctionVariant{
+			name:        s.Name,
+			description: s.Description,
+			uri:         uri,
+			impl:        impl,
+		}
+	}
+	return out
+}
+
+func (s *AggregateFunction) ResolveURI(uri string) []FunctionVariant {
+	out := make([]FunctionVariant, len(s.Impls))
+	for i, impl := range s.Impls {
+		out[i] = &AggregateFunctionVariant{
+			name:        s.Name,
+			description: s.Description,
+			uri:         uri,
+			impl:        impl,
+		}
+	}
+	return out
 }
 
 type WindowType string
@@ -210,6 +295,32 @@ type WindowFunction struct {
 	Name        string
 	Description string
 	Impls       []WindowFunctionImpl
+}
+
+func (s *WindowFunction) GetVariants(uri string) []*WindowFunctionVariant {
+	out := make([]*WindowFunctionVariant, len(s.Impls))
+	for i, impl := range s.Impls {
+		out[i] = &WindowFunctionVariant{
+			name:        s.Name,
+			description: s.Description,
+			uri:         uri,
+			impl:        impl,
+		}
+	}
+	return out
+}
+
+func (s *WindowFunction) ResolveURI(uri string) []FunctionVariant {
+	out := make([]FunctionVariant, len(s.Impls))
+	for i, impl := range s.Impls {
+		out[i] = &WindowFunctionVariant{
+			name:        s.Name,
+			description: s.Description,
+			uri:         uri,
+			impl:        impl,
+		}
+	}
+	return out
 }
 
 type SimpleExtensionFile struct {

@@ -6,11 +6,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/goccy/go-yaml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/extensions"
-
-	"github.com/goccy/go-yaml"
 )
 
 func TestUnmarshalSimpleExtension(t *testing.T) {
@@ -68,8 +67,13 @@ scalar_functions:
 	assert.Len(t, f.ScalarFunctions[0].Impls[0].Args, 2)
 	assert.IsType(t, extensions.ValueArg{}, f.ScalarFunctions[0].Impls[0].Args[0])
 	assert.IsType(t, extensions.ValueArg{}, f.ScalarFunctions[0].Impls[0].Args[1])
-	assert.Equal(t, extensions.ValueArg{Name: "x", Value: "i8"}, f.ScalarFunctions[0].Impls[0].Args[0])
-	assert.Equal(t, extensions.ValueArg{Name: "y", Value: "i8"}, f.ScalarFunctions[0].Impls[0].Args[1])
+
+	x := f.ScalarFunctions[0].Impls[0].Args[0].(extensions.ValueArg)
+	assert.Equal(t, "x", x.Name)
+	assert.Equal(t, "i8", x.Value.String())
+	y := f.ScalarFunctions[0].Impls[0].Args[1].(extensions.ValueArg)
+	assert.Equal(t, "y", y.Name)
+	assert.Equal(t, "i8", y.Value.String())
 
 	assert.Equal(t, map[string]extensions.Option{
 		"overflow": {Values: []string{"SILENT", "SATURATE", "ERROR"}},

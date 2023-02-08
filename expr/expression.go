@@ -1,92 +1,108 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package substraitgo
+package expr
 
 import (
 	"fmt"
 
+	substraitgo "github.com/substrait-io/substrait-go"
+	"github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/proto"
+	"github.com/substrait-io/substrait-go/types"
 )
 
-func FuncArgFromProto(e *proto.FunctionArgument, baseSchema Type, ext ExtensionRegistry) (FuncArg, error) {
-	switch et := e.ArgType.(type) {
-	case *proto.FunctionArgument_Enum:
-		return Enum(et.Enum), nil
-	case *proto.FunctionArgument_Type:
-		return TypeFromProto(et.Type), nil
-	case *proto.FunctionArgument_Value:
-		return ExprFromProto(et.Value, baseSchema, ext)
-	}
-	return nil, ErrNotImplemented
+type ExtensionLookup interface {
+	DecodeType(uint32) (extensions.ID, bool)
+	DecodeFunc(uint32) (extensions.ID, bool)
+	DecodeTypeVariation(uint32) (extensions.ID, bool)
+	LookupScalarFunction(uint32, *extensions.Collection) (*extensions.ScalarFunctionVariant, bool)
+	LookupAggregateFunction(uint32, *extensions.Collection) (*extensions.AggregateFunctionVariant, bool)
+	LookupWindowFunction(uint32, *extensions.Collection) (*extensions.WindowFunctionVariant, bool)
 }
 
-func ExprFromProto(e *proto.Expression, baseSchema Type, ext ExtensionRegistry) (Expression, error) {
+func FuncArgFromProto(e *proto.FunctionArgument, baseSchema types.Type, ext ExtensionLookup, c *extensions.Collection) (types.FuncArg, error) {
+	switch et := e.ArgType.(type) {
+	case *proto.FunctionArgument_Enum:
+		return types.Enum(et.Enum), nil
+	case *proto.FunctionArgument_Type:
+		return types.TypeFromProto(et.Type), nil
+	case *proto.FunctionArgument_Value:
+		return ExprFromProto(et.Value, baseSchema, ext, c)
+	}
+	return nil, substraitgo.ErrNotImplemented
+}
+
+func ExprFromProto(e *proto.Expression, baseSchema types.Type, ext ExtensionLookup, c *extensions.Collection) (Expression, error) {
 	switch et := e.RexType.(type) {
 	case *proto.Expression_Literal_:
 		return LiteralFromProto(et.Literal), nil
 	case *proto.Expression_Selection:
-		return FieldReferenceFromProto(et.Selection, baseSchema, ext)
+		return FieldReferenceFromProto(et.Selection, baseSchema, ext, c)
 	case *proto.Expression_ScalarFunction_:
 		var err error
-		args := make([]FuncArg, len(et.ScalarFunction.Arguments))
+		args := make([]types.FuncArg, len(et.ScalarFunction.Arguments))
 		for i, a := range et.ScalarFunction.Arguments {
-			if args[i], err = FuncArgFromProto(a, baseSchema, ext); err != nil {
+			if args[i], err = FuncArgFromProto(a, baseSchema, ext, c); err != nil {
 				return nil, err
 			}
 		}
 
 		id, ok := ext.DecodeFunc(et.ScalarFunction.FunctionReference)
 		if !ok {
-			return nil, ErrNotFound
+			return nil, substraitgo.ErrNotFound
 		}
 
+		decl, _ := ext.LookupScalarFunction(et.ScalarFunction.FunctionReference, c)
 		return &ScalarFunction{
-			FuncRef:    et.ScalarFunction.FunctionReference,
-			ID:         id,
-			Args:       args,
-			Options:    et.ScalarFunction.Options,
-			OutputType: TypeFromProto(et.ScalarFunction.OutputType),
+			FuncRef:     et.ScalarFunction.FunctionReference,
+			Declaration: decl,
+			ID:          id,
+			Args:        args,
+			Options:     et.ScalarFunction.Options,
+			OutputType:  types.TypeFromProto(et.ScalarFunction.OutputType),
 		}, nil
 	case *proto.Expression_WindowFunction_:
 		var err error
-		args := make([]FuncArg, len(et.WindowFunction.Arguments))
+		args := make([]types.FuncArg, len(et.WindowFunction.Arguments))
 		for i, a := range et.WindowFunction.Arguments {
-			if args[i], err = FuncArgFromProto(a, baseSchema, ext); err != nil {
+			if args[i], err = FuncArgFromProto(a, baseSchema, ext, c); err != nil {
 				return nil, err
 			}
 		}
 
 		parts := make([]Expression, len(et.WindowFunction.Partitions))
 		for i, p := range et.WindowFunction.Partitions {
-			if parts[i], err = ExprFromProto(p, baseSchema, ext); err != nil {
+			if parts[i], err = ExprFromProto(p, baseSchema, ext, c); err != nil {
 				return nil, err
 			}
 		}
 
 		sorts := make([]SortField, len(et.WindowFunction.Sorts))
 		for i, s := range et.WindowFunction.Sorts {
-			if sorts[i], err = SortFieldFromProto(s, baseSchema, ext); err != nil {
+			if sorts[i], err = SortFieldFromProto(s, baseSchema, ext, c); err != nil {
 				return nil, err
 			}
 		}
 
 		id, ok := ext.DecodeFunc(et.WindowFunction.FunctionReference)
 		if !ok {
-			return nil, ErrNotFound
+			return nil, substraitgo.ErrNotFound
 		}
 
+		decl, _ := ext.LookupWindowFunction(et.WindowFunction.FunctionReference, c)
 		return &WindowFunction{
-			FuncRef:    et.WindowFunction.FunctionReference,
-			ID:         id,
-			Args:       args,
-			Options:    et.WindowFunction.Options,
-			OutputType: TypeFromProto(et.WindowFunction.OutputType),
-			Phase:      et.WindowFunction.Phase,
-			Invocation: et.WindowFunction.Invocation,
-			Partitions: parts,
-			Sorts:      sorts,
-			LowerBound: BoundFromProto(et.WindowFunction.LowerBound),
-			UpperBound: BoundFromProto(et.WindowFunction.UpperBound),
+			FuncRef:     et.WindowFunction.FunctionReference,
+			ID:          id,
+			Declaration: decl,
+			Args:        args,
+			Options:     et.WindowFunction.Options,
+			OutputType:  types.TypeFromProto(et.WindowFunction.OutputType),
+			Phase:       et.WindowFunction.Phase,
+			Invocation:  et.WindowFunction.Invocation,
+			Partitions:  parts,
+			Sorts:       sorts,
+			LowerBound:  BoundFromProto(et.WindowFunction.LowerBound),
+			UpperBound:  BoundFromProto(et.WindowFunction.UpperBound),
 		}, nil
 	case *proto.Expression_IfThen_:
 	case *proto.Expression_SwitchExpression_:
@@ -95,11 +111,11 @@ func ExprFromProto(e *proto.Expression, baseSchema Type, ext ExtensionRegistry) 
 	case *proto.Expression_Cast_:
 	case *proto.Expression_Nested_:
 	case *proto.Expression_Enum_:
-		return nil, fmt.Errorf("%w: deprecated", ErrNotImplemented)
+		return nil, fmt.Errorf("%w: deprecated", substraitgo.ErrNotImplemented)
 	case *proto.Expression_Subquery_:
 	}
 
-	return nil, ErrNotImplemented
+	return nil, substraitgo.ErrNotImplemented
 }
 
 type VisitFunc func(Expression) Expression
@@ -120,12 +136,13 @@ type VisitFunc func(Expression) Expression
 //  - A Nested expression
 type Expression interface {
 	// an Expression can also be a function argument
-	FuncArg
+	types.FuncArg
 	// an expression can also be the root of a reference
 	RootRefType
 
+	IsScalar() bool
 	// GetType returns the output type of this expression
-	GetType() Type
+	GetType() types.Type
 	// ToProto converts this Expression and its arguments
 	// to the equivalent Protobuf objects.
 	ToProto() *proto.Expression
@@ -169,9 +186,9 @@ type IfThen struct {
 }
 
 type Cast struct {
-	Type            Type
+	Type            types.Type
 	Input           Expression
-	FailureBehavior CastFailBehavior
+	FailureBehavior types.CastFailBehavior
 }
 
 type SwitchExpr struct {
@@ -196,7 +213,7 @@ type MultiOrList struct {
 }
 
 type NestedExpr interface {
-	FuncArg
+	types.FuncArg
 
 	IsNullable() bool
 	TypeVariation() uint32
