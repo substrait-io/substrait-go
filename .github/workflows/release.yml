@@ -1,0 +1,35 @@
+name: Release
+
+on:
+  schedule:
+    # 2 AM on Sunday
+    - cron: "0 2 * * 0"
+  workflow_dispatch:
+
+# we do not want more than one release workflow executing at the same time, ever
+concurrency:
+  group: release
+  # cancelling in the middle of a release would create incomplete releases
+  # so cancel-in-progress is false
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  checks: write
+  id-token: write
+  statuses: write
+
+jobs:
+  release:
+    if: github.repository == 'substrait-io/substrait-go'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Run go-semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          docker run nightapes/go-semantic-release:2.1.0 release -l trace
