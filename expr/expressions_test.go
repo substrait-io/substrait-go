@@ -61,7 +61,7 @@ func ExampleExpression_scalarFunction() {
 		"relations": []
 	}`
 
-	var plan types.Plan
+	var plan proto.Plan
 	if err := protojson.Unmarshal([]byte(planExt), &plan); err != nil {
 		panic(err)
 	}
@@ -224,7 +224,7 @@ func TestExpressionsRoundtrip(t *testing.T) {
 	}`
 
 	var (
-		plan            types.Plan
+		plan            proto.Plan
 		emptyCollection ext.Collection
 	)
 	if err := protojson.Unmarshal([]byte(planExt), &plan); err != nil {

@@ -312,6 +312,7 @@ func (w *WindowFunction) String() string {
 
 	return b.String()
 }
+
 func (w *WindowFunction) GetType() types.Type        { return w.OutputType }
 func (w *WindowFunction) Equals(rhs Expression) bool { return false }
 
@@ -409,4 +410,77 @@ func (w *WindowFunction) Visit(visit VisitFunc) Expression {
 	out := *w
 	out.Args = args
 	return &out
+}
+
+type AggregateFunction struct {
+	FuncRef     uint32
+	ID          extensions.ID
+	Declaration *extensions.AggregateFunctionVariant
+
+	Args       []types.FuncArg
+	Options    []*types.FunctionOption
+	OutputType types.Type
+	Phase      types.AggregationPhase
+	Invocation types.AggregationInvocation
+	Sorts      []SortField
+}
+
+func (a *AggregateFunction) String() string {
+	var b strings.Builder
+
+	b.WriteString(a.ID.Name)
+	b.WriteByte('(')
+
+	for i, arg := range a.Args {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(arg.String())
+	}
+
+	b.WriteString(") => ")
+	b.WriteString(a.OutputType.String())
+
+	return b.String()
+}
+
+func (a *AggregateFunction) GetOption(name string) []string {
+	for _, o := range a.Options {
+		if name == o.Name {
+			return o.GetPreference()
+		}
+	}
+	return nil
+}
+
+func (a *AggregateFunction) GetType() types.Type { return a.OutputType }
+
+func (a *AggregateFunction) ToProto() *proto.AggregateFunction {
+	var (
+		args  []*proto.FunctionArgument
+		sorts []*proto.SortField
+	)
+	if len(a.Args) > 0 {
+		args = make([]*proto.FunctionArgument, len(a.Args))
+		for i, arg := range a.Args {
+			args[i] = arg.ToProtoFuncArg()
+		}
+	}
+
+	if len(a.Sorts) > 0 {
+		sorts = make([]*proto.SortField, len(a.Sorts))
+		for i, s := range a.Sorts {
+			sorts[i] = s.ToProto()
+		}
+	}
+
+	return &proto.AggregateFunction{
+		FunctionReference: a.FuncRef,
+		Arguments:         args,
+		Options:           a.Options,
+		OutputType:        types.TypeToProto(a.OutputType),
+		Phase:             a.Phase,
+		Sorts:             sorts,
+		Invocation:        a.Invocation,
+	}
 }

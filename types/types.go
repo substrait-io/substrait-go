@@ -10,7 +10,7 @@ import (
 	"github.com/substrait-io/substrait-go/proto"
 )
 
-type Plan = proto.Plan
+type Version = proto.Version
 
 type Nullability = proto.Type_Nullability
 
@@ -875,6 +875,13 @@ func (e Enum) String() string { return string(e) }
 type NamedStruct struct {
 	Names  []string
 	Struct StructType
+}
+
+func (n *NamedStruct) ToProto() *proto.NamedStruct {
+	return &proto.NamedStruct{
+		Names:  n.Names,
+		Struct: n.Struct.ToProto().GetStruct(),
+	}
 }
 
 func (n *NamedStruct) String() string {
