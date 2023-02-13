@@ -7,14 +7,14 @@ Experimental Go bindings for [substrait](https://substrait.io)
 This is work in progress still, things still to do:
 
 - [ ] Expression parsing
-- [ ] Reading in extension yamls
-- [ ] CI building and testing the implementation
+- [x] Reading in extension yamls
+- [x] CI building and testing the implementation
 - [ ] Serialization/Deserialization of some expression types:
-  - [ ] IfThen
-  - [ ] SwitchExpression
-  - [ ] SingularOrList
+  - [x] IfThen
+  - [x] SwitchExpression
+  - [x] SingularOrList
   - [ ] MultiOrList
-  - [ ] Cast
+  - [x] Cast
   - [ ] Nested
   - [ ] Subquery
 - [ ] Plan Building helpers
