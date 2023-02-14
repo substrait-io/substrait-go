@@ -425,6 +425,41 @@ type AggregateFunction struct {
 	Sorts      []SortField
 }
 
+func NewAggregateFunctionFromProto(agg *proto.AggregateFunction, baseSchema types.Type, ext extensions.Set, c *extensions.Collection) (*AggregateFunction, error) {
+	var err error
+	args := make([]types.FuncArg, len(agg.Arguments))
+	for i, a := range agg.Arguments {
+		if args[i], err = FuncArgFromProto(a, baseSchema, ext, c); err != nil {
+			return nil, err
+		}
+	}
+
+	sorts := make([]SortField, len(agg.Sorts))
+	for i, s := range agg.Sorts {
+		if sorts[i], err = SortFieldFromProto(s, baseSchema, ext, c); err != nil {
+			return nil, err
+		}
+	}
+
+	id, ok := ext.DecodeFunc(agg.FunctionReference)
+	if !ok {
+		return nil, substraitgo.ErrNotFound
+	}
+
+	decl, _ := ext.LookupAggregateFunction(agg.FunctionReference, c)
+	return &AggregateFunction{
+		FuncRef:     agg.FunctionReference,
+		ID:          id,
+		Declaration: decl,
+		Args:        args,
+		Options:     agg.Options,
+		OutputType:  types.TypeFromProto(agg.OutputType),
+		Phase:       agg.Phase,
+		Invocation:  agg.Invocation,
+		Sorts:       sorts,
+	}, nil
+}
+
 func (a *AggregateFunction) String() string {
 	var b strings.Builder
 

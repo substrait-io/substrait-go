@@ -7,7 +7,6 @@ import (
 	"io"
 
 	substraitgo "github.com/substrait-io/substrait-go"
-	"github.com/substrait-io/substrait-go/proto"
 	"github.com/substrait-io/substrait-go/proto/extensions"
 	"gopkg.in/yaml.v3"
 )
@@ -389,9 +388,14 @@ func (e *set) addURI(uri string) (uint32, error) {
 	return sz, nil
 }
 
-func GetExtensionSet(plan *proto.Plan) Set {
+type TopLevel interface {
+	GetExtensionUris() []*extensions.SimpleExtensionURI
+	GetExtensions() []*extensions.SimpleExtensionDeclaration
+}
+
+func GetExtensionSet(plan TopLevel) Set {
 	uris := make(map[uint32]string)
-	for _, uri := range plan.ExtensionUris {
+	for _, uri := range plan.GetExtensionUris() {
 		uris[uri.ExtensionUriAnchor] = uri.Uri
 	}
 
@@ -405,7 +409,7 @@ func GetExtensionSet(plan *proto.Plan) Set {
 		typeVariations:   make(map[ID]uint32),
 	}
 
-	for _, ext := range plan.Extensions {
+	for _, ext := range plan.GetExtensions() {
 		switch e := ext.MappingType.(type) {
 		case *extensions.SimpleExtensionDeclaration_ExtensionTypeVariation_:
 			etv := e.ExtensionTypeVariation

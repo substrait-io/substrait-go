@@ -877,6 +877,26 @@ type NamedStruct struct {
 	Struct StructType
 }
 
+func NewNamedStructFromProto(n *proto.NamedStruct) NamedStruct {
+	if n == nil {
+		return NamedStruct{}
+	}
+
+	fields := make([]Type, len(n.Struct.Types))
+	for i, f := range n.Struct.Types {
+		fields[i] = TypeFromProto(f)
+	}
+
+	return NamedStruct{
+		Names: n.Names,
+		Struct: StructType{
+			Nullability:      n.Struct.Nullability,
+			TypeVariationRef: n.Struct.TypeVariationReference,
+			Types:            fields,
+		},
+	}
+}
+
 func (n *NamedStruct) ToProto() *proto.NamedStruct {
 	return &proto.NamedStruct{
 		Names:  n.Names,

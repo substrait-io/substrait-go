@@ -35,6 +35,10 @@ func FuncArgFromProto(e *proto.FunctionArgument, baseSchema types.Type, ext Exte
 }
 
 func ExprFromProto(e *proto.Expression, baseSchema types.Type, ext ExtensionLookup, c *extensions.Collection) (Expression, error) {
+	if e == nil {
+		return nil, nil
+	}
+
 	switch et := e.RexType.(type) {
 	case *proto.Expression_Literal_:
 		return LiteralFromProto(et.Literal), nil
@@ -107,17 +111,182 @@ func ExprFromProto(e *proto.Expression, baseSchema types.Type, ext ExtensionLook
 			UpperBound:  BoundFromProto(et.WindowFunction.UpperBound),
 		}, nil
 	case *proto.Expression_IfThen_:
+		elseExpr, err := ExprFromProto(et.IfThen.Else, baseSchema, ext, c)
+		if err != nil {
+			return nil, err
+		}
+
+		ifs := make([]struct{ If, Then Expression }, len(et.IfThen.Ifs))
+		for i, clause := range et.IfThen.Ifs {
+			ifs[i].If, err = ExprFromProto(clause.If, baseSchema, ext, c)
+			if err != nil {
+				return nil, err
+			}
+
+			ifs[i].Then, err = ExprFromProto(clause.Then, baseSchema, ext, c)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		return &IfThen{
+			IFs:  ifs,
+			Else: elseExpr,
+		}, nil
 	case *proto.Expression_SwitchExpression_:
+		matched, err := ExprFromProto(et.SwitchExpression.Match, baseSchema, ext, c)
+		if err != nil {
+			return nil, err
+		}
+
+		elseExpr, err := ExprFromProto(et.SwitchExpression.Else, baseSchema, ext, c)
+		if err != nil {
+			return nil, err
+		}
+
+		ifs := make([]struct {
+			If   Literal
+			Then Expression
+		}, len(et.SwitchExpression.Ifs))
+		for i, clause := range et.SwitchExpression.Ifs {
+			ifs[i].If = LiteralFromProto(clause.If)
+			ifs[i].Then, err = ExprFromProto(clause.Then, baseSchema, ext, c)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		return &SwitchExpr{
+			Match: matched,
+			IFs:   ifs,
+			Else:  elseExpr,
+		}, nil
 	case *proto.Expression_SingularOrList_:
+		val, err := ExprFromProto(et.SingularOrList.Value, baseSchema, ext, c)
+		if err != nil {
+			return nil, err
+		}
+
+		opts := make([]Expression, len(et.SingularOrList.Options))
+		for i, o := range et.SingularOrList.Options {
+			opts[i], err = ExprFromProto(o, baseSchema, ext, c)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		return &SingularOrList{
+			Value:   val,
+			Options: opts,
+		}, nil
 	case *proto.Expression_MultiOrList_:
+		var err error
+		val := make([]Expression, len(et.MultiOrList.Value))
+		for i, v := range et.MultiOrList.Value {
+			val[i], err = ExprFromProto(v, baseSchema, ext, c)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		options := make([][]Expression, len(et.MultiOrList.Options))
+		for i, opts := range et.MultiOrList.Options {
+			options[i] = make([]Expression, len(opts.Fields))
+			for j, o := range opts.Fields {
+				options[i][j], err = ExprFromProto(o, baseSchema, ext, c)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+
+		return &MultiOrList{
+			Value:   val,
+			Options: options,
+		}, nil
 	case *proto.Expression_Cast_:
+		input, err := ExprFromProto(et.Cast.Input, baseSchema, ext, c)
+		if err != nil {
+			return nil, err
+		}
+
+		return &Cast{
+			Type:            types.TypeFromProto(et.Cast.Type),
+			Input:           input,
+			FailureBehavior: et.Cast.FailureBehavior,
+		}, nil
 	case *proto.Expression_Nested_:
+		var err error
+		nullable, typevar := et.Nested.Nullable, et.Nested.TypeVariationReference
+
+		switch n := et.Nested.NestedType.(type) {
+		case *proto.Expression_Nested_Map_:
+			if len(n.Map.KeyValues) == 0 {
+				return nil, fmt.Errorf("%w: use an empty map literal instead of NestedExpr map to preserve type info",
+					substraitgo.ErrInvalidExpr)
+			}
+
+			keyValues := make([]struct{ Key, Value Expression }, len(n.Map.KeyValues))
+			for i, kv := range n.Map.KeyValues {
+				keyValues[i].Key, err = ExprFromProto(kv.Key, baseSchema, ext, c)
+				if err != nil {
+					return nil, err
+				}
+
+				keyValues[i].Value, err = ExprFromProto(kv.Value, baseSchema, ext, c)
+				if err != nil {
+					return nil, err
+				}
+			}
+
+			return &MapExpr{
+				Nullable:         nullable,
+				TypeVariationRef: typevar,
+				KeyValues:        keyValues,
+			}, nil
+		case *proto.Expression_Nested_Struct_:
+			fields := make([]Expression, len(n.Struct.Fields))
+			for i, f := range n.Struct.Fields {
+				fields[i], err = ExprFromProto(f, baseSchema, ext, c)
+				if err != nil {
+					return nil, err
+				}
+			}
+
+			return &StructExpr{
+				Nullable:         nullable,
+				TypeVariationRef: typevar,
+				Fields:           fields,
+			}, nil
+		case *proto.Expression_Nested_List_:
+			if len(n.List.Values) == 0 {
+				return nil, fmt.Errorf("%w: use an empty list literal to preserve type info instead of nested expression",
+					substraitgo.ErrInvalidExpr)
+			}
+
+			values := make([]Expression, len(n.List.Values))
+			for i, v := range n.List.Values {
+				values[i], err = ExprFromProto(v, baseSchema, ext, c)
+				if err != nil {
+					return nil, err
+				}
+			}
+
+			return &ListExpr{
+				Nullable:         nullable,
+				TypeVariationRef: typevar,
+				Values:           values,
+			}, nil
+		default:
+			return nil, fmt.Errorf("%w: nested expression: %s",
+				substraitgo.ErrInvalidExpr, n)
+		}
 	case *proto.Expression_Enum_:
 		return nil, fmt.Errorf("%w: deprecated", substraitgo.ErrNotImplemented)
 	case *proto.Expression_Subquery_:
 	}
 
-	return nil, substraitgo.ErrNotImplemented
+	return nil, fmt.Errorf("%w: ExprFromProto: %s", substraitgo.ErrNotImplemented, e)
 }
 
 type VisitFunc func(Expression) Expression
@@ -1185,6 +1354,41 @@ type Extended struct {
 	BaseSchema       types.NamedStruct
 	AdvancedExts     *extensions.AdvancedExtension
 	ExpectedTypeURLs []string
+}
+
+func ExtendedFromProto(ex *proto.ExtendedExpression, c *extensions.Collection) (*Extended, error) {
+	var (
+		base   = types.NewNamedStructFromProto(ex.BaseSchema)
+		extSet = extensions.GetExtensionSet(ex)
+		refs   = make([]ExpressionReference, len(ex.ReferredExpr))
+	)
+
+	for i, r := range ex.ReferredExpr {
+		refs[i].OutputNames = r.OutputNames
+		switch et := r.ExprType.(type) {
+		case *proto.ExpressionReference_Expression:
+			expr, err := ExprFromProto(et.Expression, &base.Struct, extSet, c)
+			if err != nil {
+				return nil, err
+			}
+			refs[i].SetExpr(expr)
+		case *proto.ExpressionReference_Measure:
+			agg, err := NewAggregateFunctionFromProto(et.Measure, &base.Struct, extSet, c)
+			if err != nil {
+				return nil, err
+			}
+			refs[i].SetMeasure(agg)
+		}
+	}
+
+	return &Extended{
+		Version:          ex.Version,
+		Extensions:       extSet,
+		ReferredExpr:     refs,
+		BaseSchema:       base,
+		AdvancedExts:     ex.AdvancedExtensions,
+		ExpectedTypeURLs: ex.ExpectedTypeUrls,
+	}, nil
 }
 
 func (ex *Extended) ToProto() *proto.ExtendedExpression {
