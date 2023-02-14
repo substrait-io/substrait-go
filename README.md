@@ -13,9 +13,9 @@ This is work in progress still, things still to do:
   - [x] IfThen
   - [x] SwitchExpression
   - [x] SingularOrList
-  - [ ] MultiOrList
+  - [x] MultiOrList
   - [x] Cast
-  - [ ] Nested
+  - [x] Nested
   - [ ] Subquery
 - [ ] Plan Building helpers
 

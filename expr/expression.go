@@ -258,21 +258,20 @@ func (ex *IfThen) Equals(other Expression) bool {
 		return false
 	}
 
-	if len(ex.IFs) != len(rhs.IFs) {
+	switch {
+	case ex.Else != nil && !ex.Else.Equals(rhs.Else):
+		return false
+	case ex.Else != nil && rhs.Else == nil:
 		return false
 	}
 
-	for i := range ex.IFs {
-		if !ex.IFs[i].If.Equals(rhs.IFs[i].If) {
-			return false
-		}
-
-		if !ex.IFs[i].Then.Equals(rhs.IFs[i].Then) {
-			return false
-		}
-	}
-
-	return ex.Else != nil && ex.Else.Equals(rhs.Else)
+	return slices.EqualFunc(ex.IFs, rhs.IFs,
+		func(l, r struct {
+			If   Expression
+			Then Expression
+		}) bool {
+			return l.If.Equals(r.If) && l.Then.Equals(r.Then)
+		})
 }
 
 func (ex *IfThen) Visit(visit VisitFunc) Expression {
@@ -449,28 +448,21 @@ func (ex *SwitchExpr) Equals(other Expression) bool {
 	}
 
 	switch {
-	case len(ex.IFs) != len(rhs.IFs):
-		return false
 	case !ex.Match.Equals(rhs.Match):
 		return false
+	case ex.Else != nil && !ex.Else.Equals(rhs.Else):
+		return false
+	case ex.Else == nil && rhs.Else != nil:
+		return false
 	}
 
-	for i := range ex.IFs {
-		if !ex.IFs[i].If.Equals(rhs.IFs[i].If) {
-			return false
-		}
-		if !ex.IFs[i].Then.Equals(rhs.IFs[i].Then) {
-			return false
-		}
-	}
-
-	if ex.Else != nil && ex.Else.Equals(rhs.Else) {
-		return true
-	}
-
-	// if rhs.Else == nil then we're equal, otherwise
-	// ex.Else is nil and rhs.Else is not nil
-	return rhs.Else == nil
+	return slices.EqualFunc(ex.IFs, rhs.IFs,
+		func(l, r struct {
+			If   Literal
+			Then Expression
+		}) bool {
+			return l.If.Equals(r.If) && l.Then.Equals(r.Then)
+		})
 }
 
 func (ex *SwitchExpr) Visit(visit VisitFunc) Expression {
@@ -499,9 +491,7 @@ func (ex *SwitchExpr) Visit(visit VisitFunc) Expression {
 				}, len(ex.IFs)),
 				Else: ex.Else,
 			}
-			for j := 0; j < i; j++ {
-				out.IFs[j] = ex.IFs[j]
-			}
+			copy(out.IFs, ex.IFs[:i])
 		}
 
 		if out != nil {
@@ -525,6 +515,8 @@ func (ex *SwitchExpr) Visit(visit VisitFunc) Expression {
 	out.Else = afterElse
 	return out
 }
+
+func exprEqual(l, r Expression) bool { return l.Equals(r) }
 
 type SingularOrList struct {
 	Value   Expression
@@ -598,17 +590,7 @@ func (ex *SingularOrList) Equals(other Expression) bool {
 		return false
 	}
 
-	if len(ex.Options) != len(rhs.Options) {
-		return false
-	}
-
-	for i := range ex.Options {
-		if !ex.Options[i].Equals(rhs.Options[i]) {
-			return false
-		}
-	}
-
-	return true
+	return slices.EqualFunc(ex.Options, rhs.Options, exprEqual)
 }
 
 func (ex *SingularOrList) Visit(visit VisitFunc) Expression {
@@ -624,9 +606,7 @@ func (ex *SingularOrList) Visit(visit VisitFunc) Expression {
 		temp := visit(o)
 		if out == nil && temp != o {
 			out = &SingularOrList{Value: ex.Value, Options: make([]Expression, len(ex.Options))}
-			for j := 0; j < len(ex.Options); j++ {
-				out.Options[j] = ex.Options[j]
-			}
+			copy(out.Options, ex.Options[:i])
 		}
 
 		if out != nil {
@@ -672,16 +652,132 @@ func (ex *MultiOrList) String() string {
 	return b.String()
 }
 
-func (ex *MultiOrList) ToProtoFuncArg() *proto.FunctionArgument {}
-func (ex *MultiOrList) isRootRef()                              {}
-func (ex *MultiOrList) IsScalar() bool                          {}
-func (ex *MultiOrList) GetType() types.Type                     {}
-func (ex *MultiOrList) ToProto() *proto.Expression              {}
-func (ex *MultiOrList) Equals(Expression) bool                  {}
-func (ex *MultiOrList) Visit(VisitFunc) Expression              {}
+func (ex *MultiOrList) ToProtoFuncArg() *proto.FunctionArgument {
+	return &proto.FunctionArgument{
+		ArgType: &proto.FunctionArgument_Value{
+			Value: ex.ToProto(),
+		},
+	}
+}
+
+func (ex *MultiOrList) isRootRef() {}
+
+func (ex *MultiOrList) IsScalar() bool {
+	for _, v := range ex.Value {
+		if !v.IsScalar() {
+			return false
+		}
+	}
+
+	for _, opts := range ex.Options {
+		for _, o := range opts {
+			if !o.IsScalar() {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+func (ex *MultiOrList) GetType() types.Type {
+	return &types.BooleanType{Nullability: types.NullabilityNullable}
+}
+
+func (ex *MultiOrList) ToProto() *proto.Expression {
+	toSlice := func(exprs []Expression) (out []*proto.Expression) {
+		out = make([]*proto.Expression, len(exprs))
+		for i, e := range exprs {
+			out[i] = e.ToProto()
+		}
+		return
+	}
+
+	opts := make([]*proto.Expression_MultiOrList_Record, len(ex.Options))
+	for i, o := range ex.Options {
+		opts[i] = &proto.Expression_MultiOrList_Record{
+			Fields: toSlice(o),
+		}
+	}
+
+	return &proto.Expression{
+		RexType: &proto.Expression_MultiOrList_{
+			MultiOrList: &proto.Expression_MultiOrList{
+				Value:   toSlice(ex.Value),
+				Options: opts,
+			},
+		},
+	}
+}
+
+func (ex *MultiOrList) Equals(other Expression) bool {
+	rhs, ok := other.(*MultiOrList)
+	if !ok {
+		return false
+	}
+
+	return slices.EqualFunc(ex.Value, rhs.Value, exprEqual) &&
+		slices.EqualFunc(ex.Options, rhs.Options,
+			func(l, r []Expression) bool {
+				return slices.EqualFunc(l, r, exprEqual)
+			})
+}
+
+func (ex *MultiOrList) Visit(visit VisitFunc) Expression {
+	var out *MultiOrList
+	for i, v := range ex.Value {
+		after := visit(v)
+
+		if out == nil && after != v {
+			out = &MultiOrList{
+				Value:   make([]Expression, len(ex.Value)),
+				Options: make([][]Expression, len(ex.Options)),
+			}
+			copy(out.Value, ex.Value[:i])
+		}
+
+		if out != nil {
+			out.Value[i] = after
+		}
+	}
+
+	for i, opts := range ex.Options {
+		if out != nil && len(out.Options[i]) == 0 {
+			out.Options[i] = make([]Expression, len(ex.Options[i]))
+		}
+
+		for j, o := range opts {
+			after := visit(o)
+
+			if out == nil && after != o {
+				out = &MultiOrList{
+					Value:   slices.Clone(ex.Value),
+					Options: make([][]Expression, len(ex.Options)),
+				}
+				for k := 0; k < i; k++ {
+					out.Options[k] = slices.Clone(ex.Options[k])
+				}
+
+				for k := 0; k < j; k++ {
+					out.Options[i][k] = ex.Options[i][k]
+				}
+			}
+
+			if out != nil {
+				out.Options[i][j] = after
+			}
+		}
+	}
+
+	if out == nil {
+		return ex
+	}
+
+	return out
+}
 
 type NestedExpr interface {
-	types.FuncArg
+	Expression
 
 	IsNullable() bool
 	TypeVariation() uint32
@@ -693,17 +789,131 @@ type MapExpr struct {
 	KeyValues        []struct{ Key, Value Expression }
 }
 
-func (m *MapExpr) IsNullable() bool      { return m.Nullable }
-func (m *MapExpr) TypeVariation() uint32 { return m.TypeVariationRef }
+func (ex *MapExpr) IsNullable() bool      { return ex.Nullable }
+func (ex *MapExpr) TypeVariation() uint32 { return ex.TypeVariationRef }
 
-func (ex *MapExpr) String() string                          {}
-func (ex *MapExpr) ToProtoFuncArg() *proto.FunctionArgument {}
-func (ex *MapExpr) isRootRef()                              {}
-func (ex *MapExpr) IsScalar() bool                          {}
-func (ex *MapExpr) GetType() types.Type                     {}
-func (ex *MapExpr) ToProto() *proto.Expression              {}
-func (ex *MapExpr) Equals(Expression) bool                  {}
-func (ex *MapExpr) Visit(VisitFunc) Expression              {}
+func (ex *MapExpr) String() string {
+	var b strings.Builder
+	b.WriteString("{")
+
+	for i, kv := range ex.KeyValues {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(kv.Key.String())
+		b.WriteString(" => ")
+		b.WriteString(kv.Value.String())
+	}
+
+	b.WriteString("}")
+	if ex.Nullable {
+		b.WriteString("?")
+	}
+	fmt.Fprintf(&b, "(typeref=%d)", ex.TypeVariationRef)
+	return b.String()
+}
+
+func (ex *MapExpr) ToProtoFuncArg() *proto.FunctionArgument {
+	return &proto.FunctionArgument{
+		ArgType: &proto.FunctionArgument_Value{
+			Value: ex.ToProto(),
+		},
+	}
+}
+
+func (ex *MapExpr) isRootRef() {}
+
+func (ex *MapExpr) IsScalar() bool {
+	for _, kv := range ex.KeyValues {
+		if !kv.Key.IsScalar() || !kv.Value.IsScalar() {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (ex *MapExpr) GetType() types.Type {
+	// there *should* be at least one element in the keyvalues,
+	// otherwise an EmptyMap literal should be used in order
+	// to ensure type information is not lost
+	return &types.MapType{
+		Nullability:      getNullability(ex.Nullable),
+		TypeVariationRef: ex.TypeVariationRef,
+		Key:              ex.KeyValues[0].Key.GetType(),
+		Value:            ex.KeyValues[0].Value.GetType(),
+	}
+}
+
+func (ex *MapExpr) ToProto() *proto.Expression {
+	kvs := make([]*proto.Expression_Nested_Map_KeyValue, len(ex.KeyValues))
+	for i, kv := range ex.KeyValues {
+		kvs[i] = &proto.Expression_Nested_Map_KeyValue{
+			Key:   kv.Key.ToProto(),
+			Value: kv.Value.ToProto(),
+		}
+	}
+	return &proto.Expression{
+		RexType: &proto.Expression_Nested_{
+			Nested: &proto.Expression_Nested{
+				Nullable:               ex.Nullable,
+				TypeVariationReference: ex.TypeVariationRef,
+				NestedType: &proto.Expression_Nested_Map_{
+					Map: &proto.Expression_Nested_Map{
+						KeyValues: kvs,
+					},
+				},
+			},
+		},
+	}
+}
+
+func (ex *MapExpr) Equals(other Expression) bool {
+	rhs, ok := other.(*MapExpr)
+	if !ok {
+		return false
+	}
+
+	if ex.Nullable != rhs.Nullable || ex.TypeVariationRef != rhs.TypeVariationRef {
+		return false
+	}
+
+	return slices.EqualFunc(ex.KeyValues, rhs.KeyValues,
+		func(l, r struct{ Key, Value Expression }) bool {
+			return l.Key.Equals(r.Key) && l.Value.Equals(r.Value)
+		})
+}
+
+func (ex *MapExpr) Visit(visit VisitFunc) Expression {
+	var out *MapExpr
+	for i, kv := range ex.KeyValues {
+		afterKey := visit(kv.Key)
+		afterValue := visit(kv.Value)
+
+		if out == nil && (afterKey != kv.Key || afterValue != kv.Value) {
+			out = &MapExpr{
+				Nullable:         ex.Nullable,
+				TypeVariationRef: ex.TypeVariationRef,
+				KeyValues: make([]struct {
+					Key   Expression
+					Value Expression
+				}, len(ex.KeyValues)),
+			}
+			copy(out.KeyValues, ex.KeyValues[:i])
+		}
+
+		if out != nil {
+			out.KeyValues[i].Key = afterKey
+			out.KeyValues[i].Value = afterValue
+		}
+	}
+
+	if out != nil {
+		return out
+	}
+
+	return ex
+}
 
 type StructExpr struct {
 	Nullable         bool
@@ -711,17 +921,110 @@ type StructExpr struct {
 	Fields           []Expression
 }
 
-func (s *StructExpr) IsNullable() bool      { return s.Nullable }
-func (s *StructExpr) TypeVariation() uint32 { return s.TypeVariationRef }
+func (ex *StructExpr) IsNullable() bool      { return ex.Nullable }
+func (ex *StructExpr) TypeVariation() uint32 { return ex.TypeVariationRef }
 
-func (ex *StructExpr) String() string                          {}
-func (ex *StructExpr) ToProtoFuncArg() *proto.FunctionArgument {}
-func (ex *StructExpr) isRootRef()                              {}
-func (ex *StructExpr) IsScalar() bool                          {}
-func (ex *StructExpr) GetType() types.Type                     {}
-func (ex *StructExpr) ToProto() *proto.Expression              {}
-func (ex *StructExpr) Equals(Expression) bool                  {}
-func (ex *StructExpr) Visit(VisitFunc) Expression              {}
+func (ex *StructExpr) String() string {
+	var b strings.Builder
+	b.WriteString("{")
+	for i, f := range ex.Fields {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(f.String())
+	}
+	b.WriteString("}")
+	if ex.Nullable {
+		b.WriteString("?")
+	}
+	fmt.Fprintf(&b, "(typeref=%d)", ex.TypeVariationRef)
+	return b.String()
+}
+
+func (ex *StructExpr) ToProtoFuncArg() *proto.FunctionArgument {
+	return &proto.FunctionArgument{
+		ArgType: &proto.FunctionArgument_Value{
+			Value: ex.ToProto(),
+		},
+	}
+}
+func (ex *StructExpr) isRootRef() {}
+func (ex *StructExpr) IsScalar() bool {
+	for _, f := range ex.Fields {
+		if !f.IsScalar() {
+			return false
+		}
+	}
+	return true
+}
+
+func (ex *StructExpr) GetType() types.Type {
+	typs := make([]types.Type, len(ex.Fields))
+	for i, f := range ex.Fields {
+		typs[i] = f.GetType()
+	}
+	return &types.StructType{
+		Nullability:      getNullability(ex.Nullable),
+		TypeVariationRef: ex.TypeVariationRef,
+		Types:            typs,
+	}
+}
+
+func (ex *StructExpr) ToProto() *proto.Expression {
+	fields := make([]*proto.Expression, len(ex.Fields))
+	for i, f := range ex.Fields {
+		fields[i] = f.ToProto()
+	}
+	return &proto.Expression{
+		RexType: &proto.Expression_Nested_{
+			Nested: &proto.Expression_Nested{
+				Nullable:               ex.Nullable,
+				TypeVariationReference: ex.TypeVariationRef,
+				NestedType: &proto.Expression_Nested_Struct_{
+					Struct: &proto.Expression_Nested_Struct{
+						Fields: fields,
+					},
+				},
+			},
+		},
+	}
+}
+
+func (ex *StructExpr) Equals(other Expression) bool {
+	rhs, ok := other.(*StructExpr)
+	if !ok {
+		return false
+	}
+
+	return ex.Nullable == rhs.Nullable &&
+		ex.TypeVariationRef == rhs.TypeVariationRef &&
+		slices.EqualFunc(ex.Fields, rhs.Fields, exprEqual)
+}
+
+func (ex *StructExpr) Visit(visit VisitFunc) Expression {
+	var out *StructExpr
+	for i, f := range ex.Fields {
+		after := visit(f)
+		if out == nil && after != f {
+			out = &StructExpr{
+				Nullable:         ex.Nullable,
+				TypeVariationRef: ex.TypeVariationRef,
+				Fields:           make([]Expression, len(ex.Fields)),
+			}
+			copy(out.Fields, ex.Fields[:i])
+		}
+
+		if out != nil {
+			out.Fields[i] = after
+		}
+	}
+
+	if out == nil {
+		return ex
+	}
+
+	return out
+}
 
 type ListExpr struct {
 	Nullable         bool
@@ -729,17 +1032,113 @@ type ListExpr struct {
 	Values           []Expression
 }
 
-func (l *ListExpr) IsNullable() bool      { return l.Nullable }
-func (l *ListExpr) TypeVariation() uint32 { return l.TypeVariationRef }
+func (ex *ListExpr) IsNullable() bool      { return ex.Nullable }
+func (ex *ListExpr) TypeVariation() uint32 { return ex.TypeVariationRef }
 
-func (ex *ListExpr) String() string                          {}
-func (ex *ListExpr) ToProtoFuncArg() *proto.FunctionArgument {}
-func (ex *ListExpr) isRootRef()                              {}
-func (ex *ListExpr) IsScalar() bool                          {}
-func (ex *ListExpr) GetType() types.Type                     {}
-func (ex *ListExpr) ToProto() *proto.Expression              {}
-func (ex *ListExpr) Equals(Expression) bool                  {}
-func (ex *ListExpr) Visit(VisitFunc) Expression              {}
+func (ex *ListExpr) String() string {
+	var b strings.Builder
+	b.WriteString("[")
+	for i, v := range ex.Values {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(v.String())
+	}
+	b.WriteString("]")
+	if ex.Nullable {
+		b.WriteString("?")
+	}
+	fmt.Fprintf(&b, "(typeref=%d)", ex.TypeVariationRef)
+	return b.String()
+}
+
+func (ex *ListExpr) ToProtoFuncArg() *proto.FunctionArgument {
+	return &proto.FunctionArgument{
+		ArgType: &proto.FunctionArgument_Value{
+			Value: ex.ToProto(),
+		},
+	}
+}
+func (ex *ListExpr) isRootRef() {}
+
+func (ex *ListExpr) IsScalar() bool {
+	for _, v := range ex.Values {
+		if !v.IsScalar() {
+			return false
+		}
+	}
+	return true
+}
+
+func (ex *ListExpr) GetType() types.Type {
+	return &types.ListType{
+		Nullability:      getNullability(ex.Nullable),
+		TypeVariationRef: ex.TypeVariationRef,
+		// to specify an empty list, use an emptylist literal
+		// otherwise you will be missing type information.
+		// thus we should assume there's at least one value
+		Type: ex.Values[0].GetType(),
+	}
+}
+
+func (ex *ListExpr) ToProto() *proto.Expression {
+	vals := make([]*proto.Expression, len(ex.Values))
+	for i, v := range ex.Values {
+		vals[i] = v.ToProto()
+	}
+	return &proto.Expression{
+		RexType: &proto.Expression_Nested_{
+			Nested: &proto.Expression_Nested{
+				Nullable:               ex.Nullable,
+				TypeVariationReference: ex.TypeVariationRef,
+				NestedType: &proto.Expression_Nested_List_{
+					List: &proto.Expression_Nested_List{
+						Values: vals,
+					},
+				},
+			},
+		},
+	}
+}
+
+func (ex *ListExpr) Equals(other Expression) bool {
+	rhs, ok := other.(*ListExpr)
+	if !ok {
+		return false
+	}
+
+	if ex.Nullable != rhs.Nullable || ex.TypeVariationRef != rhs.TypeVariationRef {
+		return false
+	}
+
+	return slices.EqualFunc(ex.Values, rhs.Values, exprEqual)
+}
+
+func (ex *ListExpr) Visit(visit VisitFunc) Expression {
+	var out *ListExpr
+	for i, v := range ex.Values {
+		after := visit(v)
+
+		if out == nil && after != v {
+			out = &ListExpr{
+				Nullable:         ex.Nullable,
+				TypeVariationRef: ex.TypeVariationRef,
+				Values:           make([]Expression, len(ex.Values)),
+			}
+			copy(out.Values, ex.Values[:i])
+		}
+
+		if out != nil {
+			out.Values[i] = after
+		}
+	}
+
+	if out != nil {
+		return out
+	}
+
+	return ex
+}
 
 type ExpressionReference struct {
 	OutputNames []string
