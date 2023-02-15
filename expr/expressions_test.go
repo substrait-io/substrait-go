@@ -3,7 +3,10 @@
 package expr_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -13,8 +16,10 @@ import (
 	ext "github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/proto"
 	"github.com/substrait-io/substrait-go/types"
+	"github.com/substrait-io/substrait-go/types/parser"
 	"google.golang.org/protobuf/encoding/protojson"
 	pb "google.golang.org/protobuf/proto"
+	"gopkg.in/yaml.v3"
 )
 
 const sampleYAML = `---
@@ -76,6 +81,7 @@ func ExampleExpression_scalarFunction() {
 		  "outputType": {"i32": {}},
 		  "arguments": [
 			{"value": {"selection": {
+				"rootReference": {},
 				"directReference": {"structField": {"field": 0}}}}},
 			{"value": {"literal": {"fp64": 10}}}
 		  ]
@@ -218,6 +224,13 @@ func TestExpressionsRoundtrip(t *testing.T) {
 					"functionAnchor": 4,
 					"name": "multiply"
 				}
+			},
+			{
+				"extensionFunction": {
+					"extensionUriReference": 1,
+					"functionAnchor": 5,
+					"name": "ntile"
+				}
 			}
 		],
 		"relations": []
@@ -235,9 +248,6 @@ func TestExpressionsRoundtrip(t *testing.T) {
 
 	tests := []expr.Expression{
 		sampleNestedExpr(substraitExtURI),
-		// TODO: add more nested field tests after parsing is implemented
-		//       which will make it easier to generate nested expressions
-		//       to test with.
 	}
 
 	for _, exp := range tests {
@@ -288,4 +298,89 @@ func ExampleExpression_Visit() {
 	// multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2)) => i64
 	// subtract(.field(3), multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2)) => i64) => fp32
 	// add(fp64(1), subtract(.field(3), multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2)) => i64) => fp32) => fp64
+}
+
+func TestRoundTripUsingTestData(t *testing.T) {
+	f, err := os.Open("./testdata/expressions.yaml")
+	require.NoError(t, err)
+	defer f.Close()
+
+	dec := yaml.NewDecoder(f)
+	var tmp map[string]any
+	require.NoError(t, dec.Decode(&tmp))
+
+	var (
+		emptyCollection ext.Collection
+		typeParser, _   = parser.New()
+		protoSchema     proto.NamedStruct
+	)
+
+	raw, err := json.Marshal(tmp["baseSchema"])
+	require.NoError(t, err)
+	require.NoError(t, protojson.Unmarshal(raw, &protoSchema))
+	baseSchema := types.NewNamedStructFromProto(&protoSchema)
+
+	for _, tc := range tmp["cases"].([]any) {
+		tt := tc.(map[string]any)
+		t.Run(tt["name"].(string), func(t *testing.T) {
+			test := tt["__test"].(map[string]any)
+
+			var buf bytes.Buffer
+			enc := json.NewEncoder(&buf)
+			require.NoError(t, enc.Encode(tt["expression"]))
+			var ex proto.Expression
+			require.NoError(t, protojson.Unmarshal(buf.Bytes(), &ex))
+
+			e, err := expr.ExprFromProto(&ex, &baseSchema.Struct, nil, &emptyCollection)
+			require.NoError(t, err)
+
+			result := e.ToProto()
+			assert.Truef(t, pb.Equal(&ex, result), "expected: %s\ngot: %s", &ex, result)
+
+			assert.True(t, e.Equals(e))
+
+			if typTest, ok := test["type"].(string); ok {
+				exp, err := typeParser.ParseString(typTest)
+				require.NoError(t, err)
+
+				assert.Equal(t, exp.String(), e.GetType().String())
+			}
+
+			strvalue, ok := test["string"].(string)
+			if ok {
+				strvalue = strings.TrimSpace(strvalue)
+				t.Run("tostring", func(t *testing.T) {
+					assert.Equal(t, strvalue, e.String())
+				})
+			}
+		})
+	}
+}
+
+func TestRoundTripExtendedExpression(t *testing.T) {
+	f, err := os.Open("./testdata/extended_exprs.yaml")
+	require.NoError(t, err)
+	defer f.Close()
+
+	dec := yaml.NewDecoder(f)
+	var tmp map[string]any
+	require.NoError(t, dec.Decode(&tmp))
+
+	var emptyCollection ext.Collection
+
+	for _, tc := range tmp["tests"].([]any) {
+		tt := tc.(map[string]any)
+
+		var buf bytes.Buffer
+		enc := json.NewEncoder(&buf)
+		require.NoError(t, enc.Encode(tt))
+		var ex proto.ExtendedExpression
+		require.NoError(t, protojson.Unmarshal(buf.Bytes(), &ex))
+
+		result, err := expr.ExtendedFromProto(&ex, &emptyCollection)
+		require.NoError(t, err)
+
+		out := result.ToProto()
+		assert.Truef(t, pb.Equal(&ex, out), "expected: %s\ngot: %s", &ex, out)
+	}
 }

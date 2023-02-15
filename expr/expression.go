@@ -53,12 +53,18 @@ func ExprFromProto(e *proto.Expression, baseSchema types.Type, ext ExtensionLook
 			}
 		}
 
-		id, ok := ext.DecodeFunc(et.ScalarFunction.FunctionReference)
-		if !ok {
-			return nil, substraitgo.ErrNotFound
-		}
+		var (
+			id   extensions.ID
+			decl *extensions.ScalarFunctionVariant
+		)
+		if ext != nil {
+			var ok bool
+			if id, ok = ext.DecodeFunc(et.ScalarFunction.FunctionReference); !ok {
+				return nil, substraitgo.ErrNotFound
+			}
 
-		decl, _ := ext.LookupScalarFunction(et.ScalarFunction.FunctionReference, c)
+			decl, _ = ext.LookupScalarFunction(et.ScalarFunction.FunctionReference, c)
+		}
 		return &ScalarFunction{
 			FuncRef:     et.ScalarFunction.FunctionReference,
 			Declaration: decl,
@@ -90,12 +96,18 @@ func ExprFromProto(e *proto.Expression, baseSchema types.Type, ext ExtensionLook
 			}
 		}
 
-		id, ok := ext.DecodeFunc(et.WindowFunction.FunctionReference)
-		if !ok {
-			return nil, substraitgo.ErrNotFound
-		}
+		var (
+			id   extensions.ID
+			decl *extensions.WindowFunctionVariant
+		)
+		if ext != nil {
+			var ok bool
+			if id, ok = ext.DecodeFunc(et.WindowFunction.FunctionReference); !ok {
+				return nil, substraitgo.ErrNotFound
+			}
 
-		decl, _ := ext.LookupWindowFunction(et.WindowFunction.FunctionReference, c)
+			decl, _ = ext.LookupWindowFunction(et.WindowFunction.FunctionReference, c)
+		}
 		return &WindowFunction{
 			FuncRef:     et.WindowFunction.FunctionReference,
 			ID:          id,
@@ -403,8 +415,10 @@ func (ex *IfThen) GetType() types.Type {
 func (ex *IfThen) ToProto() *proto.Expression {
 	ifthenClauses := make([]*proto.Expression_IfThen_IfClause, len(ex.IFs))
 	for i, c := range ex.IFs {
-		ifthenClauses[i].If = c.If.ToProto()
-		ifthenClauses[i].Then = c.Then.ToProto()
+		ifthenClauses[i] = &proto.Expression_IfThen_IfClause{
+			If:   c.If.ToProto(),
+			Then: c.Then.ToProto(),
+		}
 	}
 
 	var elseClause *proto.Expression
@@ -581,9 +595,29 @@ func (ex *SwitchExpr) IsScalar() bool {
 }
 
 func (ex *SwitchExpr) GetType() types.Type {
-	if len(ex.IFs) > 0 {
-		return ex.IFs[0].Then.GetType()
+	var t types.Type
+	for _, cond := range ex.IFs {
+		t = cond.Then.GetType()
+		// check if any of the branches return a nullable type
+		// only return a non-nullable if *all* branches return
+		// non-nullable
+		if t.GetNullability() == types.NullabilityNullable {
+			break
+		}
 	}
+
+	// if there's no else clause, then return a nullable type
+	if ex.Else == nil {
+		return t.WithNullability(types.NullabilityNullable)
+	}
+
+	// if any branch returns nullable, then return the nullable type
+	// we don't care if the else clause is nullable
+	if t.GetNullability() == types.NullabilityNullable {
+		return t
+	}
+
+	// if no branch returns nullable, just return the else clause type
 	return ex.Else.GetType()
 }
 
@@ -595,8 +629,10 @@ func (ex *SwitchExpr) ToProto() *proto.Expression {
 
 	cases := make([]*proto.Expression_SwitchExpression_IfValue, len(ex.IFs))
 	for i, c := range ex.IFs {
-		cases[i].If = c.If.ToProtoLiteral()
-		cases[i].Then = c.Then.ToProto()
+		cases[i] = &proto.Expression_SwitchExpression_IfValue{
+			If:   c.If.ToProtoLiteral(),
+			Then: c.Then.ToProto(),
+		}
 	}
 
 	return &proto.Expression{
@@ -731,7 +767,7 @@ func (ex *SingularOrList) IsScalar() bool {
 }
 
 func (ex *SingularOrList) GetType() types.Type {
-	return &types.BooleanType{Nullability: types.NullabilityNullable}
+	return &types.BooleanType{Nullability: types.NullabilityRequired}
 }
 
 func (ex *SingularOrList) ToProto() *proto.Expression {
@@ -809,7 +845,7 @@ func (ex *MultiOrList) String() string {
 	}
 
 	writeList(ex.Value)
-	b.WriteString("IN [")
+	b.WriteString(" IN [")
 	for i, opts := range ex.Options {
 		if i != 0 {
 			b.WriteString(", ")
@@ -850,7 +886,7 @@ func (ex *MultiOrList) IsScalar() bool {
 }
 
 func (ex *MultiOrList) GetType() types.Type {
-	return &types.BooleanType{Nullability: types.NullabilityNullable}
+	return &types.BooleanType{Nullability: types.NullabilityRequired}
 }
 
 func (ex *MultiOrList) ToProto() *proto.Expression {

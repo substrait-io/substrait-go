@@ -3,6 +3,7 @@
 package expr
 
 import (
+	"fmt"
 	"strings"
 
 	substraitgo "github.com/substrait-io/substrait-go"
@@ -307,14 +308,77 @@ func (w *WindowFunction) String() string {
 		b.WriteString(arg.String())
 	}
 
-	b.WriteString(") => ")
-	b.WriteString(w.OutputType.String())
+	if len(w.Sorts) > 0 {
+		b.WriteString("; sort: [")
+		for i, s := range w.Sorts {
+			if i != 0 {
+				b.WriteString(",")
+			}
+			fmt.Fprintf(&b, "{expr: %s, %s}", s.Expr, s.Kind.String())
+		}
+		b.WriteString("]")
+	}
+
+	if len(w.Options) > 0 {
+		b.WriteString("; [options: {")
+		for i, opt := range w.Options {
+			if i != 0 {
+				b.WriteString(", ")
+			}
+			fmt.Fprintf(&b, "%s => %v", opt.Name, opt.Preference)
+		}
+		b.WriteString("}]")
+	}
+
+	if len(w.Partitions) > 0 {
+		b.WriteString("; partitions: [")
+		for i, part := range w.Partitions {
+			if i != 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(part.String())
+		}
+		b.WriteString("]")
+	}
+
+	fmt.Fprintf(&b, "; phase: %s, invocation: %s) => %s",
+		w.Phase, w.Invocation, w.OutputType)
 
 	return b.String()
 }
 
-func (w *WindowFunction) GetType() types.Type        { return w.OutputType }
-func (w *WindowFunction) Equals(rhs Expression) bool { return false }
+func (w *WindowFunction) GetType() types.Type { return w.OutputType }
+func (w *WindowFunction) Equals(other Expression) bool {
+	rhs, ok := other.(*WindowFunction)
+	if !ok {
+		return false
+	}
+
+	switch {
+	case w.FuncRef != rhs.FuncRef:
+		return false
+	case !w.OutputType.Equals(rhs.OutputType):
+		return false
+	case w.Phase != rhs.Phase || w.Invocation != rhs.Invocation:
+		return false
+	case w.LowerBound != rhs.LowerBound || w.UpperBound != rhs.UpperBound:
+		return false
+	case !slices.EqualFunc(w.Options, rhs.Options, func(l, r *types.FunctionOption) bool {
+		return l.Name == r.Name && slices.Equal(l.Preference, r.Preference)
+	}):
+		return false
+	case !slices.EqualFunc(w.Partitions, rhs.Partitions, exprEqual):
+		return false
+	case !slices.EqualFunc(w.Sorts, rhs.Sorts, func(l, r SortField) bool {
+		return l.Expr.Equals(r.Expr) && l.Kind == r.Kind
+	}):
+		return false
+	case !slices.EqualFunc(w.Args, rhs.Args, FuncArgsEqual):
+		return false
+	}
+
+	return true
+}
 
 func (w *WindowFunction) ToProto() *proto.Expression {
 	var (
@@ -426,6 +490,10 @@ type AggregateFunction struct {
 }
 
 func NewAggregateFunctionFromProto(agg *proto.AggregateFunction, baseSchema types.Type, ext extensions.Set, c *extensions.Collection) (*AggregateFunction, error) {
+	if agg.OutputType == nil {
+		return nil, fmt.Errorf("%w: missing output type", substraitgo.ErrInvalidExpr)
+	}
+
 	var err error
 	args := make([]types.FuncArg, len(agg.Arguments))
 	for i, a := range agg.Arguments {

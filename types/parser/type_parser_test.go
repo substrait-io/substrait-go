@@ -23,7 +23,7 @@ func TestParser(t *testing.T) {
 		{"decimal<10,5>", "decimal<10, 5>"},
 		{"list<decimal<10,5>>", "list<decimal<10, 5>>"},
 		{"struct<i16?,i32>", "struct<i16?, i32>"},
-		{"map<boolean?,struct<i16?,i32?,i64?>?>?", "map<boolean?, struct<i16?, i32?, i64?>?>?"},
+		{"map<boolean?,struct<i16?,i32?,i64?>?>?", "map<boolean?,struct<i16?, i32?, i64?>?>?"},
 	}
 
 	p, err := parser.New()

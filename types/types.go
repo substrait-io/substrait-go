@@ -5,6 +5,7 @@ package types
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/substrait-io/substrait-go/proto"
@@ -49,9 +50,13 @@ const (
 	SortClustered      = SortDirection(proto.SortField_SORT_DIRECTION_CLUSTERED)
 )
 
+func (s SortDirection) String() string { return proto.SortField_SortDirection(s).String() }
+
 func (SortDirection) isSortKind() {}
 
 type FunctionRef uint32
+
+func (f FunctionRef) String() string { return "comparison_func_ref: " + strconv.Itoa(int(f)) }
 
 func (FunctionRef) isSortKind() {}
 
@@ -240,6 +245,7 @@ type (
 
 	SortKind interface {
 		isSortKind()
+		fmt.Stringer
 	}
 
 	// Type corresponds to the proto.Type message and represents
@@ -252,6 +258,9 @@ type (
 		GetNullability() Nullability
 		GetTypeVariationReference() uint32
 		Equals(Type) bool
+		// WithNullability returns a copy of this type but with
+		// the nullability set to the passed in value
+		WithNullability(Nullability) Type
 	}
 )
 
@@ -414,7 +423,13 @@ type PrimitiveType[T primitiveTypeIFace] struct {
 	TypeVariationRef uint32
 }
 
-func (*PrimitiveType[T]) isRootRef()                          {}
+func (*PrimitiveType[T]) isRootRef() {}
+func (s *PrimitiveType[T]) WithNullability(n Nullability) Type {
+	out := *s
+	out.Nullability = n
+	return &out
+}
+
 func (s *PrimitiveType[T]) GetType() Type                     { return s }
 func (s *PrimitiveType[T]) GetNullability() Nullability       { return s.Nullability }
 func (s *PrimitiveType[T]) GetTypeVariationReference() uint32 { return s.TypeVariationRef }
@@ -471,7 +486,13 @@ type FixedLenType[T FixedChar | VarChar | FixedBinary] struct {
 	Length           int32
 }
 
-func (*FixedLenType[T]) isRootRef()                          {}
+func (*FixedLenType[T]) isRootRef() {}
+func (s *FixedLenType[T]) WithNullability(n Nullability) Type {
+	out := *s
+	out.Nullability = n
+	return &out
+}
+
 func (s *FixedLenType[T]) GetType() Type                     { return s }
 func (s *FixedLenType[T]) GetNullability() Nullability       { return s.Nullability }
 func (s *FixedLenType[T]) GetTypeVariationReference() uint32 { return s.TypeVariationRef }
@@ -501,7 +522,13 @@ type DecimalType struct {
 	Scale, Precision int32
 }
 
-func (*DecimalType) isRootRef()                          {}
+func (*DecimalType) isRootRef() {}
+func (s *DecimalType) WithNullability(n Nullability) Type {
+	out := *s
+	out.Nullability = n
+	return &out
+}
+
 func (s *DecimalType) GetType() Type                     { return s }
 func (s *DecimalType) GetNullability() Nullability       { return s.Nullability }
 func (s *DecimalType) GetTypeVariationReference() uint32 { return s.TypeVariationRef }
@@ -538,7 +565,13 @@ type StructType struct {
 	Types            []Type
 }
 
-func (*StructType) isRootRef()                          {}
+func (*StructType) isRootRef() {}
+func (s *StructType) WithNullability(n Nullability) Type {
+	out := *s
+	out.Nullability = n
+	return &out
+}
+
 func (s *StructType) GetType() Type                     { return s }
 func (s *StructType) GetNullability() Nullability       { return s.Nullability }
 func (s *StructType) GetTypeVariationReference() uint32 { return s.TypeVariationRef }
@@ -603,7 +636,13 @@ type ListType struct {
 	Type Type
 }
 
-func (*ListType) isRootRef()                          {}
+func (*ListType) isRootRef() {}
+func (s *ListType) WithNullability(n Nullability) Type {
+	out := *s
+	out.Nullability = n
+	return &out
+}
+
 func (s *ListType) GetType() Type                     { return s }
 func (s *ListType) GetNullability() Nullability       { return s.Nullability }
 func (s *ListType) GetTypeVariationReference() uint32 { return s.TypeVariationRef }
@@ -645,7 +684,13 @@ type MapType struct {
 	Key, Value       Type
 }
 
-func (*MapType) isRootRef()                          {}
+func (*MapType) isRootRef() {}
+func (s *MapType) WithNullability(n Nullability) Type {
+	out := *s
+	out.Nullability = n
+	return &out
+}
+
 func (s *MapType) GetType() Type                     { return s }
 func (s *MapType) GetNullability() Nullability       { return s.Nullability }
 func (s *MapType) GetTypeVariationReference() uint32 { return s.TypeVariationRef }
@@ -810,7 +855,13 @@ type UserDefinedType struct {
 	TypeParameters   []TypeParam
 }
 
-func (*UserDefinedType) isRootRef()                          {}
+func (*UserDefinedType) isRootRef() {}
+func (s *UserDefinedType) WithNullability(n Nullability) Type {
+	out := *s
+	out.Nullability = n
+	return &out
+}
+
 func (s *UserDefinedType) GetType() Type                     { return s }
 func (s *UserDefinedType) GetNullability() Nullability       { return s.Nullability }
 func (s *UserDefinedType) GetTypeVariationReference() uint32 { return s.TypeVariationRef }

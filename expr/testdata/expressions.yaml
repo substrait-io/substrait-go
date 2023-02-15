@@ -1,0 +1,231 @@
+name: tests
+baseSchema:
+  names: [a, b, c, d]
+  struct:
+    nullability: NULLABILITY_REQUIRED
+    types:
+      - i32: { nullability: NULLABILITY_REQUIRED }
+      - i8: { nullability: NULLABILITY_REQUIRED }
+      - i16: { nullability: NULLABILITY_REQUIRED }
+      - i16: { nullability: NULLABILITY_NULLABLE }
+cases:
+  - name: scalar-func
+    __test:
+      type: fp64
+      string: |
+        (fp64(1), (.field(3) => i16?, (i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64) => fp32) => fp64
+    expression:
+      scalarFunction:
+        functionReference: 2
+        arguments:
+          - value:
+              literal: { fp64: 1.0 }
+          - value:
+              scalarFunction:
+                functionReference: 3
+                outputType: { fp32: {} }
+                arguments:
+                  - value:
+                      selection:
+                        rootReference: {}
+                        directReference: { structField: { field: 3 }}
+                  - value:
+                      scalarFunction:
+                        functionReference: 4
+                        outputType: { i64: {} }
+                        arguments:
+                          - value: { literal: { i64: 2 } }
+                          - value:
+                              selection:
+                                expression:
+                                  literal:
+                                    struct:
+                                      fields:
+                                        - { binary: "YmF6", nullable: true }
+                                        - { string: "foobar", nullable: false }
+                                        - { i32: 5, nullable: false }
+                                directReference: { structField: { field: 2 } }
+        outputType: { fp64: {} }
+  - name: window-func
+    __test:
+      type: i32?
+      string: |
+        (.field(1) => i8; sort: [{expr: <IfThen>((.field(0) => i32) ?.field(1) => i8)<Else>(i32(1)), SORT_DIRECTION_CLUSTERED}]; [options: {DECOMPOSABLE => [NONE]}]; partitions: [.field(2) => i16]; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_ALL) => i32?
+    expression:
+      windowFunction:
+        functionReference: 5
+        outputType: { i32: { nullability: "NULLABILITY_NULLABLE" } }
+        options:
+          - name: "DECOMPOSABLE"
+            preference: ["NONE"]
+        arguments:
+          - value:
+              selection:
+                rootReference: {}
+                directReference: { structField: { field: 1 } }
+        phase: "AGGREGATION_PHASE_INITIAL_TO_RESULT"
+        invocation: "AGGREGATION_INVOCATION_ALL"
+        sorts:
+          - direction: "SORT_DIRECTION_CLUSTERED"
+            expr:
+              ifThen:
+                ifs:
+                  - if:
+                      selection:
+                        rootReference: {}
+                        directReference: { structField: { field: 0 } }
+                    then:
+                      selection:
+                        rootReference: {}
+                        directReference: { structField: { field: 1 } }
+                else:
+                  literal: { i32: 1, nullable: false }
+        lowerBound: { unbounded: {} }
+        upperBound: { currentRow: {} }
+        partitions:
+          - selection:
+              rootReference: {}
+              directReference: { structField: { field: 2 } }
+  - name: ifthen
+    __test: { type: "i8" }
+    expression:
+      ifThen:
+        ifs:
+          - if:
+              selection:
+                rootReference: {}
+                directReference: { structField: { field: 0 } }
+            then:
+              selection:
+                rootReference: {}
+                directReference: { structField: { field: 1 } }
+        else:
+          selection:
+            rootReference: {}
+            directReference: { structField: { field: 1 } }
+  - name: switch-expr
+    __test: { type: "i16?"}
+    expression:
+      switchExpression:
+        match:
+          selection:
+            rootReference: {}
+            directReference: { structField: { field: 0 }}
+        ifs:
+          - if: { i32: 0 }
+            then:
+              selection:
+                rootReference: {}
+                directReference: { structField: { field: 2 }}
+          - if: { i32: 1 }
+            then:
+              selection:
+                rootReference: {}
+                directReference: { structField: { field: 3 } }
+        else:
+          selection:
+            rootReference: {}
+            directReference: { structField: { field: 2 } }
+  - name: singular-or-list
+    __test: 
+      type: "boolean"
+      string: |
+        .field(2) => i16 IN [i16(1),i16(2),i16(3)]
+    expression:
+      singularOrList:
+        value:
+          selection:
+            rootReference: {}
+            directReference: { structField: { field: 2 } }
+        options:
+          - literal: { i16: 1 }
+          - literal: { i16: 2 }
+          - literal: { i16: 3 }
+  - name: multi-or-list
+    __test: 
+      type: "boolean"
+      string: |
+        [.field(1) => i8, .field(2) => i16] IN [[i8(1), i16(2)], [i8(3), i16(4)], [i8(5), i16(6)]]
+    expression:
+      multiOrList:
+        value:
+          - selection:
+              rootReference: {}
+              directReference: { structField: { field: 1 }}
+          - selection:
+              rootReference: {}
+              directReference: { structField: { field: 2  }}
+        options:
+          - fields:
+            - literal: { i8: 1 }
+            - literal: { i16: 2 }
+          - fields:
+            - literal: { i8: 3 }
+            - literal: { i16: 4 }
+          - fields:
+            - literal: { i8: 5 }
+            - literal: { i16: 6 }
+  - name: nested-map-expr
+    __test: { type: "map<i8,i16>?" }
+    expression:
+      nested:
+        nullable: true
+        map:
+          keyValues:
+            - key:
+                literal: { i8: 1 }
+              value:
+                selection:
+                  rootReference: {}
+                  directReference: { structField: { field: 2 }}
+            - key:
+                selection:
+                  rootReference: {}
+                  directReference: { structField: { field: 1 }}
+              value:
+                literal: { i16: 2 }
+            - key:
+                selection:
+                  rootReference: {}
+                  directReference: { structField: { field: 0 }}
+              value:
+                selection:
+                  rootReference: {}
+                  directReference: { structField: { field: 3  }}
+  - name: nested-struct-expr
+    __test: { type: "struct<fp32, i32, fp64, i16?>" }
+    expression:
+      nested:
+        nullable: false
+        struct:
+          fields:
+            - literal: { fp32: 1.5 }
+            - selection:
+                rootReference: {}
+                directReference: { structField: { field: 0 } }
+            - literal: { fp64: 1.5 }
+            - selection:
+                rootReference: {}
+                directReference: { structField: { field: 3 } }
+  - name: nested-list-expr
+    __test: { type: "list<i16?>?" }
+    expression:
+      nested:
+        nullable: true
+        list:
+          values:
+            - selection:
+                rootReference: {}
+                directReference: { structField: { field: 3 } }
+            - literal: { i16: 1 }
+  - name: cast
+    __test: 
+      type: i64
+      string: |
+        cast(i16(6) AS i64, fail: FAILURE_BEHAVIOR_RETURN_NULL)
+    expression:
+      cast:
+        type: { i64: {} }
+        failureBehavior: FAILURE_BEHAVIOR_RETURN_NULL
+        input:
+          literal: { i16: 6 }
