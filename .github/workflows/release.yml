@@ -32,4 +32,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          docker run nightapes/go-semantic-release:2.1.0 release -l trace
+          docker run -v "$(pwd)":/code nightapes/go-semantic-release:2.1.0 release -l trace
