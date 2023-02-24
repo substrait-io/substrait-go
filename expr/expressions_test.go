@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"testing"
 
@@ -237,8 +238,8 @@ func TestExpressionsRoundtrip(t *testing.T) {
 	}`
 
 	var (
-		plan            proto.Plan
-		emptyCollection ext.Collection
+		plan proto.Plan
+		// emptyCollection ext.Collection
 	)
 	if err := protojson.Unmarshal([]byte(planExt), &plan); err != nil {
 		panic(err)
@@ -252,7 +253,7 @@ func TestExpressionsRoundtrip(t *testing.T) {
 
 	for _, exp := range tests {
 		protoExpr := exp.ToProto()
-		out, err := expr.ExprFromProto(protoExpr, nil, extSet, &emptyCollection)
+		out, err := expr.ExprFromProto(protoExpr, nil, extSet, nil)
 		require.NoError(t, err)
 		assert.Truef(t, exp.Equals(out), "expected: %s\ngot: %s", exp, out)
 	}
@@ -310,9 +311,8 @@ func TestRoundTripUsingTestData(t *testing.T) {
 	require.NoError(t, dec.Decode(&tmp))
 
 	var (
-		emptyCollection ext.Collection
-		typeParser, _   = parser.New()
-		protoSchema     proto.NamedStruct
+		typeParser, _ = parser.New()
+		protoSchema   proto.NamedStruct
 	)
 
 	raw, err := json.Marshal(tmp["baseSchema"])
@@ -331,7 +331,7 @@ func TestRoundTripUsingTestData(t *testing.T) {
 			var ex proto.Expression
 			require.NoError(t, protojson.Unmarshal(buf.Bytes(), &ex))
 
-			e, err := expr.ExprFromProto(&ex, &baseSchema.Struct, nil, &emptyCollection)
+			e, err := expr.ExprFromProto(&ex, &baseSchema.Struct, nil, nil)
 			require.NoError(t, err)
 
 			result := e.ToProto()
@@ -366,7 +366,7 @@ func TestRoundTripExtendedExpression(t *testing.T) {
 	var tmp map[string]any
 	require.NoError(t, dec.Decode(&tmp))
 
-	var emptyCollection ext.Collection
+	// var emptyCollection ext.Collection
 
 	for _, tc := range tmp["tests"].([]any) {
 		tt := tc.(map[string]any)
@@ -377,10 +377,18 @@ func TestRoundTripExtendedExpression(t *testing.T) {
 		var ex proto.ExtendedExpression
 		require.NoError(t, protojson.Unmarshal(buf.Bytes(), &ex))
 
-		result, err := expr.ExtendedFromProto(&ex, &emptyCollection)
+		result, err := expr.ExtendedFromProto(&ex, nil)
 		require.NoError(t, err)
 
 		out := result.ToProto()
+		// because we read the extensions into a map, we can't guarantee
+		// the order of the extensions. But we also don't care about the
+		// order, so we can just sort them by functionAnchor to ensure
+		// they match for pb.Equal
+		sort.Slice(out.Extensions, func(i, j int) bool {
+			return out.Extensions[i].GetExtensionFunction().FunctionAnchor <
+				out.Extensions[j].GetExtensionFunction().FunctionAnchor
+		})
 		assert.Truef(t, pb.Equal(&ex, out), "expected: %s\ngot: %s", &ex, out)
 	}
 }

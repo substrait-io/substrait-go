@@ -509,12 +509,24 @@ func NewAggregateFunctionFromProto(agg *proto.AggregateFunction, baseSchema type
 		}
 	}
 
-	id, ok := ext.DecodeFunc(agg.FunctionReference)
-	if !ok {
-		return nil, substraitgo.ErrNotFound
+	var (
+		id   extensions.ID
+		decl *extensions.AggregateFunctionVariant
+		ok   bool
+	)
+
+	if ext != nil {
+		if id, ok = ext.DecodeFunc(agg.FunctionReference); !ok {
+			return nil, substraitgo.ErrNotFound
+		}
 	}
 
-	decl, _ := ext.LookupAggregateFunction(agg.FunctionReference, c)
+	if c != nil {
+		if decl, ok = ext.LookupAggregateFunction(agg.FunctionReference, c); !ok {
+			return nil, substraitgo.ErrNotFound
+		}
+	}
+
 	return &AggregateFunction{
 		FuncRef:     agg.FunctionReference,
 		ID:          id,

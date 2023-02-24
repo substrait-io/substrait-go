@@ -36,7 +36,7 @@ func FuncArgFromProto(e *proto.FunctionArgument, baseSchema types.Type, ext Exte
 
 func ExprFromProto(e *proto.Expression, baseSchema types.Type, ext ExtensionLookup, c *extensions.Collection) (Expression, error) {
 	if e == nil {
-		return nil, nil
+		return nil, fmt.Errorf("%w: protobuf Expression is nil", substraitgo.ErrInvalidExpr)
 	}
 
 	switch et := e.RexType.(type) {
@@ -56,15 +56,21 @@ func ExprFromProto(e *proto.Expression, baseSchema types.Type, ext ExtensionLook
 		var (
 			id   extensions.ID
 			decl *extensions.ScalarFunctionVariant
+			ok   bool
 		)
+
 		if ext != nil {
-			var ok bool
 			if id, ok = ext.DecodeFunc(et.ScalarFunction.FunctionReference); !ok {
 				return nil, substraitgo.ErrNotFound
 			}
-
-			decl, _ = ext.LookupScalarFunction(et.ScalarFunction.FunctionReference, c)
 		}
+
+		if c != nil {
+			if decl, ok = ext.LookupScalarFunction(et.ScalarFunction.FunctionReference, c); !ok {
+				return nil, substraitgo.ErrNotFound
+			}
+		}
+
 		return &ScalarFunction{
 			FuncRef:     et.ScalarFunction.FunctionReference,
 			Declaration: decl,
@@ -99,15 +105,21 @@ func ExprFromProto(e *proto.Expression, baseSchema types.Type, ext ExtensionLook
 		var (
 			id   extensions.ID
 			decl *extensions.WindowFunctionVariant
+			ok   bool
 		)
+
 		if ext != nil {
-			var ok bool
 			if id, ok = ext.DecodeFunc(et.WindowFunction.FunctionReference); !ok {
 				return nil, substraitgo.ErrNotFound
 			}
-
-			decl, _ = ext.LookupWindowFunction(et.WindowFunction.FunctionReference, c)
 		}
+
+		if c != nil {
+			if decl, ok = ext.LookupWindowFunction(et.WindowFunction.FunctionReference, c); !ok {
+				return nil, substraitgo.ErrNotFound
+			}
+		}
+
 		return &WindowFunction{
 			FuncRef:     et.WindowFunction.FunctionReference,
 			ID:          id,
