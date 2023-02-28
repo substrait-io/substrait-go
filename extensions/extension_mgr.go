@@ -7,10 +7,11 @@ import (
 	"io"
 
 	substraitgo "github.com/substrait-io/substrait-go"
-	"github.com/substrait-io/substrait-go/proto"
 	"github.com/substrait-io/substrait-go/proto/extensions"
 	"gopkg.in/yaml.v3"
 )
+
+type AdvancedExtension = extensions.AdvancedExtension
 
 type ID struct {
 	URI, Name string
@@ -178,6 +179,8 @@ type Set interface {
 	GetTypeAnchor(id ID) uint32
 	GetFuncAnchor(id ID) uint32
 	GetTypeVariationAnchor(id ID) uint32
+
+	ToProto() ([]*extensions.SimpleExtensionURI, []*extensions.SimpleExtensionDeclaration)
 }
 
 func NewSet() Set {
@@ -203,6 +206,57 @@ type set struct {
 
 	funcMap map[uint32]ID
 	funcs   map[ID]uint32
+}
+
+func (e *set) ToProto() ([]*extensions.SimpleExtensionURI, []*extensions.SimpleExtensionDeclaration) {
+	backRef := make(map[string]uint32)
+	uris := make([]*extensions.SimpleExtensionURI, 0, len(e.uris))
+	for anchor, uri := range e.uris {
+		backRef[uri] = anchor
+		uris = append(uris, &extensions.SimpleExtensionURI{
+			ExtensionUriAnchor: anchor,
+			Uri:                uri,
+		})
+	}
+
+	decls := make([]*extensions.SimpleExtensionDeclaration, 0, len(e.types)+len(e.typeVariations)+len(e.funcs))
+	for id, anchor := range e.types {
+		decls = append(decls, &extensions.SimpleExtensionDeclaration{
+			MappingType: &extensions.SimpleExtensionDeclaration_ExtensionType_{
+				ExtensionType: &extensions.SimpleExtensionDeclaration_ExtensionType{
+					ExtensionUriReference: backRef[id.URI],
+					TypeAnchor:            anchor,
+					Name:                  id.Name,
+				},
+			},
+		})
+	}
+
+	for id, anchor := range e.typeVariations {
+		decls = append(decls, &extensions.SimpleExtensionDeclaration{
+			MappingType: &extensions.SimpleExtensionDeclaration_ExtensionTypeVariation_{
+				ExtensionTypeVariation: &extensions.SimpleExtensionDeclaration_ExtensionTypeVariation{
+					ExtensionUriReference: backRef[id.URI],
+					TypeVariationAnchor:   anchor,
+					Name:                  id.Name,
+				},
+			},
+		})
+	}
+
+	for id, anchor := range e.funcs {
+		decls = append(decls, &extensions.SimpleExtensionDeclaration{
+			MappingType: &extensions.SimpleExtensionDeclaration_ExtensionFunction_{
+				ExtensionFunction: &extensions.SimpleExtensionDeclaration_ExtensionFunction{
+					ExtensionUriReference: backRef[id.URI],
+					FunctionAnchor:        anchor,
+					Name:                  id.Name,
+				},
+			},
+		})
+	}
+
+	return uris, decls
 }
 
 func (e *set) LookupWindowFunction(anchor uint32, c *Collection) (sv *WindowFunctionVariant, ok bool) {
@@ -334,9 +388,14 @@ func (e *set) addURI(uri string) (uint32, error) {
 	return sz, nil
 }
 
-func GetExtensionSet(plan *proto.Plan) Set {
+type TopLevel interface {
+	GetExtensionUris() []*extensions.SimpleExtensionURI
+	GetExtensions() []*extensions.SimpleExtensionDeclaration
+}
+
+func GetExtensionSet(plan TopLevel) Set {
 	uris := make(map[uint32]string)
-	for _, uri := range plan.ExtensionUris {
+	for _, uri := range plan.GetExtensionUris() {
 		uris[uri.ExtensionUriAnchor] = uri.Uri
 	}
 
@@ -350,7 +409,7 @@ func GetExtensionSet(plan *proto.Plan) Set {
 		typeVariations:   make(map[ID]uint32),
 	}
 
-	for _, ext := range plan.Extensions {
+	for _, ext := range plan.GetExtensions() {
 		switch e := ext.MappingType.(type) {
 		case *extensions.SimpleExtensionDeclaration_ExtensionTypeVariation_:
 			etv := e.ExtensionTypeVariation

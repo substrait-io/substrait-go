@@ -323,7 +323,7 @@ type mapType struct {
 func (*mapType) ShortType() string { return "map" }
 
 func (m *mapType) String() string {
-	return "map<" + m.Key.Expr.String() + ", " + m.Value.Expr.String() + ">"
+	return "map<" + m.Key.Expr.String() + "," + m.Value.Expr.String() + ">"
 }
 
 func (t *mapType) Type(n types.Nullability) (types.Type, error) {

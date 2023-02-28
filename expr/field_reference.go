@@ -327,6 +327,10 @@ func (f *FieldReference) ToProtoFieldRef() *proto.Expression_FieldReference {
 				},
 			}
 		}
+	} else {
+		ret.RootType = &proto.Expression_FieldReference_RootReference_{
+			RootReference: &proto.Expression_FieldReference_RootReference{},
+		}
 	}
 
 	return ret

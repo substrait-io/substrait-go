@@ -3,6 +3,7 @@
 package expr
 
 import (
+	"fmt"
 	"strings"
 
 	substraitgo "github.com/substrait-io/substrait-go"
@@ -307,13 +308,77 @@ func (w *WindowFunction) String() string {
 		b.WriteString(arg.String())
 	}
 
-	b.WriteString(") => ")
-	b.WriteString(w.OutputType.String())
+	if len(w.Sorts) > 0 {
+		b.WriteString("; sort: [")
+		for i, s := range w.Sorts {
+			if i != 0 {
+				b.WriteString(",")
+			}
+			fmt.Fprintf(&b, "{expr: %s, %s}", s.Expr, s.Kind.String())
+		}
+		b.WriteString("]")
+	}
+
+	if len(w.Options) > 0 {
+		b.WriteString("; [options: {")
+		for i, opt := range w.Options {
+			if i != 0 {
+				b.WriteString(", ")
+			}
+			fmt.Fprintf(&b, "%s => %v", opt.Name, opt.Preference)
+		}
+		b.WriteString("}]")
+	}
+
+	if len(w.Partitions) > 0 {
+		b.WriteString("; partitions: [")
+		for i, part := range w.Partitions {
+			if i != 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(part.String())
+		}
+		b.WriteString("]")
+	}
+
+	fmt.Fprintf(&b, "; phase: %s, invocation: %s) => %s",
+		w.Phase, w.Invocation, w.OutputType)
 
 	return b.String()
 }
-func (w *WindowFunction) GetType() types.Type        { return w.OutputType }
-func (w *WindowFunction) Equals(rhs Expression) bool { return false }
+
+func (w *WindowFunction) GetType() types.Type { return w.OutputType }
+func (w *WindowFunction) Equals(other Expression) bool {
+	rhs, ok := other.(*WindowFunction)
+	if !ok {
+		return false
+	}
+
+	switch {
+	case w.FuncRef != rhs.FuncRef:
+		return false
+	case !w.OutputType.Equals(rhs.OutputType):
+		return false
+	case w.Phase != rhs.Phase || w.Invocation != rhs.Invocation:
+		return false
+	case w.LowerBound != rhs.LowerBound || w.UpperBound != rhs.UpperBound:
+		return false
+	case !slices.EqualFunc(w.Options, rhs.Options, func(l, r *types.FunctionOption) bool {
+		return l.Name == r.Name && slices.Equal(l.Preference, r.Preference)
+	}):
+		return false
+	case !slices.EqualFunc(w.Partitions, rhs.Partitions, exprEqual):
+		return false
+	case !slices.EqualFunc(w.Sorts, rhs.Sorts, func(l, r SortField) bool {
+		return l.Expr.Equals(r.Expr) && l.Kind == r.Kind
+	}):
+		return false
+	case !slices.EqualFunc(w.Args, rhs.Args, FuncArgsEqual):
+		return false
+	}
+
+	return true
+}
 
 func (w *WindowFunction) ToProto() *proto.Expression {
 	var (
@@ -409,4 +474,128 @@ func (w *WindowFunction) Visit(visit VisitFunc) Expression {
 	out := *w
 	out.Args = args
 	return &out
+}
+
+type AggregateFunction struct {
+	FuncRef     uint32
+	ID          extensions.ID
+	Declaration *extensions.AggregateFunctionVariant
+
+	Args       []types.FuncArg
+	Options    []*types.FunctionOption
+	OutputType types.Type
+	Phase      types.AggregationPhase
+	Invocation types.AggregationInvocation
+	Sorts      []SortField
+}
+
+func NewAggregateFunctionFromProto(agg *proto.AggregateFunction, baseSchema types.Type, ext extensions.Set, c *extensions.Collection) (*AggregateFunction, error) {
+	if agg.OutputType == nil {
+		return nil, fmt.Errorf("%w: missing output type", substraitgo.ErrInvalidExpr)
+	}
+
+	var err error
+	args := make([]types.FuncArg, len(agg.Arguments))
+	for i, a := range agg.Arguments {
+		if args[i], err = FuncArgFromProto(a, baseSchema, ext, c); err != nil {
+			return nil, err
+		}
+	}
+
+	sorts := make([]SortField, len(agg.Sorts))
+	for i, s := range agg.Sorts {
+		if sorts[i], err = SortFieldFromProto(s, baseSchema, ext, c); err != nil {
+			return nil, err
+		}
+	}
+
+	var (
+		id   extensions.ID
+		decl *extensions.AggregateFunctionVariant
+		ok   bool
+	)
+
+	if ext != nil {
+		if id, ok = ext.DecodeFunc(agg.FunctionReference); !ok {
+			return nil, substraitgo.ErrNotFound
+		}
+	}
+
+	if c != nil {
+		if decl, ok = ext.LookupAggregateFunction(agg.FunctionReference, c); !ok {
+			return nil, substraitgo.ErrNotFound
+		}
+	}
+
+	return &AggregateFunction{
+		FuncRef:     agg.FunctionReference,
+		ID:          id,
+		Declaration: decl,
+		Args:        args,
+		Options:     agg.Options,
+		OutputType:  types.TypeFromProto(agg.OutputType),
+		Phase:       agg.Phase,
+		Invocation:  agg.Invocation,
+		Sorts:       sorts,
+	}, nil
+}
+
+func (a *AggregateFunction) String() string {
+	var b strings.Builder
+
+	b.WriteString(a.ID.Name)
+	b.WriteByte('(')
+
+	for i, arg := range a.Args {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(arg.String())
+	}
+
+	b.WriteString(") => ")
+	b.WriteString(a.OutputType.String())
+
+	return b.String()
+}
+
+func (a *AggregateFunction) GetOption(name string) []string {
+	for _, o := range a.Options {
+		if name == o.Name {
+			return o.GetPreference()
+		}
+	}
+	return nil
+}
+
+func (a *AggregateFunction) GetType() types.Type { return a.OutputType }
+
+func (a *AggregateFunction) ToProto() *proto.AggregateFunction {
+	var (
+		args  []*proto.FunctionArgument
+		sorts []*proto.SortField
+	)
+	if len(a.Args) > 0 {
+		args = make([]*proto.FunctionArgument, len(a.Args))
+		for i, arg := range a.Args {
+			args[i] = arg.ToProtoFuncArg()
+		}
+	}
+
+	if len(a.Sorts) > 0 {
+		sorts = make([]*proto.SortField, len(a.Sorts))
+		for i, s := range a.Sorts {
+			sorts[i] = s.ToProto()
+		}
+	}
+
+	return &proto.AggregateFunction{
+		FunctionReference: a.FuncRef,
+		Arguments:         args,
+		Options:           a.Options,
+		OutputType:        types.TypeToProto(a.OutputType),
+		Phase:             a.Phase,
+		Sorts:             sorts,
+		Invocation:        a.Invocation,
+	}
 }
