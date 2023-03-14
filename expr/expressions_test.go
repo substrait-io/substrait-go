@@ -366,8 +366,6 @@ func TestRoundTripExtendedExpression(t *testing.T) {
 	var tmp map[string]any
 	require.NoError(t, dec.Decode(&tmp))
 
-	// var emptyCollection ext.Collection
-
 	for _, tc := range tmp["tests"].([]any) {
 		tt := tc.(map[string]any)
 

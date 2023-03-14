@@ -106,7 +106,7 @@ type Def interface {
 }
 
 type nonParamType struct {
-	TypeName string `parser:"@(AnyType | IntType | Boolean | FPType | Temporal | BinaryType)"`
+	TypeName string `parser:"@(AnyType | Template | IntType | Boolean | FPType | Temporal | BinaryType)"`
 }
 
 func (t *nonParamType) String() string {
@@ -356,11 +356,12 @@ func (t *mapType) Type(n types.Nullability) (types.Type, error) {
 var (
 	def = lexer.MustSimple([]lexer.SimpleRule{
 		{Name: "whitespace", Pattern: `[ \t]+`},
+		{Name: "Template", Pattern: `T`},
 		{Name: "AnyType", Pattern: `any[\d]?`},
 		{Name: "Boolean", Pattern: `boolean`},
 		{Name: "IntType", Pattern: `i(8|16|32|64)`},
 		{Name: "FPType", Pattern: `fp(32|64)`},
-		{Name: "Temporal", Pattern: `timestamp|timestamp_tz|date|time|interval_day|interval_year`},
+		{Name: "Temporal", Pattern: `timestamp(_tz)?|date|time|interval_day|interval_year`},
 		{Name: "BinaryType", Pattern: `string|binary|uuid`},
 		{Name: "LengthType", Pattern: `fixedchar|varchar|fixedbinary`},
 		{Name: "Int", Pattern: `[-+]?\d+`},
