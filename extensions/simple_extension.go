@@ -185,7 +185,7 @@ type Function interface {
 type ScalarFunctionImpl struct {
 	Args             ArgumentList          `yaml:",omitempty"`
 	Options          map[string]Option     `yaml:",omitempty"`
-	Variadic         VariadicBehavior      `yaml:",omitempty"`
+	Variadic         *VariadicBehavior     `yaml:",omitempty"`
 	SessionDependent bool                  `yaml:"sessionDependent,omitempty"`
 	Deterministic    bool                  `yaml:",omitempty"`
 	Nullability      NullabilityHandling   `yaml:",omitempty"`

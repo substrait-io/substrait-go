@@ -199,3 +199,95 @@ func TestExtensionSet(t *testing.T) {
 		assert.Nil(t, fn)
 	})
 }
+
+func TestDefaultCollection(t *testing.T) {
+	type funcType int8
+	const (
+		scalarFunc funcType = iota
+		aggFunc
+		windowFunc
+	)
+
+	tests := []struct {
+		typ          funcType
+		uri          string
+		name         string
+		compoundName string
+		nargs        int
+		options      map[string]extensions.Option
+		variadic     *extensions.VariadicBehavior
+	}{
+		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+			"add", "add:i32_i32", 2, map[string]extensions.Option{"overflow": {Values: []string{"SILENT", "SATURATE", "ERROR"}}},
+			nil},
+		{aggFunc, extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+			"variance", "variance:fp64", 1, map[string]extensions.Option{
+				"distribution": {Values: []string{"SAMPLE", "POPULATION"}},
+				"rounding":     {Values: []string{"TIE_TO_EVEN", "TIE_AWAY_FROM_ZERO", "TRUNCATE", "CEILING", "FLOOR"}}},
+			nil},
+		{windowFunc, extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+			"dense_rank", "dense_rank:", 0, nil, nil},
+		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_boolean.yaml",
+			"or", "or:bool", 1, nil, &extensions.VariadicBehavior{Min: 0}},
+		{aggFunc, extensions.SubstraitDefaultURIPrefix + "functions_boolean.yaml",
+			"bool_and", "bool_and:bool", 1, nil, nil},
+		{aggFunc, extensions.SubstraitDefaultURIPrefix + "functions_aggregate_approx.yaml",
+			"approx_count_distinct", "approx_count_distinct:any", 1, nil, nil},
+		{aggFunc, extensions.SubstraitDefaultURIPrefix + "functions_aggregate_generic.yaml",
+			"count", "count:", 0, map[string]extensions.Option{"overflow": {Values: []string{"SILENT", "SATURATE", "ERROR"}}}, nil},
+		{aggFunc, extensions.SubstraitDefaultURIPrefix + "functions_aggregate_generic.yaml",
+			"count", "count:any", 1, map[string]extensions.Option{"overflow": {Values: []string{"SILENT", "SATURATE", "ERROR"}}}, nil},
+		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_comparison.yaml",
+			"not_equal", "not_equal:any_any", 2, nil, nil},
+		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_comparison.yaml",
+			"between", "between:any_any_any", 3, nil, nil},
+		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_datetime.yaml",
+			"add", "add:ts_iyear", 2, nil, nil},
+		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_logarithmic.yaml",
+			"ln", "ln:fp32", 1, map[string]extensions.Option{
+				"rounding":        {Values: []string{"TIE_TO_EVEN", "TIE_AWAY_FROM_ZERO", "TRUNCATE", "CEILING", "FLOOR"}},
+				"on_domain_error": {Values: []string{"NAN", "ERROR"}},
+				"on_log_zero":     {Values: []string{"NAN", "ERROR", "MINUS_INFINITY"}},
+			}, nil},
+		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_rounding.yaml",
+			"ceil", "ceil:fp64", 1, nil, nil},
+		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_set.yaml",
+			"index_in", "index_in:T_list", 2, map[string]extensions.Option{
+				"nan_equality": {Values: []string{"NAN_IS_NAN", "NAN_IS_NOT_NAN"}},
+			}, nil},
+		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_string.yaml",
+			"string_split", "string_split:vchar_vchar", 2, nil, nil},
+		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_string.yaml",
+			"string_split", "string_split:str_str", 2, nil, nil},
+		{aggFunc, extensions.SubstraitDefaultURIPrefix + "functions_string.yaml",
+			"string_agg", "string_agg:str_str", 2, nil, nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.compoundName, func(t *testing.T) {
+			var (
+				variant extensions.FunctionVariant
+				ok      bool
+
+				id = extensions.ID{URI: tt.uri, Name: tt.compoundName}
+			)
+			switch tt.typ {
+			case scalarFunc:
+				variant, ok = extensions.DefaultCollection.GetScalarFunc(id)
+			case aggFunc:
+				variant, ok = extensions.DefaultCollection.GetAggregateFunc(id)
+			case windowFunc:
+				variant, ok = extensions.DefaultCollection.GetWindowFunc(id)
+			}
+
+			require.True(t, ok)
+			require.NotNil(t, variant)
+
+			assert.Equal(t, tt.name, variant.Name())
+			assert.Equal(t, tt.compoundName, variant.CompoundName())
+			assert.Equal(t, tt.options, variant.Options())
+			assert.Equal(t, tt.uri, variant.URI())
+			assert.Len(t, variant.Args(), tt.nargs)
+		})
+	}
+}

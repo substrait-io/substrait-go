@@ -15,7 +15,7 @@ import (
 
 type AdvancedExtension = extensions.AdvancedExtension
 
-const substraitDefaultURIPrefix = "https://github.com/substrait-io/substrait/blob/main/extensions/"
+const SubstraitDefaultURIPrefix = "https://github.com/substrait-io/substrait/blob/main/extensions/"
 
 // DefaultCollection is loaded with the default Substrait extension
 // definitions with the exception of decimal arithemtic. Decimal arithmetic
@@ -38,7 +38,7 @@ func init() {
 			panic(err)
 		}
 		defer f.Close()
-		err = DefaultCollection.Load(substraitDefaultURIPrefix+ent.Name(), f)
+		err = DefaultCollection.Load(SubstraitDefaultURIPrefix+ent.Name(), f)
 		if err != nil {
 			panic(err)
 		}
