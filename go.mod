@@ -8,7 +8,7 @@ require (
 	github.com/alecthomas/participle/v2 v2.0.0-beta.5
 	github.com/goccy/go-yaml v1.9.8
 	github.com/stretchr/testify v1.8.1
-	golang.org/x/exp v0.0.0-20221217163422-3c43f8badb15
+	golang.org/x/exp v0.0.0-20230206171751-46f607a40771
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/yaml.v3 v3.0.1
 )

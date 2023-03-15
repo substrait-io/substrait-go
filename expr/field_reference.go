@@ -401,6 +401,34 @@ func (f *FieldReference) Visit(VisitFunc) Expression {
 }
 func (*FieldReference) IsScalar() bool { return true }
 
+// argument is only utilized if root is not an expression
+func (f *FieldReference) UpdateType(baseSchema types.Type) error {
+	switch rt := f.Reference.(type) {
+	case ReferenceSegment:
+		var rootType types.Type
+
+		if f.Root == RootReference {
+			if baseSchema == nil {
+				return fmt.Errorf("%w: updating type for root reference requires base schema",
+					substraitgo.ErrInvalidType)
+			}
+			rootType = baseSchema
+		} else if rootExpr, ok := f.Root.(Expression); ok {
+			rootType = rootExpr.GetType()
+		}
+
+		typ, err := rt.GetType(rootType)
+		if err != nil {
+			return err
+		}
+		f.knownType = typ
+		return nil
+	case *MaskExpression:
+	}
+
+	return substraitgo.ErrNotImplemented
+}
+
 func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema types.Type, ext ExtensionLookup, c *extensions.Collection) (*FieldReference, error) {
 	var (
 		ref       Reference

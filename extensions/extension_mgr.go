@@ -3,15 +3,47 @@
 package extensions
 
 import (
+	"embed"
 	"fmt"
 	"io"
+	"path"
 
+	"github.com/goccy/go-yaml"
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/proto/extensions"
-	"gopkg.in/yaml.v3"
 )
 
 type AdvancedExtension = extensions.AdvancedExtension
+
+const SubstraitDefaultURIPrefix = "https://github.com/substrait-io/substrait/blob/main/extensions/"
+
+// DefaultCollection is loaded with the default Substrait extension
+// definitions with the exception of decimal arithemtic. Decimal arithmetic
+// functions are missing as the complex return type expressions are not
+// yet implemented.
+var DefaultCollection Collection
+
+//go:embed vendor/*
+var vendored embed.FS
+
+func init() {
+	entries, err := vendored.ReadDir("vendor")
+	if err != nil {
+		return
+	}
+
+	for _, ent := range entries {
+		f, err := vendored.Open(path.Join("vendor/", ent.Name()))
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+		err = DefaultCollection.Load(SubstraitDefaultURIPrefix+ent.Name(), f)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
 
 type ID struct {
 	URI, Name string

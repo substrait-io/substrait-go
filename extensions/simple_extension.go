@@ -108,10 +108,15 @@ func (a *ArgumentList) UnmarshalYAML(fn func(interface{}) error) error {
 		}
 
 		if opt, ok := arg["options"]; ok {
+			vals := opt.([]any)
+			values := make([]string, len(vals))
+			for j, v := range vals {
+				values[j] = v.(string)
+			}
 			(*a)[i] = EnumArg{
 				Name:        name,
 				Description: desc,
-				Options:     opt.([]string),
+				Options:     values,
 			}
 		} else if val, ok := arg["value"]; ok {
 			var constant bool
@@ -180,7 +185,7 @@ type Function interface {
 type ScalarFunctionImpl struct {
 	Args             ArgumentList          `yaml:",omitempty"`
 	Options          map[string]Option     `yaml:",omitempty"`
-	Variadic         VariadicBehavior      `yaml:",omitempty"`
+	Variadic         *VariadicBehavior     `yaml:",omitempty"`
 	SessionDependent bool                  `yaml:"sessionDependent,omitempty"`
 	Deterministic    bool                  `yaml:",omitempty"`
 	Nullability      NullabilityHandling   `yaml:",omitempty"`
