@@ -1485,6 +1485,14 @@ type ExpressionReference struct {
 	measure *AggregateFunction
 }
 
+func NewExpressionReference(names []string, ex Expression) ExpressionReference {
+	return ExpressionReference{OutputNames: names, expr: ex}
+}
+
+func NewMeasureReference(names []string, measure *AggregateFunction) ExpressionReference {
+	return ExpressionReference{OutputNames: names, measure: measure}
+}
+
 func (er *ExpressionReference) ToProto() *proto.ExpressionReference {
 	out := &proto.ExpressionReference{OutputNames: er.OutputNames}
 	switch {
