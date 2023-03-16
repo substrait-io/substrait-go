@@ -3,6 +3,8 @@
 package extensions
 
 import (
+	"fmt"
+
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/types"
 	"github.com/substrait-io/substrait-go/types/parser"
@@ -19,12 +21,65 @@ type FunctionVariant interface {
 	Variadic() *VariadicBehavior
 }
 
-func EvaluateTypeExpression(expr parser.TypeExpression, paramTypeList ArgumentList, actualTypes []types.Type) (types.Type, error) {
-	if t, ok := expr.Expr.(*parser.Type); ok {
-		return t.Type()
+func EvaluateTypeExpression(nullHandling NullabilityHandling, expr parser.TypeExpression, paramTypeList ArgumentList, actualTypes []types.Type) (types.Type, error) {
+	if len(paramTypeList) != len(actualTypes) {
+		return nil, fmt.Errorf("%w: mismatch in number of arguments provided. got %d, expected %d",
+			substraitgo.ErrInvalidExpr, len(actualTypes), len(paramTypeList))
 	}
 
-	return nil, substraitgo.ErrNotImplemented
+	allNonNull := true
+	for i, p := range paramTypeList {
+		switch p := p.(type) {
+		case EnumArg:
+			if actualTypes[i] != nil {
+				return nil, fmt.Errorf("%w: arg #%d (%s) should be an enum",
+					substraitgo.ErrInvalidType, i, p.Name)
+			}
+		case ValueArg:
+			if actualTypes[i] == nil {
+				return nil, fmt.Errorf("%w: arg #%d should be of type %s",
+					substraitgo.ErrInvalidType, i, p.toTypeString())
+			}
+
+			isNullable := actualTypes[i].GetNullability() != types.NullabilityRequired
+			if isNullable {
+				allNonNull = false
+			}
+
+			if nullHandling == DiscreteNullability {
+				if t, ok := p.Value.Expr.(*parser.Type); ok {
+					if isNullable != t.Optional {
+						return nil, fmt.Errorf("%w: discrete nullability did not match for arg #%d",
+							substraitgo.ErrInvalidType, i)
+					}
+				} else {
+					return nil, substraitgo.ErrNotImplemented
+				}
+			}
+		case TypeArg:
+			return nil, substraitgo.ErrNotImplemented
+		}
+	}
+
+	var outType types.Type
+	if t, ok := expr.Expr.(*parser.Type); ok {
+		var err error
+		outType, err = t.Type()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, substraitgo.ErrNotImplemented
+	}
+
+	if nullHandling == MirrorNullability || nullHandling == "" {
+		if allNonNull {
+			return outType.WithNullability(types.NullabilityRequired), nil
+		}
+		return outType.WithNullability(types.NullabilityNullable), nil
+	}
+
+	return outType, nil
 }
 
 type ScalarFunctionVariant struct {
@@ -44,7 +99,7 @@ func (s *ScalarFunctionVariant) SessionDependent() bool           { return s.imp
 func (s *ScalarFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
 func (s *ScalarFunctionVariant) URI() string                      { return s.uri }
 func (s *ScalarFunctionVariant) ResolveType(argumentTypes []types.Type) (types.Type, error) {
-	return EvaluateTypeExpression(s.impl.Return, s.impl.Args, argumentTypes)
+	return EvaluateTypeExpression(s.impl.Nullability, s.impl.Return, s.impl.Args, argumentTypes)
 }
 func (s *ScalarFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
@@ -67,7 +122,7 @@ func (s *AggregateFunctionVariant) SessionDependent() bool           { return s.
 func (s *AggregateFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
 func (s *AggregateFunctionVariant) URI() string                      { return s.uri }
 func (s *AggregateFunctionVariant) ResolveType(argumentTypes []types.Type) (types.Type, error) {
-	return EvaluateTypeExpression(s.impl.Return, s.impl.Args, argumentTypes)
+	return EvaluateTypeExpression(s.impl.Nullability, s.impl.Return, s.impl.Args, argumentTypes)
 }
 func (s *AggregateFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
@@ -92,7 +147,7 @@ func (s *WindowFunctionVariant) SessionDependent() bool           { return s.imp
 func (s *WindowFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
 func (s *WindowFunctionVariant) URI() string                      { return s.uri }
 func (s *WindowFunctionVariant) ResolveType(argumentTypes []types.Type) (types.Type, error) {
-	return EvaluateTypeExpression(s.impl.Return, s.impl.Args, argumentTypes)
+	return EvaluateTypeExpression(s.impl.Nullability, s.impl.Return, s.impl.Args, argumentTypes)
 }
 func (s *WindowFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()

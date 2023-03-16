@@ -17,9 +17,14 @@ type ExtensionLookup interface {
 	DecodeType(uint32) (extensions.ID, bool)
 	DecodeFunc(uint32) (extensions.ID, bool)
 	DecodeTypeVariation(uint32) (extensions.ID, bool)
+
 	LookupScalarFunction(uint32, *extensions.Collection) (*extensions.ScalarFunctionVariant, bool)
 	LookupAggregateFunction(uint32, *extensions.Collection) (*extensions.AggregateFunctionVariant, bool)
 	LookupWindowFunction(uint32, *extensions.Collection) (*extensions.WindowFunctionVariant, bool)
+
+	GetTypeAnchor(id extensions.ID) uint32
+	GetFuncAnchor(id extensions.ID) uint32
+	GetTypeVariationAnchor(id extensions.ID) uint32
 }
 
 func FuncArgFromProto(e *proto.FunctionArgument, baseSchema types.Type, ext ExtensionLookup, c *extensions.Collection) (types.FuncArg, error) {
@@ -318,22 +323,33 @@ type VisitFunc func(Expression) Expression
 // Expression can be one of many different things as a generalized
 // expression. It could be:
 //
-//  - A literal
-//  - A Field Reference Selection
-//  - A Scalar Function expression
-//  - A Window Function expression
-//  - An If-Then statement
-//  - A Switch Expression
-//  - A Singular Or List
-//  - A Multiple Or List
-//  - A Cast expression
-//  - A Subquery
-//  - A Nested expression
+//   - A literal
+//   - A Field Reference Selection
+//   - A Scalar Function expression
+//   - A Window Function expression
+//   - An If-Then statement
+//   - A Switch Expression
+//   - A Singular Or List
+//   - A Multiple Or List
+//   - A Cast expression
+//   - A Subquery
+//   - A Nested expression
 type Expression interface {
 	// an Expression can also be a function argument
 	types.FuncArg
 	// an expression can also be the root of a reference
 	RootRefType
+
+	// IsBound means that this expression has a defined output
+	// type and, in the case of Scalar/Window functions, has
+	// properly set a Function Anchor and a Declaration defining
+	// the function variant being called as registered in an
+	// extension collection.
+	//
+	// To bind an expression, use BindExpression which will
+	// recursively resolve the output types for all references and
+	// functions that are not yet bound in it.
+	IsBound() bool
 
 	IsScalar() bool
 	// GetType returns the output type of this expression
@@ -407,6 +423,19 @@ func (ex *IfThen) ToProtoFuncArg() *proto.FunctionArgument {
 }
 
 func (ex *IfThen) isRootRef() {}
+
+func (ex *IfThen) IsBound() bool {
+	for _, clause := range ex.IFs {
+		if clause.If != nil && !clause.If.IsBound() {
+			return false
+		}
+		if clause.Then != nil && !clause.Then.IsBound() {
+			return false
+		}
+	}
+
+	return ex.Else == nil || ex.Else.IsBound()
+}
 
 func (ex *IfThen) IsScalar() bool {
 	for _, clause := range ex.IFs {
@@ -522,6 +551,10 @@ func (ex *Cast) IsScalar() bool {
 	return ex.Input.IsScalar()
 }
 
+func (ex *Cast) IsBound() bool {
+	return ex.Input.IsBound()
+}
+
 func (ex *Cast) GetType() types.Type {
 	return ex.Type
 }
@@ -587,6 +620,24 @@ func (ex *SwitchExpr) ToProtoFuncArg() *proto.FunctionArgument {
 }
 
 func (ex *SwitchExpr) isRootRef() {}
+
+func (ex *SwitchExpr) IsBound() bool {
+	if !ex.Match.IsBound() {
+		return false
+	}
+
+	for _, c := range ex.IFs {
+		if !c.Then.IsBound() {
+			return false
+		}
+	}
+
+	if ex.Else != nil {
+		return ex.Else.IsBound()
+	}
+
+	return true
+}
 
 func (ex *SwitchExpr) IsScalar() bool {
 	if !ex.Match.IsScalar() {
@@ -764,6 +815,20 @@ func (ex *SingularOrList) ToProtoFuncArg() *proto.FunctionArgument {
 
 func (ex *SingularOrList) isRootRef() {}
 
+func (ex *SingularOrList) IsBound() bool {
+	if !ex.Value.IsBound() {
+		return false
+	}
+
+	for _, o := range ex.Options {
+		if !o.IsBound() {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (ex *SingularOrList) IsScalar() bool {
 	if !ex.Value.IsScalar() {
 		return false
@@ -878,6 +943,24 @@ func (ex *MultiOrList) ToProtoFuncArg() *proto.FunctionArgument {
 }
 
 func (ex *MultiOrList) isRootRef() {}
+
+func (ex *MultiOrList) IsBound() bool {
+	for _, v := range ex.Value {
+		if !v.IsBound() {
+			return false
+		}
+	}
+
+	for _, opts := range ex.Options {
+		for _, o := range opts {
+			if !o.IsBound() {
+				return false
+			}
+		}
+	}
+
+	return true
+}
 
 func (ex *MultiOrList) IsScalar() bool {
 	for _, v := range ex.Value {
@@ -1040,6 +1123,16 @@ func (ex *MapExpr) ToProtoFuncArg() *proto.FunctionArgument {
 
 func (ex *MapExpr) isRootRef() {}
 
+func (ex *MapExpr) IsBound() bool {
+	for _, kv := range ex.KeyValues {
+		if !kv.Key.IsBound() || !kv.Value.IsBound() {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (ex *MapExpr) IsScalar() bool {
 	for _, kv := range ex.KeyValues {
 		if !kv.Key.IsScalar() || !kv.Value.IsScalar() {
@@ -1166,6 +1259,16 @@ func (ex *StructExpr) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 func (ex *StructExpr) isRootRef() {}
+
+func (ex *StructExpr) IsBound() bool {
+	for _, f := range ex.Fields {
+		if !f.IsBound() {
+			return false
+		}
+	}
+	return true
+}
+
 func (ex *StructExpr) IsScalar() bool {
 	for _, f := range ex.Fields {
 		if !f.IsScalar() {
@@ -1249,6 +1352,13 @@ type ListExpr struct {
 	Values           []Expression
 }
 
+func NewListExpr(nullable bool, vals ...Expression) *ListExpr {
+	return &ListExpr{
+		Nullable: nullable,
+		Values:   vals,
+	}
+}
+
 func (ex *ListExpr) IsNullable() bool      { return ex.Nullable }
 func (ex *ListExpr) TypeVariation() uint32 { return ex.TypeVariationRef }
 
@@ -1277,6 +1387,15 @@ func (ex *ListExpr) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 func (ex *ListExpr) isRootRef() {}
+
+func (ex *ListExpr) IsBound() bool {
+	for _, v := range ex.Values {
+		if !v.IsBound() {
+			return false
+		}
+	}
+	return true
+}
 
 func (ex *ListExpr) IsScalar() bool {
 	for _, v := range ex.Values {
@@ -1455,4 +1574,196 @@ func (ex *Extended) ToProto() *proto.ExtendedExpression {
 		ExpectedTypeUrls:   ex.ExpectedTypeURLs,
 		ReferredExpr:       refs,
 	}
+}
+
+// BindExpression recursively visits the constituent expressions looks up
+// the extension ID for any scalar/window functions in the provided extension
+// collection and retrieves or assigns a function anchor for them in the
+// provided extension set. It will also recursively resolve the output types
+// for the functions and field references in the expression with the provided
+// base schema as the "root" schema to utilize.
+//
+// If a given ID cannot be found in the collection and the name in the ID
+// does not already contain a ":", the provided arguments will be used to
+// construct a compound name for the function call to attempt to lookup in
+// the collection. If a function declaration still cannot be located, then
+// an error will be returned.
+func BindExpression(ex Expression, baseSchema types.NamedStruct, extSet ExtensionLookup, c *extensions.Collection) (out Expression, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			switch r := r.(type) {
+			case error:
+				err = r
+			default:
+				err = fmt.Errorf("%w: %s", substraitgo.ErrInvalidExpr, r)
+			}
+		}
+	}()
+
+	var visitor VisitFunc
+
+	visitor = func(e Expression) Expression {
+		switch e := e.(type) {
+		case *ScalarFunction:
+			funcRef := extSet.GetFuncAnchor(e.ID)
+			if e.FuncRef == funcRef && e.IsBound() {
+				return e
+			}
+
+			out := e.Visit(visitor).(*ScalarFunction)
+			if out == e {
+				out = &ScalarFunction{
+					FuncRef:    funcRef,
+					ID:         e.ID,
+					Args:       slices.Clone(e.Args),
+					Options:    slices.Clone(e.Options),
+					OutputType: e.OutputType,
+				}
+			} else {
+				out.FuncRef = funcRef
+			}
+
+			argTypes := make([]types.Type, 0, len(out.Args))
+			for _, arg := range out.Args {
+				switch a := arg.(type) {
+				case types.Enum:
+					argTypes = append(argTypes, nil)
+				case Expression:
+					argTypes = append(argTypes, a.GetType())
+				}
+			}
+
+			if variant, found := c.GetScalarFunc(out.ID); found {
+				out.Declaration = variant
+			} else {
+				if strings.IndexByte(out.ID.Name, ':') == -1 {
+					sigs := make([]string, len(argTypes))
+					for i, t := range argTypes {
+						if t == nil {
+							// enum value
+							sigs[i] = "req"
+						} else if ud, ok := t.(*types.UserDefinedType); ok {
+							id, found := extSet.DecodeType(ud.TypeReference)
+							if !found {
+								panic(fmt.Errorf("%w: could not find type for reference %d",
+									substraitgo.ErrNotFound, ud.TypeReference))
+							}
+							sigs[i] = "u!" + id.Name
+						} else {
+							sigs[i] = t.ShortString()
+						}
+					}
+
+					out.ID.Name += ":" + strings.Join(sigs, "_")
+					if variant, found = c.GetScalarFunc(out.ID); !found {
+						panic(fmt.Errorf("%w: could not find matching function for %v", substraitgo.ErrNotFound, out.ID))
+					}
+					out.Declaration = variant
+				}
+			}
+
+			if out.OutputType == nil {
+				outType, err := out.Declaration.ResolveType(argTypes)
+				if err != nil {
+					panic(err)
+				}
+				out.OutputType = outType
+			}
+
+			return out
+		case *WindowFunction:
+			funcRef := extSet.GetFuncAnchor(e.ID)
+			if e.FuncRef == funcRef && e.IsBound() {
+				return e
+			}
+
+			out := e.Visit(visitor).(*WindowFunction)
+			if out == e {
+				out = &WindowFunction{
+					FuncRef:    funcRef,
+					ID:         e.ID,
+					Args:       slices.Clone(e.Args),
+					Options:    slices.Clone(e.Options),
+					OutputType: e.OutputType,
+					Phase:      e.Phase,
+					Sorts:      slices.Clone(e.Sorts),
+					Invocation: e.Invocation,
+					Partitions: slices.Clone(e.Partitions),
+					LowerBound: e.LowerBound,
+					UpperBound: e.UpperBound,
+				}
+			} else {
+				out.FuncRef = funcRef
+			}
+
+			argTypes := make([]types.Type, 0, len(out.Args))
+			for i, arg := range out.Args {
+				switch a := arg.(type) {
+				case Expression:
+					a = a.Visit(visitor)
+					out.Args[i] = a
+
+					argTypes = append(argTypes, a.GetType())
+				}
+			}
+
+			if variant, found := c.GetWindowFunc(out.ID); found {
+				out.Declaration = variant
+			} else {
+				if strings.IndexByte(out.ID.Name, ':') == -1 {
+					sigs := make([]string, len(argTypes))
+					for i, t := range argTypes {
+						if ud, ok := t.(*types.UserDefinedType); ok {
+							id, found := extSet.DecodeType(ud.TypeReference)
+							if !found {
+								panic(fmt.Errorf("%w: could not find type for reference %d",
+									substraitgo.ErrNotFound, ud.TypeReference))
+							}
+							sigs[i] = "u!" + id.Name
+						} else {
+							sigs[i] = t.ShortString()
+						}
+					}
+
+					out.ID.Name += ":" + strings.Join(sigs, "_")
+					if variant, found = c.GetWindowFunc(out.ID); !found {
+						panic(fmt.Errorf("%w: could not find matching function for %v", substraitgo.ErrNotFound, out.ID))
+					}
+					out.Declaration = variant
+				}
+			}
+
+			if out.OutputType == nil {
+				outType, err := out.Declaration.ResolveType(argTypes)
+				if err != nil {
+					panic(err)
+				}
+				out.OutputType = outType
+			}
+
+			for i, p := range out.Partitions {
+				out.Partitions[i] = visitor(p)
+			}
+
+			return out
+
+		case *FieldReference:
+			if e.IsBound() {
+				return e
+			}
+
+			out := *e
+
+			if rootExpr, ok := e.Root.(Expression); ok && !rootExpr.IsBound() {
+				out.Root = visitor(rootExpr)
+			}
+
+			out.UpdateType(&baseSchema.Struct)
+			return &out
+		default:
+			return e.Visit(visitor)
+		}
+	}
+
+	return visitor(ex), nil
 }

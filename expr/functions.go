@@ -150,6 +150,26 @@ type ScalarFunction struct {
 	OutputType types.Type
 }
 
+func NewScalarFunc(id extensions.ID, opts []*types.FunctionOption, args ...types.FuncArg) *ScalarFunction {
+	return &ScalarFunction{
+		ID:      id,
+		Options: opts,
+		Args:    args,
+	}
+}
+
+func (s *ScalarFunction) IsBound() bool {
+	for _, arg := range s.Args {
+		if ex, ok := arg.(Expression); ok {
+			if !ex.IsBound() {
+				return false
+			}
+		}
+	}
+
+	return s.OutputType != nil && s.Declaration != nil
+}
+
 func (s *ScalarFunction) IsScalar() bool {
 	for _, arg := range s.Args {
 		if ex, ok := arg.(Expression); ok {
@@ -177,7 +197,11 @@ func (s *ScalarFunction) String() string {
 	}
 
 	b.WriteString(") => ")
-	b.WriteString(s.OutputType.String())
+	if s.OutputType != nil {
+		b.WriteString(s.OutputType.String())
+	} else {
+		b.WriteString("?")
+	}
 
 	return b.String()
 }
@@ -256,7 +280,7 @@ func (s *ScalarFunction) Visit(visit VisitFunc) Expression {
 		if args == nil && arg != after {
 			args = make([]types.FuncArg, len(s.Args))
 			for j := 0; j < i; j++ {
-				args[j] = s.Args[i]
+				args[j] = s.Args[j]
 			}
 		}
 
@@ -291,7 +315,34 @@ type WindowFunction struct {
 	LowerBound, UpperBound Bound
 }
 
+func NewWindowFunc(id extensions.ID, phase types.AggregationPhase, invoke types.AggregationInvocation, opts []*types.FunctionOption, args ...types.FuncArg) *WindowFunction {
+	return &WindowFunction{
+		ID:         id,
+		Phase:      phase,
+		Invocation: invoke,
+		Options:    opts,
+		Args:       args,
+	}
+}
+
 func (*WindowFunction) IsScalar() bool { return false }
+func (w *WindowFunction) IsBound() bool {
+	for _, arg := range w.Args {
+		if ex, ok := arg.(Expression); ok {
+			if !ex.IsBound() {
+				return false
+			}
+		}
+	}
+
+	for _, p := range w.Partitions {
+		if !p.IsBound() {
+			return false
+		}
+	}
+
+	return w.OutputType != nil && w.Declaration != nil
+}
 
 func (*WindowFunction) isRootRef() {}
 
@@ -458,7 +509,7 @@ func (w *WindowFunction) Visit(visit VisitFunc) Expression {
 		if args == nil && arg != after {
 			args = make([]types.FuncArg, len(w.Args))
 			for j := 0; j < i; j++ {
-				args[j] = w.Args[i]
+				args[j] = w.Args[j]
 			}
 		}
 

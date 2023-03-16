@@ -57,10 +57,37 @@ func RefSegmentFromProto(p *proto.Expression_ReferenceSegment) ReferenceSegment 
 	return nil
 }
 
+func FlattenRefSegments(refs ...ReferenceSegment) ReferenceSegment {
+	if len(refs) == 0 {
+		return nil
+	}
+
+	if len(refs) == 1 {
+		return refs[0]
+	}
+
+	out, cur := refs[0], refs[0]
+	for _, r := range refs[1:] {
+		switch parent := cur.(type) {
+		case *MapKeyRef:
+			parent.Child = r
+		case *StructFieldRef:
+			parent.Child = r
+		case *ListElementRef:
+			parent.Child = r
+		}
+		cur = r
+	}
+
+	return out
+}
+
 type MapKeyRef struct {
 	MapKey Literal
 	Child  ReferenceSegment
 }
+
+func NewMapKeyRef(key Literal) *MapKeyRef { return &MapKeyRef{MapKey: key} }
 
 func (r *MapKeyRef) String() string {
 	var c string
@@ -130,6 +157,8 @@ type StructFieldRef struct {
 	Field int32
 	Child ReferenceSegment
 }
+
+func NewStructFieldRef(field int32) *StructFieldRef { return &StructFieldRef{Field: field} }
 
 func (r *StructFieldRef) String() string {
 	var c string
@@ -202,6 +231,8 @@ type ListElementRef struct {
 	Offset int32
 	Child  ReferenceSegment
 }
+
+func NewListElemRef(offset int32) *ListElementRef { return &ListElementRef{Offset: offset} }
 
 func (r *ListElementRef) String() string {
 	var c string
@@ -396,9 +427,20 @@ func (f *FieldReference) GetType() types.Type {
 	return f.knownType
 }
 
-func (f *FieldReference) Visit(VisitFunc) Expression {
+func (f *FieldReference) Visit(v VisitFunc) Expression {
 	return f
 }
+
+func (f *FieldReference) IsBound() bool {
+	if rootExpr, ok := f.Root.(Expression); ok {
+		if !rootExpr.IsBound() {
+			return false
+		}
+	}
+
+	return f.knownType != nil
+}
+
 func (*FieldReference) IsScalar() bool { return true }
 
 // argument is only utilized if root is not an expression
