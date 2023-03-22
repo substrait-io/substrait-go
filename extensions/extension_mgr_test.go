@@ -150,7 +150,9 @@ func TestLoadExtensionCollection(t *testing.T) {
 		assert.Equal(t, "Count a set of records (not field referenced)", ct.Description())
 		assert.Equal(t, "Count a set of values", ctArgs.Description())
 		assert.Equal(t, extensions.DecomposeMany, ct.Decomposability())
-		assert.Equal(t, "i64", ct.Intermediate().String())
+		ty, err := ct.Intermediate()
+		require.NoError(t, err)
+		assert.Equal(t, &types.Int64Type{Nullability: types.NullabilityRequired}, ty)
 	})
 }
 

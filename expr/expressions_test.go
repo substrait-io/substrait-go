@@ -94,8 +94,9 @@ func ExampleExpression_scalarFunction() {
 		panic(err)
 	}
 
+	reg := expr.NewExtensionRegistry(extSet, &collection)
 	// convert from protobuf to Expression!
-	fromProto, err := expr.ExprFromProto(&exprProto, nil, extSet, &collection)
+	fromProto, err := expr.ExprFromProto(&exprProto, nil, reg)
 	if err != nil {
 		panic(err)
 	}
@@ -104,20 +105,15 @@ func ExampleExpression_scalarFunction() {
 	// having to construct the protobuf
 	const substraitext = `https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml`
 
-	var expr expr.Expression = &expr.ScalarFunction{
-		FuncRef: 2,
-		ID:      ext.ID{URI: substraitext, Name: "add"},
-		Args: []types.FuncArg{
-			&expr.FieldReference{
-				Root:      expr.RootReference,
-				Reference: &expr.StructFieldRef{Field: 0},
-			},
-			expr.NewPrimitiveLiteral(float64(10), false),
-		},
-		OutputType: &types.Int32Type{},
-	}
+	var addVariant = ext.NewScalarFuncVariant(ext.ID{URI: substraitext, Name: "add"})
+
+	var ex expr.Expression
+	refArg, _ := expr.NewRootFieldRef(expr.NewStructFieldRef(0), &types.StructType{Types: []types.Type{&types.Int32Type{}}})
+	ex, _ = expr.NewCustomScalarFunc(reg, addVariant, &types.Int32Type{}, nil,
+		refArg, expr.NewPrimitiveLiteral(float64(10), false))
+
 	// call ToProto to convert our manual expression to proto.Expression
-	toProto := expr.ToProto()
+	toProto := ex.ToProto()
 
 	// output some info!
 
@@ -125,71 +121,52 @@ func ExampleExpression_scalarFunction() {
 	fmt.Println(fromProto)
 	// print the string representation of our
 	// manually constructed expression
-	fmt.Println(expr)
+	fmt.Println(ex)
 
 	// verify that the Equals methods work recursively
-	fmt.Println(expr.Equals(fromProto))
+	fmt.Println(ex.Equals(fromProto))
 	// confirm our manually constructed expression is the same
 	// as the one we got from protojson
 	fmt.Println(pb.Equal(&exprProto, toProto))
 
 	// Output:
 	// add(.field(0), fp64(10)) => i32
-	// add(.field(0), fp64(10)) => i32
+	// add(.field(0) => i32, fp64(10)) => i32
 	// true
 	// true
 }
 
-func sampleNestedExpr(substraitExtURI string) expr.Expression {
+func sampleNestedExpr(reg expr.ExtensionRegistry, substraitExtURI string) expr.Expression {
 	var (
-		addID         = ext.ID{URI: substraitExtURI, Name: "add"}
-		addRef uint32 = 2
-		subID         = ext.ID{URI: substraitExtURI, Name: "subtract"}
-		subRef uint32 = 3
-		mulID         = ext.ID{URI: substraitExtURI, Name: "multiply"}
-		mulRef uint32 = 4
+		add = ext.NewScalarFuncVariant(ext.ID{URI: substraitExtURI, Name: "add"})
+		sub = ext.NewScalarFuncVariant(ext.ID{URI: substraitExtURI, Name: "subtract"})
+		mul = ext.NewScalarFuncVariant(ext.ID{URI: substraitExtURI, Name: "multiply"})
 	)
 
-	// add(literal, sub(ref, mul(literal, ref)))
-	exp := &expr.ScalarFunction{
-		FuncRef:    addRef,
-		ID:         addID,
-		OutputType: &types.Float64Type{},
-		Args: []types.FuncArg{
-			expr.NewPrimitiveLiteral(float64(1.0), false),
-			&expr.ScalarFunction{
-				FuncRef:    subRef,
-				ID:         subID,
-				OutputType: &types.Float32Type{},
-				Args: []types.FuncArg{
-					&expr.FieldReference{
-						Root: expr.RootReference,
-						Reference: &expr.StructFieldRef{
-							Field: 3,
-						},
-					},
-					&expr.ScalarFunction{
-						FuncRef:    mulRef,
-						ID:         mulID,
-						OutputType: &types.Int64Type{},
-						Args: []types.FuncArg{
-							expr.NewPrimitiveLiteral(int64(2), false),
-							&expr.FieldReference{
-								Root: expr.NewNestedLiteral(expr.StructLiteralValue{
-									expr.NewByteSliceLiteral([]byte("baz"), true),
-									expr.NewPrimitiveLiteral("foobar", false),
-									expr.NewPrimitiveLiteral(int32(5), false),
-								}, false),
-								Reference: &expr.StructFieldRef{
-									Field: 2,
-								},
-							},
-						},
-					},
-				},
-			},
+	baseSchema := &types.StructType{
+		Types: []types.Type{
+			&types.BooleanType{},
+			&types.Int32Type{},
+			&types.Int64Type{},
+			&types.Float32Type{},
 		},
 	}
+
+	// add(literal, sub(ref, mul(literal, ref)))
+	exp := expr.MustExpr(expr.NewCustomScalarFunc(reg, add, &types.Float64Type{}, nil,
+		expr.NewPrimitiveLiteral(float64(1.0), false),
+		expr.MustExpr(expr.NewCustomScalarFunc(reg, sub, &types.Float32Type{}, nil,
+			expr.MustExpr(expr.NewRootFieldRef(expr.NewStructFieldRef(3), baseSchema)),
+			expr.MustExpr(expr.NewCustomScalarFunc(reg, mul, &types.Int64Type{}, nil,
+				expr.NewPrimitiveLiteral(int64(2), false),
+				expr.MustExpr(expr.NewFieldRef(expr.NewNestedLiteral(expr.StructLiteralValue{
+					expr.NewByteSliceLiteral([]byte("baz"), true),
+					expr.NewPrimitiveLiteral("foobar", false),
+					expr.NewPrimitiveLiteral(int32(5), false),
+				}, false), expr.NewStructFieldRef(2), nil)),
+			)),
+		)),
+	))
 
 	return exp
 }
@@ -239,21 +216,20 @@ func TestExpressionsRoundtrip(t *testing.T) {
 
 	var (
 		plan proto.Plan
-		// emptyCollection ext.Collection
 	)
 	if err := protojson.Unmarshal([]byte(planExt), &plan); err != nil {
 		panic(err)
 	}
 	// get the extension set
 	extSet := ext.GetExtensionSet(&plan)
-
+	reg := expr.NewExtensionRegistry(extSet, &ext.DefaultCollection)
 	tests := []expr.Expression{
-		sampleNestedExpr(substraitExtURI),
+		sampleNestedExpr(reg, substraitExtURI),
 	}
 
 	for _, exp := range tests {
 		protoExpr := exp.ToProto()
-		out, err := expr.ExprFromProto(protoExpr, nil, extSet, nil)
+		out, err := expr.ExprFromProto(protoExpr, nil, reg)
 		require.NoError(t, err)
 		assert.Truef(t, exp.Equals(out), "expected: %s\ngot: %s", exp, out)
 	}
@@ -262,7 +238,7 @@ func TestExpressionsRoundtrip(t *testing.T) {
 func ExampleExpression_Visit() {
 	const substraitExtURI = "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
 	var (
-		exp                 = sampleNestedExpr(substraitExtURI)
+		exp                 = sampleNestedExpr(expr.NewEmptyExtensionRegistry(&ext.DefaultCollection), substraitExtURI)
 		preVisit, postVisit expr.VisitFunc
 	)
 
@@ -284,24 +260,75 @@ func ExampleExpression_Visit() {
 	// Output:
 	// PreOrder:
 	// fp64(1)
-	// subtract(.field(3), multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2)) => i64) => fp32
-	// .field(3)
-	// multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2)) => i64
+	// subtract(.field(3) => fp32, multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64) => fp32
+	// .field(3) => fp32
+	// multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64
 	// i64(2)
-	// [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2)
-	// add(fp64(1), subtract(.field(3), multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2)) => i64) => fp32) => fp64
+	// [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32
+	// add(fp64(1), subtract(.field(3) => fp32, multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64) => fp32) => fp64
 	//
 	// PostOrder:
 	// fp64(1)
-	// .field(3)
+	// .field(3) => fp32
 	// i64(2)
-	// [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2)
-	// multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2)) => i64
-	// subtract(.field(3), multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2)) => i64) => fp32
-	// add(fp64(1), subtract(.field(3), multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2)) => i64) => fp32) => fp64
+	// [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32
+	// multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64
+	// subtract(.field(3) => fp32, multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64) => fp32
+	// add(fp64(1), subtract(.field(3) => fp32, multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64) => fp32) => fp64
 }
 
 func TestRoundTripUsingTestData(t *testing.T) {
+	const substraitExtURI = "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	// define extensions with no plan for now
+	const planExt = `{
+		"extensionUris": [
+			{
+				"extensionUriAnchor": 1,
+				"uri": "` + substraitExtURI + `"
+			}
+		],
+		"extensions": [
+			{
+				"extensionFunction": {
+					"extensionUriReference": 1,
+					"functionAnchor": 2,
+					"name": "add"
+				}
+			},
+			{
+				"extensionFunction": {
+					"extensionUriReference": 1,
+					"functionAnchor": 3,
+					"name": "subtract"
+				}
+			},
+			{
+				"extensionFunction": {
+					"extensionUriReference": 1,
+					"functionAnchor": 4,
+					"name": "multiply"
+				}
+			},
+			{
+				"extensionFunction": {
+					"extensionUriReference": 1,
+					"functionAnchor": 5,
+					"name": "ntile"
+				}
+			}
+		],
+		"relations": []
+	}`
+
+	var (
+		plan proto.Plan
+	)
+	if err := protojson.Unmarshal([]byte(planExt), &plan); err != nil {
+		panic(err)
+	}
+	// get the extension set
+	extSet := ext.GetExtensionSet(&plan)
+
 	f, err := os.Open("./testdata/expressions.yaml")
 	require.NoError(t, err)
 	defer f.Close()
@@ -319,7 +346,7 @@ func TestRoundTripUsingTestData(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, protojson.Unmarshal(raw, &protoSchema))
 	baseSchema := types.NewNamedStructFromProto(&protoSchema)
-
+	reg := expr.NewExtensionRegistry(extSet, &ext.DefaultCollection)
 	for _, tc := range tmp["cases"].([]any) {
 		tt := tc.(map[string]any)
 		t.Run(tt["name"].(string), func(t *testing.T) {
@@ -331,7 +358,7 @@ func TestRoundTripUsingTestData(t *testing.T) {
 			var ex proto.Expression
 			require.NoError(t, protojson.Unmarshal(buf.Bytes(), &ex))
 
-			e, err := expr.ExprFromProto(&ex, &baseSchema.Struct, nil, nil)
+			e, err := expr.ExprFromProto(&ex, &baseSchema.Struct, reg)
 			require.NoError(t, err)
 
 			result := e.ToProto()
@@ -375,7 +402,7 @@ func TestRoundTripExtendedExpression(t *testing.T) {
 		var ex proto.ExtendedExpression
 		require.NoError(t, protojson.Unmarshal(buf.Bytes(), &ex))
 
-		result, err := expr.ExtendedFromProto(&ex, nil)
+		result, err := expr.ExtendedFromProto(&ex, &ext.DefaultCollection)
 		require.NoError(t, err)
 
 		out := result.ToProto()
