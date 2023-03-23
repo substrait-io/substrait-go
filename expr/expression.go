@@ -13,28 +13,39 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-type ExtensionLookup interface {
-	DecodeType(uint32) (extensions.ID, bool)
-	DecodeFunc(uint32) (extensions.ID, bool)
-	DecodeTypeVariation(uint32) (extensions.ID, bool)
-	LookupScalarFunction(uint32, *extensions.Collection) (*extensions.ScalarFunctionVariant, bool)
-	LookupAggregateFunction(uint32, *extensions.Collection) (*extensions.AggregateFunctionVariant, bool)
-	LookupWindowFunction(uint32, *extensions.Collection) (*extensions.WindowFunctionVariant, bool)
+// MustExpr is a helper function to avoid having it get written and
+// re-written by everyone. It takes an expression and an error
+// and will panic if the error is non-nil, otherwise returning the
+// expression.
+//
+// This is intended for situations where it's okay to panic, like
+// testing, to make it more convenient when building expressions
+// to use the `New...` functions that return some expression and
+// potentially an error. For instance:
+//
+//	NewScalarFunc(reg, id, nil, MustExpr(NewRootFieldRef(...)),
+//	    MustExpr(NewScalarFunc(...)))
+func MustExpr(e Expression, err error) Expression {
+	if err != nil {
+		panic(err)
+	}
+
+	return e
 }
 
-func FuncArgFromProto(e *proto.FunctionArgument, baseSchema types.Type, ext ExtensionLookup, c *extensions.Collection) (types.FuncArg, error) {
+func FuncArgFromProto(e *proto.FunctionArgument, baseSchema types.Type, reg ExtensionRegistry) (types.FuncArg, error) {
 	switch et := e.ArgType.(type) {
 	case *proto.FunctionArgument_Enum:
 		return types.Enum(et.Enum), nil
 	case *proto.FunctionArgument_Type:
 		return types.TypeFromProto(et.Type), nil
 	case *proto.FunctionArgument_Value:
-		return ExprFromProto(et.Value, baseSchema, ext, c)
+		return ExprFromProto(et.Value, baseSchema, reg)
 	}
 	return nil, substraitgo.ErrNotImplemented
 }
 
-func ExprFromProto(e *proto.Expression, baseSchema types.Type, ext ExtensionLookup, c *extensions.Collection) (Expression, error) {
+func ExprFromProto(e *proto.Expression, baseSchema types.Type, reg ExtensionRegistry) (Expression, error) {
 	if e == nil {
 		return nil, fmt.Errorf("%w: protobuf Expression is nil", substraitgo.ErrInvalidExpr)
 	}
@@ -43,127 +54,120 @@ func ExprFromProto(e *proto.Expression, baseSchema types.Type, ext ExtensionLook
 	case *proto.Expression_Literal_:
 		return LiteralFromProto(et.Literal), nil
 	case *proto.Expression_Selection:
-		return FieldReferenceFromProto(et.Selection, baseSchema, ext, c)
+		return FieldReferenceFromProto(et.Selection, baseSchema, reg)
 	case *proto.Expression_ScalarFunction_:
 		var err error
 		args := make([]types.FuncArg, len(et.ScalarFunction.Arguments))
 		for i, a := range et.ScalarFunction.Arguments {
-			if args[i], err = FuncArgFromProto(a, baseSchema, ext, c); err != nil {
+			if args[i], err = FuncArgFromProto(a, baseSchema, reg); err != nil {
 				return nil, err
 			}
 		}
 
-		var (
-			id   extensions.ID
-			decl *extensions.ScalarFunctionVariant
-			ok   bool
-		)
-
-		if ext != nil {
-			if id, ok = ext.DecodeFunc(et.ScalarFunction.FunctionReference); !ok {
-				return nil, substraitgo.ErrNotFound
-			}
+		id, ok := reg.DecodeFunc(et.ScalarFunction.FunctionReference)
+		if !ok {
+			return nil, substraitgo.ErrNotFound
 		}
 
-		if c != nil {
-			if decl, ok = ext.LookupScalarFunction(et.ScalarFunction.FunctionReference, c); !ok {
-				return nil, substraitgo.ErrNotFound
-			}
+		decl, ok := reg.LookupScalarFunction(et.ScalarFunction.FunctionReference)
+		if !ok {
+			return NewCustomScalarFunc(reg, extensions.NewScalarFuncVariant(id), types.TypeFromProto(et.ScalarFunction.OutputType), et.ScalarFunction.Options, args...)
 		}
 
 		return &ScalarFunction{
-			FuncRef:     et.ScalarFunction.FunctionReference,
-			Declaration: decl,
-			ID:          id,
-			Args:        args,
-			Options:     et.ScalarFunction.Options,
-			OutputType:  types.TypeFromProto(et.ScalarFunction.OutputType),
+			funcRef:     et.ScalarFunction.FunctionReference,
+			declaration: decl,
+			id:          id,
+			args:        args,
+			options:     et.ScalarFunction.Options,
+			outputType:  types.TypeFromProto(et.ScalarFunction.OutputType),
 		}, nil
 	case *proto.Expression_WindowFunction_:
 		var err error
 		args := make([]types.FuncArg, len(et.WindowFunction.Arguments))
 		for i, a := range et.WindowFunction.Arguments {
-			if args[i], err = FuncArgFromProto(a, baseSchema, ext, c); err != nil {
+			if args[i], err = FuncArgFromProto(a, baseSchema, reg); err != nil {
 				return nil, err
 			}
 		}
 
 		parts := make([]Expression, len(et.WindowFunction.Partitions))
 		for i, p := range et.WindowFunction.Partitions {
-			if parts[i], err = ExprFromProto(p, baseSchema, ext, c); err != nil {
+			if parts[i], err = ExprFromProto(p, baseSchema, reg); err != nil {
 				return nil, err
 			}
 		}
 
 		sorts := make([]SortField, len(et.WindowFunction.Sorts))
 		for i, s := range et.WindowFunction.Sorts {
-			if sorts[i], err = SortFieldFromProto(s, baseSchema, ext, c); err != nil {
+			if sorts[i], err = SortFieldFromProto(s, baseSchema, reg); err != nil {
 				return nil, err
 			}
 		}
 
-		var (
-			id   extensions.ID
-			decl *extensions.WindowFunctionVariant
-			ok   bool
-		)
-
-		if ext != nil {
-			if id, ok = ext.DecodeFunc(et.WindowFunction.FunctionReference); !ok {
-				return nil, substraitgo.ErrNotFound
-			}
+		id, ok := reg.DecodeFunc(et.WindowFunction.FunctionReference)
+		if !ok {
+			return nil, substraitgo.ErrNotFound
 		}
-
-		if c != nil {
-			if decl, ok = ext.LookupWindowFunction(et.WindowFunction.FunctionReference, c); !ok {
-				return nil, substraitgo.ErrNotFound
+		decl, ok := reg.LookupWindowFunction(et.WindowFunction.FunctionReference)
+		if !ok {
+			fn, err := NewCustomWindowFunc(reg, extensions.NewWindowFuncVariant(id), types.TypeFromProto(et.WindowFunction.OutputType),
+				et.WindowFunction.Options, et.WindowFunction.Invocation, et.WindowFunction.Phase, args...)
+			if err != nil {
+				return nil, err
 			}
+
+			fn.Partitions = parts
+			fn.Sorts = sorts
+			fn.LowerBound = BoundFromProto(et.WindowFunction.LowerBound)
+			fn.UpperBound = BoundFromProto(et.WindowFunction.UpperBound)
+			return fn, nil
 		}
 
 		return &WindowFunction{
-			FuncRef:     et.WindowFunction.FunctionReference,
-			ID:          id,
-			Declaration: decl,
-			Args:        args,
-			Options:     et.WindowFunction.Options,
-			OutputType:  types.TypeFromProto(et.WindowFunction.OutputType),
-			Phase:       et.WindowFunction.Phase,
-			Invocation:  et.WindowFunction.Invocation,
+			funcRef:     et.WindowFunction.FunctionReference,
+			id:          id,
+			declaration: decl,
+			args:        args,
+			options:     et.WindowFunction.Options,
+			outputType:  types.TypeFromProto(et.WindowFunction.OutputType),
+			phase:       et.WindowFunction.Phase,
+			invocation:  et.WindowFunction.Invocation,
 			Partitions:  parts,
 			Sorts:       sorts,
 			LowerBound:  BoundFromProto(et.WindowFunction.LowerBound),
 			UpperBound:  BoundFromProto(et.WindowFunction.UpperBound),
 		}, nil
 	case *proto.Expression_IfThen_:
-		elseExpr, err := ExprFromProto(et.IfThen.Else, baseSchema, ext, c)
+		elseExpr, err := ExprFromProto(et.IfThen.Else, baseSchema, reg)
 		if err != nil {
 			return nil, err
 		}
 
-		ifs := make([]struct{ If, Then Expression }, len(et.IfThen.Ifs))
+		ifs := make([]IfThenPair, len(et.IfThen.Ifs))
 		for i, clause := range et.IfThen.Ifs {
-			ifs[i].If, err = ExprFromProto(clause.If, baseSchema, ext, c)
+			ifs[i].If, err = ExprFromProto(clause.If, baseSchema, reg)
 			if err != nil {
 				return nil, err
 			}
 
-			ifs[i].Then, err = ExprFromProto(clause.Then, baseSchema, ext, c)
+			ifs[i].Then, err = ExprFromProto(clause.Then, baseSchema, reg)
 			if err != nil {
 				return nil, err
 			}
 		}
 
 		return &IfThen{
-			IFs:  ifs,
-			Else: elseExpr,
+			ifs:        ifs,
+			elseClause: elseExpr,
 		}, nil
 	case *proto.Expression_SwitchExpression_:
-		matched, err := ExprFromProto(et.SwitchExpression.Match, baseSchema, ext, c)
+		matched, err := ExprFromProto(et.SwitchExpression.Match, baseSchema, reg)
 		if err != nil {
 			return nil, err
 		}
 
-		elseExpr, err := ExprFromProto(et.SwitchExpression.Else, baseSchema, ext, c)
+		elseExpr, err := ExprFromProto(et.SwitchExpression.Else, baseSchema, reg)
 		if err != nil {
 			return nil, err
 		}
@@ -174,26 +178,26 @@ func ExprFromProto(e *proto.Expression, baseSchema types.Type, ext ExtensionLook
 		}, len(et.SwitchExpression.Ifs))
 		for i, clause := range et.SwitchExpression.Ifs {
 			ifs[i].If = LiteralFromProto(clause.If)
-			ifs[i].Then, err = ExprFromProto(clause.Then, baseSchema, ext, c)
+			ifs[i].Then, err = ExprFromProto(clause.Then, baseSchema, reg)
 			if err != nil {
 				return nil, err
 			}
 		}
 
 		return &SwitchExpr{
-			Match: matched,
-			IFs:   ifs,
-			Else:  elseExpr,
+			match:      matched,
+			ifs:        ifs,
+			elseClause: elseExpr,
 		}, nil
 	case *proto.Expression_SingularOrList_:
-		val, err := ExprFromProto(et.SingularOrList.Value, baseSchema, ext, c)
+		val, err := ExprFromProto(et.SingularOrList.Value, baseSchema, reg)
 		if err != nil {
 			return nil, err
 		}
 
 		opts := make([]Expression, len(et.SingularOrList.Options))
 		for i, o := range et.SingularOrList.Options {
-			opts[i], err = ExprFromProto(o, baseSchema, ext, c)
+			opts[i], err = ExprFromProto(o, baseSchema, reg)
 			if err != nil {
 				return nil, err
 			}
@@ -207,7 +211,7 @@ func ExprFromProto(e *proto.Expression, baseSchema types.Type, ext ExtensionLook
 		var err error
 		val := make([]Expression, len(et.MultiOrList.Value))
 		for i, v := range et.MultiOrList.Value {
-			val[i], err = ExprFromProto(v, baseSchema, ext, c)
+			val[i], err = ExprFromProto(v, baseSchema, reg)
 			if err != nil {
 				return nil, err
 			}
@@ -217,7 +221,7 @@ func ExprFromProto(e *proto.Expression, baseSchema types.Type, ext ExtensionLook
 		for i, opts := range et.MultiOrList.Options {
 			options[i] = make([]Expression, len(opts.Fields))
 			for j, o := range opts.Fields {
-				options[i][j], err = ExprFromProto(o, baseSchema, ext, c)
+				options[i][j], err = ExprFromProto(o, baseSchema, reg)
 				if err != nil {
 					return nil, err
 				}
@@ -229,7 +233,7 @@ func ExprFromProto(e *proto.Expression, baseSchema types.Type, ext ExtensionLook
 			Options: options,
 		}, nil
 	case *proto.Expression_Cast_:
-		input, err := ExprFromProto(et.Cast.Input, baseSchema, ext, c)
+		input, err := ExprFromProto(et.Cast.Input, baseSchema, reg)
 		if err != nil {
 			return nil, err
 		}
@@ -252,12 +256,12 @@ func ExprFromProto(e *proto.Expression, baseSchema types.Type, ext ExtensionLook
 
 			keyValues := make([]struct{ Key, Value Expression }, len(n.Map.KeyValues))
 			for i, kv := range n.Map.KeyValues {
-				keyValues[i].Key, err = ExprFromProto(kv.Key, baseSchema, ext, c)
+				keyValues[i].Key, err = ExprFromProto(kv.Key, baseSchema, reg)
 				if err != nil {
 					return nil, err
 				}
 
-				keyValues[i].Value, err = ExprFromProto(kv.Value, baseSchema, ext, c)
+				keyValues[i].Value, err = ExprFromProto(kv.Value, baseSchema, reg)
 				if err != nil {
 					return nil, err
 				}
@@ -271,7 +275,7 @@ func ExprFromProto(e *proto.Expression, baseSchema types.Type, ext ExtensionLook
 		case *proto.Expression_Nested_Struct_:
 			fields := make([]Expression, len(n.Struct.Fields))
 			for i, f := range n.Struct.Fields {
-				fields[i], err = ExprFromProto(f, baseSchema, ext, c)
+				fields[i], err = ExprFromProto(f, baseSchema, reg)
 				if err != nil {
 					return nil, err
 				}
@@ -290,7 +294,7 @@ func ExprFromProto(e *proto.Expression, baseSchema types.Type, ext ExtensionLook
 
 			values := make([]Expression, len(n.List.Values))
 			for i, v := range n.List.Values {
-				values[i], err = ExprFromProto(v, baseSchema, ext, c)
+				values[i], err = ExprFromProto(v, baseSchema, reg)
 				if err != nil {
 					return nil, err
 				}
@@ -318,17 +322,17 @@ type VisitFunc func(Expression) Expression
 // Expression can be one of many different things as a generalized
 // expression. It could be:
 //
-//  - A literal
-//  - A Field Reference Selection
-//  - A Scalar Function expression
-//  - A Window Function expression
-//  - An If-Then statement
-//  - A Switch Expression
-//  - A Singular Or List
-//  - A Multiple Or List
-//  - A Cast expression
-//  - A Subquery
-//  - A Nested expression
+//   - A literal
+//   - A Field Reference Selection
+//   - A Scalar Function expression
+//   - A Window Function expression
+//   - An If-Then statement
+//   - A Switch Expression
+//   - A Singular Or List
+//   - A Multiple Or List
+//   - A Cast expression
+//   - A Subquery
+//   - A Nested expression
 type Expression interface {
 	// an Expression can also be a function argument
 	types.FuncArg
@@ -372,18 +376,74 @@ type Expression interface {
 	Visit(VisitFunc) Expression
 }
 
-type IfThen struct {
-	IFs []struct {
-		If   Expression
-		Then Expression
-	}
-	Else Expression
+type IfThenPair struct {
+	If   Expression
+	Then Expression
 }
+
+type IfThen struct {
+	ifs        []IfThenPair
+	elseClause Expression
+}
+
+// NewIfThen constructs a new IfThen expression, verifying it is valid.
+//
+// elseClause should not be nil as there is a required default via the else.
+// The constructed expression would be interpreted as this pseudocode:
+//
+//	if <firstIf.If> then <firstIf.Then>
+//	foreach e in elsifs:
+//	 if <e.If> then <e.Then>
+//	endforeach
+//	else <elseClause>
+//
+// If elseClause is nil or all of the result expressions do not have the
+// same result type, an error will be returned.
+func NewIfThen(firstIf IfThenPair, elseClause Expression, elsifs ...IfThenPair) (*IfThen, error) {
+	if elseClause == nil {
+		return nil, fmt.Errorf("%w: must provide an else expression for IfThen", substraitgo.ErrInvalidExpr)
+	}
+
+	outputType := elseClause.GetType()
+	if firstIf.If == nil {
+		return nil, fmt.Errorf("%w: cannot have nil If expression", substraitgo.ErrInvalidExpr)
+	}
+
+	if firstIf.Then == nil || !outputType.Equals(firstIf.Then.GetType()) {
+		return nil, fmt.Errorf("%w: type mismatch in If creation, expected %s",
+			substraitgo.ErrInvalidExpr, outputType)
+	}
+
+	for _, ifthen := range elsifs {
+		switch {
+		case ifthen.If == nil:
+			return nil, fmt.Errorf("%w: cannot have nil 'if' expression", substraitgo.ErrInvalidExpr)
+		case ifthen.Then == nil:
+			return nil, fmt.Errorf("%w: cannot have nil 'then' expression", substraitgo.ErrInvalidExpr)
+		case !outputType.Equals(ifthen.Then.GetType()):
+			return nil, fmt.Errorf("%w: type mismatch in IfThen expression, expected %s and got %s",
+				substraitgo.ErrInvalidExpr, outputType, ifthen.Then.GetType())
+		}
+	}
+
+	return &IfThen{
+		ifs:        append([]IfThenPair{firstIf}, elsifs...),
+		elseClause: elseClause,
+	}, nil
+}
+
+// NIfs returns the number of If/then pairs are in this expression
+// before the else clause. It should always be at least 1
+func (ex *IfThen) NIfs() int { return len(ex.ifs) }
+
+// IfPair returns the IfThenPair for the given index. It is not bounds-checked
+func (ex *IfThen) IfPair(i int) IfThenPair { return ex.ifs[i] }
+func (ex *IfThen) Else() Expression        { return ex.elseClause }
 
 func (ex *IfThen) String() string {
 	var b strings.Builder
 	b.WriteString("<IfThen>(")
-	for i, clause := range ex.IFs {
+	for i, clause := range ex.ifs {
 		if i != 0 {
 			b.WriteString(": ")
 		}
@@ -391,8 +451,8 @@ func (ex *IfThen) String() string {
 		b.WriteString(clause.Then.String())
 	}
 	b.WriteString(")<Else>(")
-	if ex.Else != nil {
-		b.WriteString(ex.Else.String())
+	if ex.elseClause != nil {
+		b.WriteString(ex.elseClause.String())
 	}
 	b.WriteString(")")
 	return b.String()
@@ -409,7 +469,7 @@ func (ex *IfThen) ToProtoFuncArg() *proto.FunctionArgument {
 func (ex *IfThen) isRootRef() {}
 
 func (ex *IfThen) IsScalar() bool {
-	for _, clause := range ex.IFs {
+	for _, clause := range ex.ifs {
 		if clause.If != nil && !clause.If.IsScalar() {
 			return false
 		}
@@ -417,16 +477,16 @@ func (ex *IfThen) IsScalar() bool {
 			return false
 		}
 	}
-	return ex.Else == nil || ex.Else.IsScalar()
+	return ex.elseClause == nil || ex.elseClause.IsScalar()
 }
 
 func (ex *IfThen) GetType() types.Type {
-	return ex.Else.GetType()
+	return ex.elseClause.GetType()
 }
 
 func (ex *IfThen) ToProto() *proto.Expression {
-	ifthenClauses := make([]*proto.Expression_IfThen_IfClause, len(ex.IFs))
-	for i, c := range ex.IFs {
+	ifthenClauses := make([]*proto.Expression_IfThen_IfClause, len(ex.ifs))
+	for i, c := range ex.ifs {
 		ifthenClauses[i] = &proto.Expression_IfThen_IfClause{
 			If:   c.If.ToProto(),
 			Then: c.Then.ToProto(),
@@ -434,8 +494,8 @@ func (ex *IfThen) ToProto() *proto.Expression {
 	}
 
 	var elseClause *proto.Expression
-	if ex.Else != nil {
-		elseClause = ex.Else.ToProto()
+	if ex.elseClause != nil {
+		elseClause = ex.elseClause.ToProto()
 	}
 	return &proto.Expression{
 		RexType: &proto.Expression_IfThen_{
@@ -454,17 +514,14 @@ func (ex *IfThen) Equals(other Expression) bool {
 	}
 
 	switch {
-	case ex.Else != nil && !ex.Else.Equals(rhs.Else):
+	case ex.elseClause != nil && !ex.elseClause.Equals(rhs.elseClause):
 		return false
-	case ex.Else != nil && rhs.Else == nil:
+	case ex.elseClause != nil && rhs.elseClause == nil:
 		return false
 	}
 
-	return slices.EqualFunc(ex.IFs, rhs.IFs,
-		func(l, r struct {
-			If   Expression
-			Then Expression
-		}) bool {
+	return slices.EqualFunc(ex.ifs, rhs.ifs,
+		func(l, r IfThenPair) bool {
 			return l.If.Equals(r.If) && l.Then.Equals(r.Then)
 		})
 }
@@ -472,30 +529,30 @@ func (ex *IfThen) Equals(other Expression) bool {
 func (ex *IfThen) Visit(visit VisitFunc) Expression {
 	var out *IfThen
 
-	for i, clause := range ex.IFs {
+	for i, clause := range ex.ifs {
 		afterIf := visit(clause.If)
 		afterThen := visit(clause.Then)
 
 		if out == nil && (afterIf != clause.If || afterThen != clause.Then) {
-			out = &IfThen{IFs: slices.Clone(ex.IFs)}
+			out = &IfThen{ifs: slices.Clone(ex.ifs)}
 		}
 
 		if out != nil {
-			out.IFs[i].If = afterIf
-			out.IFs[i].Then = afterThen
+			out.ifs[i].If = afterIf
+			out.ifs[i].Then = afterThen
 		}
 	}
 
-	afterElse := visit(ex.Else)
+	afterElse := visit(ex.elseClause)
 	if out == nil {
-		if afterElse == ex.Else {
+		if afterElse == ex.elseClause {
 			return ex
 		}
 
-		out = &IfThen{IFs: slices.Clone(ex.IFs)}
+		out = &IfThen{ifs: slices.Clone(ex.ifs)}
 	}
 
-	out.Else = afterElse
+	out.elseClause = afterElse
 	return out
 }
 
@@ -553,28 +610,103 @@ func (ex *Cast) Visit(visit VisitFunc) Expression {
 }
 
 type SwitchExpr struct {
-	Match Expression
-	IFs   []struct {
+	match Expression
+	ifs   []struct {
 		If   Literal
 		Then Expression
 	}
-	Else Expression
+	elseClause Expression
 }
+
+// NewSwitch constructs a switch statement. Will return an error
+// in the following cases:
+//   - match is nil
+//   - len(switchCases) < 1
+//   - the type of the If literal in each switchCase != match.GetType()
+//   - the GetType for each "Then" of switch cases aren't the same
+//   - elseClause.GetType() != switchCases.Then.GetType() if elseClause != nil
+//
+// elseClause is allowed to be nil if there is no default case.
+func NewSwitch(match Expression, elseClause Expression, switchCases ...struct {
+	If   Literal
+	Then Expression
+}) (*SwitchExpr, error) {
+	if match == nil {
+		return nil, fmt.Errorf("%w: cannot construct Switch with nil match", substraitgo.ErrInvalidExpr)
+	}
+
+	// we don't care about the nullability for this comparison
+	matchType := match.GetType().WithNullability(types.NullabilityUnspecified)
+	if len(switchCases) == 0 {
+		return nil, fmt.Errorf("%w: must have at least one switch case", substraitgo.ErrInvalidExpr)
+	}
+
+	// get the output type with the nullability unspecified as the nullability
+	// of the output type will be determined based on if any of the returns
+	// could return null or if none of them can. We don't care about the
+	// nullability for the purposes of validity comparison here.
+	var outputType types.Type
+	if elseClause != nil {
+		outputType = elseClause.GetType().WithNullability(types.NullabilityUnspecified)
+	} else if switchCases[0].Then != nil {
+		outputType = switchCases[0].Then.GetType().WithNullability(types.NullabilityUnspecified)
+	}
+
+	for _, c := range switchCases {
+		switch {
+		case c.If == nil:
+			return nil, fmt.Errorf("%w: switch case must have a non-nil literal for If", substraitgo.ErrInvalidExpr)
+		case c.Then == nil:
+			return nil, fmt.Errorf("%w: switch case must have non-nil Then expression", substraitgo.ErrInvalidExpr)
+		case !matchType.Equals(c.If.GetType().WithNullability(types.NullabilityUnspecified)):
+			return nil, fmt.Errorf("%w: switch case If literal doesn't match type of match expression. expected %s, got %s",
+				substraitgo.ErrInvalidExpr, matchType, c.If.GetType())
+		case !outputType.Equals(c.Then.GetType().WithNullability(types.NullabilityUnspecified)):
+			return nil, fmt.Errorf("%w: switch case result type doesn't match expected output type. expected %s, got %s",
+				substraitgo.ErrInvalidExpr, outputType, c.Then.GetType())
+		}
+	}
+
+	return &SwitchExpr{
+		match:      match,
+		ifs:        switchCases,
+		elseClause: elseClause,
+	}, nil
+}
+
+func (ex *SwitchExpr) MatchExpr() Expression { return ex.match }
+
+// NCases returns the number of case statements in this switch, not including
+// the existences of a default else clause
+func (ex *SwitchExpr) NCases() int { return len(ex.ifs) }
+
+// Case returns the pair of Literal and result Expression for the given
+// index. It is not bounds checked.
+func (ex *SwitchExpr) Case(i int) struct {
+	If   Literal
+	Then Expression
+} {
+	return ex.ifs[i]
+}
+
+func (ex *SwitchExpr) Else() Expression { return ex.elseClause }
 
 func (ex *SwitchExpr) String() string {
 	var b strings.Builder
 	b.WriteString("CASE ")
-	b.WriteString(ex.Match.String())
+	b.WriteString(ex.match.String())
 	b.WriteString(":")
-	for _, c := range ex.IFs {
+	for _, c := range ex.ifs {
 		b.WriteString("\nWHEN ")
 		b.WriteString(c.If.String())
 		b.WriteString(" THEN ")
 		b.WriteString(c.Then.String())
 		b.WriteByte(';')
 	}
-	b.WriteString("Else ")
-	b.WriteString(ex.Else.String())
+	if ex.elseClause != nil {
+		b.WriteString("Else ")
+		b.WriteString(ex.elseClause.String())
+	}
 	return b.String()
 }
 
@@ -589,18 +721,18 @@ func (ex *SwitchExpr) ToProtoFuncArg() *proto.FunctionArgument {
 func (ex *SwitchExpr) isRootRef() {}
 
 func (ex *SwitchExpr) IsScalar() bool {
-	if !ex.Match.IsScalar() {
+	if !ex.match.IsScalar() {
 		return false
 	}
 
-	for _, c := range ex.IFs {
+	for _, c := range ex.ifs {
 		if !c.Then.IsScalar() {
 			return false
 		}
 	}
 
-	if ex.Else != nil {
-		return ex.Else.IsScalar()
+	if ex.elseClause != nil {
+		return ex.elseClause.IsScalar()
 	}
 
 	return true
@@ -608,7 +740,7 @@ func (ex *SwitchExpr) IsScalar() bool {
 
 func (ex *SwitchExpr) GetType() types.Type {
 	var t types.Type
-	for _, cond := range ex.IFs {
+	for _, cond := range ex.ifs {
 		t = cond.Then.GetType()
 		// check if any of the branches return a nullable type
 		// only return a non-nullable if *all* branches return
@@ -619,7 +751,7 @@ func (ex *SwitchExpr) GetType() types.Type {
 	}
 
 	// if there's no else clause, then return a nullable type
-	if ex.Else == nil {
+	if ex.elseClause == nil {
 		return t.WithNullability(types.NullabilityNullable)
 	}
 
@@ -630,17 +762,17 @@ func (ex *SwitchExpr) GetType() types.Type {
 	}
 
 	// if no branch returns nullable, just return the else clause type
-	return ex.Else.GetType()
+	return ex.elseClause.GetType()
 }
 
 func (ex *SwitchExpr) ToProto() *proto.Expression {
 	var elseExpr *proto.Expression
-	if ex.Else != nil {
-		elseExpr = ex.Else.ToProto()
+	if ex.elseClause != nil {
+		elseExpr = ex.elseClause.ToProto()
 	}
 
-	cases := make([]*proto.Expression_SwitchExpression_IfValue, len(ex.IFs))
-	for i, c := range ex.IFs {
+	cases := make([]*proto.Expression_SwitchExpression_IfValue, len(ex.ifs))
+	for i, c := range ex.ifs {
 		cases[i] = &proto.Expression_SwitchExpression_IfValue{
 			If:   c.If.ToProtoLiteral(),
 			Then: c.Then.ToProto(),
@@ -650,7 +782,7 @@ func (ex *SwitchExpr) ToProto() *proto.Expression {
 	return &proto.Expression{
 		RexType: &proto.Expression_SwitchExpression_{
 			SwitchExpression: &proto.Expression_SwitchExpression{
-				Match: ex.Match.ToProto(),
+				Match: ex.match.ToProto(),
 				Ifs:   cases,
 				Else:  elseExpr,
 			},
@@ -665,15 +797,15 @@ func (ex *SwitchExpr) Equals(other Expression) bool {
 	}
 
 	switch {
-	case !ex.Match.Equals(rhs.Match):
+	case !ex.match.Equals(rhs.match):
 		return false
-	case ex.Else != nil && !ex.Else.Equals(rhs.Else):
+	case ex.elseClause != nil && !ex.elseClause.Equals(rhs.elseClause):
 		return false
-	case ex.Else == nil && rhs.Else != nil:
+	case ex.elseClause == nil && rhs.elseClause != nil:
 		return false
 	}
 
-	return slices.EqualFunc(ex.IFs, rhs.IFs,
+	return slices.EqualFunc(ex.ifs, rhs.ifs,
 		func(l, r struct {
 			If   Literal
 			Then Expression
@@ -684,52 +816,52 @@ func (ex *SwitchExpr) Equals(other Expression) bool {
 
 func (ex *SwitchExpr) Visit(visit VisitFunc) Expression {
 	var out *SwitchExpr
-	if after := visit(ex.Match); after != ex.Match {
+	if after := visit(ex.match); after != ex.match {
 		out = &SwitchExpr{
-			Match: after,
-			IFs: make([]struct {
+			match: after,
+			ifs: make([]struct {
 				If   Literal
 				Then Expression
-			}, len(ex.IFs)),
-			Else: ex.Else,
+			}, len(ex.ifs)),
+			elseClause: ex.elseClause,
 		}
 	}
 
-	for i, c := range ex.IFs {
+	for i, c := range ex.ifs {
 		afterIf := visit(c.If)
 		afterThen := visit(c.Then)
 
 		if out == nil && (afterIf != c.If || afterThen != c.Then) {
 			out = &SwitchExpr{
-				Match: ex.Match,
-				IFs: make([]struct {
+				match: ex.match,
+				ifs: make([]struct {
 					If   Literal
 					Then Expression
-				}, len(ex.IFs)),
-				Else: ex.Else,
+				}, len(ex.ifs)),
+				elseClause: ex.elseClause,
 			}
-			copy(out.IFs, ex.IFs[:i])
+			copy(out.ifs, ex.ifs[:i])
 		}
 
 		if out != nil {
-			out.IFs[i].If = afterIf.(Literal)
-			out.IFs[i].Then = afterThen
+			out.ifs[i].If = afterIf.(Literal)
+			out.ifs[i].Then = afterThen
 		}
 	}
 
-	afterElse := visit(ex.Else)
+	afterElse := visit(ex.elseClause)
 	if out == nil {
-		if afterElse == ex.Else {
+		if afterElse == ex.elseClause {
 			return ex
 		}
 
 		out = &SwitchExpr{
-			Match: ex.Match,
-			IFs:   slices.Clone(ex.IFs),
+			match: ex.match,
+			ifs:   slices.Clone(ex.ifs),
 		}
 	}
 
-	out.Else = afterElse
+	out.elseClause = afterElse
 	return out
 }
 
@@ -1166,6 +1298,7 @@ func (ex *StructExpr) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 func (ex *StructExpr) isRootRef() {}
+
 func (ex *StructExpr) IsScalar() bool {
 	for _, f := range ex.Fields {
 		if !f.IsScalar() {
@@ -1247,6 +1380,13 @@ type ListExpr struct {
 	Nullable         bool
 	TypeVariationRef uint32
 	Values           []Expression
+}
+
+func NewListExpr(nullable bool, vals ...Expression) *ListExpr {
+	return &ListExpr{
+		Nullable: nullable,
+		Values:   vals,
+	}
 }
 
 func (ex *ListExpr) IsNullable() bool      { return ex.Nullable }
@@ -1366,6 +1506,14 @@ type ExpressionReference struct {
 	measure *AggregateFunction
 }
 
+func NewExpressionReference(names []string, ex Expression) ExpressionReference {
+	return ExpressionReference{OutputNames: names, expr: ex}
+}
+
+func NewMeasureReference(names []string, measure *AggregateFunction) ExpressionReference {
+	return ExpressionReference{OutputNames: names, measure: measure}
+}
+
 func (er *ExpressionReference) ToProto() *proto.ExpressionReference {
 	out := &proto.ExpressionReference{OutputNames: er.OutputNames}
 	switch {
@@ -1408,6 +1556,7 @@ func ExtendedFromProto(ex *proto.ExtendedExpression, c *extensions.Collection) (
 	var (
 		base   = types.NewNamedStructFromProto(ex.BaseSchema)
 		extSet = extensions.GetExtensionSet(ex)
+		reg    = NewExtensionRegistry(extSet, c)
 		refs   = make([]ExpressionReference, len(ex.ReferredExpr))
 	)
 
@@ -1415,13 +1564,13 @@ func ExtendedFromProto(ex *proto.ExtendedExpression, c *extensions.Collection) (
 		refs[i].OutputNames = r.OutputNames
 		switch et := r.ExprType.(type) {
 		case *proto.ExpressionReference_Expression:
-			expr, err := ExprFromProto(et.Expression, &base.Struct, extSet, c)
+			expr, err := ExprFromProto(et.Expression, &base.Struct, reg)
 			if err != nil {
 				return nil, err
 			}
 			refs[i].SetExpr(expr)
 		case *proto.ExpressionReference_Measure:
-			agg, err := NewAggregateFunctionFromProto(et.Measure, &base.Struct, extSet, c)
+			agg, err := NewAggregateFunctionFromProto(et.Measure, &base.Struct, reg)
 			if err != nil {
 				return nil, err
 			}

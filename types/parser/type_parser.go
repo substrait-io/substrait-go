@@ -105,16 +105,23 @@ type Def interface {
 	Type(n types.Nullability) (types.Type, error)
 }
 
+type typename string
+
+func (t *typename) Capture(values []string) error {
+	*t = typename(strings.ToLower(values[0]))
+	return nil
+}
+
 type nonParamType struct {
-	TypeName string `parser:"@(AnyType | Template | IntType | Boolean | FPType | Temporal | BinaryType)"`
+	TypeName typename `parser:"@(AnyType | Template | IntType | Boolean | FPType | Temporal | BinaryType)"`
 }
 
 func (t *nonParamType) String() string {
-	return t.TypeName
+	return string(t.TypeName)
 }
 
 func (t *nonParamType) ShortType() string {
-	if strings.HasPrefix(t.TypeName, "any") {
+	if strings.HasPrefix(string(t.TypeName), "any") {
 		return "any"
 	}
 
@@ -134,7 +141,7 @@ func (t *nonParamType) ShortType() string {
 	case "boolean":
 		return "bool"
 	default:
-		return t.TypeName
+		return string(t.TypeName)
 	}
 
 }
@@ -358,16 +365,17 @@ var (
 		{Name: "whitespace", Pattern: `[ \t]+`},
 		{Name: "Template", Pattern: `T`},
 		{Name: "AnyType", Pattern: `any[\d]?`},
-		{Name: "Boolean", Pattern: `boolean`},
+		{Name: "Boolean", Pattern: `(?i)boolean`},
 		{Name: "IntType", Pattern: `i(8|16|32|64)`},
 		{Name: "FPType", Pattern: `fp(32|64)`},
 		{Name: "Temporal", Pattern: `timestamp(_tz)?|date|time|interval_day|interval_year`},
 		{Name: "BinaryType", Pattern: `string|binary|uuid`},
 		{Name: "LengthType", Pattern: `fixedchar|varchar|fixedbinary`},
 		{Name: "Int", Pattern: `[-+]?\d+`},
+		{Name: "ParamType", Pattern: `(?i)(struct|list|decimal|map)`},
 		{Name: "Identifier", Pattern: `[a-zA-Z_$][a-zA-Z_$0-9]*`},
 		{Name: "Ident", Pattern: `([a-zA-Z_]\w*)|[><,?]`},
-	})
+	}, lexer.MatchLongest())
 )
 
 type Parser struct {
@@ -390,7 +398,7 @@ func New() (*Parser, error) {
 	parser, err := participle.Build[TypeExpression](
 		participle.Union[Expression](&Type{}, &IntegerLiteral{}, &ParamName{}),
 		participle.Union[Def](&nonParamType{}, &mapType{}, &listType{}, &structType{}, &lengthType{}, &decimalType{}),
-		participle.CaseInsensitive("Ident", "Boolean", "IntType", "FPType", "Temporal", "BinaryType", "LengthType", "Identifier"),
+		participle.CaseInsensitive("Boolean", "ParamType", "IntType", "FPType", "Temporal", "BinaryType", "LengthType"),
 		participle.Lexer(def),
 		participle.UseLookahead(3),
 	)

@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	substraitgo "github.com/substrait-io/substrait-go"
-	"github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/proto"
 	"github.com/substrait-io/substrait-go/types"
 )
@@ -57,10 +56,37 @@ func RefSegmentFromProto(p *proto.Expression_ReferenceSegment) ReferenceSegment 
 	return nil
 }
 
+func FlattenRefSegments(refs ...ReferenceSegment) ReferenceSegment {
+	if len(refs) == 0 {
+		return nil
+	}
+
+	if len(refs) == 1 {
+		return refs[0]
+	}
+
+	out, cur := refs[0], refs[0]
+	for _, r := range refs[1:] {
+		switch parent := cur.(type) {
+		case *MapKeyRef:
+			parent.Child = r
+		case *StructFieldRef:
+			parent.Child = r
+		case *ListElementRef:
+			parent.Child = r
+		}
+		cur = r
+	}
+
+	return out
+}
+
 type MapKeyRef struct {
 	MapKey Literal
 	Child  ReferenceSegment
 }
+
+func NewMapKeyRef(key Literal) *MapKeyRef { return &MapKeyRef{MapKey: key} }
 
 func (r *MapKeyRef) String() string {
 	var c string
@@ -130,6 +156,8 @@ type StructFieldRef struct {
 	Field int32
 	Child ReferenceSegment
 }
+
+func NewStructFieldRef(field int32) *StructFieldRef { return &StructFieldRef{Field: field} }
 
 func (r *StructFieldRef) String() string {
 	var c string
@@ -202,6 +230,8 @@ type ListElementRef struct {
 	Offset int32
 	Child  ReferenceSegment
 }
+
+func NewListElemRef(offset int32) *ListElementRef { return &ListElementRef{Offset: offset} }
 
 func (r *ListElementRef) String() string {
 	var c string
@@ -276,6 +306,43 @@ type FieldReference struct {
 	Root      RootRefType
 
 	knownType types.Type
+}
+
+func NewRootFieldRef(ref Reference, baseSchema *types.StructType) (*FieldReference, error) {
+	return NewFieldRef(RootReference, ref, baseSchema)
+}
+
+func NewFieldRef(root RootRefType, ref Reference, baseSchema *types.StructType) (*FieldReference, error) {
+	if ref != nil && root == RootReference && baseSchema == nil {
+		return nil, fmt.Errorf("%w: must provide the base schema to create a root field ref",
+			substraitgo.ErrInvalidExpr)
+	}
+
+	switch rt := ref.(type) {
+	case ReferenceSegment:
+		var rootType types.Type
+		if root == RootReference {
+			rootType = baseSchema
+		} else if rootExpr, ok := root.(Expression); ok {
+			rootType = rootExpr.GetType()
+		} else {
+			return nil, fmt.Errorf("%w: unknown root reference type %v",
+				substraitgo.ErrInvalidExpr, root)
+		}
+
+		typ, err := rt.GetType(rootType)
+		if err != nil {
+			return nil, fmt.Errorf("error resolving ref type: %w", err)
+		}
+		return &FieldReference{
+			Reference: ref,
+			Root:      root,
+			knownType: typ,
+		}, nil
+	case *MaskExpression:
+	}
+
+	return nil, substraitgo.ErrNotImplemented
 }
 
 func (*FieldReference) isRootRef() {}
@@ -396,40 +463,13 @@ func (f *FieldReference) GetType() types.Type {
 	return f.knownType
 }
 
-func (f *FieldReference) Visit(VisitFunc) Expression {
+func (f *FieldReference) Visit(v VisitFunc) Expression {
 	return f
 }
+
 func (*FieldReference) IsScalar() bool { return true }
 
-// argument is only utilized if root is not an expression
-func (f *FieldReference) UpdateType(baseSchema types.Type) error {
-	switch rt := f.Reference.(type) {
-	case ReferenceSegment:
-		var rootType types.Type
-
-		if f.Root == RootReference {
-			if baseSchema == nil {
-				return fmt.Errorf("%w: updating type for root reference requires base schema",
-					substraitgo.ErrInvalidType)
-			}
-			rootType = baseSchema
-		} else if rootExpr, ok := f.Root.(Expression); ok {
-			rootType = rootExpr.GetType()
-		}
-
-		typ, err := rt.GetType(rootType)
-		if err != nil {
-			return err
-		}
-		f.knownType = typ
-		return nil
-	case *MaskExpression:
-	}
-
-	return substraitgo.ErrNotImplemented
-}
-
-func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema types.Type, ext ExtensionLookup, c *extensions.Collection) (*FieldReference, error) {
+func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema types.Type, reg ExtensionRegistry) (*FieldReference, error) {
 	var (
 		ref       Reference
 		root      RootRefType
@@ -439,7 +479,7 @@ func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema type
 
 	switch rt := p.RootType.(type) {
 	case *proto.Expression_FieldReference_Expression:
-		if root, err = ExprFromProto(rt.Expression, baseSchema, ext, c); err != nil {
+		if root, err = ExprFromProto(rt.Expression, baseSchema, reg); err != nil {
 			return nil, err
 		}
 	case *proto.Expression_FieldReference_OuterReference_:

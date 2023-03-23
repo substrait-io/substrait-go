@@ -13,7 +13,7 @@ cases:
     __test:
       type: fp64
       string: |
-        (fp64(1), (.field(3) => i16?, (i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64) => fp32) => fp64
+        add(fp64(1), subtract(.field(3) => i16?, multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64) => fp32) => fp64
     expression:
       scalarFunction:
         functionReference: 2
@@ -50,7 +50,7 @@ cases:
     __test:
       type: i32?
       string: |
-        (.field(1) => i8; sort: [{expr: <IfThen>((.field(0) => i32) ?.field(1) => i8)<Else>(i32(1)), SORT_DIRECTION_CLUSTERED}]; [options: {DECOMPOSABLE => [NONE]}]; partitions: [.field(2) => i16]; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_ALL) => i32?
+        ntile(.field(1) => i8; sort: [{expr: <IfThen>((.field(0) => i32) ?.field(1) => i8)<Else>(i32(1)), SORT_DIRECTION_CLUSTERED}]; [options: {DECOMPOSABLE => [NONE]}]; partitions: [.field(2) => i16]; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_ALL) => i32?
     expression:
       windowFunction:
         functionReference: 5

@@ -254,6 +254,7 @@ type (
 		FuncArg
 		isRootRef()
 		fmt.Stringer
+		ShortString() string
 		GetType() Type
 		GetNullability() Nullability
 		GetTypeVariationReference() uint32
@@ -408,6 +409,28 @@ var typeNames = map[reflect.Type]string{
 	reflect.TypeOf(&VarChar{}):                        "varchar",
 }
 
+var shortNames = map[reflect.Type]string{
+	reflect.PointerTo(reflect.TypeOf(true)):           "bool",
+	reflect.PointerTo(reflect.TypeOf(int8(0))):        "i8",
+	reflect.PointerTo(reflect.TypeOf(int16(0))):       "i16",
+	reflect.PointerTo(reflect.TypeOf(int32(0))):       "i32",
+	reflect.PointerTo(reflect.TypeOf(int64(0))):       "i64",
+	reflect.PointerTo(reflect.TypeOf(float32(0))):     "fp32",
+	reflect.PointerTo(reflect.TypeOf(float64(0))):     "fp64",
+	reflect.PointerTo(reflect.TypeOf([]byte{})):       "vbin",
+	reflect.PointerTo(reflect.TypeOf("")):             "str",
+	reflect.PointerTo(reflect.TypeOf(Timestamp(0))):   "ts",
+	reflect.PointerTo(reflect.TypeOf(Date(0))):        "date",
+	reflect.PointerTo(reflect.TypeOf(Time(0))):        "time",
+	reflect.PointerTo(reflect.TypeOf(TimestampTz(0))): "tstz",
+	reflect.PointerTo(reflect.TypeOf(UUID{})):         "uuid",
+	reflect.TypeOf(&IntervalYearToMonth{}):            "iyear",
+	reflect.TypeOf(&IntervalDayToSecond{}):            "iday",
+	reflect.TypeOf(&FixedBinary{}):                    "fbin",
+	reflect.TypeOf(&emptyFixedChar):                   "fchar",
+	reflect.TypeOf(&VarChar{}):                        "vchar",
+}
+
 func strNullable(t Type) string {
 	if t.GetNullability() == NullabilityNullable {
 		return "?"
@@ -445,6 +468,14 @@ func (s *PrimitiveType[T]) ToProtoFuncArg() *proto.FunctionArgument {
 	return &proto.FunctionArgument{
 		ArgType: &proto.FunctionArgument_Type{Type: TypeToProto(s)},
 	}
+}
+
+func (*PrimitiveType[T]) ShortString() string {
+	var z *T
+	if n, ok := shortNames[reflect.TypeOf(z)]; ok {
+		return n
+	}
+	return reflect.TypeOf(z).Elem().Name()
 }
 
 func (s *PrimitiveType[T]) String() string {
@@ -510,6 +541,11 @@ func (s *FixedLenType[T]) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 
+func (*FixedLenType[T]) ShortString() string {
+	var z *T
+	return shortNames[reflect.TypeOf(z)]
+}
+
 func (s *FixedLenType[T]) String() string {
 	var z *T
 	return fmt.Sprintf("%s<%d>%s",
@@ -554,6 +590,7 @@ func (t *DecimalType) ToProto() *proto.Type {
 			TypeVariationReference: t.TypeVariationRef}}}
 }
 
+func (*DecimalType) ShortString() string { return "dec" }
 func (t *DecimalType) String() string {
 	return fmt.Sprintf("decimal<%d,%d>%s",
 		t.Precision, t.Scale, strNullable(t))
@@ -615,6 +652,8 @@ func (t *StructType) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 
+func (*StructType) ShortString() string { return "struct" }
+
 func (t *StructType) String() string {
 	var b strings.Builder
 	b.WriteString("struct<")
@@ -674,6 +713,8 @@ func (t *ListType) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 
+func (*ListType) ShortString() string { return "list" }
+
 func (t *ListType) String() string {
 	return "list<" + t.Type.String() + ">" + strNullable(t)
 }
@@ -722,6 +763,8 @@ func (t *MapType) ToProtoFuncArg() *proto.FunctionArgument {
 		ArgType: &proto.FunctionArgument_Type{Type: t.ToProto()},
 	}
 }
+
+func (t *MapType) ShortString() string { return "map" }
 
 func (t *MapType) String() string {
 	return "map<" + t.Key.String() + "," + t.Value.String() + ">" + strNullable(t)
@@ -910,6 +953,11 @@ func (t *UserDefinedType) ToProtoFuncArg() *proto.FunctionArgument {
 		ArgType: &proto.FunctionArgument_Type{Type: t.ToProto()},
 	}
 }
+
+// exists for meeting the interface, but the correct short name for
+// a user defined type is "u!name" which requires looking up the
+// type first via the type reference to find the name.
+func (*UserDefinedType) ShortString() string { return "" }
 
 func (t *UserDefinedType) String() string {
 	return "user_defined_type"

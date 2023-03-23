@@ -114,9 +114,10 @@ func TestLoadExtensionCollection(t *testing.T) {
 			Values: []string{"SILENT", "SATURATE", "ERROR"},
 		}}, add.Options())
 
-		ty, err := add.ResolveType(nil)
+		i8Req := &types.Int8Type{Nullability: types.NullabilityRequired}
+		ty, err := add.ResolveType([]types.Type{i8Req, i8Req})
 		assert.NoError(t, err)
-		assert.Equal(t, &types.Int8Type{Nullability: types.NullabilityRequired}, ty)
+		assert.Equal(t, i8Req, ty)
 	})
 
 	t.Run("multiple impls need compound", func(t *testing.T) {
@@ -131,9 +132,10 @@ func TestLoadExtensionCollection(t *testing.T) {
 		assert.Equal(t, "subtract", sub.Name())
 		assert.Equal(t, "subtract:i16_i16", sub.CompoundName())
 
-		ty, err := sub.ResolveType(nil)
+		i16Req := &types.Int16Type{Nullability: types.NullabilityRequired}
+		ty, err := sub.ResolveType([]types.Type{i16Req, i16Req})
 		assert.NoError(t, err)
-		assert.Equal(t, &types.Int16Type{Nullability: types.NullabilityRequired}, ty)
+		assert.Equal(t, i16Req, ty)
 	})
 
 	t.Run("same fn name different args", func(t *testing.T) {
@@ -148,7 +150,9 @@ func TestLoadExtensionCollection(t *testing.T) {
 		assert.Equal(t, "Count a set of records (not field referenced)", ct.Description())
 		assert.Equal(t, "Count a set of values", ctArgs.Description())
 		assert.Equal(t, extensions.DecomposeMany, ct.Decomposability())
-		assert.Equal(t, "i64", ct.Intermediate().String())
+		ty, err := ct.Intermediate()
+		require.NoError(t, err)
+		assert.Equal(t, &types.Int64Type{Nullability: types.NullabilityRequired}, ty)
 	})
 }
 
@@ -252,7 +256,7 @@ func TestDefaultCollection(t *testing.T) {
 		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_rounding.yaml",
 			"ceil", "ceil:fp64", 1, nil, nil},
 		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_set.yaml",
-			"index_in", "index_in:T_list", 2, map[string]extensions.Option{
+			"index_in", "index_in:t_list", 2, map[string]extensions.Option{
 				"nan_equality": {Values: []string{"NAN_IS_NAN", "NAN_IS_NOT_NAN"}},
 			}, nil},
 		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_string.yaml",
@@ -290,4 +294,10 @@ func TestDefaultCollection(t *testing.T) {
 			assert.Len(t, variant.Args(), tt.nargs)
 		})
 	}
+
+	et, ok := extensions.DefaultCollection.GetType(extensions.ID{
+		URI: extensions.SubstraitDefaultURIPrefix + "extension_types.yaml", Name: "point"})
+	assert.True(t, ok)
+	assert.Equal(t, "point", et.Name)
+	assert.Equal(t, map[string]interface{}{"latitude": "i32", "longitude": "i32"}, et.Structure)
 }

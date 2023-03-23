@@ -76,8 +76,8 @@ func (s *SortField) ToProto() *proto.SortField {
 	return ret
 }
 
-func SortFieldFromProto(f *proto.SortField, baseSchema types.Type, ext ExtensionLookup, c *extensions.Collection) (sf SortField, err error) {
-	sf.Expr, err = ExprFromProto(f.Expr, baseSchema, ext, c)
+func SortFieldFromProto(f *proto.SortField, baseSchema types.Type, reg ExtensionRegistry) (sf SortField, err error) {
+	sf.Expr, err = ExprFromProto(f.Expr, baseSchema, reg)
 	if err != nil {
 		return
 	}
@@ -141,17 +141,130 @@ func BoundFromProto(b *proto.Expression_WindowFunction_Bound) Bound {
 }
 
 type ScalarFunction struct {
-	FuncRef     uint32
-	ID          extensions.ID
-	Declaration *extensions.ScalarFunctionVariant
+	funcRef     uint32
+	id          extensions.ID
+	declaration *extensions.ScalarFunctionVariant
 
-	Args       []types.FuncArg
-	Options    []*types.FunctionOption
-	OutputType types.Type
+	args       []types.FuncArg
+	options    []*types.FunctionOption
+	outputType types.Type
 }
 
+// NewCustomScalarFunc doesn't validate that the ID can be found already
+// in the registry with LookupScalarFunction and will construct the function
+// as provided as long as the outputType is non-nil. In this case, the registry
+// is only used to provide an anchor / function reference that can be used
+// when serializing this expression to Protobuf. Guaranteeing that you have
+// a valid expression returned.
+//
+// Currently an error is only returned if outputType == nil
+func NewCustomScalarFunc(reg ExtensionRegistry, v *extensions.ScalarFunctionVariant, outputType types.Type, opts []*types.FunctionOption, args ...types.FuncArg) (*ScalarFunction, error) {
+	if outputType == nil {
+		return nil, fmt.Errorf("%w: must provide non-nil output type", substraitgo.ErrInvalidType)
+	}
+
+	id := extensions.ID{URI: v.URI(), Name: v.Name()}
+	return &ScalarFunction{
+		funcRef:     reg.GetFuncAnchor(id),
+		id:          id,
+		declaration: v,
+		options:     opts,
+		args:        args,
+		outputType:  outputType,
+	}, nil
+}
+
+type variant interface {
+	*extensions.ScalarFunctionVariant | *extensions.AggregateFunctionVariant | *extensions.WindowFunctionVariant
+	ResolveType([]types.Type) (types.Type, error)
+}
+
+func resolveVariant[T variant](id extensions.ID, reg ExtensionRegistry, getter func(extensions.ID) (T, bool), args []types.FuncArg) (T, types.Type, error) {
+	argTypes := make([]types.Type, 0, len(args))
+	for _, arg := range args {
+		switch a := arg.(type) {
+		case types.Enum:
+			argTypes = append(argTypes, nil)
+		case Expression:
+			argTypes = append(argTypes, a.GetType())
+		}
+	}
+
+	decl, found := getter(id)
+	if !found {
+		if strings.IndexByte(id.Name, ':') == -1 {
+			sigs := make([]string, len(argTypes))
+			for i, t := range argTypes {
+				if t == nil {
+					// enum value
+					sigs[i] = "req"
+				} else if ud, ok := t.(*types.UserDefinedType); ok {
+					id, found := reg.DecodeType(ud.TypeReference)
+					if !found {
+						return nil, nil, fmt.Errorf("%w: could not find type for reference %d",
+							substraitgo.ErrNotFound, ud.TypeReference)
+					}
+					sigs[i] = "u!" + id.Name
+				} else {
+					sigs[i] = t.ShortString()
+				}
+			}
+			id.Name += ":" + strings.Join(sigs, "_")
+			if decl, found = getter(id); !found {
+				return nil, nil, fmt.Errorf("%w: could not find matching function for id: %s",
+					substraitgo.ErrNotFound, id)
+			}
+		} else {
+			return nil, nil, fmt.Errorf("%w: could not find matching function for id: %s",
+				substraitgo.ErrNotFound, id)
+		}
+	}
+
+	outType, err := decl.ResolveType(argTypes)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return decl, outType, nil
+}
+
+// NewScalarFunc validates that the specified ID can be found in the
+// registry via LookupScalarFunction and retrieves a function anchor to use.
+//
+// If the name in the ID is not currently a compound signature and cannot
+// be found in the registry, we'll attempt to construct the compound signature
+// based on the types of the provided arguments and look it up that way.
+// If both attempts fail to lookup the function, a substraitgo.ErrNotFound
+// will be returned.
+//
+// Currently the options are not validated against the function declaration
+// but the number of arguments and their types will be validated in order to
+// resolve the output type.
+func NewScalarFunc(reg ExtensionRegistry, id extensions.ID, opts []*types.FunctionOption, args ...types.FuncArg) (*ScalarFunction, error) {
+	decl, outType, err := resolveVariant(id, reg, reg.c.GetScalarFunc, args)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ScalarFunction{
+		funcRef:     reg.GetFuncAnchor(id),
+		id:          id,
+		declaration: decl,
+		outputType:  outType,
+		options:     opts,
+		args:        args,
+	}, nil
+}
+
+func (s *ScalarFunction) Name() string                           { return s.declaration.CompoundName() }
+func (s *ScalarFunction) ID() extensions.ID                      { return s.id }
+func (s *ScalarFunction) Variadic() *extensions.VariadicBehavior { return s.declaration.Variadic() }
+func (s *ScalarFunction) SessionDependant() bool                 { return s.declaration.SessionDependent() }
+func (s *ScalarFunction) Deterministic() bool                    { return s.declaration.Deterministic() }
+func (s *ScalarFunction) NArgs() int                             { return len(s.args) }
+func (s *ScalarFunction) Arg(i int) types.FuncArg                { return s.args[i] }
 func (s *ScalarFunction) IsScalar() bool {
-	for _, arg := range s.Args {
+	for _, arg := range s.args {
 		if ex, ok := arg.(Expression); ok {
 			if !ex.IsScalar() {
 				return false
@@ -166,10 +279,10 @@ func (*ScalarFunction) isRootRef() {}
 func (s *ScalarFunction) String() string {
 	var b strings.Builder
 
-	b.WriteString(s.ID.Name)
+	b.WriteString(s.id.Name)
 	b.WriteByte('(')
 
-	for i, arg := range s.Args {
+	for i, arg := range s.args {
 		if i != 0 {
 			b.WriteString(", ")
 		}
@@ -177,13 +290,17 @@ func (s *ScalarFunction) String() string {
 	}
 
 	b.WriteString(") => ")
-	b.WriteString(s.OutputType.String())
+	if s.outputType != nil {
+		b.WriteString(s.outputType.String())
+	} else {
+		b.WriteString("?")
+	}
 
 	return b.String()
 }
 
 func (s *ScalarFunction) GetOption(name string) []string {
-	for _, o := range s.Options {
+	for _, o := range s.options {
 		if name == o.Name {
 			return o.GetPreference()
 		}
@@ -191,7 +308,7 @@ func (s *ScalarFunction) GetOption(name string) []string {
 	return nil
 }
 
-func (s *ScalarFunction) GetType() types.Type { return s.OutputType }
+func (s *ScalarFunction) GetType() types.Type { return s.outputType }
 func (s *ScalarFunction) ToProtoFuncArg() *proto.FunctionArgument {
 	return &proto.FunctionArgument{
 		ArgType: &proto.FunctionArgument_Value{
@@ -201,17 +318,17 @@ func (s *ScalarFunction) ToProtoFuncArg() *proto.FunctionArgument {
 }
 
 func (s *ScalarFunction) ToProto() *proto.Expression {
-	args := make([]*proto.FunctionArgument, len(s.Args))
-	for i, a := range s.Args {
+	args := make([]*proto.FunctionArgument, len(s.args))
+	for i, a := range s.args {
 		args[i] = a.ToProtoFuncArg()
 	}
 
 	return &proto.Expression{
 		RexType: &proto.Expression_ScalarFunction_{
 			ScalarFunction: &proto.Expression_ScalarFunction{
-				FunctionReference: s.FuncRef,
-				Options:           s.Options,
-				OutputType:        types.TypeToProto(s.OutputType),
+				FunctionReference: s.funcRef,
+				Options:           s.options,
+				OutputType:        types.TypeToProto(s.outputType),
 				Arguments:         args,
 			},
 		},
@@ -225,26 +342,26 @@ func (s *ScalarFunction) Equals(rhs Expression) bool {
 	}
 
 	switch {
-	case s.FuncRef != other.FuncRef:
+	case s.funcRef != other.funcRef:
 		return false
-	case !s.OutputType.Equals(other.OutputType):
+	case !s.outputType.Equals(other.outputType):
 		return false
 	}
 
-	for i := range s.Args {
-		if !FuncArgsEqual(s.Args[i], other.Args[i]) {
+	for i := range s.args {
+		if !FuncArgsEqual(s.args[i], other.args[i]) {
 			return false
 		}
 	}
 
-	return slices.EqualFunc(s.Options, other.Options, func(a, b *types.FunctionOption) bool {
+	return slices.EqualFunc(s.options, other.options, func(a, b *types.FunctionOption) bool {
 		return pb.Equal(a, b)
 	})
 }
 
 func (s *ScalarFunction) Visit(visit VisitFunc) Expression {
 	var args []types.FuncArg
-	for i, arg := range s.Args {
+	for i, arg := range s.args {
 		var after types.FuncArg
 		switch t := arg.(type) {
 		case Expression:
@@ -254,9 +371,9 @@ func (s *ScalarFunction) Visit(visit VisitFunc) Expression {
 		}
 
 		if args == nil && arg != after {
-			args = make([]types.FuncArg, len(s.Args))
+			args = make([]types.FuncArg, len(s.args))
 			for j := 0; j < i; j++ {
-				args[j] = s.Args[i]
+				args[j] = s.args[j]
 			}
 		}
 
@@ -270,38 +387,95 @@ func (s *ScalarFunction) Visit(visit VisitFunc) Expression {
 	}
 
 	out := *s
-	out.Args = args
+	out.args = args
 	return &out
 }
 
 type WindowFunction struct {
-	FuncRef     uint32
-	ID          extensions.ID
-	Declaration *extensions.WindowFunctionVariant
+	funcRef     uint32
+	id          extensions.ID
+	declaration *extensions.WindowFunctionVariant
 
-	Args       []types.FuncArg
-	Options    []*types.FunctionOption
-	OutputType types.Type
+	args       []types.FuncArg
+	options    []*types.FunctionOption
+	outputType types.Type
 
-	Phase      types.AggregationPhase
+	phase      types.AggregationPhase
 	Sorts      []SortField
-	Invocation types.AggregationInvocation
+	invocation types.AggregationInvocation
 	Partitions []Expression
 
 	LowerBound, UpperBound Bound
 }
 
-func (*WindowFunction) IsScalar() bool { return false }
+func NewCustomWindowFunc(reg ExtensionRegistry, v *extensions.WindowFunctionVariant, outputType types.Type, opts []*types.FunctionOption, invoke types.AggregationInvocation, phase types.AggregationPhase, args ...types.FuncArg) (*WindowFunction, error) {
+	if outputType == nil {
+		return nil, fmt.Errorf("%w: must provide non-nil output type", substraitgo.ErrInvalidExpr)
+	}
+
+	id := extensions.ID{URI: v.URI(), Name: v.Name()}
+	return &WindowFunction{
+		funcRef:     reg.GetFuncAnchor(id),
+		declaration: v,
+		id:          id,
+		outputType:  outputType,
+		options:     opts,
+		args:        args,
+		invocation:  invoke,
+		phase:       phase,
+	}, nil
+}
+
+func NewWindowFunc(reg ExtensionRegistry, id extensions.ID, opts []*types.FunctionOption, invoke types.AggregationInvocation, phase types.AggregationPhase, args ...types.FuncArg) (*WindowFunction, error) {
+	decl, outType, err := resolveVariant(id, reg, reg.c.GetWindowFunc, args)
+	if err != nil {
+		return nil, err
+	}
+
+	if decl.Decomposability() == extensions.DecomposeNone && phase != types.AggPhaseInitialToResult {
+		return nil, fmt.Errorf("%w: non-decomposable window or agg function '%s' must use InitialToResult phase",
+			substraitgo.ErrInvalidExpr, id)
+	}
+
+	return &WindowFunction{
+		funcRef:     reg.GetFuncAnchor(id),
+		id:          id,
+		declaration: decl,
+		outputType:  outType,
+		options:     opts,
+		args:        args,
+		invocation:  invoke,
+		phase:       phase,
+	}, nil
+}
+
+func (w *WindowFunction) Name() string                            { return w.declaration.CompoundName() }
+func (w *WindowFunction) ID() extensions.ID                       { return w.id }
+func (w *WindowFunction) Variadic() *extensions.VariadicBehavior  { return w.declaration.Variadic() }
+func (w *WindowFunction) SessionDependant() bool                  { return w.declaration.SessionDependent() }
+func (w *WindowFunction) Deterministic() bool                     { return w.declaration.Deterministic() }
+func (w *WindowFunction) NArgs() int                              { return len(w.args) }
+func (w *WindowFunction) Arg(i int) types.FuncArg                 { return w.args[i] }
+func (w *WindowFunction) Phase() types.AggregationPhase           { return w.phase }
+func (w *WindowFunction) Invocation() types.AggregationInvocation { return w.invocation }
+func (w *WindowFunction) Decomposable() extensions.DecomposeType {
+	return w.declaration.Decomposability()
+}
+func (w *WindowFunction) Ordered() bool                         { return w.declaration.Ordered() }
+func (w *WindowFunction) MaxSet() int                           { return w.declaration.MaxSet() }
+func (w *WindowFunction) IntermediateType() (types.Type, error) { return w.declaration.Intermediate() }
+func (w *WindowFunction) WindowType() extensions.WindowType     { return w.declaration.WindowType() }
+func (*WindowFunction) IsScalar() bool                          { return false }
 
 func (*WindowFunction) isRootRef() {}
 
 func (w *WindowFunction) String() string {
 	var b strings.Builder
 
-	b.WriteString(w.ID.Name)
+	b.WriteString(w.id.Name)
 	b.WriteByte('(')
 
-	for i, arg := range w.Args {
+	for i, arg := range w.args {
 		if i != 0 {
 			b.WriteString(", ")
 		}
@@ -319,9 +493,9 @@ func (w *WindowFunction) String() string {
 		b.WriteString("]")
 	}
 
-	if len(w.Options) > 0 {
+	if len(w.options) > 0 {
 		b.WriteString("; [options: {")
-		for i, opt := range w.Options {
+		for i, opt := range w.options {
 			if i != 0 {
 				b.WriteString(", ")
 			}
@@ -342,12 +516,12 @@ func (w *WindowFunction) String() string {
 	}
 
 	fmt.Fprintf(&b, "; phase: %s, invocation: %s) => %s",
-		w.Phase, w.Invocation, w.OutputType)
+		w.phase, w.invocation, w.outputType)
 
 	return b.String()
 }
 
-func (w *WindowFunction) GetType() types.Type { return w.OutputType }
+func (w *WindowFunction) GetType() types.Type { return w.outputType }
 func (w *WindowFunction) Equals(other Expression) bool {
 	rhs, ok := other.(*WindowFunction)
 	if !ok {
@@ -355,15 +529,15 @@ func (w *WindowFunction) Equals(other Expression) bool {
 	}
 
 	switch {
-	case w.FuncRef != rhs.FuncRef:
+	case w.funcRef != rhs.funcRef:
 		return false
-	case !w.OutputType.Equals(rhs.OutputType):
+	case !w.outputType.Equals(rhs.outputType):
 		return false
-	case w.Phase != rhs.Phase || w.Invocation != rhs.Invocation:
+	case w.phase != rhs.phase || w.invocation != rhs.invocation:
 		return false
 	case w.LowerBound != rhs.LowerBound || w.UpperBound != rhs.UpperBound:
 		return false
-	case !slices.EqualFunc(w.Options, rhs.Options, func(l, r *types.FunctionOption) bool {
+	case !slices.EqualFunc(w.options, rhs.options, func(l, r *types.FunctionOption) bool {
 		return l.Name == r.Name && slices.Equal(l.Preference, r.Preference)
 	}):
 		return false
@@ -373,7 +547,7 @@ func (w *WindowFunction) Equals(other Expression) bool {
 		return l.Expr.Equals(r.Expr) && l.Kind == r.Kind
 	}):
 		return false
-	case !slices.EqualFunc(w.Args, rhs.Args, FuncArgsEqual):
+	case !slices.EqualFunc(w.args, rhs.args, FuncArgsEqual):
 		return false
 	}
 
@@ -389,9 +563,9 @@ func (w *WindowFunction) ToProto() *proto.Expression {
 		lowerBound *proto.Expression_WindowFunction_Bound
 	)
 
-	if len(w.Args) > 0 {
-		args = make([]*proto.FunctionArgument, len(w.Args))
-		for i, a := range w.Args {
+	if len(w.args) > 0 {
+		args = make([]*proto.FunctionArgument, len(w.args))
+		for i, a := range w.args {
 			args[i] = a.ToProtoFuncArg()
 		}
 	}
@@ -421,13 +595,13 @@ func (w *WindowFunction) ToProto() *proto.Expression {
 	return &proto.Expression{
 		RexType: &proto.Expression_WindowFunction_{
 			WindowFunction: &proto.Expression_WindowFunction{
-				FunctionReference: w.FuncRef,
+				FunctionReference: w.funcRef,
 				Arguments:         args,
-				Options:           w.Options,
-				OutputType:        types.TypeToProto(w.OutputType),
-				Phase:             w.Phase,
+				Options:           w.options,
+				OutputType:        types.TypeToProto(w.outputType),
+				Phase:             w.phase,
 				Sorts:             sorts,
-				Invocation:        w.Invocation,
+				Invocation:        w.invocation,
 				Partitions:        parts,
 				LowerBound:        lowerBound,
 				UpperBound:        upperBound,
@@ -446,7 +620,7 @@ func (w *WindowFunction) ToProtoFuncArg() *proto.FunctionArgument {
 
 func (w *WindowFunction) Visit(visit VisitFunc) Expression {
 	var args []types.FuncArg
-	for i, arg := range w.Args {
+	for i, arg := range w.args {
 		var after types.FuncArg
 		switch t := arg.(type) {
 		case Expression:
@@ -456,9 +630,9 @@ func (w *WindowFunction) Visit(visit VisitFunc) Expression {
 		}
 
 		if args == nil && arg != after {
-			args = make([]types.FuncArg, len(w.Args))
+			args = make([]types.FuncArg, len(w.args))
 			for j := 0; j < i; j++ {
-				args[j] = w.Args[i]
+				args[j] = w.args[j]
 			}
 		}
 
@@ -472,24 +646,61 @@ func (w *WindowFunction) Visit(visit VisitFunc) Expression {
 	}
 
 	out := *w
-	out.Args = args
+	out.args = args
 	return &out
 }
 
 type AggregateFunction struct {
-	FuncRef     uint32
-	ID          extensions.ID
-	Declaration *extensions.AggregateFunctionVariant
+	funcRef     uint32
+	id          extensions.ID
+	declaration *extensions.AggregateFunctionVariant
 
-	Args       []types.FuncArg
-	Options    []*types.FunctionOption
-	OutputType types.Type
-	Phase      types.AggregationPhase
-	Invocation types.AggregationInvocation
+	args       []types.FuncArg
+	options    []*types.FunctionOption
+	outputType types.Type
+	phase      types.AggregationPhase
+	invocation types.AggregationInvocation
 	Sorts      []SortField
 }
 
-func NewAggregateFunctionFromProto(agg *proto.AggregateFunction, baseSchema types.Type, ext extensions.Set, c *extensions.Collection) (*AggregateFunction, error) {
+func NewAggregateFunc(reg ExtensionRegistry, id extensions.ID, opts []*types.FunctionOption, invoke types.AggregationInvocation, phase types.AggregationPhase, sorts []SortField, args ...types.FuncArg) (*AggregateFunction, error) {
+	decl, outType, err := resolveVariant(id, reg, reg.c.GetAggregateFunc, args)
+	if err != nil {
+		return nil, err
+	}
+
+	return &AggregateFunction{
+		funcRef:     reg.GetFuncAnchor(id),
+		id:          id,
+		declaration: decl,
+		outputType:  outType,
+		options:     opts,
+		args:        args,
+		invocation:  invoke,
+		phase:       phase,
+		Sorts:       sorts,
+	}, nil
+}
+
+func NewCustomAggregateFunc(reg ExtensionRegistry, v *extensions.AggregateFunctionVariant, outputType types.Type, opts []*types.FunctionOption, invoke types.AggregationInvocation, phase types.AggregationPhase, sorts []SortField, args ...types.FuncArg) (*AggregateFunction, error) {
+	if outputType == nil {
+		return nil, fmt.Errorf("%w: must provide non-nil output type", substraitgo.ErrInvalidExpr)
+	}
+
+	id := extensions.ID{URI: v.URI(), Name: v.Name()}
+	return &AggregateFunction{
+		funcRef:    reg.GetFuncAnchor(id),
+		id:         id,
+		outputType: outputType,
+		options:    opts,
+		args:       args,
+		invocation: invoke,
+		phase:      phase,
+		Sorts:      sorts,
+	}, nil
+}
+
+func NewAggregateFunctionFromProto(agg *proto.AggregateFunction, baseSchema types.Type, reg ExtensionRegistry) (*AggregateFunction, error) {
 	if agg.OutputType == nil {
 		return nil, fmt.Errorf("%w: missing output type", substraitgo.ErrInvalidExpr)
 	}
@@ -497,56 +708,65 @@ func NewAggregateFunctionFromProto(agg *proto.AggregateFunction, baseSchema type
 	var err error
 	args := make([]types.FuncArg, len(agg.Arguments))
 	for i, a := range agg.Arguments {
-		if args[i], err = FuncArgFromProto(a, baseSchema, ext, c); err != nil {
+		if args[i], err = FuncArgFromProto(a, baseSchema, reg); err != nil {
 			return nil, err
 		}
 	}
 
 	sorts := make([]SortField, len(agg.Sorts))
 	for i, s := range agg.Sorts {
-		if sorts[i], err = SortFieldFromProto(s, baseSchema, ext, c); err != nil {
+		if sorts[i], err = SortFieldFromProto(s, baseSchema, reg); err != nil {
 			return nil, err
 		}
 	}
 
-	var (
-		id   extensions.ID
-		decl *extensions.AggregateFunctionVariant
-		ok   bool
-	)
-
-	if ext != nil {
-		if id, ok = ext.DecodeFunc(agg.FunctionReference); !ok {
-			return nil, substraitgo.ErrNotFound
-		}
+	id, ok := reg.DecodeFunc(agg.FunctionReference)
+	if !ok {
+		return nil, substraitgo.ErrNotFound
 	}
-
-	if c != nil {
-		if decl, ok = ext.LookupAggregateFunction(agg.FunctionReference, c); !ok {
-			return nil, substraitgo.ErrNotFound
-		}
+	decl, ok := reg.LookupAggregateFunction(agg.FunctionReference)
+	if !ok {
+		return NewCustomAggregateFunc(reg, extensions.NewAggFuncVariant(id), types.TypeFromProto(agg.OutputType), agg.Options, agg.Invocation, agg.Phase, sorts, args...)
 	}
 
 	return &AggregateFunction{
-		FuncRef:     agg.FunctionReference,
-		ID:          id,
-		Declaration: decl,
-		Args:        args,
-		Options:     agg.Options,
-		OutputType:  types.TypeFromProto(agg.OutputType),
-		Phase:       agg.Phase,
-		Invocation:  agg.Invocation,
+		funcRef:     agg.FunctionReference,
+		id:          id,
+		declaration: decl,
+		args:        args,
+		options:     agg.Options,
+		outputType:  types.TypeFromProto(agg.OutputType),
+		phase:       agg.Phase,
+		invocation:  agg.Invocation,
 		Sorts:       sorts,
 	}, nil
+}
+
+func (a *AggregateFunction) Name() string                            { return a.declaration.CompoundName() }
+func (a *AggregateFunction) ID() extensions.ID                       { return a.id }
+func (a *AggregateFunction) Variadic() *extensions.VariadicBehavior  { return a.declaration.Variadic() }
+func (a *AggregateFunction) SessionDependant() bool                  { return a.declaration.SessionDependent() }
+func (a *AggregateFunction) Deterministic() bool                     { return a.declaration.Deterministic() }
+func (a *AggregateFunction) NArgs() int                              { return len(a.args) }
+func (a *AggregateFunction) Arg(i int) types.FuncArg                 { return a.args[i] }
+func (a *AggregateFunction) Phase() types.AggregationPhase           { return a.phase }
+func (a *AggregateFunction) Invocation() types.AggregationInvocation { return a.invocation }
+func (a *AggregateFunction) Decomposable() extensions.DecomposeType {
+	return a.declaration.Decomposability()
+}
+func (a *AggregateFunction) Ordered() bool { return a.declaration.Ordered() }
+func (a *AggregateFunction) MaxSet() int   { return a.declaration.MaxSet() }
+func (a *AggregateFunction) IntermediateType() (types.Type, error) {
+	return a.declaration.Intermediate()
 }
 
 func (a *AggregateFunction) String() string {
 	var b strings.Builder
 
-	b.WriteString(a.ID.Name)
+	b.WriteString(a.id.Name)
 	b.WriteByte('(')
 
-	for i, arg := range a.Args {
+	for i, arg := range a.args {
 		if i != 0 {
 			b.WriteString(", ")
 		}
@@ -554,13 +774,13 @@ func (a *AggregateFunction) String() string {
 	}
 
 	b.WriteString(") => ")
-	b.WriteString(a.OutputType.String())
+	b.WriteString(a.outputType.String())
 
 	return b.String()
 }
 
 func (a *AggregateFunction) GetOption(name string) []string {
-	for _, o := range a.Options {
+	for _, o := range a.options {
 		if name == o.Name {
 			return o.GetPreference()
 		}
@@ -568,16 +788,16 @@ func (a *AggregateFunction) GetOption(name string) []string {
 	return nil
 }
 
-func (a *AggregateFunction) GetType() types.Type { return a.OutputType }
+func (a *AggregateFunction) GetType() types.Type { return a.outputType }
 
 func (a *AggregateFunction) ToProto() *proto.AggregateFunction {
 	var (
 		args  []*proto.FunctionArgument
 		sorts []*proto.SortField
 	)
-	if len(a.Args) > 0 {
-		args = make([]*proto.FunctionArgument, len(a.Args))
-		for i, arg := range a.Args {
+	if len(a.args) > 0 {
+		args = make([]*proto.FunctionArgument, len(a.args))
+		for i, arg := range a.args {
 			args[i] = arg.ToProtoFuncArg()
 		}
 	}
@@ -590,12 +810,12 @@ func (a *AggregateFunction) ToProto() *proto.AggregateFunction {
 	}
 
 	return &proto.AggregateFunction{
-		FunctionReference: a.FuncRef,
+		FunctionReference: a.funcRef,
 		Arguments:         args,
-		Options:           a.Options,
-		OutputType:        types.TypeToProto(a.OutputType),
-		Phase:             a.Phase,
+		Options:           a.options,
+		OutputType:        types.TypeToProto(a.outputType),
+		Phase:             a.phase,
 		Sorts:             sorts,
-		Invocation:        a.Invocation,
+		Invocation:        a.invocation,
 	}
 }

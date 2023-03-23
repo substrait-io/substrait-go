@@ -358,8 +358,7 @@ func (e *set) GetTypeAnchor(id ID) uint32 {
 	if !ok {
 		e.addURI(id.URI)
 		a = uint32(len(e.types))
-		e.types[id] = a
-		e.typesMap[a] = id
+		e.encodeType(a, id)
 	}
 	return a
 }
@@ -369,8 +368,7 @@ func (e *set) GetFuncAnchor(id ID) uint32 {
 	if !ok {
 		e.addURI(id.URI)
 		a = uint32(len(e.funcs))
-		e.funcs[id] = a
-		e.funcMap[a] = id
+		e.encodeFunc(a, id)
 	}
 	return a
 }
@@ -380,8 +378,7 @@ func (e *set) GetTypeVariationAnchor(id ID) uint32 {
 	if !ok {
 		e.addURI(id.URI)
 		a = uint32(len(e.typeVariations))
-		e.typeVariations[id] = a
-		e.typeVariationMap[a] = id
+		e.encodeTypeVariation(a, id)
 	}
 	return a
 }

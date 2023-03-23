@@ -261,6 +261,9 @@ type AggregateFunction struct {
 func (s *AggregateFunction) GetVariants(uri string) []*AggregateFunctionVariant {
 	out := make([]*AggregateFunctionVariant, len(s.Impls))
 	for i, impl := range s.Impls {
+		if impl.Decomposable == "" {
+			impl.Decomposable = DecomposeNone
+		}
 		out[i] = &AggregateFunctionVariant{
 			name:        s.Name,
 			description: s.Description,
@@ -305,6 +308,12 @@ type WindowFunction struct {
 func (s *WindowFunction) GetVariants(uri string) []*WindowFunctionVariant {
 	out := make([]*WindowFunctionVariant, len(s.Impls))
 	for i, impl := range s.Impls {
+		if impl.Decomposable == "" {
+			impl.Decomposable = DecomposeNone
+		}
+		if impl.WindowType == "" {
+			impl.WindowType = PartitionWindow
+		}
 		out[i] = &WindowFunctionVariant{
 			name:        s.Name,
 			description: s.Description,
