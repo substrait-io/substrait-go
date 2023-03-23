@@ -23,17 +23,17 @@ const SubstraitDefaultURIPrefix = "https://github.com/substrait-io/substrait/blo
 // yet implemented.
 var DefaultCollection Collection
 
-//go:embed vendor/*
-var vendored embed.FS
+//go:embed definitions/*
+var definitions embed.FS
 
 func init() {
-	entries, err := vendored.ReadDir("vendor")
+	entries, err := definitions.ReadDir("definitions")
 	if err != nil {
 		return
 	}
 
 	for _, ent := range entries {
-		f, err := vendored.Open(path.Join("vendor/", ent.Name()))
+		f, err := definitions.Open(path.Join("definitions/", ent.Name()))
 		if err != nil {
 			panic(err)
 		}
