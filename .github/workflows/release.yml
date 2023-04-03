@@ -30,4 +30,4 @@ jobs:
           fetch-depth: 0
       - name: Run go-semantic-release        
         run: |
-          docker run -e CI=true -e GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} -v "$(pwd)":/code nightapes/go-semantic-release:2.1.0 release -l trace
+          docker run -u root -e CI=true -e GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} -v "$(pwd)":/code nightapes/go-semantic-release:2.1.0 release -l trace
