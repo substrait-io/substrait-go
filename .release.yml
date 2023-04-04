@@ -9,4 +9,4 @@ changelog:
   printAll: true
   title: "v{{.Version}}"
   showAuthors: false
-  showBodyAsheader: false
+

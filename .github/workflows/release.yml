@@ -1,6 +1,7 @@
 name: Release
 
 on:
+  pull_request:    
   schedule:
     # 2 AM on Sunday
     - cron: "0 2 * * 0"
@@ -26,8 +27,15 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: Run go-semantic-release        
-        run: |
-          docker run -e CI=true -e GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} -v "$(pwd)":/code nightapes/go-semantic-release:2.1.0 release -l trace
+        with:          
+          fetch-depth: 0      
+      - name: Run go-semantic-release
+        # the dockerfile for go-semantic-release uses USER 1000 so hopefully
+        # this is sufficient to have permissions?
+        # if event_name == pull_request it will not perform a release          
+        run: |          
+          docker run -u 1000 -e GITHUB_ACTION=${{ github.action}} \
+            -e GITHUB_EVENT_NAME=${{ github.event_name }} \
+            -e GITHUB_REF=${{ github.ref }} \
+            -e GITHUB_SHA=${{ github.sha }} \
+            -e GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} -v "$(pwd)":/code nightapes/go-semantic-release:latest release -l trace
