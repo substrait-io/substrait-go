@@ -29,11 +29,14 @@ jobs:
         uses: actions/checkout@v3
         with:          
           fetch-depth: 0
-      - run: ls -la
-      - name: Run go-semantic-release
-        # if event_name == pull_request it will not perform a release          
+      - name: Run a test
         run: |
-          echo $USER    
+          docker run -v "$(pwd)":/code -w /code alpine:3.14 touch .version
+      - name: Run go-semantic-release
+        # the dockerfile for go-semantic-release uses USER 1000 so hopefully
+        # this is sufficient to have permissions?
+        # if event_name == pull_request it will not perform a release          
+        run: |          
           docker run -u 1000 -e GITHUB_ACTION=${{ github.action}} \
             -e GITHUB_EVENT_NAME=${{ github.event_name }} \
             -e GITHUB_REF=${{ github.ref }} \
