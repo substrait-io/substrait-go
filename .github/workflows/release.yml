@@ -28,10 +28,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
         with:          
-          fetch-depth: 0
-      - name: Run a test
-        run: |
-          docker run -v "$(pwd)":/code -w /code alpine:3.14 touch .version
+          fetch-depth: 0      
       - name: Run go-semantic-release
         # the dockerfile for go-semantic-release uses USER 1000 so hopefully
         # this is sufficient to have permissions?
@@ -41,4 +38,4 @@ jobs:
             -e GITHUB_EVENT_NAME=${{ github.event_name }} \
             -e GITHUB_REF=${{ github.ref }} \
             -e GITHUB_SHA=${{ github.sha }} \
-            -e GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} -v "$(pwd)":/code nightapes/go-semantic-release:2.1.0 release -l trace
+            -e GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} -v "$(pwd)":/code nightapes/go-semantic-release:latest release -l trace
