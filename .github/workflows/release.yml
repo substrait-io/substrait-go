@@ -34,7 +34,7 @@ jobs:
         # if event_name == pull_request it will not perform a release          
         run: |
           echo $USER    
-          docker run -u $USER -e GITHUB_ACTION=${{ github.action}} \
+          docker run -u 1000 -e GITHUB_ACTION=${{ github.action}} \
             -e GITHUB_EVENT_NAME=${{ github.event_name }} \
             -e GITHUB_REF=${{ github.ref }} \
             -e GITHUB_SHA=${{ github.sha }} \
