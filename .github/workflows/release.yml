@@ -33,4 +33,4 @@ jobs:
         run: |          
           wget https://github.com/Nightapes/go-semantic-release/releases/download/v2.1.1/go-semantic-release.linux_x86_64.zip
           unzip go-semantic-release.linux_x86_64.zip
-          go-semantic-release.linux_x86_64 release -l trace
+          ./go-semantic-release.linux_x86_64 release -l trace
