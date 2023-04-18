@@ -23,6 +23,12 @@ As this is built out, you can expect refactors and other changes to the
 structure of the package for the time being. **The API should not yet be
 considered stable.**
 
+## Substrait Submodule
+The [substrait](https://github.com/substrait-io/substrait) repo is included in substrait-go
+to allow downstream consumers to use the proto messages in their own proto definitions.
+
+The `update_substrait` script can be used to update the submodule depdency and regenerate the protos. 
+
 ## Generate from proto files
 
 ### Install buf
