@@ -1,3 +1,6 @@
 #!/bin/sh
 git submodule update --remote substrait
 go generate
+
+# Copy Extensions
+cp substrait/extensions/* extensions/definitions/
