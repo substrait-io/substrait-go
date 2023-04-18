@@ -27,6 +27,7 @@ aggregate_functions:
   - name: "any_value"
     description: >
       Selects an arbitrary value from a group of values.
+
       If the input is empty, the function returns null.
     impls:
       - args:

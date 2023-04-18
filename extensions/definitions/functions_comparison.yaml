@@ -5,7 +5,9 @@ scalar_functions:
     name: "not_equal"
     description: >
       Whether two values are not_equal.
+
       `not_equal(x, y) := (x != y)`
+
       If either/both of `x` and `y` are `null`, `null` is returned.
     impls:
       - args:
@@ -18,7 +20,9 @@ scalar_functions:
     name: "equal"
     description: >
       Whether two values are equal.
+
       `equal(x, y) := (x == y)`
+
       If either/both of `x` and `y` are `null`, `null` is returned.
     impls:
       - args:
@@ -31,8 +35,11 @@ scalar_functions:
     name: "is_not_distinct_from"
     description: >
       Whether two values are equal.
+
       This function treats `null` values as comparable, so
+
       `is_not_distinct_from(null, null) == True`
+
       This is in contrast to `equal`, in which `null` values do not compare.
     impls:
       - args:
@@ -45,7 +52,9 @@ scalar_functions:
     name: "lt"
     description: >
       Less than.
+
       lt(x, y) := (x < y)
+
       If either/both of `x` and `y` are `null`, `null` is returned.
     impls:
       - args:
@@ -58,7 +67,9 @@ scalar_functions:
     name: "gt"
     description: >
       Greater than.
+
       gt(x, y) := (x > y)
+
       If either/both of `x` and `y` are `null`, `null` is returned.
     impls:
       - args:
@@ -71,7 +82,9 @@ scalar_functions:
     name: "lte"
     description: >
       Less than or equal to.
+
       lte(x, y) := (x <= y)
+
       If either/both of `x` and `y` are `null`, `null` is returned.
     impls:
       - args:
@@ -84,7 +97,9 @@ scalar_functions:
     name: "gte"
     description: >
       Greater than or equal to.
+
       gte(x, y) := (x >= y)
+
       If either/both of `x` and `y` are `null`, `null` is returned.
     impls:
       - args:
@@ -97,7 +112,9 @@ scalar_functions:
     name: "between"
     description: >-
       Whether the `expression` is greater than or equal to `low` and less than or equal to `high`.
+
       `expression` BETWEEN `low` AND `high`
+
       If `low`, `high`, or `expression` are `null`, `null` is returned.
     impls:
       - args:
@@ -133,6 +150,7 @@ scalar_functions:
     name: "is_nan"
     description: >
       Whether a value is not a number.
+
       If `x` is `null`, `null` is returned.
     impls:
       - args:
@@ -147,6 +165,7 @@ scalar_functions:
     name: "is_finite"
     description: >
       Whether a value is finite (neither infinite nor NaN).
+
       If `x` is `null`, `null` is returned.
     impls:
       - args:
@@ -161,6 +180,7 @@ scalar_functions:
     name: "is_infinite"
     description: >
       Whether a value is infinite.
+
       If `x` is `null`, `null` is returned.
     impls:
       - args:
@@ -186,6 +206,7 @@ scalar_functions:
     description: >-
       Evaluate arguments from left to right and return the first argument that is not null. Once
       a non-null argument is found, the remaining arguments are not evaluated.
+
       If all arguments are null, return null.
     impls:
       - args:
