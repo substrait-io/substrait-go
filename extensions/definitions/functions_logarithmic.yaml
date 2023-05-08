@@ -83,6 +83,7 @@ scalar_functions:
     name: "logb"
     description: >
       Logarithm of the value with the given base
+
       logb(x, b) => log_{b} (x)
     impls:
       - args:
@@ -119,6 +120,7 @@ scalar_functions:
     name: "log1p"
     description: >
       Natural logarithm (base e) of 1 + x
+
       log1p(x) => log(1+x)
     impls:
       - args:

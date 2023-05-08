@@ -647,6 +647,7 @@ scalar_functions:
     name: "abs"
     description: >
       Calculate the absolute value of the argument.
+
       Integer values allow the specification of overflow behavior to handle the
       unevenness of the twos complement, e.g. Int8 range [-128 : 127].
     impls:
@@ -690,8 +691,10 @@ scalar_functions:
     name: "sign"
     description: >
       Return the signedness of the argument.
+
       Integer values return signedness with the same type as the input.
       Possible return values are [-1, 0, 1]
+
       Floating point values return signedness with the same type as the input.
       Possible return values are [-1.0, -0.0, 0.0, 1.0, NaN]
     impls:
@@ -723,7 +726,9 @@ scalar_functions:
     name: "factorial"
     description: >
       Return the factorial of a given integer input.
+
       The factorial of 0! is 1 by convention.
+
       Negative inputs will raise an error.
     impls:
       - args:
@@ -744,6 +749,7 @@ scalar_functions:
     name: "bitwise_not"
     description: >
       Return the bitwise NOT result for one integer input.
+
     impls:
       - args:
           - name: x
@@ -765,6 +771,7 @@ scalar_functions:
     name: "bitwise_and"
     description: >
       Return the bitwise AND result for two integer inputs.
+
     impls:
       - args:
           - name: x
@@ -794,6 +801,7 @@ scalar_functions:
     name: "bitwise_or"
     description: >
       Return the bitwise OR result for two given integer inputs.
+
     impls:
       - args:
           - name: x
@@ -823,6 +831,7 @@ scalar_functions:
     name: "bitwise_xor"
     description: >
       Return the bitwise XOR result for two integer inputs.
+
     impls:
       - args:
           - name: x
@@ -913,6 +922,72 @@ aggregate_functions:
         decomposable: MANY
         intermediate: fp64?
         return: fp64?
+  - name: "sum0"
+    description: >
+      Sum a set of values. The sum of zero elements yields zero.
+
+      Null values are ignored.
+    impls:
+      - args:
+          - name: x
+            value: i8
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: i64
+        return: i64
+      - args:
+          - name: x
+            value: i16
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: i64
+        return: i64
+      - args:
+          - name: x
+            value: i32
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: i64
+        return: i64
+      - args:
+          - name: x
+            value: i64
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: i64
+        return: i64
+      - args:
+          - name: x
+            value: fp32
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: fp64
+        return: fp64
+      - args:
+          - name: x
+            value: fp64
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: fp64
+        return: fp64
   - name: "avg"
     description: Average a set of values. For integral types, this truncates partial values.
     impls:
@@ -1238,6 +1313,7 @@ aggregate_functions:
   - name: "median"
     description: >
       Calculate the median for a set of values.
+
       Returns null if applied to zero records. For the integer implementations,
       the rounding option determines how the median should be rounded if it ends
       up midway between two values. For the floating point implementations,
@@ -1249,6 +1325,7 @@ aggregate_functions:
               Based on required operator performance and configured optimizations
               on saving memory bandwidth, the precision of the end result can be
               the highest possible accuracy or an approximation.
+
                 - EXACT: provides the exact result, rounded if needed according
                   to the rounding option.
                 - APPROXIMATE: provides only an estimate; the result must lie
@@ -1269,6 +1346,7 @@ aggregate_functions:
               Based on required operator performance and configured optimizations
               on saving memory bandwidth, the precision of the end result can be
               the highest possible accuracy or an approximation.
+
                 - EXACT: provides the exact result, rounded if needed according
                   to the rounding option.
                 - APPROXIMATE: provides only an estimate; the result must lie
@@ -1289,6 +1367,7 @@ aggregate_functions:
               Based on required operator performance and configured optimizations
               on saving memory bandwidth, the precision of the end result can be
               the highest possible accuracy or an approximation.
+
                 - EXACT: provides the exact result, rounded if needed according
                   to the rounding option.
                 - APPROXIMATE: provides only an estimate; the result must lie
@@ -1309,6 +1388,7 @@ aggregate_functions:
               Based on required operator performance and configured optimizations
               on saving memory bandwidth, the precision of the end result can be
               the highest possible accuracy or an approximation.
+
                 - EXACT: provides the exact result, rounded if needed according
                   to the rounding option.
                 - APPROXIMATE: provides only an estimate; the result must lie
@@ -1329,6 +1409,7 @@ aggregate_functions:
               Based on required operator performance and configured optimizations
               on saving memory bandwidth, the precision of the end result can be
               the highest possible accuracy or an approximation.
+
                 - EXACT: provides the exact result, rounded if needed according
                   to the rounding option.
                 - APPROXIMATE: provides only an estimate; the result must lie
@@ -1349,6 +1430,7 @@ aggregate_functions:
               Based on required operator performance and configured optimizations
               on saving memory bandwidth, the precision of the end result can be
               the highest possible accuracy or an approximation.
+
                 - EXACT: provides the exact result, rounded if needed according
                   to the rounding option.
                 - APPROXIMATE: provides only an estimate; the result must lie
@@ -1366,25 +1448,31 @@ aggregate_functions:
   - name: "quantile"
     description: >
       Calculates quantiles for a set of values.
+
       This function will divide the aggregated values (passed via the
       distribution argument) over N equally-sized bins, where N is passed
       via a constant argument. It will then return the values at the
       boundaries of these bins in list form. If the input is appropriately
       sorted, this computes the quantiles of the distribution.
+
       The function can optionally return the first and/or last element of
       the input, as specified by the `boundaries` argument. If the input is
       appropriately sorted, this will thus be the minimum and/or maximum
       values of the distribution.
+
       When the boundaries do not lie exactly on elements of the incoming
       distribution, the function will interpolate between the two nearby
       elements. If the interpolated value cannot be represented exactly,
       the `rounding` option controls how the value should be selected or
       computed.
+
       The function fails and returns null in the following cases:
         - `n` is null or less than one;
         - any value in `distribution` is null.
+
       The function returns an empty list if `n` equals 1 and `boundaries` is
       set to `NEITHER`.
+
     impls:
       - args:
           - name: boundaries
@@ -1398,6 +1486,7 @@ aggregate_functions:
               Based on required operator performance and configured optimizations
               on saving memory bandwidth, the precision of the end result can be
               the highest possible accuracy or an approximation.
+
                 - EXACT: provides the exact result, rounded if needed according
                   to the rounding option.
                 - APPROXIMATE: provides only an estimate; the result must lie
@@ -1423,6 +1512,7 @@ aggregate_functions:
               to round it. For floating point numbers, it specifies the IEEE
               754 rounding mode (as it does for all other floating point
               operations). For integer types:
+
                 - TIE_TO_EVEN: round to nearest value; if exactly halfway, tie
                   to the even option.
                 - TIE_AWAY_FROM_ZERO: round to nearest value; if exactly
@@ -1430,12 +1520,13 @@ aggregate_functions:
                 - TRUNCATE: always round toward zero.
                 - CEILING: always round toward positive infinity.
                 - FLOOR: always round toward negative infinity.
+
               For non-numeric types, the behavior is the same as for integer
               types, but applied to the index of the value in distribution.
             values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
         nullability: DECLARED_OUTPUT
         ordered: true
-        return: LIST<any>
+        return: LIST?<any>
 
 window_functions:
   - name: "row_number"

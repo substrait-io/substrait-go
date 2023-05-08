@@ -6353,7 +6353,7 @@ func (*Expression_ReferenceSegment_ListElement_) isExpression_ReferenceSegment_R
 // pipeline.
 //
 // Note that this does not fundamentally alter the structure of data beyond
-// the elimination of unecessary elements.
+// the elimination of unnecessary elements.
 type Expression_MaskExpression struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
