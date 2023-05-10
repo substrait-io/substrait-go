@@ -72,37 +72,28 @@ func (l *IntegerLiteral) String() string {
 }
 
 type Type struct {
-	TypeDef  Def  `parser:"@@"`
-	Optional bool `parser:"@'?'?"`
+	TypeDef Def `parser:"@@"`
 }
 
 func (t *Type) ShortType() string {
 	return t.TypeDef.ShortType()
 }
 
+func (t *Type) Optional() bool { return t.TypeDef.Optional() }
+
 func (t *Type) String() string {
-	var opt string
-	if t.Optional {
-		opt = "?"
-	}
-	return t.TypeDef.String() + opt
+	return t.TypeDef.String()
 }
 
 func (t *Type) Type() (types.Type, error) {
-	var n types.Nullability
-	if t.Optional {
-		n = types.NullabilityNullable
-	} else {
-		n = types.NullabilityRequired
-	}
-
-	return t.TypeDef.Type(n)
+	return t.TypeDef.Type()
 }
 
 type Def interface {
 	String() string
 	ShortType() string
-	Type(n types.Nullability) (types.Type, error)
+	Type() (types.Type, error)
+	Optional() bool
 }
 
 type typename string
@@ -113,11 +104,19 @@ func (t *typename) Capture(values []string) error {
 }
 
 type nonParamType struct {
-	TypeName typename `parser:"@(AnyType | Template | IntType | Boolean | FPType | Temporal | BinaryType)"`
+	TypeName    typename `parser:"@(AnyType | Template | IntType | Boolean | FPType | Temporal | BinaryType)"`
+	Nullability bool     `parser:"@'?'?"`
+	// Variation   int      `parser:"'[' @\d+ ']'?"`
 }
 
+func (t *nonParamType) Optional() bool { return t.Nullability }
+
 func (t *nonParamType) String() string {
-	return string(t.TypeName)
+	opt := string(t.TypeName)
+	if t.Nullability {
+		opt += "?"
+	}
+	return opt
 }
 
 func (t *nonParamType) ShortType() string {
@@ -146,7 +145,13 @@ func (t *nonParamType) ShortType() string {
 
 }
 
-func (t *nonParamType) Type(n types.Nullability) (types.Type, error) {
+func (t *nonParamType) Type() (types.Type, error) {
+	var n types.Nullability
+	if t.Nullability {
+		n = types.NullabilityNullable
+	} else {
+		n = types.NullabilityRequired
+	}
 	switch t.TypeName {
 	case "i8":
 		return &types.Int8Type{Nullability: n}, nil
@@ -185,14 +190,29 @@ func (t *nonParamType) Type(n types.Nullability) (types.Type, error) {
 }
 
 type listType struct {
-	ElemType TypeExpression `parser:"'list' '<' @@ '>'"`
+	Nullability bool           `parser:"'list' @'?'?"`
+	ElemType    TypeExpression `parser:"'<' @@ '>'"`
 }
 
 func (*listType) ShortType() string { return "list" }
 
-func (l *listType) String() string { return "list<" + l.ElemType.Expr.String() + ">" }
+func (l *listType) String() string {
+	var opt string
+	if l.Nullability {
+		opt = "?"
+	}
+	return "list" + opt + "<" + l.ElemType.Expr.String() + ">"
+}
 
-func (l *listType) Type(n types.Nullability) (types.Type, error) {
+func (l *listType) Optional() bool { return false }
+
+func (l *listType) Type() (types.Type, error) {
+	var n types.Nullability
+	if l.Nullability {
+		n = types.NullabilityNullable
+	} else {
+		n = types.NullabilityRequired
+	}
 	if t, ok := l.ElemType.Expr.(*Type); ok {
 		ret, err := t.Type()
 		if err != nil {
@@ -228,7 +248,10 @@ func (p *lengthType) String() string {
 	return p.TypeName + "<" + p.NumericParam.Expr.String() + ">"
 }
 
-func (p *lengthType) Type(n types.Nullability) (types.Type, error) {
+func (p *lengthType) Optional() bool { return false }
+
+func (p *lengthType) Type() (types.Type, error) {
+	var n types.Nullability
 	lit, ok := p.NumericParam.Expr.(*IntegerLiteral)
 	if !ok {
 		return nil, substraitgo.ErrNotImplemented
@@ -256,17 +279,25 @@ func (p *lengthType) Type(n types.Nullability) (types.Type, error) {
 }
 
 type decimalType struct {
-	Precision TypeExpression `parser:"'decimal' '<' @@"`
-	Scale     TypeExpression `parser:"',' @@ '>'"`
+	Nullability bool           `parser:"'decimal' @'?'?"`
+	Precision   TypeExpression `parser:"'<' @@"`
+	Scale       TypeExpression `parser:"',' @@ '>'"`
 }
 
 func (*decimalType) ShortType() string { return "dec" }
 
 func (d *decimalType) String() string {
-	return "decimal<" + d.Precision.Expr.String() + ", " + d.Scale.Expr.String() + ">"
+	var opt string
+	if d.Nullability {
+		opt = "?"
+	}
+	return "decimal" + opt + "<" + d.Precision.Expr.String() + ", " + d.Scale.Expr.String() + ">"
 }
 
-func (d *decimalType) Type(n types.Nullability) (types.Type, error) {
+func (d *decimalType) Optional() bool { return d.Nullability }
+
+func (d *decimalType) Type() (types.Type, error) {
+	var n types.Nullability
 	p, ok := d.Precision.Expr.(*IntegerLiteral)
 	if !ok {
 		return nil, substraitgo.ErrNotImplemented
@@ -285,14 +316,19 @@ func (d *decimalType) Type(n types.Nullability) (types.Type, error) {
 }
 
 type structType struct {
-	Types []TypeExpression `parser:"'struct' '<' @@ (',' @@)* '>'"`
+	Nullability bool             `parser:"'struct' @'?'?"`
+	Types       []TypeExpression `parser:"'<' @@ (',' @@)* '>'"`
 }
 
 func (*structType) ShortType() string { return "struct" }
 
 func (s *structType) String() string {
 	var b strings.Builder
-	b.WriteString("struct<")
+	b.WriteString("struct")
+	if s.Nullability {
+		b.WriteByte('?')
+	}
+	b.WriteByte('<')
 	for i, t := range s.Types {
 		if i != 0 {
 			b.WriteString(", ")
@@ -303,7 +339,15 @@ func (s *structType) String() string {
 	return b.String()
 }
 
-func (t *structType) Type(n types.Nullability) (types.Type, error) {
+func (t *structType) Optional() bool { return t.Nullability }
+
+func (t *structType) Type() (types.Type, error) {
+	var n types.Nullability
+	if t.Nullability {
+		n = types.NullabilityNullable
+	} else {
+		n = types.NullabilityRequired
+	}
 	var err error
 	typeList := make([]types.Type, len(t.Types))
 	for i, typ := range t.Types {
@@ -323,23 +367,37 @@ func (t *structType) Type(n types.Nullability) (types.Type, error) {
 }
 
 type mapType struct {
-	Key   TypeExpression `parser:"'map' '<' @@"`
-	Value TypeExpression `parser:"',' @@ '>'"`
+	Nullability bool           `parser:"'map' @'?'?"`
+	Key         TypeExpression `parser:"'<' @@"`
+	Value       TypeExpression `parser:"',' @@ '>'"`
 }
 
 func (*mapType) ShortType() string { return "map" }
 
 func (m *mapType) String() string {
-	return "map<" + m.Key.Expr.String() + "," + m.Value.Expr.String() + ">"
+	var opt string
+	if m.Nullability {
+		opt = "?"
+	}
+	return "map" + opt + "<" + m.Key.Expr.String() + "," + m.Value.Expr.String() + ">"
 }
 
-func (t *mapType) Type(n types.Nullability) (types.Type, error) {
-	k, ok := t.Key.Expr.(*Type)
+func (m *mapType) Optional() bool { return m.Nullability }
+
+func (m *mapType) Type() (types.Type, error) {
+	var n types.Nullability
+	if m.Nullability {
+		n = types.NullabilityNullable
+	} else {
+		n = types.NullabilityRequired
+	}
+
+	k, ok := m.Key.Expr.(*Type)
 	if !ok {
 		return nil, substraitgo.ErrNotImplemented
 	}
 
-	v, ok := t.Value.Expr.(*Type)
+	v, ok := m.Value.Expr.(*Type)
 	if !ok {
 		return nil, substraitgo.ErrNotImplemented
 	}
@@ -375,7 +433,7 @@ var (
 		{Name: "ParamType", Pattern: `(?i)(struct|list|decimal|map)`},
 		{Name: "Identifier", Pattern: `[a-zA-Z_$][a-zA-Z_$0-9]*`},
 		{Name: "Ident", Pattern: `([a-zA-Z_]\w*)|[><,?]`},
-	}, lexer.MatchLongest())
+	})
 )
 
 type Parser struct {

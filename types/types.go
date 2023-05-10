@@ -548,8 +548,8 @@ func (*FixedLenType[T]) ShortString() string {
 
 func (s *FixedLenType[T]) String() string {
 	var z *T
-	return fmt.Sprintf("%s<%d>%s",
-		typeNames[reflect.TypeOf(z)], s.Length, strNullable(s))
+	return fmt.Sprintf("%s%s<%d>",
+		typeNames[reflect.TypeOf(z)], strNullable(s), s.Length)
 }
 
 type DecimalType struct {
@@ -592,8 +592,8 @@ func (t *DecimalType) ToProto() *proto.Type {
 
 func (*DecimalType) ShortString() string { return "dec" }
 func (t *DecimalType) String() string {
-	return fmt.Sprintf("decimal<%d,%d>%s",
-		t.Precision, t.Scale, strNullable(t))
+	return fmt.Sprintf("decimal%s<%d,%d>", strNullable(t),
+		t.Precision, t.Scale)
 }
 
 type StructType struct {
@@ -656,7 +656,9 @@ func (*StructType) ShortString() string { return "struct" }
 
 func (t *StructType) String() string {
 	var b strings.Builder
-	b.WriteString("struct<")
+	b.WriteString("struct")
+	b.WriteString(strNullable(t))
+	b.WriteByte('<')
 	for i, f := range t.Types {
 		if i != 0 {
 			b.WriteString(", ")
@@ -664,7 +666,6 @@ func (t *StructType) String() string {
 		b.WriteString(f.String())
 	}
 	b.WriteByte('>')
-	b.WriteString(strNullable(t))
 	return b.String()
 }
 
@@ -716,7 +717,7 @@ func (t *ListType) ToProtoFuncArg() *proto.FunctionArgument {
 func (*ListType) ShortString() string { return "list" }
 
 func (t *ListType) String() string {
-	return "list<" + t.Type.String() + ">" + strNullable(t)
+	return "list" + strNullable(t) + "<" + t.Type.String() + ">"
 }
 
 type MapType struct {
@@ -767,7 +768,7 @@ func (t *MapType) ToProtoFuncArg() *proto.FunctionArgument {
 func (t *MapType) ShortString() string { return "map" }
 
 func (t *MapType) String() string {
-	return "map<" + t.Key.String() + "," + t.Value.String() + ">" + strNullable(t)
+	return "map" + strNullable(t) + "<" + t.Key.String() + "," + t.Value.String() + ">"
 }
 
 // TypeParam represents a type parameter for a user defined type

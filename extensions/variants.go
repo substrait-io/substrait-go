@@ -48,7 +48,7 @@ func EvaluateTypeExpression(nullHandling NullabilityHandling, expr parser.TypeEx
 
 			if nullHandling == DiscreteNullability {
 				if t, ok := p.Value.Expr.(*parser.Type); ok {
-					if isNullable != t.Optional {
+					if isNullable != t.Optional() {
 						return nil, fmt.Errorf("%w: discrete nullability did not match for arg #%d",
 							substraitgo.ErrInvalidType, i)
 					}

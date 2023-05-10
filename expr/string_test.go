@@ -35,9 +35,9 @@ func TestLiteralToString(t *testing.T) {
 					Value: expr.NewFixedCharLiteral(types.FixedChar("bar"), false),
 				},
 			}, true),
-		}, true), "list<map<string,char<3>>?>?([map<string,char<3>>?([{string(foo) char<3>(bar)} {string(baz) char<3>(bar)}])])"},
+		}, true), "list?<map?<string,char<3>>>([map?<string,char<3>>([{string(foo) char<3>(bar)} {string(baz) char<3>(bar)}])])"},
 		{MustLiteral(expr.NewLiteral(float32(1.5), false)), "fp32(1.5)"},
-		{MustLiteral(expr.NewLiteral(&types.VarChar{Value: "foobar", Length: 7}, true)), "varchar<7>?(foobar)"},
+		{MustLiteral(expr.NewLiteral(&types.VarChar{Value: "foobar", Length: 7}, true)), "varchar?<7>(foobar)"},
 	}
 
 	for _, tt := range tests {

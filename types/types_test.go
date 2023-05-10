@@ -39,7 +39,7 @@ func TestTypeToString(t *testing.T) {
 		{&StructType{Nullability: NullabilityNullable, Types: []Type{
 			&Int8Type{Nullability: NullabilityNullable},
 			&DateType{Nullability: NullabilityRequired}, &FixedCharType{Length: 5}}},
-			"struct<i8?, date, char<5>>?", "struct"},
+			"struct?<i8?, date, char<5>>", "struct"},
 		{&ListType{Type: &Int8Type{}}, "list<i8>", "list"},
 		{&MapType{Key: &StringType{}, Value: &DecimalType{Precision: 10, Scale: 2}},
 			"map<string,decimal<10,2>>", "map"},

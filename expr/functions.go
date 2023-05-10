@@ -263,6 +263,7 @@ func (s *ScalarFunction) SessionDependant() bool                 { return s.decl
 func (s *ScalarFunction) Deterministic() bool                    { return s.declaration.Deterministic() }
 func (s *ScalarFunction) NArgs() int                             { return len(s.args) }
 func (s *ScalarFunction) Arg(i int) types.FuncArg                { return s.args[i] }
+func (s *ScalarFunction) FuncRef() uint32                        { return s.funcRef }
 func (s *ScalarFunction) IsScalar() bool {
 	for _, arg := range s.args {
 		if ex, ok := arg.(Expression); ok {

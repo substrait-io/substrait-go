@@ -166,7 +166,7 @@ cases:
             - literal: { i8: 5 }
             - literal: { i16: 6 }
   - name: nested-map-expr
-    __test: { type: "map<i8,i16>?" }
+    __test: { type: "map?<i8,i16>" }
     expression:
       nested:
         nullable: true
@@ -208,7 +208,7 @@ cases:
                 rootReference: {}
                 directReference: { structField: { field: 3 } }
   - name: nested-list-expr
-    __test: { type: "list<i16?>?" }
+    __test: { type: "list?<i16?>" }
     expression:
       nested:
         nullable: true
