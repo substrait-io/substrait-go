@@ -147,15 +147,15 @@ type literalWrapper struct {
 	err     error
 }
 
-func (l literalWrapper) buildFuncArg() (types.FuncArg, error) { return l.wrapped, l.err }
+func (l literalWrapper) BuildFuncArg() (types.FuncArg, error) { return l.wrapped, l.err }
 func (l literalWrapper) BuildExpr() (Expression, error)       { return l.wrapped, l.err }
 
 type enumWrapper string
 
-func (e enumWrapper) buildFuncArg() (types.FuncArg, error) { return types.Enum(e), nil }
+func (e enumWrapper) BuildFuncArg() (types.FuncArg, error) { return types.Enum(e), nil }
 
-type funcArgBuilder interface {
-	buildFuncArg() (types.FuncArg, error)
+type FuncArgBuilder interface {
+	BuildFuncArg() (types.FuncArg, error)
 }
 
 type castBuilder struct {
@@ -165,7 +165,7 @@ type castBuilder struct {
 }
 
 func (cb *castBuilder) BuildExpr() (Expression, error)       { return cb.Build() }
-func (cb *castBuilder) buildFuncArg() (types.FuncArg, error) { return cb.Build() }
+func (cb *castBuilder) BuildFuncArg() (types.FuncArg, error) { return cb.Build() }
 func (cb *castBuilder) Build() (*Cast, error) {
 	in, err := cb.input.BuildExpr()
 	if err != nil {
@@ -191,14 +191,14 @@ type scalarFuncBuilder struct {
 
 	id   extensions.ID
 	opts []*types.FunctionOption
-	args []funcArgBuilder
+	args []FuncArgBuilder
 }
 
 func (sb *scalarFuncBuilder) Build() (*ScalarFunction, error) {
 	var err error
 	args := make([]types.FuncArg, len(sb.args))
 	for i, a := range sb.args {
-		if args[i], err = a.buildFuncArg(); err != nil {
+		if args[i], err = a.BuildFuncArg(); err != nil {
 			return nil, err
 		}
 	}
@@ -210,13 +210,13 @@ func (sb *scalarFuncBuilder) BuildExpr() (Expression, error) {
 	return sb.Build()
 }
 
-func (sb *scalarFuncBuilder) buildFuncArg() (types.FuncArg, error) {
+func (sb *scalarFuncBuilder) BuildFuncArg() (types.FuncArg, error) {
 	return sb.Build()
 }
 
 // Args sets the argument list for this builder. Subsequent calls to Args
 // will *replace* the argument list, not append to it.
-func (sb *scalarFuncBuilder) Args(args ...funcArgBuilder) *scalarFuncBuilder {
+func (sb *scalarFuncBuilder) Args(args ...FuncArgBuilder) *scalarFuncBuilder {
 	sb.args = args
 	return sb
 }
@@ -226,7 +226,7 @@ type windowFuncBuilder struct {
 
 	id   extensions.ID
 	opts []*types.FunctionOption
-	args []funcArgBuilder
+	args []FuncArgBuilder
 
 	phase      types.AggregationPhase
 	invocation types.AggregationInvocation
@@ -240,7 +240,7 @@ func (wb *windowFuncBuilder) Build() (*WindowFunction, error) {
 	var err error
 	args := make([]types.FuncArg, len(wb.args))
 	for i, a := range wb.args {
-		if args[i], err = a.buildFuncArg(); err != nil {
+		if args[i], err = a.BuildFuncArg(); err != nil {
 			return nil, err
 		}
 	}
@@ -261,7 +261,7 @@ func (wb *windowFuncBuilder) Build() (*WindowFunction, error) {
 	return wf, nil
 }
 
-func (wb *windowFuncBuilder) buildFuncArg() (types.FuncArg, error) {
+func (wb *windowFuncBuilder) BuildFuncArg() (types.FuncArg, error) {
 	return wb.Build()
 }
 
@@ -271,7 +271,7 @@ func (wb *windowFuncBuilder) BuildExpr() (Expression, error) {
 
 // Args sets the argument list for this builder. Subsequent calls to Args
 // will *replace* the argument list, not append to it.
-func (wb *windowFuncBuilder) Args(args ...funcArgBuilder) *windowFuncBuilder {
+func (wb *windowFuncBuilder) Args(args ...FuncArgBuilder) *windowFuncBuilder {
 	wb.args = args
 	return wb
 }
@@ -316,7 +316,7 @@ type aggregateFuncBuilder struct {
 
 	id   extensions.ID
 	opts []*types.FunctionOption
-	args []funcArgBuilder
+	args []FuncArgBuilder
 
 	phase      types.AggregationPhase
 	invocation types.AggregationInvocation
@@ -327,7 +327,7 @@ func (ab *aggregateFuncBuilder) Build() (*AggregateFunction, error) {
 	var err error
 	args := make([]types.FuncArg, len(ab.args))
 	for i, a := range ab.args {
-		if args[i], err = a.buildFuncArg(); err != nil {
+		if args[i], err = a.BuildFuncArg(); err != nil {
 			return nil, err
 		}
 	}
@@ -337,7 +337,7 @@ func (ab *aggregateFuncBuilder) Build() (*AggregateFunction, error) {
 
 // Args sets the argument list for this builder. Subsequent calls to Args
 // will *replace* the argument list, not append to it.
-func (ab *aggregateFuncBuilder) Args(args ...funcArgBuilder) *aggregateFuncBuilder {
+func (ab *aggregateFuncBuilder) Args(args ...FuncArgBuilder) *aggregateFuncBuilder {
 	ab.args = args
 	return ab
 }
@@ -374,7 +374,7 @@ func (rb *fieldRefBuilder) Build() (*FieldReference, error) {
 	return NewFieldRef(rb.root, rb.ref, rb.b.BaseSchema)
 }
 
-func (rb *fieldRefBuilder) buildFuncArg() (types.FuncArg, error) {
+func (rb *fieldRefBuilder) BuildFuncArg() (types.FuncArg, error) {
 	return rb.Build()
 }
 
