@@ -377,7 +377,10 @@ func (e *set) GetTypeVariationAnchor(id ID) uint32 {
 	a, ok := e.typeVariations[id]
 	if !ok {
 		e.addURI(id.URI)
-		a = uint32(len(e.typeVariations))
+		// add 1 to the length to avoid an anchor of 0
+		// so that it's easier to tell when there is no
+		// type variation.
+		a = uint32(len(e.typeVariations)) + 1
 		e.encodeTypeVariation(a, id)
 	}
 	return a
