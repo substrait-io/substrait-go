@@ -33,6 +33,9 @@ var (
 	extractID = extensions.ID{
 		URI:  extensions.SubstraitDefaultURIPrefix + "functions_datetime.yaml",
 		Name: "extract"}
+	ntileID = extensions.ID{
+		URI:  extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+		Name: "ntile"}
 
 	boringSchema = types.NamedStruct{
 		Names: []string{

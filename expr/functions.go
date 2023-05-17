@@ -290,6 +290,20 @@ func (s *ScalarFunction) String() string {
 		b.WriteString(arg.String())
 	}
 
+	if len(s.options) > 0 {
+		b.WriteString(", {")
+		for i, o := range s.options {
+			if i != 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(o.Name)
+			b.WriteString(": [")
+			b.WriteString(strings.Join(o.Preference, ","))
+			b.WriteString("]")
+		}
+		b.WriteString("}")
+	}
+
 	b.WriteString(") => ")
 	if s.outputType != nil {
 		b.WriteString(s.outputType.String())
