@@ -17,6 +17,26 @@ This is work in progress still, things still to do:
   - [x] Cast
   - [x] Nested
   - [ ] Subquery
+- [ ] Serialization/Deserialization of Plan and Relations
+  - [x] Plan
+  - [x] PlanRel
+  - [x] Rel
+    - [x] ReadRel
+    - [x] FilterRel
+    - [x] FetchRel
+    - [x] AggregateRel
+    - [x] SortRel
+    - [x] JoinRel
+    - [x] ProjectRel
+    - [x] SetRel
+    - [x] ExtensionSingleRel
+    - [x] ExtensionMultiRel
+    - [x] ExtensionLeafRel
+    - [x] CrossRel
+    - [x] HashJoinRel
+    - [x] MergeJoinRel
+  - [ ] DdlRel
+  - [ ] WriteRel
 - [ ] Plan Building helpers
 
 As this is built out, you can expect refactors and other changes to the
