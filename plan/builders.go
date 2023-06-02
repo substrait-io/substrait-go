@@ -11,7 +11,40 @@ import (
 	"github.com/substrait-io/substrait-go/types"
 )
 
-type Builder interface{}
+type Builder interface {
+	UserDefinedType(nameSpace, typeName string, params ...types.TypeParam) types.UserDefinedType
+	RootFieldRef(input Rel, index int32) (*expr.FieldReference, error)
+	ScalarFn(nameSpace, key string, opts []*types.FunctionOption, args ...types.FuncArg) (*expr.ScalarFunction, error)
+	AggregateFn(nameSpace, key string, opts []*types.FunctionOption, args ...types.FuncArg) (*expr.AggregateFunction, error)
+	SortFields(input Rel, indices ...int32) ([]expr.SortField, error)
+	Measure(measure *expr.AggregateFunction, filter expr.Expression) AggRelMeasure
+
+	Project(input Rel, exprs []expr.Expression) *ProjectRel
+	ProjectRemap(input Rel, exprs []expr.Expression, remap []int32) *ProjectRel
+	AggregateColumnsRemap(input Rel, remap []int32, measures []AggRelMeasure, groupByCols ...int32) (*AggregateRel, error)
+	AggregateColumns(input Rel, measures []AggRelMeasure, groupByCols ...int32) (*AggregateRel, error)
+	AggregateExprsRemap(input Rel, remap []int32, measures []AggRelMeasure, groups ...[]expr.Expression) *AggregateRel
+	AggregateExprs(input Rel, measures []AggRelMeasure, groups ...[]expr.Expression) *AggregateRel
+	CrossRemap(left, right Rel, remap []int32) *CrossRel
+	Cross(left, right Rel) *CrossRel
+	FetchRemap(input Rel, offset, count int64, remap []int32) *FetchRel
+	Fetch(input Rel, offset, count int64) *FetchRel
+	FilterRemap(input Rel, condition expr.Expression, remap []int32) *FilterRel
+	Filter(input Rel, condition expr.Expression) *FilterRel
+	JoinAndFilterRemap(left, right Rel, condition, postJoinFilter expr.Expression, joinType JoinType, remap []int32) *JoinRel
+	JoinAndFilter(left, right Rel, condition, postJoinFilter expr.Expression, joinType JoinType) *JoinRel
+	JoinRemap(left, right Rel, condition expr.Expression, joinType JoinType, remap []int32) *JoinRel
+	Join(left, right Rel, condition expr.Expression, joinType JoinType) *JoinRel
+	NamedScanRemap(tableName []string, schema types.NamedStruct, remap []int32) *NamedTableReadRel
+	NamedScan(tableName []string, schema types.NamedStruct) *NamedTableReadRel
+	SortRemap(input Rel, remap []int32, sorts ...expr.SortField) *SortRel
+	Sort(input Rel, sorts ...expr.SortField) *SortRel
+	SetRemap(op SetOp, remap []int32, inputs ...Rel) (*SetRel, error)
+	Set(op SetOp, inputs ...Rel) (*SetRel, error)
+
+	PlanWithTypes(v *types.Version, root Rel, rootNames []string, expectedTypeURLs []string, others ...Rel) *Plan
+	Plan(v *types.Version, root Rel, rootNames []string, others ...Rel) *Plan
+}
 
 func NewBuilderDefault() Builder {
 	return NewBuilder(&extensions.DefaultCollection)
