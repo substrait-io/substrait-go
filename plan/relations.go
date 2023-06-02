@@ -11,6 +11,19 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
+type BiRel interface {
+	Rel
+
+	Left() Rel
+	Right() Rel
+}
+
+type SingleInputRel interface {
+	Rel
+
+	Input() Rel
+}
+
 type ReadRel interface {
 	Rel
 

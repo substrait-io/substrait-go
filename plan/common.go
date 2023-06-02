@@ -5,6 +5,7 @@ package plan
 import (
 	"github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/proto"
+	"github.com/substrait-io/substrait-go/types"
 )
 
 type (
@@ -28,6 +29,24 @@ func (rc *RelCommon) fromProtoCommon(c *proto.RelCommon) {
 	} else {
 		rc.mapping = nil
 	}
+}
+
+func (rc *RelCommon) Remap(initial types.StructType) types.StructType {
+	if rc.mapping == nil {
+		return initial
+	}
+
+	out := types.StructType{
+		Nullability:      initial.Nullability,
+		TypeVariationRef: initial.TypeVariationRef,
+		Types:            make([]types.Type, len(rc.mapping)),
+	}
+
+	for i, m := range rc.mapping {
+		out.Types[i] = initial.Types[m]
+	}
+
+	return out
 }
 
 func (rc *RelCommon) OutputMapping() []int32 { return rc.mapping }

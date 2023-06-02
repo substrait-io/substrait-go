@@ -126,6 +126,7 @@ func (r *Root) ToProtoPlanRel() *proto.PlanRel {
 
 type Rel interface {
 	Hint() *Hint
+	Remap(types.StructType) types.StructType
 	OutputMapping() []int32
 	GetAdvancedExtension() *extensions.AdvancedExtension
 
