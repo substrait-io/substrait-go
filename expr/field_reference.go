@@ -296,6 +296,9 @@ func (*ListElementRef) isRefType() {}
 type MaskExpression proto.Expression_MaskExpression
 
 func (*MaskExpression) isRefType() {}
+func (e *MaskExpression) ToProto() *proto.Expression_MaskExpression {
+	return (*proto.Expression_MaskExpression)(e)
+}
 
 type Reference interface {
 	isRefType()
