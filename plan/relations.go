@@ -11,6 +11,16 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
+// MultiRel is a convenience interface representing any relation
+// that takes an arbitrary number of inputs.
+type MultiRel interface {
+	Rel
+
+	Inputs() []Rel
+}
+
+// BiRel is a convenience interface representing any relation that
+// takes exactly two input relations such as joins.
 type BiRel interface {
 	Rel
 
@@ -18,12 +28,16 @@ type BiRel interface {
 	Right() Rel
 }
 
+// SingleInputRel is a convenience interface representing any relation
+// that consists of exactly one input relation, such as a filter.
 type SingleInputRel interface {
 	Rel
 
 	Input() Rel
 }
 
+// ReadRel is a scan operator of base data (physical or virtual) and
+// allows filtering and projection of that underlying data.
 type ReadRel interface {
 	Rel
 
@@ -60,7 +74,7 @@ func (b *baseReadRel) fromProtoReadRel(rel *proto.ReadRel, reg expr.ExtensionReg
 		return err
 	}
 
-	b.projection = (*expr.MaskExpression)(rel.Projection)
+	b.projection = expr.MaskExpressionFromProto(rel.Projection)
 	b.advExtension = rel.AdvancedExtension
 	return nil
 }
@@ -86,6 +100,9 @@ func (b *baseReadRel) toReadRelProto() *proto.ReadRel {
 	}
 }
 
+// NamedTableReadRel is a named scan of a base table. The list of strings
+// that make up the names are to represent namespacing (e.g. mydb.mytable).
+// This assumes a shared catalog between systems exchanging a message.
 type NamedTableReadRel struct {
 	baseReadRel
 
@@ -122,6 +139,7 @@ func (n *NamedTableReadRel) ToProto() *proto.Rel {
 	}
 }
 
+// VirtualTableReadRel represents a table composed of literals.
 type VirtualTableReadRel struct {
 	baseReadRel
 
@@ -159,6 +177,9 @@ func (v *VirtualTableReadRel) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
+// ExtensionTableReadRel is a stub type that can be used to extend
+// and introduce new table types outside the specification by utilizing
+// protobuf Any type.
 type ExtensionTableReadRel struct {
 	baseReadRel
 
@@ -189,12 +210,19 @@ func (e *ExtensionTableReadRel) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
+// PathType is the type of a LocalFileReadRel's uris.
 type PathType int8
 
 const (
+	// A uri that can refer to either a single folder or a single file
 	URIPath PathType = iota
+	// A URI where the path portion is a glob expression that can
+	// identify zero or more paths. Consumers should support
+	// POSIX syntax. The recursive globstar (**) may not be supported.
 	URIPathGlob
+	// A URI that refers to a single file.
 	URIFile
+	// A URI that refers to a single folder.
 	URIFolder
 )
 
@@ -216,10 +244,18 @@ func (*OrcReadOptions) isFileFormat()       {}
 func (*DwrfReadOptions) isFileFormat()      {}
 func (*ExtensionReadOptions) isFileFormat() {}
 
+// FileOrFiles represents the contents of a LocalFiles table. Many files
+// consist of indivisible chunks (e.g. parquet row groups or CSV rows).
+// If a slice partially selects an indivisible chunk then the consumer
+// should employ some rule to decide which slice to include the chunk in.
+// (e.g. include it in the slice that contains the midpoint of the chunk).
 type FileOrFiles struct {
-	PathType   PathType
-	Path       string
-	PartIndex  uint64
+	PathType PathType
+	Path     string
+	// PartIndex is the index of the partition that this item belongs to
+	PartIndex uint64
+	// Start and Len are the start position and length of bytes to
+	// read from this item.
 	Start, Len uint64
 
 	Format FileFormat
@@ -296,6 +332,7 @@ func (f *FileOrFiles) ToProto() *proto.ReadRel_LocalFiles_FileOrFiles {
 	return ret
 }
 
+// LocalFileReadRel represents a list of files in input of a scan operation.
 type LocalFileReadRel struct {
 	baseReadRel
 
@@ -339,6 +376,9 @@ func (lf *LocalFileReadRel) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
+// ProjectRel represents calculated expressions of fields (e.g. a+b),
+// the OutputMapping will be used to represent classical relational
+// projections.
 type ProjectRel struct {
 	RelCommon
 
@@ -405,6 +445,8 @@ const (
 	JoinTypeSingle      = proto.JoinRel_JOIN_TYPE_SINGLE
 )
 
+// JoinRel is a binary Join relational operator representing left-join-right,
+// including various join types, a join condition and a post join filter expr.
 type JoinRel struct {
 	RelCommon
 
@@ -455,6 +497,7 @@ func (j *JoinRel) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
+// CrossRel is a cartesian product relational operator of two tables.
 type CrossRel struct {
 	RelCommon
 
@@ -496,6 +539,8 @@ func (c *CrossRel) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
+// FetchRel is a relational operator representing LIMIT/OFFSET or
+// TOP type semantics.
 type FetchRel struct {
 	RelCommon
 
@@ -549,6 +594,7 @@ func (am *AggRelMeasure) ToProto() *proto.AggregateRel_Measure {
 	}
 }
 
+// AggregateRel is a relational operator representing a GROUP BY aggregate.
 type AggregateRel struct {
 	RelCommon
 
@@ -576,7 +622,10 @@ func (ar *AggregateRel) RecordType() types.StructType {
 	}
 }
 
-func (ar *AggregateRel) Input() Rel                     { return ar.input }
+func (ar *AggregateRel) Input() Rel { return ar.input }
+
+// Groupings is a list of expression groupings that the aggregation measures should
+// be calculated for.
 func (ar *AggregateRel) Groupings() [][]expr.Expression { return ar.groups }
 func (ar *AggregateRel) Measures() []AggRelMeasure      { return ar.measures }
 func (ar *AggregateRel) GetAdvancedExtension() *extensions.AdvancedExtension {
@@ -621,6 +670,8 @@ func (ar *AggregateRel) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
+// SortRel is an ORDER BY relational operator, describing a base relation,
+// it includes a list of fields to sort on.
 type SortRel struct {
 	RelCommon
 
@@ -661,6 +712,8 @@ func (sr *SortRel) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
+// FilterRel is a relational operator capturing simple filters (
+// as in the WHERE clause of a SQL query).
 type FilterRel struct {
 	RelCommon
 
@@ -709,6 +762,7 @@ const (
 	SetOpUnionAll             = proto.SetRel_SET_OP_UNION_ALL
 )
 
+// SetRel represents the relational set operators (intersection, union, etc.)
 type SetRel struct {
 	RelCommon
 
@@ -749,6 +803,7 @@ func (s *SetRel) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
+// ExtensionSingleRel is a stub to support extensions with a single input.
 type ExtensionSingleRel struct {
 	RelCommon
 
@@ -781,6 +836,7 @@ func (es *ExtensionSingleRel) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
+// ExtensionLeafRel is a stub to support extensions with zero inputs.
 type ExtensionLeafRel struct {
 	RelCommon
 
@@ -809,6 +865,7 @@ func (el *ExtensionLeafRel) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
+// ExtensionMultiRel is a stub to support extensions with multiple inputs.
 type ExtensionMultiRel struct {
 	RelCommon
 
@@ -858,6 +915,9 @@ const (
 	HashMergeRightAnti
 )
 
+// HashJoinRel represents a relational operator to build a hash table out
+// of the right input based on a set of join keys. It will then probe
+// the hash table for incoming inputs, finding matches.
 type HashJoinRel struct {
 	RelCommon
 
@@ -919,6 +979,9 @@ func (hr *HashJoinRel) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
+// MergeJoinRel represents a join done by taking advantage of two sets
+// that are sorted on the join keys. This allows the join operation to
+// be done in a streaming fashion.
 type MergeJoinRel struct {
 	RelCommon
 
@@ -998,4 +1061,19 @@ var (
 	_ Rel = (*ExtensionMultiRel)(nil)
 	_ Rel = (*HashJoinRel)(nil)
 	_ Rel = (*MergeJoinRel)(nil)
+
+	_ MultiRel = (*SetRel)(nil)
+	_ MultiRel = (*ExtensionMultiRel)(nil)
+
+	_ BiRel = (*JoinRel)(nil)
+	_ BiRel = (*CrossRel)(nil)
+	_ BiRel = (*HashJoinRel)(nil)
+	_ BiRel = (*MergeJoinRel)(nil)
+
+	_ SingleInputRel = (*ProjectRel)(nil)
+	_ SingleInputRel = (*FetchRel)(nil)
+	_ SingleInputRel = (*AggregateRel)(nil)
+	_ SingleInputRel = (*FilterRel)(nil)
+	_ SingleInputRel = (*SortRel)(nil)
+	_ SingleInputRel = (*ExtensionSingleRel)(nil)
 )

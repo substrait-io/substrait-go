@@ -4,14 +4,49 @@ package plan
 
 import (
 	"fmt"
+	"runtime/debug"
+	"strings"
 
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/expr"
 	"github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/proto"
 	"github.com/substrait-io/substrait-go/types"
+	"golang.org/x/exp/slices"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
+var CurrentVersion = types.Version{
+	MajorNumber: 0,
+	MinorNumber: 29,
+	PatchNumber: 0,
+	Producer:    "substrait-go",
+}
+
+func init() {
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, dep := range info.Deps {
+			if strings.HasPrefix(dep.Path, "github.com/substrait-io/substrait-go") {
+				CurrentVersion.Producer += " " + dep.Version
+				break
+			}
+		}
+
+		var goarch, goos string
+		for _, s := range info.Settings {
+			if s.Key == "GOARCH" {
+				goarch = s.Value
+			} else if s.Key == "GOOS" {
+				goos = s.Value
+			}
+		}
+
+		CurrentVersion.Producer += " " + goos + "/" + goarch
+	}
+}
+
+// Relation is either a Root relation (a relation + list of column names)
+// or another relation (such as a CTE or other reference).
 type Relation struct {
 	root *Root
 	rel  Rel
@@ -45,6 +80,7 @@ func (r *Relation) FromProto(p *proto.PlanRel, reg expr.ExtensionRegistry) error
 	return fmt.Errorf("%w: no rel or root set", substraitgo.ErrInvalidRel)
 }
 
+// IsRoot returns true if this is the root of the plan Relation tree.
 func (r *Relation) IsRoot() bool {
 	return r.root != nil
 }
@@ -60,6 +96,22 @@ func (r *Relation) ToProto() *proto.PlanRel {
 	return r.rel.ToProtoPlanRel()
 }
 
+type Version interface {
+	GetGitHash() string
+	GetMajorNumber() uint32
+	GetMinorNumber() uint32
+	GetPatchNumber() uint32
+	GetProducer() string
+	fmt.Stringer
+}
+
+type AdvancedExtension interface {
+	GetEnhancement() *anypb.Any
+	GetOptimization() *anypb.Any
+}
+
+// Plan describes a set of operations to complete. For
+// compactness, identifiers are normalized at the plan level.
 type Plan struct {
 	version          *types.Version
 	extensions       extensions.Set
@@ -68,6 +120,61 @@ type Plan struct {
 	relations        []Relation
 
 	reg expr.ExtensionRegistry
+}
+
+// Version returns the substrait version of the plan.
+func (p *Plan) Version() Version { return p.version }
+
+// ExtensionRegistry returns the set of registered extensions for this plan
+// that it may depend on.
+func (p *Plan) ExtensionRegistry() expr.ExtensionRegistry { return p.reg }
+
+// ExpectedTypeURLs is a list of anypb.Any protobuf entities that this plan
+// may use. This can be used to warn if some embedded message types are
+// unknown. Note that this list may include message types which are ignorable
+// (optimizations) or are unused. In many cases, a consumer may be able to
+// work with a plan even if one or more message types defined here are unknown.
+//
+// This returns a clone of the slice, so that the Plan itself remains
+// immutable.
+func (p *Plan) ExpectedTypeURLs() []string {
+	return slices.Clone(p.expectedTypeURLs)
+}
+
+// AdvancedExtension returns optional additional extensions associated with
+// this plan such as optimizations or enhancements.
+func (p *Plan) AdvancedExtension() AdvancedExtension { return p.advExtension }
+
+// Relations returns the full slice of relation trees that are in this plan.
+//
+// This returns a clone of the internal slice so that the plan itself remains
+// immutable.
+func (p *Plan) Relations() []Relation {
+	return slices.Clone(p.relations)
+}
+
+// GetRoots returns a slice containing *only* the relations which are
+// considered Root relations from the list (as opposed to CTEs or references).
+func (p *Plan) GetRoots() (roots []*Root) {
+	roots = make([]*Root, 0, 1)
+	for _, r := range p.relations {
+		if r.IsRoot() {
+			roots = append(roots, r.root)
+		}
+	}
+	return roots
+}
+
+// GetNonRootRelations returns a slice containing only the relations from
+// this plan which are not considered Roots.
+func (p *Plan) GetNonRootRelations() (rels []Rel) {
+	rels = make([]Rel, 0, 1)
+	for _, r := range p.relations {
+		if !r.IsRoot() {
+			rels = append(rels, r.rel)
+		}
+	}
+	return rels
 }
 
 func FromProto(plan *proto.Plan, c *extensions.Collection) (*Plan, error) {
@@ -105,12 +212,16 @@ func (p *Plan) ToProto() (*proto.Plan, error) {
 	}, nil
 }
 
+// Root is a relation with output field names.
+// This is used as the root of a Rel tree.
 type Root struct {
 	input Rel
 	names []string
 }
 
-func (r *Root) Input() Rel      { return r.input }
+func (r *Root) Input() Rel { return r.input }
+
+// Names are the field names in depth-first order.
 func (r *Root) Names() []string { return r.names }
 
 func (r *Root) ToProtoPlanRel() *proto.PlanRel {
@@ -124,16 +235,40 @@ func (r *Root) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
+// Rel is a relation tree, representing one of the expected Relation
+// types such as Fetch, Sort, Filter, Join, etc.
+//
+// It contains the common functionality between the different relations
+// and should be type switched to determine which relation type it actually
+// is for evaluation.
 type Rel interface {
+	// Hint returns a set of changes to the operation which can influence
+	// efficiency and performance but should not impact correctness.
+	//
+	// This includes things such as Stats and Runtime constraints.
 	Hint() *Hint
-	Remap(types.StructType) types.StructType
+	// OutputMapping is optional and may be nil. If this is nil, then
+	// the result of this relation is the direct output as is (with no
+	// reordering or projection of columns). Otherwise this is a slice
+	// of indices into the underlying relation's output to map columns
+	// to the intended result column order.
+	//
+	// For example, an output map of [5, 2, 1] means that the expected
+	// result should be 3 columns consisting of the 5th, 2nd and 1st
+	// output columns from the underlying relation.
 	OutputMapping() []int32
-	GetAdvancedExtension() *extensions.AdvancedExtension
+	// Remap utilizes the OutputMapping to construct the expected result
+	// record type from the output RecordType of the underlying Relation.
+	// If the output mapping is nil, then this just returns the input
+	// type.
+	Remap(types.StructType) types.StructType
+	// RecordType returns the output record type of the underlying relation
+	// as a struct type.
+	RecordType() types.StructType
 
+	GetAdvancedExtension() *extensions.AdvancedExtension
 	ToProto() *proto.Rel
 	ToProtoPlanRel() *proto.PlanRel
-
-	RecordType() types.StructType
 }
 
 func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {

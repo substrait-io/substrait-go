@@ -14,6 +14,8 @@ type (
 	RuntimeConstraint = proto.RelCommon_Hint_RuntimeConstraint
 )
 
+// RelCommon is the common fields of all relational operators and is
+// embedded in all of them.
 type RelCommon struct {
 	hint         *Hint
 	mapping      []int32

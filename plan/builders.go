@@ -11,13 +11,53 @@ import (
 	"github.com/substrait-io/substrait-go/types"
 )
 
+// Builder is the base object for constructing the various elements of a plan.
+// The intent is to create a single builder and then utilize it for all
+// necessary constructions while building a full plan.
+//
+// Any extensions that are referenced for functions or user defined types, etc.
+// will be added to the internal extension set so that the final Plan when
+// constructed will have the appropriate extension anchors and definitions.
+// This will maintain consistency across the plan for the user without them
+// having to manually do so.
 type Builder interface {
+	// Construct a user-defined type from the extension namespace and typename,
+	// along with optional type parameters. It will add the type to the internal
+	// extension set if it doesn't already exist and assign it a type reference.
 	UserDefinedType(nameSpace, typeName string, params ...types.TypeParam) types.UserDefinedType
+	// RootFieldRef constructs a Root Field Reference to the column of the input
+	// relation indicated by the passed in index. This will ensure the output
+	// type is properly propagated based on the reference.
+	//
+	// Will return an error if the index is < 0 or > the number of output fields.
 	RootFieldRef(input Rel, index int32) (*expr.FieldReference, error)
+	// ScalarFn constructs a ScalarFunction from the passed in namespace and
+	// function name key. This is equivalent to calling expr.NewScalarFunc using
+	// the builder's extension registry. An error will be returned if the indicated
+	// function was not already in the extension collection the builder was created
+	// with or if the arguments of the function don't match the provided argument
+	// types.
 	ScalarFn(nameSpace, key string, opts []*types.FunctionOption, args ...types.FuncArg) (*expr.ScalarFunction, error)
+	// AggregateFn constructs an AggregateFunction from the passed in namespace and
+	// function name key. This is equivalent to calling expr.NewAggregateFunc using
+	// the builder's extension registry. An error will be returned if the indicated
+	// function was not already in the extension collection the builder was created
+	// with or if the arguments of the function don't match the provided argument
+	// types.
 	AggregateFn(nameSpace, key string, opts []*types.FunctionOption, args ...types.FuncArg) (*expr.AggregateFunction, error)
+	// SortFields is a convenience method to construct a list of sort fields
+	// from the column indices of an existing relation. This will return an error
+	// if any of the indices are < 0 or > the number of columns in the output
+	// of the relation. This will use types.SortAscNullsLast as the sort kind
+	// for each field in the returned slice.
 	SortFields(input Rel, indices ...int32) ([]expr.SortField, error)
+	// Measure is a convenience method to construct the input for an Aggregate Rel
+	// Consisting of the provided aggregate function and optional filter expression.
 	Measure(measure *expr.AggregateFunction, filter expr.Expression) AggRelMeasure
+
+	// The Remap variant for each method produces that type of relation
+	// with an optional output mapping to reorder or exclude specific columns
+	// from the output.
 
 	Project(input Rel, exprs []expr.Expression) *ProjectRel
 	ProjectRemap(input Rel, exprs []expr.Expression, remap []int32) *ProjectRel
@@ -42,8 +82,15 @@ type Builder interface {
 	SetRemap(op SetOp, remap []int32, inputs ...Rel) (*SetRel, error)
 	Set(op SetOp, inputs ...Rel) (*SetRel, error)
 
-	PlanWithTypes(v *types.Version, root Rel, rootNames []string, expectedTypeURLs []string, others ...Rel) *Plan
-	Plan(v *types.Version, root Rel, rootNames []string, others ...Rel) *Plan
+	// Plan constructs a new plan with the provided root relation and optionally
+	// other relations. It will use the current substrait version of this
+	// library as the plan substrait version.
+	Plan(root Rel, rootNames []string, others ...Rel) *Plan
+	// PlanWithTypes is the same as Plan, only it provides the ability to set
+	// the list of expectedTypeURLs that indicate the different protobuf types
+	// that may be in use with this plan for advanced extensions, optimizations,
+	// and so on.
+	PlanWithTypes(root Rel, rootNames []string, expectedTypeURLs []string, others ...Rel) *Plan
 }
 
 func NewBuilderDefault() Builder {
@@ -263,7 +310,7 @@ func (b *builder) Set(op SetOp, inputs ...Rel) (*SetRel, error) {
 	return b.SetRemap(op, nil, inputs...)
 }
 
-func (b *builder) PlanWithTypes(v *types.Version, root Rel, rootNames []string, expectedTypeURLs []string, others ...Rel) *Plan {
+func (b *builder) PlanWithTypes(root Rel, rootNames []string, expectedTypeURLs []string, others ...Rel) *Plan {
 	relations := make([]Relation, len(others)+1)
 	relations[0].root = &Root{
 		input: root, names: rootNames,
@@ -273,7 +320,7 @@ func (b *builder) PlanWithTypes(v *types.Version, root Rel, rootNames []string, 
 	}
 
 	return &Plan{
-		version:          v,
+		version:          &CurrentVersion,
 		extensions:       b.extSet,
 		reg:              b.reg,
 		expectedTypeURLs: expectedTypeURLs,
@@ -281,6 +328,10 @@ func (b *builder) PlanWithTypes(v *types.Version, root Rel, rootNames []string, 
 	}
 }
 
-func (b *builder) Plan(v *types.Version, root Rel, rootNames []string, others ...Rel) *Plan {
-	return b.PlanWithTypes(v, root, rootNames, nil, others...)
+func (b *builder) Plan(root Rel, rootNames []string, others ...Rel) *Plan {
+	return b.PlanWithTypes(root, rootNames, nil, others...)
 }
+
+var (
+	_ Builder = (*builder)(nil)
+)
