@@ -747,5 +747,4 @@ func TestJoinRelationError(t *testing.T) {
 	_, err = b.JoinAndFilter(left, right, goodcond, badcond, plan.JoinTypeInner)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidArg)
 	assert.ErrorContains(t, err, "post join filter must be either nil or yield a boolean, not string")
-
 }
