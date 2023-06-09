@@ -41,7 +41,9 @@ func init() {
 			}
 		}
 
-		CurrentVersion.Producer += " " + goos + "/" + goarch
+		if goos != "" && goarch != "" {
+			CurrentVersion.Producer += " " + goos + "/" + goarch
+		}
 	}
 }
 
@@ -235,6 +237,13 @@ func (r *Root) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
+func (r *Root) RecordType() types.NamedStruct {
+	return types.NamedStruct{
+		Names:  r.names,
+		Struct: r.input.Remap(r.input.RecordType()),
+	}
+}
+
 // Rel is a relation tree, representing one of the expected Relation
 // types such as Fetch, Sort, Filter, Join, etc.
 //
@@ -340,7 +349,9 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			count:        rel.Fetch.Count,
 			advExtension: rel.Fetch.AdvancedExtension,
 		}
-		out.fromProtoCommon(rel.Fetch.Common)
+		if rel.Fetch.Common != nil {
+			out.fromProtoCommon(rel.Fetch.Common)
+		}
 		return out, nil
 	case *proto.Rel_Aggregate:
 		input, err := RelFromProto(rel.Aggregate.Input, reg)
@@ -407,6 +418,10 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 		out.fromProtoCommon(rel.Sort.Common)
 		return out, nil
 	case *proto.Rel_Join:
+		if rel.Join.Type == JoinTypeUnspecified {
+			return nil, fmt.Errorf("%w: JoinRel must not have unspecified join type", substraitgo.ErrInvalidRel)
+		}
+
 		left, err := RelFromProto(rel.Join.Left, reg)
 		if err != nil {
 			return nil, fmt.Errorf("error getting left input to JoinRel: %w", err)
@@ -425,7 +440,7 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 		}
 		out.fromProtoCommon(rel.Join.Common)
 
-		base := out.RecordType()
+		base := out.JoinedRecordType()
 		out.expr, err = expr.ExprFromProto(rel.Join.Expression, &base, reg)
 		if err != nil {
 			return nil, fmt.Errorf("error getting expr for JoinRel: %w", err)

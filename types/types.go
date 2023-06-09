@@ -997,14 +997,14 @@ func NewNamedStructFromProto(n *proto.NamedStruct) NamedStruct {
 	}
 }
 
-func (n *NamedStruct) ToProto() *proto.NamedStruct {
+func (n NamedStruct) ToProto() *proto.NamedStruct {
 	return &proto.NamedStruct{
 		Names:  n.Names,
 		Struct: n.Struct.ToProto().GetStruct(),
 	}
 }
 
-func (n *NamedStruct) String() string {
+func (n NamedStruct) String() string {
 	var b strings.Builder
 
 	// names are in depth-first order
@@ -1041,19 +1041,21 @@ func (n *NamedStruct) String() string {
 			b.WriteString(strNullable(t))
 		default:
 			b.WriteString(t.String())
-			b.WriteString(strNullable(t))
 		}
 	}
 
-	for _, t := range n.Struct.Types {
-		b.WriteString("- ")
+	b.WriteString("NSTRUCT<")
+	for i, t := range n.Struct.Types {
+		if i != 0 {
+			b.WriteString(", ")
+		}
 		b.WriteString(n.Names[nameIdx])
 		b.WriteString(": ")
 		nameIdx++
 
 		writeType(t)
-		b.WriteString("\n")
 	}
+	b.WriteString(">")
 
 	return b.String()
 }

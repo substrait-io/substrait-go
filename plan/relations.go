@@ -60,21 +60,30 @@ type baseReadRel struct {
 }
 
 func (b *baseReadRel) fromProtoReadRel(rel *proto.ReadRel, reg expr.ExtensionRegistry) error {
-	b.RelCommon.fromProtoCommon(rel.Common)
+	if rel.Common != nil {
+		b.RelCommon.fromProtoCommon(rel.Common)
+	}
 
 	b.baseSchema = types.NewNamedStructFromProto(rel.BaseSchema)
 	var err error
-	b.filter, err = expr.ExprFromProto(rel.Filter, &b.baseSchema.Struct, reg)
-	if err != nil {
-		return err
+	if rel.Filter != nil {
+		b.filter, err = expr.ExprFromProto(rel.Filter, &b.baseSchema.Struct, reg)
+		if err != nil {
+			return err
+		}
 	}
 
-	b.bestEffortFilter, err = expr.ExprFromProto(rel.BestEffortFilter, &b.baseSchema.Struct, reg)
-	if err != nil {
-		return err
+	if rel.BestEffortFilter != nil {
+		b.bestEffortFilter, err = expr.ExprFromProto(rel.BestEffortFilter, &b.baseSchema.Struct, reg)
+		if err != nil {
+			return err
+		}
 	}
 
-	b.projection = expr.MaskExpressionFromProto(rel.Projection)
+	if rel.Projection != nil {
+		b.projection = expr.MaskExpressionFromProto(rel.Projection)
+	}
+
 	b.advExtension = rel.AdvancedExtension
 	return nil
 }
@@ -90,14 +99,22 @@ func (b *baseReadRel) Projection() *expr.MaskExpression                    { ret
 func (b *baseReadRel) GetAdvancedExtension() *extensions.AdvancedExtension { return b.advExtension }
 
 func (b *baseReadRel) toReadRelProto() *proto.ReadRel {
-	return &proto.ReadRel{
+	out := &proto.ReadRel{
 		Common:            b.RelCommon.toProto(),
 		BaseSchema:        b.baseSchema.ToProto(),
-		Filter:            b.filter.ToProto(),
-		BestEffortFilter:  b.bestEffortFilter.ToProto(),
-		Projection:        b.projection.ToProto(),
 		AdvancedExtension: b.advExtension,
 	}
+	if b.filter != nil {
+		out.Filter = b.filter.ToProto()
+	}
+	if b.bestEffortFilter != nil {
+		out.BestEffortFilter = b.bestEffortFilter.ToProto()
+	}
+	if b.projection != nil {
+		out.Projection = b.projection.ToProto()
+	}
+
+	return out
 }
 
 // NamedTableReadRel is a named scan of a base table. The list of strings
@@ -458,9 +475,47 @@ type JoinRel struct {
 }
 
 func (j *JoinRel) RecordType() types.StructType {
+	var typeList []types.Type
+	switch j.joinType {
+	case JoinTypeInner:
+		return j.JoinedRecordType()
+	case JoinTypeSemi:
+		return j.left.Remap(j.left.RecordType())
+	case JoinTypeOuter:
+		typeList = j.JoinedRecordType().Types
+		for i, t := range typeList {
+			typeList[i] = t.WithNullability(types.NullabilityNullable)
+		}
+	case JoinTypeLeft, JoinTypeSingle:
+		left := j.left.Remap(j.left.RecordType())
+		right := j.right.Remap(j.right.RecordType())
+		typeList = make([]types.Type, 0, len(left.Types)+len(right.Types))
+		typeList = append(typeList, left.Types...)
+		for _, r := range right.Types {
+			typeList = append(typeList, r.WithNullability(types.NullabilityNullable))
+		}
+	case JoinTypeRight:
+		left := j.left.Remap(j.left.RecordType())
+		right := j.right.Remap(j.right.RecordType())
+		typeList = make([]types.Type, 0, len(left.Types)+len(right.Types))
+		for _, l := range left.Types {
+			typeList = append(typeList, l.WithNullability(types.NullabilityNullable))
+		}
+		typeList = append(typeList, right.Types...)
+	case JoinTypeAnti:
+		typeList = j.left.RecordType().Types
+	}
+
 	return types.StructType{
 		Nullability: proto.Type_NULLABILITY_REQUIRED,
-		Types:       append(j.left.RecordType().Types, j.right.RecordType().Types...),
+		Types:       typeList,
+	}
+}
+
+func (j *JoinRel) JoinedRecordType() types.StructType {
+	return types.StructType{
+		Nullability: proto.Type_NULLABILITY_REQUIRED,
+		Types:       append(j.left.Remap(j.left.RecordType()).Types, j.right.Remap(j.right.RecordType()).Types...),
 	}
 }
 
@@ -474,17 +529,22 @@ func (j *JoinRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 }
 
 func (j *JoinRel) ToProto() *proto.Rel {
+	outRel := &proto.JoinRel{
+		Common:            j.toProto(),
+		Left:              j.left.ToProto(),
+		Right:             j.right.ToProto(),
+		Expression:        j.expr.ToProto(),
+		Type:              j.joinType,
+		AdvancedExtension: j.advExtension,
+	}
+
+	if j.postJoinFilter != nil {
+		outRel.PostJoinFilter = j.postJoinFilter.ToProto()
+	}
+
 	return &proto.Rel{
 		RelType: &proto.Rel_Join{
-			Join: &proto.JoinRel{
-				Common:            j.toProto(),
-				Left:              j.left.ToProto(),
-				Right:             j.right.ToProto(),
-				Expression:        j.expr.ToProto(),
-				PostJoinFilter:    j.postJoinFilter.ToProto(),
-				Type:              j.joinType,
-				AdvancedExtension: j.advExtension,
-			},
+			Join: outRel,
 		},
 	}
 }
@@ -588,10 +648,13 @@ func (am *AggRelMeasure) Measure() *expr.AggregateFunction { return am.measure }
 func (am *AggRelMeasure) Filter() expr.Expression          { return am.filter }
 
 func (am *AggRelMeasure) ToProto() *proto.AggregateRel_Measure {
-	return &proto.AggregateRel_Measure{
+	ret := &proto.AggregateRel_Measure{
 		Measure: am.measure.ToProto(),
-		Filter:  am.filter.ToProto(),
 	}
+	if am.filter != nil {
+		ret.Filter = am.filter.ToProto()
+	}
+	return ret
 }
 
 // AggregateRel is a relational operator representing a GROUP BY aggregate.

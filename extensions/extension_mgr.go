@@ -357,7 +357,7 @@ func (e *set) GetTypeAnchor(id ID) uint32 {
 	a, ok := e.types[id]
 	if !ok {
 		e.addURI(id.URI)
-		a = uint32(len(e.types))
+		a = uint32(len(e.types)) + 1
 		e.encodeType(a, id)
 	}
 	return a
@@ -367,7 +367,7 @@ func (e *set) GetFuncAnchor(id ID) uint32 {
 	a, ok := e.funcs[id]
 	if !ok {
 		e.addURI(id.URI)
-		a = uint32(len(e.funcs))
+		a = uint32(len(e.funcs)) + 1
 		e.encodeFunc(a, id)
 	}
 	return a
@@ -411,7 +411,7 @@ func (e *set) FindURI(uri string) (uint32, bool) {
 }
 
 func (e *set) addURI(uri string) (uint32, error) {
-	sz := uint32(len(e.uris))
+	sz := uint32(len(e.uris)) + 1
 	if _, ok := e.uris[sz]; ok {
 		return 0, substraitgo.ErrKeyExists
 	}
