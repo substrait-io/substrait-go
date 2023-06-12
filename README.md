@@ -37,7 +37,26 @@ This is work in progress still, things still to do:
     - [x] MergeJoinRel
   - [ ] DdlRel
   - [ ] WriteRel
-- [ ] Plan Building helpers
+  - [ ] ExchangeRel
+- [x] Plan Building helpers
+  - [ ] ReadRel
+    - [x] NamedScanReadRel
+    - [x] VirtualTableReadRel
+    - [ ] ExtensionTableReadRel
+    - [ ] LocalFileReadRel
+  - [x] FilterRel
+  - [x] FetchRel
+  - [x] AggregateRel
+  - [x] SortRel
+  - [x] JoinRel
+  - [x] ProjectRel
+  - [x] SetRel
+  - [x] CrossRel
+  - [ ] HashJoinRel
+  - [ ] MergeJoinRel
+  - [ ] DdlRel
+  - [ ] WriteRel
+  - [ ] ExchangeRel
 
 As this is built out, you can expect refactors and other changes to the
 structure of the package for the time being. **The API should not yet be
@@ -65,7 +84,7 @@ $ export PATH="$PATH:$(go env GOPATH)/bin"
 
 ### Run go generate
 
-As long as buf and the Go protobuf plugin are installed, you can 
+As long as buf and the Go protobuf plugin are installed, you can
 simply run `go generate` to generate the updated `.pb.go` files. It
 will generate them by referencing the primary substrait-io repository.
 
