@@ -384,8 +384,6 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 				if err != nil {
 					return nil, fmt.Errorf("error getting filter for Aggregate Measure %d: %w", i, err)
 				}
-			} else {
-				measures[i].filter = expr.NewPrimitiveLiteral(true, false)
 			}
 		}
 
@@ -457,8 +455,6 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			if err != nil {
 				return nil, fmt.Errorf("error parsing PostJoinFilter for JoinRel: %w", err)
 			}
-		} else {
-			out.postJoinFilter = expr.NewPrimitiveLiteral(true, false)
 		}
 
 		return out, nil
@@ -634,8 +630,6 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			if err != nil {
 				return nil, fmt.Errorf("error getting post join filter for HashJoinRel: %w", err)
 			}
-		} else {
-			out.postJoinFilter = expr.NewPrimitiveLiteral(true, false)
 		}
 
 		return out, nil
@@ -693,8 +687,6 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			if err != nil {
 				return nil, fmt.Errorf("error getting post join filter for MergeJoin: %w", err)
 			}
-		} else {
-			out.postJoinFilter = expr.NewPrimitiveLiteral(true, false)
 		}
 
 		return out, nil

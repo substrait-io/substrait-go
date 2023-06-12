@@ -449,6 +449,8 @@ func (p *ProjectRel) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
+var defFilter = expr.NewPrimitiveLiteral(true, false)
+
 type JoinType = proto.JoinRel_JoinType
 
 const (
@@ -519,11 +521,16 @@ func (j *JoinRel) JoinedRecordType() types.StructType {
 	}
 }
 
-func (j *JoinRel) Left() Rel                       { return j.left }
-func (j *JoinRel) Right() Rel                      { return j.right }
-func (j *JoinRel) Expr() expr.Expression           { return j.expr }
-func (j *JoinRel) PostJoinFilter() expr.Expression { return j.postJoinFilter }
-func (j *JoinRel) Type() JoinType                  { return j.joinType }
+func (j *JoinRel) Left() Rel             { return j.left }
+func (j *JoinRel) Right() Rel            { return j.right }
+func (j *JoinRel) Expr() expr.Expression { return j.expr }
+func (j *JoinRel) PostJoinFilter() expr.Expression {
+	if j.postJoinFilter == nil {
+		return defFilter
+	}
+	return j.postJoinFilter
+}
+func (j *JoinRel) Type() JoinType { return j.joinType }
 func (j *JoinRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return j.advExtension
 }
@@ -645,7 +652,12 @@ type AggRelMeasure struct {
 }
 
 func (am *AggRelMeasure) Measure() *expr.AggregateFunction { return am.measure }
-func (am *AggRelMeasure) Filter() expr.Expression          { return am.filter }
+func (am *AggRelMeasure) Filter() expr.Expression {
+	if am.filter == nil {
+		return defFilter
+	}
+	return am.filter
+}
 
 func (am *AggRelMeasure) ToProto() *proto.AggregateRel_Measure {
 	ret := &proto.AggregateRel_Measure{
@@ -1002,8 +1014,13 @@ func (hr *HashJoinRel) Left() Rel                         { return hr.left }
 func (hr *HashJoinRel) Right() Rel                        { return hr.right }
 func (hr *HashJoinRel) LeftKeys() []*expr.FieldReference  { return hr.leftKeys }
 func (hr *HashJoinRel) RightKeys() []*expr.FieldReference { return hr.rightKeys }
-func (hr *HashJoinRel) PostJoinFilter() expr.Expression   { return hr.postJoinFilter }
-func (hr *HashJoinRel) Type() HashMergeJoinType           { return hr.joinType }
+func (hr *HashJoinRel) PostJoinFilter() expr.Expression {
+	if hr.postJoinFilter == nil {
+		return defFilter
+	}
+	return hr.postJoinFilter
+}
+func (hr *HashJoinRel) Type() HashMergeJoinType { return hr.joinType }
 func (hr *HashJoinRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return hr.advExtension
 }
@@ -1070,8 +1087,13 @@ func (mr *MergeJoinRel) Left() Rel                         { return mr.left }
 func (mr *MergeJoinRel) Right() Rel                        { return mr.right }
 func (mr *MergeJoinRel) LeftKeys() []*expr.FieldReference  { return mr.leftKeys }
 func (mr *MergeJoinRel) RightKeys() []*expr.FieldReference { return mr.rightKeys }
-func (mr *MergeJoinRel) PostJoinFilter() expr.Expression   { return mr.postJoinFilter }
-func (mr *MergeJoinRel) Type() HashMergeJoinType           { return mr.joinType }
+func (mr *MergeJoinRel) PostJoinFilter() expr.Expression {
+	if mr.postJoinFilter == nil {
+		return defFilter
+	}
+	return mr.postJoinFilter
+}
+func (mr *MergeJoinRel) Type() HashMergeJoinType { return mr.joinType }
 func (mr *MergeJoinRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return mr.advExtension
 }

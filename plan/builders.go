@@ -203,10 +203,6 @@ func (b *builder) ProjectRemap(input Rel, remap []int32, exprs ...expr.Expressio
 }
 
 func (b *builder) Measure(measure *expr.AggregateFunction, filter expr.Expression) AggRelMeasure {
-	if filter == nil {
-		filter = expr.NewPrimitiveLiteral(true, false)
-	}
-
 	return AggRelMeasure{
 		measure: measure,
 		filter:  filter,
@@ -391,8 +387,6 @@ func (b *builder) JoinAndFilterRemap(left, right Rel, condition, postJoinFilter 
 			return nil, fmt.Errorf("%w: post join filter must be either nil or yield a boolean, not %s",
 				substraitgo.ErrInvalidArg, postJoinFilter.GetType())
 		}
-	} else {
-		postJoinFilter = expr.NewPrimitiveLiteral(true, false)
 	}
 
 	out := &JoinRel{
