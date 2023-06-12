@@ -44,6 +44,15 @@ var baseSchema2 = types.NamedStruct{Names: []string{"x", "y"},
 		},
 	}}
 
+var baseSchemaReverse = types.NamedStruct{Names: []string{"x", "y"},
+	Struct: types.StructType{
+		Nullability: types.NullabilityRequired,
+		Types: []types.Type{
+			&types.Float32Type{Nullability: types.NullabilityRequired},
+			&types.StringType{Nullability: types.NullabilityRequired},
+		},
+	}}
+
 func TestBasicEmitPlan(t *testing.T) {
 	b := plan.NewBuilderDefault()
 	root, err := b.NamedScanRemap([]string{"test"},
@@ -99,7 +108,7 @@ func checkRoundTrip(t *testing.T, expectedJSON string, p *plan.Plan) {
 	require.NoError(t, protojson.Unmarshal([]byte(expectedJSON), &expectedProto))
 
 	assert.Truef(t, proto.Equal(&expectedProto, protoPlan), "expected: %s\ngot: %s",
-		protojson.Format(protoPlan), protojson.Format(&expectedProto))
+		protojson.Format(&expectedProto), protojson.Format(protoPlan))
 
 	roundTrip, err := plan.FromProto(&expectedProto, &extensions.DefaultCollection)
 	require.NoError(t, err)
@@ -747,4 +756,538 @@ func TestJoinRelationError(t *testing.T) {
 	_, err = b.JoinAndFilter(left, right, goodcond, badcond, plan.JoinTypeInner)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidArg)
 	assert.ErrorContains(t, err, "post join filter must be either nil or yield a boolean, not string")
+}
+
+func TestSortRelationsCoalesce(t *testing.T) {
+	const expectedJSON = `{
+		` + versionStruct + `,
+		"relations": [
+			{
+				"root": {
+					"input": {
+						"sort": {
+							"common": {"direct": {}},
+							"input": {
+								"read": {
+									"common": {"direct": {}},
+									"baseSchema": {
+										"names": ["a", "b"],
+										"struct": {
+											"types": [
+												{"string": { "nullability": "NULLABILITY_REQUIRED"}},
+												{"fp32": { "nullability": "NULLABILITY_REQUIRED"}}
+											],
+											"nullability": "NULLABILITY_REQUIRED"
+										}
+									},
+									"namedTable": { "names": [ "test" ]}
+								}
+							},
+							"sorts": [
+								{
+									"expr": {
+										"selection": {
+											"rootReference": {},
+											"directReference": { "structField": { "field": 0 }}
+										}
+									},
+									"direction": "SORT_DIRECTION_CLUSTERED"
+								}
+							]
+						}
+					},
+					"names": ["a", "b"]
+				}
+			}
+		]
+	}`
+
+	b := plan.NewBuilderDefault()
+	scan := b.NamedScan([]string{"test"}, baseSchema)
+
+	ref, err := b.RootFieldRef(scan, 0)
+	require.NoError(t, err)
+
+	sort, err := b.Sort(scan, expr.SortField{Expr: ref, Kind: types.SortClustered})
+	require.NoError(t, err)
+
+	p, err := b.Plan(sort, []string{"a", "b"})
+	require.NoError(t, err)
+
+	assert.Equal(t, "NSTRUCT<a: string, b: fp32>", p.GetRoots()[0].RecordType().String())
+
+	checkRoundTrip(t, expectedJSON, p)
+}
+
+func TestSortRelationKeyEqual(t *testing.T) {
+	const expectedJSON = `{
+		` + versionStruct + `,
+		"extensionUris": [
+			{
+				"extensionUriAnchor": 1,
+				"uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_comparison.yaml"
+			}
+		],
+		"extensions": [
+			{
+				"extensionFunction": {
+					"extensionUriReference": 1,
+					"functionAnchor": 1,
+					"name": "equal"
+				}
+			}
+		],
+		"relations": [
+			{
+				"root": {
+					"input": {
+						"sort": {
+							"common": {"direct": {}},
+							"input": {
+								"read": {
+									"common": {"direct": {}},
+									"baseSchema": {
+										"names": ["a", "b"],
+										"struct": {
+											"types": [
+												{"string": { "nullability": "NULLABILITY_REQUIRED"}},
+												{"fp32": { "nullability": "NULLABILITY_REQUIRED"}}
+											],
+											"nullability": "NULLABILITY_REQUIRED"
+										}
+									},
+									"namedTable": { "names": [ "test" ]}
+								}
+							},
+							"sorts": [
+								{
+									"expr": {
+										"selection": {
+											"rootReference": {},
+											"directReference": {"structField": {"field": 0}}
+										}
+									},
+									"comparisonFunctionReference": 1
+								}
+							]
+						}
+					},
+					"names": ["a", "b"]
+				}
+			}
+		]
+	}`
+
+	b := plan.NewBuilderDefault()
+	scan := b.NamedScan([]string{"test"}, baseSchema)
+
+	ref, err := b.RootFieldRef(scan, 0)
+	require.NoError(t, err)
+
+	sort, err := b.Sort(scan, expr.SortField{Expr: ref, Kind: b.GetFunctionRef(extensions.SubstraitDefaultURIPrefix+"functions_comparison.yaml", "equal")})
+	require.NoError(t, err)
+
+	p, err := b.Plan(sort, []string{"a", "b"})
+	require.NoError(t, err)
+
+	checkRoundTrip(t, expectedJSON, p)
+}
+
+func TestSortRelationMultiple(t *testing.T) {
+	const expectedJSON = `{
+		` + versionStruct + `,		
+		"relations": [
+			{
+				"root": {
+					"input": {
+						"sort": {
+							"common": {"direct": {}},
+							"input": {
+								"read": {
+									"common": {"direct": {}},
+									"baseSchema": {
+										"names": ["a", "b"],
+										"struct": {
+											"types": [
+												{"string": { "nullability": "NULLABILITY_REQUIRED"}},
+												{"fp32": { "nullability": "NULLABILITY_REQUIRED"}}
+											],
+											"nullability": "NULLABILITY_REQUIRED"
+										}
+									},
+									"namedTable": { "names": [ "test" ]}
+								}
+							},
+							"sorts": [
+								{
+									"expr": {
+										"selection": {
+											"rootReference": {},
+											"directReference": {"structField": {"field": 1}}
+										}
+									},
+									"direction": "SORT_DIRECTION_ASC_NULLS_LAST"
+								},
+								{
+									"expr": {
+										"selection": {
+											"rootReference": {},
+											"directReference": {"structField": {"field": 0}}
+										}
+									},
+									"direction": "SORT_DIRECTION_DESC_NULLS_FIRST"
+								}
+							]
+						}
+					},
+					"names": ["a", "b"]
+				}
+			}
+		]
+	}`
+
+	b := plan.NewBuilderDefault()
+	scan := b.NamedScan([]string{"test"}, baseSchema)
+
+	ref, err := b.RootFieldRef(scan, 0)
+	require.NoError(t, err)
+
+	ref1, err := b.RootFieldRef(scan, 1)
+	require.NoError(t, err)
+
+	sort, err := b.Sort(scan, expr.SortField{Expr: ref1, Kind: types.SortAscNullsLast}, expr.SortField{Expr: ref, Kind: types.SortDescNullsFirst})
+	require.NoError(t, err)
+
+	p, err := b.Plan(sort, []string{"a", "b"})
+	require.NoError(t, err)
+
+	checkRoundTrip(t, expectedJSON, p)
+}
+
+func TestSortRelationErrors(t *testing.T) {
+	b := plan.NewBuilderDefault()
+	scan := b.NamedScan([]string{"test"}, baseSchema)
+
+	_, err := b.SortFields(scan, -1)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidArg)
+	assert.ErrorContains(t, err, "cannot create field ref index -1")
+
+	fields, _ := b.SortFields(scan, 1, 0)
+	_, err = b.SortRemap(scan, []int32{-1}, fields...)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+	assert.ErrorContains(t, err, "output mapping index out of range")
+
+	_, err = b.Sort(nil)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+	assert.ErrorContains(t, err, "input Relation must not be nil")
+
+	_, err = b.Sort(scan)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+	assert.ErrorContains(t, err, "must provide at least one SortField for sort relation")
+
+	_, err = b.SortRemap(scan, []int32{3}, fields...)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+	assert.ErrorContains(t, err, "output mapping index out of range")
+}
+
+func TestProjectRelation(t *testing.T) {
+	const expectedJSON = `{
+		` + versionStruct + `,
+		"relations": [
+			{
+				"root": {
+					"input": {
+						"project": {
+							"common": {"direct": {}},
+							"input": {
+								"read": {
+									"common": {"direct": {}},
+									"baseSchema": {
+										"names": ["a", "b"],
+										"struct": {
+											"types": [
+												{"string": { "nullability": "NULLABILITY_REQUIRED"}},
+												{"fp32": { "nullability": "NULLABILITY_REQUIRED"}}
+											],
+											"nullability": "NULLABILITY_REQUIRED"
+										}
+									},
+									"namedTable": { "names": [ "test" ]}
+								}
+							},
+							"expressions": [
+								{
+									"selection": {
+										"rootReference": {},
+										"directReference": { "structField": { "field": 1 }}
+									}
+								}
+							]
+						}
+					},
+					"names": ["a", "b", "c"]
+				}
+			}
+		]
+	}`
+
+	b := plan.NewBuilderDefault()
+	scan := b.NamedScan([]string{"test"}, baseSchema)
+	ref, err := b.RootFieldRef(scan, 1)
+	require.NoError(t, err)
+
+	project, err := b.Project(scan, ref)
+	require.NoError(t, err)
+
+	p, err := b.Plan(project, []string{"a", "b", "c"})
+	require.NoError(t, err)
+
+	assert.Equal(t, "NSTRUCT<a: string, b: fp32, c: fp32>", p.GetRoots()[0].RecordType().String())
+
+	checkRoundTrip(t, expectedJSON, p)
+}
+
+func TestProjectMultipleRelation(t *testing.T) {
+	const expectedJSON = `{
+		` + versionStruct + `,
+		"relations": [
+			{
+				"root": {
+					"input": {
+						"project": {
+							"common": {"direct": {}},
+							"input": {
+								"read": {
+									"common": {"direct": {}},
+									"baseSchema": {
+										"names": ["a", "b"],
+										"struct": {
+											"types": [
+												{"string": { "nullability": "NULLABILITY_REQUIRED"}},
+												{"fp32": { "nullability": "NULLABILITY_REQUIRED"}}
+											],
+											"nullability": "NULLABILITY_REQUIRED"
+										}
+									},
+									"namedTable": { "names": [ "test" ]}
+								}
+							},
+							"expressions": [
+								{
+									"selection": {
+										"rootReference": {},
+										"directReference": { "structField": { "field": 1 }}
+									}
+								},
+								{
+									"selection": {
+										"rootReference": {},
+										"directReference": { "structField": { "field": 0 }}
+									}
+								}
+							]
+						}
+					},
+					"names": ["a", "b", "c", "d"]
+				}
+			}
+		]
+	}`
+
+	b := plan.NewBuilderDefault()
+	scan := b.NamedScan([]string{"test"}, baseSchema)
+	ref, err := b.RootFieldRef(scan, 1)
+	require.NoError(t, err)
+
+	ref0, err := b.RootFieldRef(scan, 0)
+	require.NoError(t, err)
+
+	project, err := b.Project(scan, ref, ref0)
+	require.NoError(t, err)
+
+	p, err := b.Plan(project, []string{"a", "b", "c", "d"})
+	require.NoError(t, err)
+
+	assert.Equal(t, "NSTRUCT<a: string, b: fp32, c: fp32, d: string>", p.GetRoots()[0].RecordType().String())
+
+	checkRoundTrip(t, expectedJSON, p)
+}
+
+func TestProjectErrors(t *testing.T) {
+	b := plan.NewBuilderDefault()
+	scan := b.NamedScan([]string{"test"}, baseSchema)
+
+	_, err := b.Project(nil)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+	assert.ErrorContains(t, err, "input Relation must not be nil")
+
+	_, err = b.Project(scan)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+	assert.ErrorContains(t, err, "must provide at least one expression for project relation")
+
+	ref, err := b.RootFieldRef(scan, 1)
+	require.NoError(t, err)
+
+	_, err = b.ProjectRemap(scan, []int32{-1}, ref)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+	assert.ErrorContains(t, err, "output mapping index out of range")
+
+	_, err = b.ProjectRemap(scan, []int32{3}, ref)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+	assert.ErrorContains(t, err, "output mapping index out of range")
+}
+
+func TestSetRelations(t *testing.T) {
+	const expectedJSON = `{
+		` + versionStruct + `,
+		"relations": [
+			{
+				"root": {
+					"input": {
+						"set": {
+							"common": {"direct": {}},
+							"inputs": [
+								{
+									"read": {
+										"common": {"direct": {}},
+										"baseSchema": {
+											"names": ["a", "b"],
+											"struct": {
+												"types": [
+													{"string": { "nullability": "NULLABILITY_REQUIRED"}},
+													{"fp32": { "nullability": "NULLABILITY_REQUIRED"}}
+												],
+												"nullability": "NULLABILITY_REQUIRED"
+											}
+										},
+										"namedTable": { "names": [ "test" ]}
+									}
+								},
+								{
+									"read": {
+										"common": {"direct": {}},
+										"baseSchema": {
+											"names": ["c", "d"],
+											"struct": {
+												"types": [
+													{"string": { "nullability": "NULLABILITY_REQUIRED"}},
+													{"fp32": { "nullability": "NULLABILITY_REQUIRED"}}
+												],
+												"nullability": "NULLABILITY_REQUIRED"
+											}
+										},
+										"virtualTable": {
+											"values": [
+												{
+													"fields": [
+														{ "string": "foo", "nullable": false },
+														{ "fp32": 1.5, "nullable": false }
+													]
+												},
+												{
+													"fields": [
+														{ "string": "bar", "nullable": false },
+														{ "fp32": 3.5, "nullable": false }
+													]
+												}
+											]
+										}
+									}
+								},
+								{
+									"read": {
+										"common": {"emit": {
+											"outputMapping": [1, 0]
+										}},
+										"baseSchema": {
+											"names": ["x", "y"],
+											"struct": {
+												"types": [
+													{"fp32": { "nullability": "NULLABILITY_REQUIRED"}},
+													{"string": { "nullability": "NULLABILITY_REQUIRED"}}
+												],
+												"nullability": "NULLABILITY_REQUIRED"
+											}
+										},
+										"namedTable": { "names": [ "test2" ]}
+									}
+								}
+							],
+							"op": "SET_OP_UNION_ALL"
+						}
+					},
+					"names": ["a", "b"]
+				}
+			}
+		]
+	}`
+
+	b := plan.NewBuilderDefault()
+	scan1 := b.NamedScan([]string{"test"}, baseSchema)
+	scan2, err := b.NamedScanRemap([]string{"test2"}, baseSchemaReverse, []int32{1, 0})
+	require.NoError(t, err)
+
+	virtual, err := b.VirtualTable([]string{"c", "d"},
+		expr.StructLiteralValue{expr.NewPrimitiveLiteral("foo", false), expr.NewPrimitiveLiteral(float32(1.5), false)},
+		expr.StructLiteralValue{expr.NewPrimitiveLiteral("bar", false), expr.NewPrimitiveLiteral(float32(3.5), false)})
+	require.NoError(t, err)
+
+	set, err := b.Set(plan.SetOpUnionAll, scan1, virtual, scan2)
+	require.NoError(t, err)
+
+	p, err := b.Plan(set, []string{"a", "b"})
+	require.NoError(t, err)
+
+	assert.Equal(t, "NSTRUCT<a: string, b: fp32>", p.GetRoots()[0].RecordType().String())
+
+	checkRoundTrip(t, expectedJSON, p)
+}
+
+func TestSetRelErrors(t *testing.T) {
+	b := plan.NewBuilderDefault()
+
+	scan1 := b.NamedScan([]string{"test"}, baseSchema)
+	scan2, err := b.NamedScanRemap([]string{"test2"}, baseSchemaReverse, []int32{1, 0})
+	require.NoError(t, err)
+
+	virtual, err := b.VirtualTable([]string{"c", "d"},
+		expr.StructLiteralValue{expr.NewPrimitiveLiteral("foo", false), expr.NewPrimitiveLiteral(int32(1), false)},
+		expr.StructLiteralValue{expr.NewPrimitiveLiteral("bar", false), expr.NewPrimitiveLiteral(int32(3), false)})
+	require.NoError(t, err)
+
+	_, err = b.Set(plan.SetOpUnionAll)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+	assert.ErrorContains(t, err, "must have at least 2 relations for a set relation, got 0")
+
+	_, err = b.Set(plan.SetOpUnionAll, scan1)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+	assert.ErrorContains(t, err, "must have at least 2 relations for a set relation, got 1")
+
+	_, err = b.Set(plan.SetOpUnspecified, scan1, scan2)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidArg)
+	assert.ErrorContains(t, err, "operation for set relation must not be unspecified")
+
+	_, err = b.Set(plan.SetOpUnionAll, nil, nil)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+	assert.ErrorContains(t, err, "input Relation must not be nil")
+
+	_, err = b.Set(plan.SetOpUnionDistinct, scan1, nil)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+	assert.ErrorContains(t, err, "input Relation must not be nil")
+
+	_, err = b.Set(plan.SetOpUnionDistinct, nil, scan2)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+	assert.ErrorContains(t, err, "input Relation must not be nil")
+
+	_, err = b.Set(plan.SetOpIntersectionMultiset, scan1, virtual)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+	assert.ErrorContains(t, err, "mismatched column types in set relation, struct<string, fp32> vs struct<string, i32>")
+
+	_, err = b.SetRemap(plan.SetOpMinusMultiset, []int32{-1}, scan1, scan2)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+	assert.ErrorContains(t, err, "output mapping index out of range")
+
+	_, err = b.SetRemap(plan.SetOpMinusMultiset, []int32{3}, scan1, scan2)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+	assert.ErrorContains(t, err, "output mapping index out of range")
 }

@@ -22,6 +22,12 @@ import (
 // This will maintain consistency across the plan for the user without them
 // having to manually do so.
 type Builder interface {
+	// GetFunctionRef retrieves the function anchor reference for a given
+	// function identified by its namespace and function name. This also
+	// ensures that any plans built from this builder will contain this
+	// function anchor in its extensions section.
+	GetFunctionRef(nameSpace, key string) types.FunctionRef
+
 	// Construct a user-defined type from the extension namespace and typename,
 	// along with optional type parameters. It will add the type to the internal
 	// extension set if it doesn't already exist and assign it a type reference.
@@ -64,8 +70,8 @@ type Builder interface {
 	// with an optional output mapping to reorder or exclude specific columns
 	// from the output.
 
-	Project(input Rel, exprs []expr.Expression) (*ProjectRel, error)
-	ProjectRemap(input Rel, exprs []expr.Expression, remap []int32) (*ProjectRel, error)
+	Project(input Rel, exprs ...expr.Expression) (*ProjectRel, error)
+	ProjectRemap(input Rel, remap []int32, exprs ...expr.Expression) (*ProjectRel, error)
 	AggregateColumnsRemap(input Rel, remap []int32, measures []AggRelMeasure, groupByCols ...int32) (*AggregateRel, error)
 	AggregateColumns(input Rel, measures []AggRelMeasure, groupByCols ...int32) (*AggregateRel, error)
 	AggregateExprsRemap(input Rel, remap []int32, measures []AggRelMeasure, groups ...[]expr.Expression) (*AggregateRel, error)
@@ -82,6 +88,8 @@ type Builder interface {
 	Join(left, right Rel, condition expr.Expression, joinType JoinType) (*JoinRel, error)
 	NamedScanRemap(tableName []string, schema types.NamedStruct, remap []int32) (*NamedTableReadRel, error)
 	NamedScan(tableName []string, schema types.NamedStruct) *NamedTableReadRel
+	VirtualTableRemap(fields []string, remap []int32, values ...expr.StructLiteralValue) (*VirtualTableReadRel, error)
+	VirtualTable(fields []string, values ...expr.StructLiteralValue) (*VirtualTableReadRel, error)
 	SortRemap(input Rel, remap []int32, sorts ...expr.SortField) (*SortRel, error)
 	Sort(input Rel, sorts ...expr.SortField) (*SortRel, error)
 	SetRemap(op SetOp, remap []int32, inputs ...Rel) (*SetRel, error)
@@ -121,6 +129,10 @@ type builder struct {
 	extSet extensions.Set
 
 	reg expr.ExtensionRegistry
+}
+
+func (b *builder) GetFunctionRef(nameSpace, key string) types.FunctionRef {
+	return types.FunctionRef(b.extSet.GetFuncAnchor(extensions.ID{URI: nameSpace, Name: key}))
 }
 
 func (b *builder) UserDefinedType(nameSpace, typeName string, params ...types.TypeParam) types.UserDefinedType {
@@ -163,13 +175,17 @@ func (b *builder) AggregateFn(nameSpace, key string, opts []*types.FunctionOptio
 		types.AggInvocationAll, types.AggPhaseInitialToResult, nil, args...)
 }
 
-func (b *builder) Project(input Rel, exprs []expr.Expression) (*ProjectRel, error) {
-	return b.ProjectRemap(input, exprs, nil)
+func (b *builder) Project(input Rel, exprs ...expr.Expression) (*ProjectRel, error) {
+	return b.ProjectRemap(input, nil, exprs...)
 }
 
-func (b *builder) ProjectRemap(input Rel, exprs []expr.Expression, remap []int32) (*ProjectRel, error) {
+func (b *builder) ProjectRemap(input Rel, remap []int32, exprs ...expr.Expression) (*ProjectRel, error) {
 	if input == nil {
 		return nil, errNilInputRel
+	}
+
+	if len(exprs) == 0 {
+		return nil, fmt.Errorf("%w: must provide at least one expression for project relation", substraitgo.ErrInvalidRel)
 	}
 
 	noutput := int32(len(input.Remap(input.RecordType()).Types))
@@ -427,12 +443,77 @@ func (b *builder) NamedScan(tableName []string, schema types.NamedStruct) *Named
 	return n
 }
 
+func (b *builder) VirtualTableRemap(fieldNames []string, remap []int32, values ...expr.StructLiteralValue) (*VirtualTableReadRel, error) {
+	if len(values) == 0 {
+		return nil, fmt.Errorf("%w: must provide at least one set of values for virtual table", substraitgo.ErrInvalidRel)
+	}
+
+	nfields := len(fieldNames)
+	if nfields == 0 {
+		return nil, fmt.Errorf("%w: must provide at least 1 field for virtual table", substraitgo.ErrInvalidRel)
+	}
+
+	if len(values[0]) != nfields {
+		return nil, fmt.Errorf("%w: mismatched number of fields (%d) and literal values (%d) in virtual table",
+			substraitgo.ErrInvalidRel, nfields, len(values[0]))
+	}
+
+	for _, idx := range remap {
+		if idx < 0 || idx >= int32(nfields) {
+			return nil, fmt.Errorf("%w: output mapping index out of range",
+				substraitgo.ErrInvalidRel)
+		}
+	}
+
+	typeList := make([]types.Type, nfields)
+	for i, v := range values[0] {
+		typeList[i] = v.GetType()
+	}
+
+	for _, row := range values[1:] {
+		for j, v := range row {
+			if !typeList[j].Equals(v.GetType()) {
+				return nil, fmt.Errorf("%w: inconsistent literal types for virtual table, found %s in col %d, expected %s",
+					substraitgo.ErrInvalidRel, v.GetType(), j, typeList[j].GetType())
+			}
+		}
+	}
+
+	baseSchema := types.NamedStruct{
+		Names: fieldNames,
+		Struct: types.StructType{
+			Nullability: types.NullabilityRequired,
+			Types:       typeList,
+		},
+	}
+
+	return &VirtualTableReadRel{
+		baseReadRel: baseReadRel{
+			RelCommon:  RelCommon{mapping: remap},
+			baseSchema: baseSchema,
+		},
+		values: values,
+	}, nil
+}
+
+func (b *builder) VirtualTable(fields []string, values ...expr.StructLiteralValue) (*VirtualTableReadRel, error) {
+	return b.VirtualTableRemap(fields, nil, values...)
+}
+
 func (b *builder) SortRemap(input Rel, remap []int32, sorts ...expr.SortField) (*SortRel, error) {
+	if input == nil {
+		return nil, errNilInputRel
+	}
+
 	noutput := int32(len(input.Remap(input.RecordType()).Types))
 	for _, idx := range remap {
 		if idx < 0 || idx >= noutput {
 			return nil, errOutputMappingOutOfRange
 		}
+	}
+
+	if len(sorts) == 0 {
+		return nil, fmt.Errorf("%w: must provide at least one SortField for sort relation", substraitgo.ErrInvalidRel)
 	}
 
 	return &SortRel{
@@ -459,15 +540,35 @@ func (b *builder) SortFields(input Rel, indices ...int32) ([]expr.SortField, err
 }
 
 func (b *builder) SetRemap(op SetOp, remap []int32, inputs ...Rel) (*SetRel, error) {
+	if op == SetOpUnspecified {
+		return nil, fmt.Errorf("%w: operation for set relation must not be unspecified", substraitgo.ErrInvalidArg)
+	}
+
 	if len(inputs) < 2 {
-		return nil, fmt.Errorf("%w: must have at least 2 relations for a SetRel, got %d",
+		return nil, fmt.Errorf("%w: must have at least 2 relations for a set relation, got %d",
 			substraitgo.ErrInvalidRel, len(inputs))
 	}
 
-	noutput := int32(len(inputs[0].Remap(inputs[0].RecordType()).Types))
+	for _, in := range inputs {
+		if in == nil {
+			return nil, errNilInputRel
+		}
+	}
+
+	output := inputs[0].Remap(inputs[0].RecordType())
+
+	noutput := int32(len(output.Types))
 	for _, idx := range remap {
 		if idx < 0 || idx >= noutput {
 			return nil, errOutputMappingOutOfRange
+		}
+	}
+
+	for _, in := range inputs[1:] {
+		t := in.Remap(in.RecordType())
+		if !output.Equals(&t) {
+			return nil, fmt.Errorf("%w: mismatched column types in set relation, %s vs %s",
+				substraitgo.ErrInvalidRel, &output, &t)
 		}
 	}
 

@@ -410,6 +410,10 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			}
 		}
 
+		if len(sorts) == 0 {
+			return nil, fmt.Errorf("%w: missing required field Sorts for Sort Relation", substraitgo.ErrInvalidRel)
+		}
+
 		out := &SortRel{
 			input:        input,
 			sorts:        sorts,
@@ -469,6 +473,11 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 				return nil, fmt.Errorf("error getting expr %d for ProjectRel: %w", i, err)
 			}
 		}
+
+		if len(exprs) == 0 {
+			return nil, fmt.Errorf("%w: missing required Expressions field for Project relation", substraitgo.ErrInvalidRel)
+		}
+
 		out := &ProjectRel{
 			input:        input,
 			exprs:        exprs,
@@ -488,6 +497,19 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			inputs[i], err = RelFromProto(r, reg)
 			if err != nil {
 				return nil, fmt.Errorf("error getting input %d for SetRel: %w", i, err)
+			}
+		}
+
+		if rel.Set.Op == SetOpUnspecified {
+			return nil, fmt.Errorf("%w: set operation must not be unspecified", substraitgo.ErrInvalidRel)
+		}
+
+		primary := inputs[0].Remap(inputs[0].RecordType())
+		for i, in := range inputs[1:] {
+			t := in.Remap(in.RecordType())
+			if !t.Equals(&primary) {
+				return nil, fmt.Errorf("%w: set operation field mismatch found in input #%d, expected %s, got %s",
+					substraitgo.ErrInvalidRel, i+1, &primary, &t)
 			}
 		}
 

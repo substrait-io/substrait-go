@@ -834,7 +834,7 @@ type SetRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
-func (s *SetRel) RecordType() types.StructType { return s.inputs[0].RecordType() }
+func (s *SetRel) RecordType() types.StructType { return s.inputs[0].Remap(s.inputs[0].RecordType()) }
 func (s *SetRel) Inputs() []Rel                { return s.inputs }
 func (s *SetRel) Op() SetOp                    { return s.op }
 func (s *SetRel) GetAdvancedExtension() *extensions.AdvancedExtension {
