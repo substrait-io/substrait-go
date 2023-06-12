@@ -994,7 +994,7 @@ type HashJoinRel struct {
 func (hr *HashJoinRel) RecordType() types.StructType {
 	return types.StructType{
 		Nullability: proto.Type_NULLABILITY_REQUIRED,
-		Types:       append(hr.left.RecordType().Types, hr.right.RecordType().Types...),
+		Types:       append(hr.left.Remap(hr.left.RecordType()).Types, hr.right.Remap(hr.right.RecordType()).Types...),
 	}
 }
 
@@ -1018,20 +1018,24 @@ func (hr *HashJoinRel) ToProto() *proto.Rel {
 		keysRight[i] = k.ToProtoFieldRef()
 	}
 
-	return &proto.Rel{
-		RelType: &proto.Rel_HashJoin{
-			HashJoin: &proto.HashJoinRel{
-				Common:            hr.toProto(),
-				Left:              hr.left.ToProto(),
-				Right:             hr.right.ToProto(),
-				LeftKeys:          keysLeft,
-				RightKeys:         keysRight,
-				PostJoinFilter:    hr.postJoinFilter.ToProto(),
-				Type:              proto.HashJoinRel_JoinType(hr.joinType),
-				AdvancedExtension: hr.advExtension,
-			},
+	ret := &proto.Rel_HashJoin{
+		HashJoin: &proto.HashJoinRel{
+			Common:            hr.toProto(),
+			Left:              hr.left.ToProto(),
+			Right:             hr.right.ToProto(),
+			LeftKeys:          keysLeft,
+			RightKeys:         keysRight,
+			Type:              proto.HashJoinRel_JoinType(hr.joinType),
+			AdvancedExtension: hr.advExtension,
 		},
 	}
+
+	if hr.postJoinFilter != nil {
+		ret.HashJoin.PostJoinFilter = hr.postJoinFilter.ToProto()
+	}
+
+	return &proto.Rel{
+		RelType: ret}
 }
 
 func (hr *HashJoinRel) ToProtoPlanRel() *proto.PlanRel {
@@ -1058,7 +1062,7 @@ type MergeJoinRel struct {
 func (mr *MergeJoinRel) RecordType() types.StructType {
 	return types.StructType{
 		Nullability: proto.Type_NULLABILITY_REQUIRED,
-		Types:       append(mr.left.RecordType().Types, mr.right.RecordType().Types...),
+		Types:       append(mr.left.Remap(mr.left.RecordType()).Types, mr.right.Remap(mr.right.RecordType()).Types...),
 	}
 }
 
@@ -1082,20 +1086,24 @@ func (mr *MergeJoinRel) ToProto() *proto.Rel {
 		keysRight[i] = k.ToProtoFieldRef()
 	}
 
-	return &proto.Rel{
-		RelType: &proto.Rel_MergeJoin{
-			MergeJoin: &proto.MergeJoinRel{
-				Common:            mr.toProto(),
-				Left:              mr.left.ToProto(),
-				Right:             mr.right.ToProto(),
-				LeftKeys:          keysLeft,
-				RightKeys:         keysRight,
-				PostJoinFilter:    mr.postJoinFilter.ToProto(),
-				Type:              proto.MergeJoinRel_JoinType(mr.joinType),
-				AdvancedExtension: mr.advExtension,
-			},
+	ret := &proto.Rel_MergeJoin{
+		MergeJoin: &proto.MergeJoinRel{
+			Common:            mr.toProto(),
+			Left:              mr.left.ToProto(),
+			Right:             mr.right.ToProto(),
+			LeftKeys:          keysLeft,
+			RightKeys:         keysRight,
+			Type:              proto.MergeJoinRel_JoinType(mr.joinType),
+			AdvancedExtension: mr.advExtension,
 		},
 	}
+
+	if mr.postJoinFilter != nil {
+		ret.MergeJoin.PostJoinFilter = mr.postJoinFilter.ToProto()
+	}
+
+	return &proto.Rel{
+		RelType: ret}
 }
 
 func (mr *MergeJoinRel) ToProtoPlanRel() *proto.PlanRel {
