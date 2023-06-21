@@ -175,30 +175,30 @@ func TestExtensionSet(t *testing.T) {
 		id.Name = "add"
 
 		anchor := s.GetFuncAnchor(id)
-		assert.Zero(t, anchor)
-		nid, ok := s.DecodeFunc(0)
+		assert.EqualValues(t, 1, anchor)
+		nid, ok := s.DecodeFunc(1)
 		assert.True(t, ok)
 		assert.Equal(t, id, nid)
 
 		id.Name = "subtract:i8_i8"
 		anchor = s.GetFuncAnchor(id)
-		assert.EqualValues(t, 1, anchor)
+		assert.EqualValues(t, 2, anchor)
 
 		id.Name = "point"
 		anchor = s.GetTypeAnchor(id)
-		assert.Zero(t, anchor)
+		assert.EqualValues(t, 1, anchor)
 	})
 
 	var c extensions.Collection
 	require.NoError(t, c.Load(uri, strings.NewReader(sampleYAML)))
 
 	t.Run("lookup from collection", func(t *testing.T) {
-		fn, ok := s.LookupScalarFunction(0, &c)
+		fn, ok := s.LookupScalarFunction(1, &c)
 		assert.True(t, ok)
 		assert.NotNil(t, fn)
 		assert.Equal(t, "add", fn.Name())
 
-		fn, ok = s.LookupScalarFunction(2, &c)
+		fn, ok = s.LookupScalarFunction(3, &c)
 		assert.False(t, ok)
 		assert.Nil(t, fn)
 	})

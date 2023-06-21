@@ -9,6 +9,7 @@ import (
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/proto"
 	"github.com/substrait-io/substrait-go/types"
+	"golang.org/x/exp/slices"
 )
 
 type RootRefType interface {
@@ -293,9 +294,231 @@ func (r *ListElementRef) Equals(rhs ReferenceSegment) bool {
 }
 func (*ListElementRef) isRefType() {}
 
-type MaskExpression proto.Expression_MaskExpression
+// MaskExpression is a reference that takes an existing subtype and
+// selectively removes fields from it. For example, one might initially
+// have an inner struct with 100 fields, but a particular operation only
+// needs to interact with 2 of those 100 fields. In this situation, one
+// would use a mask expression to eliminate the 98 fields that are not
+// relevant to the rest of the operations pipeline.
+//
+// Note that this does not fundamentally alter the structure of data
+// beyond the elimination of unnecessary elements.
+type MaskExpression struct {
+	sel              MaskStructSelect
+	maintainSingular bool
+}
 
 func (*MaskExpression) isRefType() {}
+func (e *MaskExpression) ToProto() *proto.Expression_MaskExpression {
+	return &proto.Expression_MaskExpression{
+		Select:                 e.sel.toProtoStructSelect(),
+		MaintainSingularStruct: e.maintainSingular,
+	}
+}
+
+func (e *MaskExpression) MaintainSingularStruct() bool {
+	return e.maintainSingular
+}
+
+func (e *MaskExpression) Select() MaskStructSelect {
+	return slices.Clone(e.sel)
+}
+
+func MaskExpressionFromProto(p *proto.Expression_MaskExpression) *MaskExpression {
+	sel := make(MaskStructSelect, len(p.Select.StructItems))
+	for i, item := range p.Select.StructItems {
+		sel[i].field = item.Field
+		if item.Child != nil {
+			sel[i].child = maskSelectFromProto(item.Child)
+		}
+	}
+	return &MaskExpression{sel: sel, maintainSingular: p.MaintainSingularStruct}
+}
+
+func maskSelectFromProto(p *proto.Expression_MaskExpression_Select) MaskSelect {
+	switch s := p.Type.(type) {
+	case *proto.Expression_MaskExpression_Select_Struct:
+		items := make(MaskStructSelect, len(s.Struct.StructItems))
+		for i, item := range s.Struct.StructItems {
+			items[i].field = item.Field
+			if item.Child != nil {
+				items[i].child = maskSelectFromProto(item.Child)
+			}
+		}
+		return items
+	case *proto.Expression_MaskExpression_Select_List:
+		selection := make([]MaskListSelectItem, len(s.List.Selection))
+		for i, sel := range s.List.Selection {
+			switch s := sel.Type.(type) {
+			case *proto.Expression_MaskExpression_ListSelect_ListSelectItem_Item:
+				selection[i] = (*MaskListElement)(s.Item)
+			case *proto.Expression_MaskExpression_ListSelect_ListSelectItem_Slice:
+				selection[i] = (*MaskListSlice)(s.Slice)
+			}
+		}
+		return &MaskListSelect{
+			selection: selection,
+			child:     maskSelectFromProto(s.List.Child),
+		}
+	case *proto.Expression_MaskExpression_Select_Map:
+		var ret MaskMapSelect
+		if s.Map.Child != nil {
+			ret.child = maskSelectFromProto(s.Map.Child)
+		}
+
+		switch sk := s.Map.Select.(type) {
+		case *proto.Expression_MaskExpression_MapSelect_Expression:
+			ret.key = sk.Expression.MapKeyExpression
+			ret.kind = MapSelectExpr
+		case *proto.Expression_MaskExpression_MapSelect_Key:
+			ret.key = sk.Key.MapKey
+			ret.kind = MapSelectKey
+		}
+		return &ret
+	}
+	panic("unimplemented mask select type")
+}
+
+type MaskSelect interface {
+	ToProto() *proto.Expression_MaskExpression_Select
+}
+
+type MaskStructSelect []MaskStructItem
+
+func (m MaskStructSelect) toProtoStructSelect() *proto.Expression_MaskExpression_StructSelect {
+	items := make([]*proto.Expression_MaskExpression_StructItem, len(m))
+	for i, item := range m {
+		items[i] = item.ToProto()
+	}
+	return &proto.Expression_MaskExpression_StructSelect{
+		StructItems: items,
+	}
+}
+
+func (m MaskStructSelect) ToProto() *proto.Expression_MaskExpression_Select {
+	return &proto.Expression_MaskExpression_Select{
+		Type: &proto.Expression_MaskExpression_Select_Struct{
+			Struct: m.toProtoStructSelect(),
+		},
+	}
+}
+
+type MaskStructItem struct {
+	field int32
+	child MaskSelect
+}
+
+func (m *MaskStructItem) Field() int32      { return m.field }
+func (m *MaskStructItem) Child() MaskSelect { return m.child }
+func (m *MaskStructItem) ToProto() *proto.Expression_MaskExpression_StructItem {
+	return &proto.Expression_MaskExpression_StructItem{
+		Field: m.field,
+		Child: m.child.ToProto(),
+	}
+}
+
+type MaskListSelect struct {
+	selection []MaskListSelectItem
+	child     MaskSelect
+}
+
+func (m *MaskListSelect) ToProto() *proto.Expression_MaskExpression_Select {
+	selection := make([]*proto.Expression_MaskExpression_ListSelect_ListSelectItem, len(m.selection))
+	for i, s := range m.selection {
+		selection[i] = s.ToProto()
+	}
+
+	return &proto.Expression_MaskExpression_Select{
+		Type: &proto.Expression_MaskExpression_Select_List{
+			List: &proto.Expression_MaskExpression_ListSelect{
+				Selection: selection,
+				Child:     m.child.ToProto(),
+			},
+		},
+	}
+}
+
+func (m *MaskListSelect) Child() MaskSelect { return m.child }
+func (m *MaskListSelect) Selection() []MaskListSelectItem {
+	return slices.Clone(m.selection)
+}
+
+type MaskListSelectItem interface {
+	ToProto() *proto.Expression_MaskExpression_ListSelect_ListSelectItem
+}
+
+type MaskListElement proto.Expression_MaskExpression_ListSelect_ListSelectItem_ListElement
+
+func (m *MaskListElement) GetField() int32 {
+	return m.Field
+}
+
+func (m *MaskListElement) ToProto() *proto.Expression_MaskExpression_ListSelect_ListSelectItem {
+	return &proto.Expression_MaskExpression_ListSelect_ListSelectItem{
+		Type: &proto.Expression_MaskExpression_ListSelect_ListSelectItem_Item{
+			Item: (*proto.Expression_MaskExpression_ListSelect_ListSelectItem_ListElement)(m),
+		},
+	}
+}
+
+type MaskListSlice proto.Expression_MaskExpression_ListSelect_ListSelectItem_ListSlice
+
+func (m *MaskListSlice) GetBounds() (start, end int32) {
+	return m.Start, m.End
+}
+
+func (m *MaskListSlice) ToProto() *proto.Expression_MaskExpression_ListSelect_ListSelectItem {
+	return &proto.Expression_MaskExpression_ListSelect_ListSelectItem{
+		Type: &proto.Expression_MaskExpression_ListSelect_ListSelectItem_Slice{
+			Slice: (*proto.Expression_MaskExpression_ListSelect_ListSelectItem_ListSlice)(m),
+		},
+	}
+}
+
+type MapSelectKind int8
+
+const (
+	MapSelectKey MapSelectKind = iota
+	MapSelectExpr
+)
+
+type MaskMapSelect struct {
+	child MaskSelect
+	kind  MapSelectKind
+	key   string
+}
+
+func (m *MaskMapSelect) KeyKind() MapSelectKind { return m.kind }
+func (m *MaskMapSelect) Key() string            { return m.key }
+
+func (m *MaskMapSelect) Child() MaskSelect {
+	return m.child
+}
+
+func (m *MaskMapSelect) ToProto() *proto.Expression_MaskExpression_Select {
+	ret := &proto.Expression_MaskExpression_Select_Map{
+		Map: &proto.Expression_MaskExpression_MapSelect{
+			Child: m.child.ToProto(),
+		},
+	}
+
+	if m.kind == MapSelectKey {
+		ret.Map.Select = &proto.Expression_MaskExpression_MapSelect_Key{
+			Key: &proto.Expression_MaskExpression_MapSelect_MapKey{
+				MapKey: m.key,
+			},
+		}
+	} else {
+		ret.Map.Select = &proto.Expression_MaskExpression_MapSelect_Expression{
+			Expression: &proto.Expression_MaskExpression_MapSelect_MapKeyExpression{
+				MapKeyExpression: m.key,
+			},
+		}
+	}
+	return &proto.Expression_MaskExpression_Select{
+		Type: ret,
+	}
+}
 
 type Reference interface {
 	isRefType()
@@ -377,7 +600,7 @@ func (f *FieldReference) ToProtoFieldRef() *proto.Expression_FieldReference {
 			DirectReference: r.ToProto()}
 	case *MaskExpression:
 		ret.ReferenceType = &proto.Expression_FieldReference_MaskedReference{
-			MaskedReference: (*proto.Expression_MaskExpression)(r),
+			MaskedReference: r.ToProto(),
 		}
 	}
 
@@ -506,7 +729,7 @@ func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema type
 		ref = refseg
 
 	case *proto.Expression_FieldReference_MaskedReference:
-		ref = (*MaskExpression)(rt.MaskedReference)
+		ref = MaskExpressionFromProto(rt.MaskedReference)
 	}
 
 	return &FieldReference{Root: root, Reference: ref, knownType: knownType}, nil

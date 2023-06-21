@@ -10,4 +10,6 @@ var (
 	ErrInvalidExpr    = errors.New("invalid expression")
 	ErrNotFound       = errors.New("not found")
 	ErrKeyExists      = errors.New("key already exists")
+	ErrInvalidRel     = errors.New("invalid relation")
+	ErrInvalidArg     = errors.New("invalid argument")
 )
