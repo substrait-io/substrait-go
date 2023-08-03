@@ -188,7 +188,7 @@ func (b *builder) ProjectRemap(input Rel, remap []int32, exprs ...expr.Expressio
 		return nil, fmt.Errorf("%w: must provide at least one expression for project relation", substraitgo.ErrInvalidRel)
 	}
 
-	noutput := int32(len(input.Remap(input.RecordType()).Types))
+	noutput := int32(len(input.Remap(input.RecordType()).Types) + len(exprs))
 	for _, idx := range remap {
 		if idx < 0 || idx >= noutput {
 			return nil, errOutputMappingOutOfRange
@@ -228,7 +228,7 @@ func (b *builder) AggregateColumnsRemap(input Rel, remap []int32, measures []Agg
 		exprs[i] = []expr.Expression{ref}
 	}
 
-	noutput := int32(len(input.Remap(input.RecordType()).Types))
+	noutput := int32(len(measures) + len(groupByCols))
 	for _, idx := range remap {
 		if idx < 0 || idx >= noutput {
 			return nil, errOutputMappingOutOfRange
@@ -263,7 +263,7 @@ func (b *builder) AggregateExprsRemap(input Rel, remap []int32, measures []AggRe
 		return nil, fmt.Errorf("%w: groupings cannot contain empty expression list or nil expression", substraitgo.ErrInvalidRel)
 	}
 
-	noutput := int32(len(input.Remap(input.RecordType()).Types))
+	noutput := int32(len(measures) + len(groups))
 	for _, idx := range remap {
 		if idx < 0 || idx >= noutput {
 			return nil, errOutputMappingOutOfRange
