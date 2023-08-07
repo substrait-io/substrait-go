@@ -134,7 +134,7 @@ func TestAggregateRelPlan(t *testing.T) {
 				"extensionFunction": {
 					"extensionUriReference": 1,
 					"functionAnchor": 1,
-					"name": "count"
+					"name": "count:"
 				}
 			}
 		],

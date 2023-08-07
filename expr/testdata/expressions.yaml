@@ -13,7 +13,7 @@ cases:
     __test:
       type: fp64
       string: |
-        add(fp64(1), subtract(.field(3) => i16?, multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64) => fp32) => fp64
+        add:fp64_fp64(fp64(1), subtract:fp32_fp32(.field(3) => i16?, multiply:i64_i64(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64) => fp32) => fp64
     expression:
       scalarFunction:
         functionReference: 2
@@ -50,7 +50,7 @@ cases:
     __test:
       type: i32?
       string: |
-        ntile(.field(1) => i8; sort: [{expr: <IfThen>((.field(0) => i32) ?.field(1) => i8)<Else>(i32(1)), SORT_DIRECTION_CLUSTERED}]; [options: {DECOMPOSABLE => [NONE]}]; partitions: [.field(2) => i16]; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_ALL) => i32?
+        ntile:i64(.field(1) => i8; sort: [{expr: <IfThen>((.field(0) => i32) ?.field(1) => i8)<Else>(i32(1)), SORT_DIRECTION_CLUSTERED}]; [options: {DECOMPOSABLE => [NONE]}]; partitions: [.field(2) => i16]; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_ALL) => i32?
     expression:
       windowFunction:
         functionReference: 5
@@ -127,7 +127,7 @@ cases:
             rootReference: {}
             directReference: { structField: { field: 2 } }
   - name: singular-or-list
-    __test: 
+    __test:
       type: "boolean"
       string: |
         .field(2) => i16 IN [i16(1),i16(2),i16(3)]
@@ -142,7 +142,7 @@ cases:
           - literal: { i16: 2 }
           - literal: { i16: 3 }
   - name: multi-or-list
-    __test: 
+    __test:
       type: "boolean"
       string: |
         [.field(1) => i8, .field(2) => i16] IN [[i8(1), i16(2)], [i8(3), i16(4)], [i8(5), i16(6)]]
@@ -219,7 +219,7 @@ cases:
                 directReference: { structField: { field: 3 } }
             - literal: { i16: 1 }
   - name: cast
-    __test: 
+    __test:
       type: i64
       string: |
         cast(i16(6) AS i64, fail: FAILURE_BEHAVIOR_RETURN_NULL)

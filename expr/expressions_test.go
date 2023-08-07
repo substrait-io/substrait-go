@@ -46,7 +46,7 @@ func init() {
 	collection.Load("https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml", strings.NewReader(sampleYAML))
 }
 
-func ExampleExpression_scalarFunction() {
+func TestExampleExpressionScalarFunction(t *testing.T) {
 	// define extensions with no plan for now
 	const planExt = `{
 		"extensionUris": [
@@ -60,7 +60,7 @@ func ExampleExpression_scalarFunction() {
 				"extensionFunction": {
 					"extensionUriReference": 1,
 					"functionAnchor": 2,
-					"name": "add"
+					"name": "add:i8_i8"
 				}
 			}
 		],
@@ -79,7 +79,7 @@ func ExampleExpression_scalarFunction() {
 	const scalarFunction = `{
 		"scalarFunction": {
 		  "functionReference": 2,
-		  "outputType": {"i32": {}},
+		  "outputType": {"i8": {}},
 		  "arguments": [
 			{"value": {"selection": {
 				"rootReference": {},
@@ -105,11 +105,11 @@ func ExampleExpression_scalarFunction() {
 	// having to construct the protobuf
 	const substraitext = `https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml`
 
-	var addVariant = ext.NewScalarFuncVariant(ext.ID{URI: substraitext, Name: "add"})
+	var addVariant = ext.NewScalarFuncVariant(ext.ID{URI: substraitext, Name: "add:i8_i8"})
 
 	var ex expr.Expression
-	refArg, _ := expr.NewRootFieldRef(expr.NewStructFieldRef(0), &types.StructType{Types: []types.Type{&types.Int32Type{}}})
-	ex, _ = expr.NewCustomScalarFunc(reg, addVariant, &types.Int32Type{}, nil,
+	refArg, _ := expr.NewRootFieldRef(expr.NewStructFieldRef(0), &types.StructType{Types: []types.Type{&types.Int8Type{}}})
+	ex, _ = expr.NewCustomScalarFunc(reg, addVariant, &types.Int8Type{}, nil,
 		refArg, expr.NewPrimitiveLiteral(float64(10), false))
 
 	// call ToProto to convert our manual expression to proto.Expression
@@ -117,30 +117,24 @@ func ExampleExpression_scalarFunction() {
 
 	// output some info!
 
-	// print string represention of the expression
-	fmt.Println(fromProto)
-	// print the string representation of our
-	// manually constructed expression
+	// Check the string represention of the expression
+	assert.Equal(t, "add:i8_i8(.field(0), fp64(10)) => i8", fromProto.String())
+	// Check our manually constructed expression
+	assert.Equal(t, "add:i8_i8(.field(0) => i8, fp64(10)) => i8", ex.String())
 	fmt.Println(ex)
 
-	// verify that the Equals methods work recursively
-	fmt.Println(ex.Equals(fromProto))
+	// verify that the two are equal
+	assert.True(t, ex.Equals(fromProto))
 	// confirm our manually constructed expression is the same
 	// as the one we got from protojson
-	fmt.Println(pb.Equal(&exprProto, toProto))
-
-	// Output:
-	// add(.field(0), fp64(10)) => i32
-	// add(.field(0) => i32, fp64(10)) => i32
-	// true
-	// true
+	assert.True(t, pb.Equal(&exprProto, toProto))
 }
 
 func sampleNestedExpr(reg expr.ExtensionRegistry, substraitExtURI string) expr.Expression {
 	var (
-		add = ext.NewScalarFuncVariant(ext.ID{URI: substraitExtURI, Name: "add"})
-		sub = ext.NewScalarFuncVariant(ext.ID{URI: substraitExtURI, Name: "subtract"})
-		mul = ext.NewScalarFuncVariant(ext.ID{URI: substraitExtURI, Name: "multiply"})
+		add = ext.ID{URI: substraitExtURI, Name: "add:fp64_fp64"}
+		sub = ext.ID{URI: substraitExtURI, Name: "subtract:i32_i32"}
+		mul = ext.ID{URI: substraitExtURI, Name: "multiply:fp64_fp64"}
 	)
 
 	baseSchema := &types.StructType{
@@ -153,11 +147,11 @@ func sampleNestedExpr(reg expr.ExtensionRegistry, substraitExtURI string) expr.E
 	}
 
 	// add(literal, sub(ref, mul(literal, ref)))
-	exp := expr.MustExpr(expr.NewCustomScalarFunc(reg, add, &types.Float64Type{}, nil,
+	exp := expr.MustExpr(expr.NewScalarFunc(reg, add, nil,
 		expr.NewPrimitiveLiteral(float64(1.0), false),
-		expr.MustExpr(expr.NewCustomScalarFunc(reg, sub, &types.Float32Type{}, nil,
+		expr.MustExpr(expr.NewScalarFunc(reg, sub, nil,
 			expr.MustExpr(expr.NewRootFieldRef(expr.NewStructFieldRef(3), baseSchema)),
-			expr.MustExpr(expr.NewCustomScalarFunc(reg, mul, &types.Int64Type{}, nil,
+			expr.MustExpr(expr.NewScalarFunc(reg, mul, nil,
 				expr.NewPrimitiveLiteral(int64(2), false),
 				expr.MustExpr(expr.NewFieldRef(expr.NewNestedLiteral(expr.StructLiteralValue{
 					expr.NewByteSliceLiteral([]byte("baz"), true),
@@ -251,6 +245,7 @@ func ExampleExpression_Visit() {
 		fmt.Println(e)
 		return out
 	}
+
 	fmt.Println("PreOrder:")
 	fmt.Println(exp.Visit(preVisit))
 	fmt.Println()
@@ -260,21 +255,21 @@ func ExampleExpression_Visit() {
 	// Output:
 	// PreOrder:
 	// fp64(1)
-	// subtract(.field(3) => fp32, multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64) => fp32
+	// subtract:i32_i32(.field(3) => fp32, multiply:fp64_fp64(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => fp64) => i32?
 	// .field(3) => fp32
-	// multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64
+	// multiply:fp64_fp64(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => fp64
 	// i64(2)
 	// [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32
-	// add(fp64(1), subtract(.field(3) => fp32, multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64) => fp32) => fp64
+	// add:fp64_fp64(fp64(1), subtract:i32_i32(.field(3) => fp32, multiply:fp64_fp64(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => fp64) => i32?) => fp64?
 	//
 	// PostOrder:
 	// fp64(1)
 	// .field(3) => fp32
 	// i64(2)
 	// [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32
-	// multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64
-	// subtract(.field(3) => fp32, multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64) => fp32
-	// add(fp64(1), subtract(.field(3) => fp32, multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64) => fp32) => fp64
+	// multiply:fp64_fp64(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => fp64
+	// subtract:i32_i32(.field(3) => fp32, multiply:fp64_fp64(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => fp64) => i32?
+	// add:fp64_fp64(fp64(1), subtract:i32_i32(.field(3) => fp32, multiply:fp64_fp64(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => fp64) => i32?) => fp64?
 }
 
 func TestRoundTripUsingTestData(t *testing.T) {
@@ -292,28 +287,28 @@ func TestRoundTripUsingTestData(t *testing.T) {
 				"extensionFunction": {
 					"extensionUriReference": 1,
 					"functionAnchor": 2,
-					"name": "add"
+					"name": "add:fp64_fp64"
 				}
 			},
 			{
 				"extensionFunction": {
 					"extensionUriReference": 1,
 					"functionAnchor": 3,
-					"name": "subtract"
+					"name": "subtract:fp32_fp32"
 				}
 			},
 			{
 				"extensionFunction": {
 					"extensionUriReference": 1,
 					"functionAnchor": 4,
-					"name": "multiply"
+					"name": "multiply:i64_i64"
 				}
 			},
 			{
 				"extensionFunction": {
 					"extensionUriReference": 1,
 					"functionAnchor": 5,
-					"name": "ntile"
+					"name": "ntile:i64"
 				}
 			}
 		],

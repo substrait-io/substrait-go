@@ -25,7 +25,7 @@ func TestExprBuilder(t *testing.T) {
 		err      string
 	}{
 		{"literal", "i8?(5)", b.Wrap(expr.NewLiteral(int8(5), true)), ""},
-		{"simple add", "add(.field(1) => i8, i8(5)) => i8?",
+		{"simple add", "add:i8_i8(.field(1) => i8, i8(5)) => i8?",
 			b.ScalarFunc(addID).Args(
 				b.RootRef(expr.NewStructFieldRef(1)),
 				b.Literal(expr.NewPrimitiveLiteral(int8(5), false)),
@@ -33,23 +33,23 @@ func TestExprBuilder(t *testing.T) {
 		{"expect args", "",
 			b.ScalarFunc(indexInID),
 			"invalid expression: mismatch in number of arguments provided. got 0, expected 2"},
-		{"with opt", "index_in(i32(5), list<i32>([]), {nan_equality: [NAN_IS_NAN]}) => i64?",
+		{"with opt", "index_in:t_list(i32(5), list<i32>([]), {nan_equality: [NAN_IS_NAN]}) => i64?",
 			b.ScalarFunc(indexInID, &types.FunctionOption{
 				Name:       "nan_equality",
 				Preference: []string{"NAN_IS_NAN"}}).Args(
 				b.Wrap(expr.NewLiteral(int32(5), false)),
 				b.Literal(expr.NewEmptyListLiteral(&types.Int32Type{}, false))), ""},
-		{"with cast", "subtract(.field(3) => i32, cast(.field(6) => fp32 AS i32, fail: FAILURE_BEHAVIOR_THROW_EXCEPTION)) => i32?",
+		{"with cast", "subtract:i32_i32(.field(3) => i32, cast(.field(6) => fp32 AS i32, fail: FAILURE_BEHAVIOR_THROW_EXCEPTION)) => i32?",
 			b.ScalarFunc(subID).Args(
 				b.RootRef(expr.NewStructFieldRef(3)),
 				b.Cast(b.RootRef(expr.NewStructFieldRef(6)), &types.Int32Type{}).
 					FailBehavior(types.BehaviorThrowException),
 			), ""},
-		{"window func", "",
+		{"window func error", "",
 			b.WindowFunc(rankID), "invalid expression: non-decomposable window or agg function '{https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml rank}' must use InitialToResult phase"},
-		{"window func", "rank(; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_UNSPECIFIED) => i64?",
+		{"window func", "rank:(; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_UNSPECIFIED) => i64?",
 			b.WindowFunc(rankID).Phase(types.AggPhaseInitialToResult), ""},
-		{"nested funcs", "add(extract(YEAR, date(10957)) => i64, rank(; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_ALL) => i64?) => i64?",
+		{"nested funcs", "add:i64_i64(extract:req_date(YEAR, date(10957)) => i64, rank:(; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_ALL) => i64?) => i64?",
 			b.ScalarFunc(addID).Args(
 				b.ScalarFunc(extractID).Args(b.Enum("YEAR"),
 					b.Wrap(expr.NewLiteral(types.Date(10957), false))),
@@ -58,7 +58,7 @@ func TestExprBuilder(t *testing.T) {
 			b.ScalarFunc(addID).Args(
 				b.RootRef(expr.NewListElemRef(0)),
 				b.Literal(expr.NewPrimitiveLiteral(int32(5), false))), "error resolving ref type: invalid type"},
-		{"window func args", "ntile(i32(5); sort: [{expr: .field(1) => i8, SORT_DIRECTION_ASC_NULLS_FIRST}]; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_UNSPECIFIED) => i32?",
+		{"window func args", "ntile:i32(i32(5); sort: [{expr: .field(1) => i8, SORT_DIRECTION_ASC_NULLS_FIRST}]; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_UNSPECIFIED) => i32?",
 			b.WindowFunc(ntileID).Args(b.Wrap(expr.NewLiteral(int32(5), false))).
 				Phase(types.AggPhaseInitialToResult).
 				Sort(expr.SortField{
