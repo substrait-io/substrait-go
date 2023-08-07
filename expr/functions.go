@@ -246,9 +246,11 @@ func NewScalarFunc(reg ExtensionRegistry, id extensions.ID, opts []*types.Functi
 		return nil, err
 	}
 
+	compoundId := extensions.ID{Name: decl.CompoundName(), URI: id.URI}
+
 	return &ScalarFunction{
-		funcRef:     reg.GetFuncAnchor(id),
-		id:          id,
+		funcRef:     reg.GetFuncAnchor(compoundId),
+		id:          compoundId,
 		declaration: decl,
 		outputType:  outType,
 		options:     opts,
@@ -452,9 +454,11 @@ func NewWindowFunc(reg ExtensionRegistry, id extensions.ID, opts []*types.Functi
 			substraitgo.ErrInvalidExpr, id)
 	}
 
+	compoundId := extensions.ID{Name: decl.CompoundName(), URI: id.URI}
+
 	return &WindowFunction{
-		funcRef:     reg.GetFuncAnchor(id),
-		id:          id,
+		funcRef:     reg.GetFuncAnchor(compoundId),
+		id:          compoundId,
 		declaration: decl,
 		outputType:  outType,
 		options:     opts,
@@ -684,9 +688,10 @@ func NewAggregateFunc(reg ExtensionRegistry, id extensions.ID, opts []*types.Fun
 		return nil, err
 	}
 
+	compoundId := extensions.ID{Name: decl.CompoundName(), URI: id.URI}
 	return &AggregateFunction{
-		funcRef:     reg.GetFuncAnchor(id),
-		id:          id,
+		funcRef:     reg.GetFuncAnchor(compoundId),
+		id:          compoundId,
 		declaration: decl,
 		outputType:  outType,
 		options:     opts,
@@ -744,9 +749,10 @@ func NewAggregateFunctionFromProto(agg *proto.AggregateFunction, baseSchema type
 		return NewCustomAggregateFunc(reg, extensions.NewAggFuncVariant(id), types.TypeFromProto(agg.OutputType), agg.Options, agg.Invocation, agg.Phase, sorts, args...)
 	}
 
+	fullId := extensions.ID{Name: decl.CompoundName(), URI: id.URI}
 	return &AggregateFunction{
 		funcRef:     agg.FunctionReference,
-		id:          id,
+		id:          fullId,
 		declaration: decl,
 		args:        args,
 		options:     agg.Options,

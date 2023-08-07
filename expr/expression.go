@@ -74,10 +74,11 @@ func ExprFromProto(e *proto.Expression, baseSchema types.Type, reg ExtensionRegi
 			return NewCustomScalarFunc(reg, extensions.NewScalarFuncVariant(id), types.TypeFromProto(et.ScalarFunction.OutputType), et.ScalarFunction.Options, args...)
 		}
 
+		fullId := extensions.ID{Name: decl.CompoundName(), URI: id.URI}
 		return &ScalarFunction{
 			funcRef:     et.ScalarFunction.FunctionReference,
 			declaration: decl,
-			id:          id,
+			id:          fullId,
 			args:        args,
 			options:     et.ScalarFunction.Options,
 			outputType:  types.TypeFromProto(et.ScalarFunction.OutputType),
