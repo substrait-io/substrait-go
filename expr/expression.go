@@ -71,7 +71,7 @@ func ExprFromProto(e *proto.Expression, baseSchema types.Type, reg ExtensionRegi
 
 		decl, ok := reg.LookupScalarFunction(et.ScalarFunction.FunctionReference)
 		if !ok {
-			return NewCustomScalarFunc(reg, extensions.NewScalarFuncVariant(id), types.TypeFromProto(et.ScalarFunction.OutputType), et.ScalarFunction.Options, args...)
+			return nil, fmt.Errorf("%w: Function %s not found", substraitgo.ErrNotFound, id.Name)
 		}
 
 		fullId := extensions.ID{Name: decl.CompoundName(), URI: id.URI}
@@ -112,17 +112,7 @@ func ExprFromProto(e *proto.Expression, baseSchema types.Type, reg ExtensionRegi
 		}
 		decl, ok := reg.LookupWindowFunction(et.WindowFunction.FunctionReference)
 		if !ok {
-			fn, err := NewCustomWindowFunc(reg, extensions.NewWindowFuncVariant(id), types.TypeFromProto(et.WindowFunction.OutputType),
-				et.WindowFunction.Options, et.WindowFunction.Invocation, et.WindowFunction.Phase, args...)
-			if err != nil {
-				return nil, err
-			}
-
-			fn.Partitions = parts
-			fn.Sorts = sorts
-			fn.LowerBound = BoundFromProto(et.WindowFunction.LowerBound)
-			fn.UpperBound = BoundFromProto(et.WindowFunction.UpperBound)
-			return fn, nil
+			return nil, fmt.Errorf("%w: Function %s not found", substraitgo.ErrNotFound, id.Name)
 		}
 
 		return &WindowFunction{

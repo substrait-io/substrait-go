@@ -746,7 +746,7 @@ func NewAggregateFunctionFromProto(agg *proto.AggregateFunction, baseSchema type
 	}
 	decl, ok := reg.LookupAggregateFunction(agg.FunctionReference)
 	if !ok {
-		return NewCustomAggregateFunc(reg, extensions.NewAggFuncVariant(id), types.TypeFromProto(agg.OutputType), agg.Options, agg.Invocation, agg.Phase, sorts, args...)
+		return nil, fmt.Errorf("%w: Function %s not found", substraitgo.ErrNotFound, id.Name)
 	}
 
 	fullId := extensions.ID{Name: decl.CompoundName(), URI: id.URI}
