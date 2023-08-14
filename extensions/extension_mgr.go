@@ -45,8 +45,12 @@ func init() {
 	}
 }
 
+// The unique identifier for a substrait object
 type ID struct {
-	URI, Name string
+	URI string
+	// Name of the object. For functions, a simple name may be used for lookups,
+	// but as a unique identifier the compound name will be used
+	Name string
 }
 
 type Collection struct {

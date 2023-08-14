@@ -77,7 +77,6 @@ func ExprFromProto(e *proto.Expression, baseSchema types.Type, reg ExtensionRegi
 		return &ScalarFunction{
 			funcRef:     et.ScalarFunction.FunctionReference,
 			declaration: decl,
-			id:          id,
 			args:        args,
 			options:     et.ScalarFunction.Options,
 			outputType:  types.TypeFromProto(et.ScalarFunction.OutputType),
@@ -126,7 +125,6 @@ func ExprFromProto(e *proto.Expression, baseSchema types.Type, reg ExtensionRegi
 
 		return &WindowFunction{
 			funcRef:     et.WindowFunction.FunctionReference,
-			id:          id,
 			declaration: decl,
 			args:        args,
 			options:     et.WindowFunction.Options,

@@ -101,6 +101,7 @@ func TestBuildEmitOutOfRangePlan(t *testing.T) {
 }
 
 func checkRoundTrip(t *testing.T, expectedJSON string, p *plan.Plan) {
+	t.Helper()
 	protoPlan, err := p.ToProto()
 	require.NoError(t, err)
 
@@ -134,7 +135,7 @@ func TestAggregateRelPlan(t *testing.T) {
 				"extensionFunction": {
 					"extensionUriReference": 1,
 					"functionAnchor": 1,
-					"name": "count"
+					"name": "count:"
 				}
 			}
 		],

@@ -4,6 +4,7 @@ package extensions
 
 import (
 	"fmt"
+	"strings"
 
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/types"
@@ -82,6 +83,29 @@ func EvaluateTypeExpression(nullHandling NullabilityHandling, expr parser.TypeEx
 	return outType, nil
 }
 
+// When parsing a function variant from a string, we may know the string form of
+// an argument, but nothing else. This represents that type of argument.
+type unknownArgType struct {
+	arg string
+}
+
+func (a unknownArgType) toTypeString() string {
+	return a.arg
+}
+
+func parseFuncName(compoundName string) (name string, args ArgumentList) {
+	name, argsStr, _ := strings.Cut(compoundName, ":")
+	if len(argsStr) == 0 {
+		return name, nil
+	}
+	splitArgs := strings.Split(argsStr, "_")
+	for _, argStr := range splitArgs {
+		args = append(args, unknownArgType{arg: argStr})
+	}
+
+	return name, args
+}
+
 // NewScalarFuncVariant constructs a variant with the provided name and uri
 // and uses the defaults for everything else.
 //
@@ -89,9 +113,11 @@ func EvaluateTypeExpression(nullHandling NullabilityHandling, expr parser.TypeEx
 // an expression requires an output type argument. This is for creating an
 // on-the-fly function variant that will not be registered as an extension.
 func NewScalarFuncVariant(id ID) *ScalarFunctionVariant {
+	simpleName, args := parseFuncName(id.Name)
 	return &ScalarFunctionVariant{
-		name: id.Name,
+		name: simpleName,
 		uri:  id.URI,
+		impl: ScalarFunctionImpl{Args: args},
 	}
 }
 
@@ -99,10 +125,12 @@ func NewScalarFuncVariant(id ID) *ScalarFunctionVariant {
 // setting the values for the SessionDependant, Variadic Behavior and Deterministic
 // properties.
 func NewScalarFuncVariantWithProps(id ID, variadic *VariadicBehavior, sessionDependant, deterministic bool) *ScalarFunctionVariant {
+	simpleName, args := parseFuncName(id.Name)
 	return &ScalarFunctionVariant{
-		name: id.Name,
+		name: simpleName,
 		uri:  id.URI,
 		impl: ScalarFunctionImpl{
+			Args:             args,
 			Variadic:         variadic,
 			SessionDependent: sessionDependant,
 			Deterministic:    deterministic,
@@ -132,6 +160,9 @@ func (s *ScalarFunctionVariant) ResolveType(argumentTypes []types.Type) (types.T
 func (s *ScalarFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
 }
+func (s *ScalarFunctionVariant) ID() ID {
+	return ID{URI: s.uri, Name: s.CompoundName()}
+}
 
 // NewAggFuncVariant constructs a variant with the provided name and uri
 // and uses the defaults for everything else.
@@ -140,10 +171,14 @@ func (s *ScalarFunctionVariant) CompoundName() string {
 // an expression requires an output type argument. This is for creating an
 // on-the-fly function variant that will not be registered as an extension.
 func NewAggFuncVariant(id ID) *AggregateFunctionVariant {
+	simpleName, args := parseFuncName(id.Name)
 	return &AggregateFunctionVariant{
-		name: id.Name,
+		name: simpleName,
 		uri:  id.URI,
 		impl: AggregateFunctionImpl{
+			ScalarFunctionImpl: ScalarFunctionImpl{
+				Args: args,
+			},
 			Decomposable: DecomposeNone,
 		},
 	}
@@ -184,11 +219,13 @@ func NewAggFuncVariantOpts(id ID, opts AggVariantOptions) *AggregateFunctionVari
 		aggIntermediate = *intermediate
 	}
 
+	simpleName, args := parseFuncName(id.Name)
 	return &AggregateFunctionVariant{
-		name: id.Name,
+		name: simpleName,
 		uri:  id.URI,
 		impl: AggregateFunctionImpl{
 			ScalarFunctionImpl: ScalarFunctionImpl{
+				Args:             args,
 				Variadic:         opts.Variadic,
 				SessionDependent: opts.SessionDependant,
 				Deterministic:    opts.Deterministic,
@@ -223,6 +260,9 @@ func (s *AggregateFunctionVariant) ResolveType(argumentTypes []types.Type) (type
 func (s *AggregateFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
 }
+func (s *AggregateFunctionVariant) ID() ID {
+	return ID{URI: s.uri, Name: s.CompoundName()}
+}
 func (s *AggregateFunctionVariant) Decomposability() DecomposeType { return s.impl.Decomposable }
 func (s *AggregateFunctionVariant) Intermediate() (types.Type, error) {
 	if t, ok := s.impl.Intermediate.Expr.(*parser.Type); ok {
@@ -241,12 +281,14 @@ type WindowFunctionVariant struct {
 }
 
 func NewWindowFuncVariant(id ID) *WindowFunctionVariant {
+	simpleName, args := parseFuncName(id.Name)
 	return &WindowFunctionVariant{
-		name: id.Name,
+		name: simpleName,
 		uri:  id.URI,
 		impl: WindowFunctionImpl{
 			AggregateFunctionImpl: AggregateFunctionImpl{
-				Decomposable: DecomposeNone,
+				ScalarFunctionImpl: ScalarFunctionImpl{Args: args},
+				Decomposable:       DecomposeNone,
 			},
 			WindowType: PartitionWindow,
 		},
@@ -288,12 +330,14 @@ func NewWindowFuncVariantOpts(id ID, opts WindowVariantOpts) *WindowFunctionVari
 		aggIntermediate = *intermediate
 	}
 
+	simpleName, args := parseFuncName(id.Name)
 	return &WindowFunctionVariant{
-		name: id.Name,
+		name: simpleName,
 		uri:  id.URI,
 		impl: WindowFunctionImpl{
 			AggregateFunctionImpl: AggregateFunctionImpl{
 				ScalarFunctionImpl: ScalarFunctionImpl{
+					Args:             args,
 					Variadic:         opts.Variadic,
 					SessionDependent: opts.SessionDependant,
 					Deterministic:    opts.Deterministic,
@@ -322,6 +366,9 @@ func (s *WindowFunctionVariant) ResolveType(argumentTypes []types.Type) (types.T
 }
 func (s *WindowFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
+}
+func (s *WindowFunctionVariant) ID() ID {
+	return ID{URI: s.uri, Name: s.CompoundName()}
 }
 func (s *WindowFunctionVariant) Decomposability() DecomposeType { return s.impl.Decomposable }
 func (s *WindowFunctionVariant) Intermediate() (types.Type, error) {
