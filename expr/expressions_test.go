@@ -292,28 +292,28 @@ func TestRoundTripUsingTestData(t *testing.T) {
 				"extensionFunction": {
 					"extensionUriReference": 1,
 					"functionAnchor": 2,
-					"name": "add"
+					"name": "add:fp64_fp64"
 				}
 			},
 			{
 				"extensionFunction": {
 					"extensionUriReference": 1,
 					"functionAnchor": 3,
-					"name": "subtract"
+					"name": "subtract:fp64_fp64"
 				}
 			},
 			{
 				"extensionFunction": {
 					"extensionUriReference": 1,
 					"functionAnchor": 4,
-					"name": "multiply"
+					"name": "multiply:fp64_fp64"
 				}
 			},
 			{
 				"extensionFunction": {
 					"extensionUriReference": 1,
 					"functionAnchor": 5,
-					"name": "ntile"
+					"name": "ntile:i32"
 				}
 			}
 		],
