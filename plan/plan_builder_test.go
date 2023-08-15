@@ -107,7 +107,7 @@ func checkRoundTrip(t *testing.T, expectedJSON string, p *plan.Plan) {
 	var expectedProto substraitproto.Plan
 	require.NoError(t, protojson.Unmarshal([]byte(expectedJSON), &expectedProto))
 
-	assert.Truef(t, proto.Equal(&expectedProto, protoPlan), "expected: %s\ngot: %s",
+	assert.Truef(t, proto.Equal(&expectedProto, protoPlan), "JSON expected: %s\ngot: %s",
 		protojson.Format(&expectedProto), protojson.Format(protoPlan))
 
 	roundTrip, err := plan.FromProto(&expectedProto, &extensions.DefaultCollection)
@@ -116,7 +116,7 @@ func checkRoundTrip(t *testing.T, expectedJSON string, p *plan.Plan) {
 	roundTripProto, err := roundTrip.ToProto()
 	require.NoError(t, err)
 
-	assert.Truef(t, proto.Equal(protoPlan, roundTripProto), "expected: %s\ngot: %s",
+	assert.Truef(t, proto.Equal(protoPlan, roundTripProto), "plan expected: %s\ngot: %s",
 		protojson.Format(protoPlan), protojson.Format(roundTripProto))
 }
 
@@ -1002,6 +1002,159 @@ func TestSortRelationErrors(t *testing.T) {
 	_, err = b.SortRemap(scan, []int32{3}, fields...)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
+}
+
+func TestProjectExpressions(t *testing.T) {
+	const expectedJSON = `{
+		` + versionStruct + `,
+		"extensionUris": [
+			{
+				"extensionUriAnchor": 1,
+				"uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+			}
+			],
+			"extensions": [
+			{
+				"extensionFunction": {
+				"extensionUriReference": 1,
+				"functionAnchor": 1,
+				"name": "abs:fp32"
+				}
+			},
+			{
+				"extensionFunction": {
+				"extensionUriReference": 1,
+				"functionAnchor": 2,
+				"name": "add:fp32_fp32"
+				}
+			}
+			],
+		"relations": [
+			{
+				"root": {
+				"input": {
+					"project": {
+					"common": {
+						"direct": {}
+					},
+					"input": {
+						"read": {
+						"common": {
+							"direct": {}
+						},
+						"baseSchema": {
+							"names": [
+							"a",
+							"b"
+							],
+							"struct": {
+							"types": [
+								{
+								"string": {
+									"nullability": "NULLABILITY_REQUIRED"
+								}
+								},
+								{
+								"fp32": {
+									"nullability": "NULLABILITY_REQUIRED"
+								}
+								}
+							],
+							"nullability": "NULLABILITY_REQUIRED"
+							}
+						},
+						"namedTable": {
+							"names": [
+							"test"
+							]
+						}
+						}
+					},
+					"expressions": [
+						{
+						"scalarFunction": {
+							"functionReference": 2,
+							"arguments": [
+							{
+								"value": {
+								"scalarFunction": {
+									"functionReference": 1,
+									"arguments": [
+									{
+										"value": {
+										"selection": {
+											"directReference": {
+											"structField": {
+												"field": 1
+											}
+											},
+											"rootReference": {}
+										}
+										}
+									}
+									],
+									"outputType": {
+									"fp32": {
+										"nullability": "NULLABILITY_REQUIRED"
+									}
+									}
+								}
+								}
+							},
+							{
+								"value": {
+								"selection": {
+									"directReference": {
+									"structField": {
+										"field": 1
+									}
+									},
+									"rootReference": {}
+								}
+								}
+							}
+							],
+							"outputType": {
+							"fp32": {
+								"nullability": "NULLABILITY_REQUIRED"
+							}
+							}
+						}
+						}
+					]
+					}
+				},
+				"names": [
+					"a",
+					"b",
+					"c"
+				]
+				}
+			}
+			]
+		}`
+
+	arithmeticURI := extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml"
+	b := plan.NewBuilderDefault()
+	scan := b.NamedScan([]string{"test"}, baseSchema)
+	ref, err := b.RootFieldRef(scan, 1)
+	require.NoError(t, err)
+
+	abs, err := b.ScalarFn(arithmeticURI, "abs", nil, ref)
+	require.NoError(t, err)
+
+	add, err := b.ScalarFn(arithmeticURI, "add", nil, abs, ref)
+	require.NoError(t, err)
+
+	project, err := b.Project(scan, add)
+	require.NoError(t, err)
+
+	p, err := b.Plan(project, []string{"a", "b", "c"})
+	require.NoError(t, err)
+
+	assert.Equal(t, "NSTRUCT<a: string, b: fp32, c: fp32>", p.GetRoots()[0].RecordType().String())
+
+	checkRoundTrip(t, expectedJSON, p)
 }
 
 func TestProjectRelation(t *testing.T) {
