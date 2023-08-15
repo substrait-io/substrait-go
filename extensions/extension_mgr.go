@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"sort"
 
 	"github.com/goccy/go-yaml"
 	substraitgo "github.com/substrait-io/substrait-go"
@@ -255,6 +256,9 @@ func (e *set) ToProto() ([]*extensions.SimpleExtensionURI, []*extensions.SimpleE
 		})
 	}
 
+	// Sort extensions by the anchor for consistent output
+	sort.Slice(uris, func(i, j int) bool { return uris[i].ExtensionUriAnchor < uris[j].ExtensionUriAnchor })
+
 	decls := make([]*extensions.SimpleExtensionDeclaration, 0, len(e.types)+len(e.typeVariations)+len(e.funcs))
 	for id, anchor := range e.types {
 		decls = append(decls, &extensions.SimpleExtensionDeclaration{
@@ -268,6 +272,11 @@ func (e *set) ToProto() ([]*extensions.SimpleExtensionURI, []*extensions.SimpleE
 		})
 	}
 
+	sort.Slice(decls, func(i, j int) bool {
+		return decls[i].GetExtensionType().TypeAnchor < decls[j].GetExtensionType().TypeAnchor
+	})
+	typesCount := len(decls)
+
 	for id, anchor := range e.typeVariations {
 		decls = append(decls, &extensions.SimpleExtensionDeclaration{
 			MappingType: &extensions.SimpleExtensionDeclaration_ExtensionTypeVariation_{
@@ -280,6 +289,12 @@ func (e *set) ToProto() ([]*extensions.SimpleExtensionURI, []*extensions.SimpleE
 		})
 	}
 
+	typeDecls := decls[typesCount:]
+	sort.Slice(typeDecls, func(i, j int) bool {
+		return decls[i].GetExtensionTypeVariation().TypeVariationAnchor < decls[j].GetExtensionTypeVariation().TypeVariationAnchor
+	})
+
+	typeVarCount := len(decls)
 	for id, anchor := range e.funcs {
 		decls = append(decls, &extensions.SimpleExtensionDeclaration{
 			MappingType: &extensions.SimpleExtensionDeclaration_ExtensionFunction_{
@@ -291,6 +306,11 @@ func (e *set) ToProto() ([]*extensions.SimpleExtensionURI, []*extensions.SimpleE
 			},
 		})
 	}
+
+	typeVarDecls := decls[typeVarCount:]
+	sort.Slice(typeVarDecls, func(i, j int) bool {
+		return decls[i].GetExtensionFunction().GetFunctionAnchor() < decls[j].GetExtensionFunction().GetFunctionAnchor()
+	})
 
 	return uris, decls
 }
