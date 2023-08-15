@@ -360,7 +360,7 @@ func (e *set) DecodeType(anchor uint32) (id ID, ok bool) {
 func (e *set) GetTypeAnchor(id ID) uint32 {
 	a, ok := e.types[id]
 	if !ok {
-		e.addURI(id.URI)
+		e.addOrGetURI(id.URI)
 		a = uint32(len(e.types)) + 1
 		e.encodeType(a, id)
 	}
@@ -370,7 +370,7 @@ func (e *set) GetTypeAnchor(id ID) uint32 {
 func (e *set) GetFuncAnchor(id ID) uint32 {
 	a, ok := e.funcs[id]
 	if !ok {
-		e.addURI(id.URI)
+		e.addOrGetURI(id.URI)
 		a = uint32(len(e.funcs)) + 1
 		e.encodeFunc(a, id)
 	}
@@ -380,7 +380,7 @@ func (e *set) GetFuncAnchor(id ID) uint32 {
 func (e *set) GetTypeVariationAnchor(id ID) uint32 {
 	a, ok := e.typeVariations[id]
 	if !ok {
-		e.addURI(id.URI)
+		e.addOrGetURI(id.URI)
 		// add 1 to the length to avoid an anchor of 0
 		// so that it's easier to tell when there is no
 		// type variation.
@@ -414,7 +414,12 @@ func (e *set) FindURI(uri string) (uint32, bool) {
 	return 0, false
 }
 
-func (e *set) addURI(uri string) (uint32, error) {
+func (e *set) addOrGetURI(uri string) (uint32, error) {
+	for k, v := range e.uris {
+		if v == uri {
+			return k, nil
+		}
+	}
 	sz := uint32(len(e.uris)) + 1
 	if _, ok := e.uris[sz]; ok {
 		return 0, substraitgo.ErrKeyExists
