@@ -83,16 +83,6 @@ func EvaluateTypeExpression(nullHandling NullabilityHandling, expr parser.TypeEx
 	return outType, nil
 }
 
-// When parsing a function variant from a string, we may know the string form of
-// an argument, but nothing else. This represents that type of argument.
-type unknownArgType struct {
-	arg string
-}
-
-func (a unknownArgType) toTypeString() string {
-	return a.arg
-}
-
 func parseFuncName(compoundName string) (name string, args ArgumentList) {
 	name, argsStr, _ := strings.Cut(compoundName, ":")
 	if len(argsStr) == 0 {
@@ -100,7 +90,12 @@ func parseFuncName(compoundName string) (name string, args ArgumentList) {
 	}
 	splitArgs := strings.Split(argsStr, "_")
 	for _, argStr := range splitArgs {
-		args = append(args, unknownArgType{arg: argStr})
+		parsed, err := defParser.ParseString(argStr)
+		if err != nil {
+			panic(err)
+		}
+		exp := ValueArg{Name: name, Value: parsed}
+		args = append(args, exp)
 	}
 
 	return name, args
