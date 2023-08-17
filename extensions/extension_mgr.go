@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"sort"
 
 	"github.com/goccy/go-yaml"
 	substraitgo "github.com/substrait-io/substrait-go"
@@ -45,8 +46,12 @@ func init() {
 	}
 }
 
+// The unique identifier for a substrait object
 type ID struct {
-	URI, Name string
+	URI string
+	// Name of the object. For functions, a simple name may be used for lookups,
+	// but as a unique identifier the compound name will be used
+	Name string
 }
 
 type Collection struct {
@@ -251,6 +256,9 @@ func (e *set) ToProto() ([]*extensions.SimpleExtensionURI, []*extensions.SimpleE
 		})
 	}
 
+	// Sort extensions by the anchor for consistent output
+	sort.Slice(uris, func(i, j int) bool { return uris[i].ExtensionUriAnchor < uris[j].ExtensionUriAnchor })
+
 	decls := make([]*extensions.SimpleExtensionDeclaration, 0, len(e.types)+len(e.typeVariations)+len(e.funcs))
 	for id, anchor := range e.types {
 		decls = append(decls, &extensions.SimpleExtensionDeclaration{
@@ -264,6 +272,11 @@ func (e *set) ToProto() ([]*extensions.SimpleExtensionURI, []*extensions.SimpleE
 		})
 	}
 
+	sort.Slice(decls, func(i, j int) bool {
+		return decls[i].GetExtensionType().TypeAnchor < decls[j].GetExtensionType().TypeAnchor
+	})
+	typesCount := len(decls)
+
 	for id, anchor := range e.typeVariations {
 		decls = append(decls, &extensions.SimpleExtensionDeclaration{
 			MappingType: &extensions.SimpleExtensionDeclaration_ExtensionTypeVariation_{
@@ -276,6 +289,12 @@ func (e *set) ToProto() ([]*extensions.SimpleExtensionURI, []*extensions.SimpleE
 		})
 	}
 
+	typeDecls := decls[typesCount:]
+	sort.Slice(typeDecls, func(i, j int) bool {
+		return decls[i].GetExtensionTypeVariation().TypeVariationAnchor < decls[j].GetExtensionTypeVariation().TypeVariationAnchor
+	})
+
+	typeVarCount := len(decls)
 	for id, anchor := range e.funcs {
 		decls = append(decls, &extensions.SimpleExtensionDeclaration{
 			MappingType: &extensions.SimpleExtensionDeclaration_ExtensionFunction_{
@@ -287,6 +306,11 @@ func (e *set) ToProto() ([]*extensions.SimpleExtensionURI, []*extensions.SimpleE
 			},
 		})
 	}
+
+	typeVarDecls := decls[typeVarCount:]
+	sort.Slice(typeVarDecls, func(i, j int) bool {
+		return decls[i].GetExtensionFunction().GetFunctionAnchor() < decls[j].GetExtensionFunction().GetFunctionAnchor()
+	})
 
 	return uris, decls
 }
@@ -356,7 +380,7 @@ func (e *set) DecodeType(anchor uint32) (id ID, ok bool) {
 func (e *set) GetTypeAnchor(id ID) uint32 {
 	a, ok := e.types[id]
 	if !ok {
-		e.addURI(id.URI)
+		e.addOrGetURI(id.URI)
 		a = uint32(len(e.types)) + 1
 		e.encodeType(a, id)
 	}
@@ -366,7 +390,7 @@ func (e *set) GetTypeAnchor(id ID) uint32 {
 func (e *set) GetFuncAnchor(id ID) uint32 {
 	a, ok := e.funcs[id]
 	if !ok {
-		e.addURI(id.URI)
+		e.addOrGetURI(id.URI)
 		a = uint32(len(e.funcs)) + 1
 		e.encodeFunc(a, id)
 	}
@@ -376,7 +400,7 @@ func (e *set) GetFuncAnchor(id ID) uint32 {
 func (e *set) GetTypeVariationAnchor(id ID) uint32 {
 	a, ok := e.typeVariations[id]
 	if !ok {
-		e.addURI(id.URI)
+		e.addOrGetURI(id.URI)
 		// add 1 to the length to avoid an anchor of 0
 		// so that it's easier to tell when there is no
 		// type variation.
@@ -410,7 +434,12 @@ func (e *set) FindURI(uri string) (uint32, bool) {
 	return 0, false
 }
 
-func (e *set) addURI(uri string) (uint32, error) {
+func (e *set) addOrGetURI(uri string) (uint32, error) {
+	for k, v := range e.uris {
+		if v == uri {
+			return k, nil
+		}
+	}
 	sz := uint32(len(e.uris)) + 1
 	if _, ok := e.uris[sz]; ok {
 		return 0, substraitgo.ErrKeyExists

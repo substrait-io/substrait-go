@@ -7,23 +7,23 @@ tests:
     - extensionFunction:
         extensionUriReference: 1
         functionAnchor: 2
-        name: add
+        name: add:i64_i64
     - extensionFunction:
         extensionUriReference: 1
         functionAnchor: 3
-        name: subtract
+        name: subtract:i64_i64
     - extensionFunction:
         extensionUriReference: 1
         functionAnchor: 4
-        name: multiply
+        name: multiply:i64_i64
     - extensionFunction:
         extensionUriReference: 1
         functionAnchor: 5
-        name: ntile
+        name: ntile:i64_i64
     - extensionFunction:
         extensionUriReference: 1
         functionAnchor: 6
-        name: sum
+        name: sum:i64
   baseSchema:
     names: [a, b, c, d]
     struct:
@@ -50,7 +50,7 @@ tests:
       expression:
         scalarFunction:
           functionReference: 2
-          arguments:        
+          arguments:
             - value:
                 selection:
                   rootReference: {}
@@ -58,5 +58,5 @@ tests:
             - value:
                 selection:
                   rootReference: {}
-                  directReference: { structField: { field: 2 }}          
+                  directReference: { structField: { field: 2 }}
           outputType: { i32: {} }

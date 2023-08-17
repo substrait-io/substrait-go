@@ -142,7 +142,6 @@ func BoundFromProto(b *proto.Expression_WindowFunction_Bound) Bound {
 
 type ScalarFunction struct {
 	funcRef     uint32
-	id          extensions.ID
 	declaration *extensions.ScalarFunctionVariant
 
 	args       []types.FuncArg
@@ -163,10 +162,8 @@ func NewCustomScalarFunc(reg ExtensionRegistry, v *extensions.ScalarFunctionVari
 		return nil, fmt.Errorf("%w: must provide non-nil output type", substraitgo.ErrInvalidType)
 	}
 
-	id := extensions.ID{URI: v.URI(), Name: v.Name()}
 	return &ScalarFunction{
-		funcRef:     reg.GetFuncAnchor(id),
-		id:          id,
+		funcRef:     reg.GetFuncAnchor(v.ID()),
 		declaration: v,
 		options:     opts,
 		args:        args,
@@ -246,9 +243,12 @@ func NewScalarFunc(reg ExtensionRegistry, id extensions.ID, opts []*types.Functi
 		return nil, err
 	}
 
+	// We use the fully qualified ID for resolving an anchor, to make sure we
+	// are using the correct compound name
+	ref := reg.GetFuncAnchor(decl.ID())
+
 	return &ScalarFunction{
-		funcRef:     reg.GetFuncAnchor(id),
-		id:          id,
+		funcRef:     ref,
 		declaration: decl,
 		outputType:  outType,
 		options:     opts,
@@ -256,8 +256,9 @@ func NewScalarFunc(reg ExtensionRegistry, id extensions.ID, opts []*types.Functi
 	}, nil
 }
 
-func (s *ScalarFunction) Name() string                           { return s.declaration.CompoundName() }
-func (s *ScalarFunction) ID() extensions.ID                      { return s.id }
+func (s *ScalarFunction) Name() string                           { return s.declaration.Name() }
+func (s *ScalarFunction) CompoundName() string                   { return s.declaration.CompoundName() }
+func (s *ScalarFunction) ID() extensions.ID                      { return s.declaration.ID() }
 func (s *ScalarFunction) Variadic() *extensions.VariadicBehavior { return s.declaration.Variadic() }
 func (s *ScalarFunction) SessionDependant() bool                 { return s.declaration.SessionDependent() }
 func (s *ScalarFunction) Deterministic() bool                    { return s.declaration.Deterministic() }
@@ -280,7 +281,7 @@ func (*ScalarFunction) isRootRef() {}
 func (s *ScalarFunction) String() string {
 	var b strings.Builder
 
-	b.WriteString(s.id.Name)
+	b.WriteString(s.Name())
 	b.WriteByte('(')
 
 	for i, arg := range s.args {
@@ -408,7 +409,6 @@ func (s *ScalarFunction) Visit(visit VisitFunc) Expression {
 
 type WindowFunction struct {
 	funcRef     uint32
-	id          extensions.ID
 	declaration *extensions.WindowFunctionVariant
 
 	args       []types.FuncArg
@@ -428,11 +428,9 @@ func NewCustomWindowFunc(reg ExtensionRegistry, v *extensions.WindowFunctionVari
 		return nil, fmt.Errorf("%w: must provide non-nil output type", substraitgo.ErrInvalidExpr)
 	}
 
-	id := extensions.ID{URI: v.URI(), Name: v.Name()}
 	return &WindowFunction{
-		funcRef:     reg.GetFuncAnchor(id),
+		funcRef:     reg.GetFuncAnchor(v.ID()),
 		declaration: v,
-		id:          id,
 		outputType:  outputType,
 		options:     opts,
 		args:        args,
@@ -452,9 +450,12 @@ func NewWindowFunc(reg ExtensionRegistry, id extensions.ID, opts []*types.Functi
 			substraitgo.ErrInvalidExpr, id)
 	}
 
+	// We use the fully qualified ID for resolving an anchor, to make sure we
+	// are using the correct compound name
+	ref := reg.GetFuncAnchor(decl.ID())
+
 	return &WindowFunction{
-		funcRef:     reg.GetFuncAnchor(id),
-		id:          id,
+		funcRef:     ref,
 		declaration: decl,
 		outputType:  outType,
 		options:     opts,
@@ -464,8 +465,9 @@ func NewWindowFunc(reg ExtensionRegistry, id extensions.ID, opts []*types.Functi
 	}, nil
 }
 
-func (w *WindowFunction) Name() string                            { return w.declaration.CompoundName() }
-func (w *WindowFunction) ID() extensions.ID                       { return w.id }
+func (w *WindowFunction) Name() string                            { return w.declaration.Name() }
+func (w *WindowFunction) CompoundName() string                    { return w.declaration.CompoundName() }
+func (w *WindowFunction) ID() extensions.ID                       { return w.declaration.ID() }
 func (w *WindowFunction) Variadic() *extensions.VariadicBehavior  { return w.declaration.Variadic() }
 func (w *WindowFunction) SessionDependant() bool                  { return w.declaration.SessionDependent() }
 func (w *WindowFunction) Deterministic() bool                     { return w.declaration.Deterministic() }
@@ -487,7 +489,7 @@ func (*WindowFunction) isRootRef() {}
 func (w *WindowFunction) String() string {
 	var b strings.Builder
 
-	b.WriteString(w.id.Name)
+	b.WriteString(w.declaration.Name())
 	b.WriteByte('(')
 
 	for i, arg := range w.args {
@@ -667,7 +669,6 @@ func (w *WindowFunction) Visit(visit VisitFunc) Expression {
 
 type AggregateFunction struct {
 	funcRef     uint32
-	id          extensions.ID
 	declaration *extensions.AggregateFunctionVariant
 
 	args       []types.FuncArg
@@ -684,9 +685,12 @@ func NewAggregateFunc(reg ExtensionRegistry, id extensions.ID, opts []*types.Fun
 		return nil, err
 	}
 
+	// We use the fully qualified ID for resolving an anchor, to make sure we
+	// are using the correct compound name
+	ref := reg.GetFuncAnchor(decl.ID())
+
 	return &AggregateFunction{
-		funcRef:     reg.GetFuncAnchor(id),
-		id:          id,
+		funcRef:     ref,
 		declaration: decl,
 		outputType:  outType,
 		options:     opts,
@@ -702,10 +706,8 @@ func NewCustomAggregateFunc(reg ExtensionRegistry, v *extensions.AggregateFuncti
 		return nil, fmt.Errorf("%w: must provide non-nil output type", substraitgo.ErrInvalidExpr)
 	}
 
-	id := extensions.ID{URI: v.URI(), Name: v.Name()}
 	return &AggregateFunction{
-		funcRef:    reg.GetFuncAnchor(id),
-		id:         id,
+		funcRef:    reg.GetFuncAnchor(v.ID()),
 		outputType: outputType,
 		options:    opts,
 		args:       args,
@@ -746,7 +748,6 @@ func NewAggregateFunctionFromProto(agg *proto.AggregateFunction, baseSchema type
 
 	return &AggregateFunction{
 		funcRef:     agg.FunctionReference,
-		id:          id,
 		declaration: decl,
 		args:        args,
 		options:     agg.Options,
@@ -757,8 +758,9 @@ func NewAggregateFunctionFromProto(agg *proto.AggregateFunction, baseSchema type
 	}, nil
 }
 
-func (a *AggregateFunction) Name() string                            { return a.declaration.CompoundName() }
-func (a *AggregateFunction) ID() extensions.ID                       { return a.id }
+func (a *AggregateFunction) Name() string                            { return a.declaration.Name() }
+func (a *AggregateFunction) CompoundName() string                    { return a.declaration.CompoundName() }
+func (a *AggregateFunction) ID() extensions.ID                       { return a.declaration.ID() }
 func (a *AggregateFunction) Variadic() *extensions.VariadicBehavior  { return a.declaration.Variadic() }
 func (a *AggregateFunction) SessionDependant() bool                  { return a.declaration.SessionDependent() }
 func (a *AggregateFunction) Deterministic() bool                     { return a.declaration.Deterministic() }
@@ -778,7 +780,7 @@ func (a *AggregateFunction) IntermediateType() (types.Type, error) {
 func (a *AggregateFunction) String() string {
 	var b strings.Builder
 
-	b.WriteString(a.id.Name)
+	b.WriteString(a.declaration.Name())
 	b.WriteByte('(')
 
 	for i, arg := range a.args {

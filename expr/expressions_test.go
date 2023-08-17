@@ -60,7 +60,7 @@ func ExampleExpression_scalarFunction() {
 				"extensionFunction": {
 					"extensionUriReference": 1,
 					"functionAnchor": 2,
-					"name": "add"
+					"name": "add:i32_i32"
 				}
 			}
 		],
@@ -105,7 +105,7 @@ func ExampleExpression_scalarFunction() {
 	// having to construct the protobuf
 	const substraitext = `https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml`
 
-	var addVariant = ext.NewScalarFuncVariant(ext.ID{URI: substraitext, Name: "add"})
+	var addVariant = ext.NewScalarFuncVariant(ext.ID{URI: substraitext, Name: "add:i32_i32"})
 
 	var ex expr.Expression
 	refArg, _ := expr.NewRootFieldRef(expr.NewStructFieldRef(0), &types.StructType{Types: []types.Type{&types.Int32Type{}}})
@@ -186,28 +186,28 @@ func TestExpressionsRoundtrip(t *testing.T) {
 				"extensionFunction": {
 					"extensionUriReference": 1,
 					"functionAnchor": 2,
-					"name": "add"
+					"name": "add:fp64_fp64"
 				}
 			},
 			{
 				"extensionFunction": {
 					"extensionUriReference": 1,
 					"functionAnchor": 3,
-					"name": "subtract"
+					"name": "subtract:fp32_fp32"
 				}
 			},
 			{
 				"extensionFunction": {
 					"extensionUriReference": 1,
 					"functionAnchor": 4,
-					"name": "multiply"
+					"name": "multiply:i64_i64"
 				}
 			},
 			{
 				"extensionFunction": {
 					"extensionUriReference": 1,
 					"functionAnchor": 5,
-					"name": "ntile"
+					"name": "ntile:"
 				}
 			}
 		],
@@ -292,28 +292,28 @@ func TestRoundTripUsingTestData(t *testing.T) {
 				"extensionFunction": {
 					"extensionUriReference": 1,
 					"functionAnchor": 2,
-					"name": "add"
+					"name": "add:fp64_fp64"
 				}
 			},
 			{
 				"extensionFunction": {
 					"extensionUriReference": 1,
 					"functionAnchor": 3,
-					"name": "subtract"
+					"name": "subtract:fp64_fp64"
 				}
 			},
 			{
 				"extensionFunction": {
 					"extensionUriReference": 1,
 					"functionAnchor": 4,
-					"name": "multiply"
+					"name": "multiply:fp64_fp64"
 				}
 			},
 			{
 				"extensionFunction": {
 					"extensionUriReference": 1,
 					"functionAnchor": 5,
-					"name": "ntile"
+					"name": "ntile:i32"
 				}
 			}
 		],
