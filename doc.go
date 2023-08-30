@@ -6,4 +6,4 @@
 // Current generated proto substrait version: v0.29.0
 package substraitgo
 
-//go:generate buf generate https://github.com/substrait-io/substrait.git#tag=v0.29.0
+//go:generate buf generate https://github.com/substrait-io/substrait.git#tag=v0.33.0
