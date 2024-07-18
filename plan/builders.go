@@ -449,10 +449,6 @@ func (b *builder) VirtualTableRemap(fieldNames []string, remap []int32, values .
 	}
 
 	nfields := len(fieldNames)
-	if nfields == 0 {
-		return nil, fmt.Errorf("%w: must provide at least 1 field for virtual table", substraitgo.ErrInvalidRel)
-	}
-
 	if len(values[0]) != nfields {
 		return nil, fmt.Errorf("%w: mismatched number of fields (%d) and literal values (%d) in virtual table",
 			substraitgo.ErrInvalidRel, nfields, len(values[0]))
