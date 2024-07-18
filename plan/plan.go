@@ -278,6 +278,16 @@ type Rel interface {
 	GetAdvancedExtension() *extensions.AdvancedExtension
 	ToProto() *proto.Rel
 	ToProtoPlanRel() *proto.PlanRel
+
+	// Copy creates a copy of this relation with new inputs
+	Copy(newInputs ...Rel) (Rel, error)
+
+	// GetInputs returns a list of zero or more inputs for this relation
+	GetInputs() []Rel
+
+	// CopyWithExpressionRewrite rewrites all expression trees in this Rel. Returns nil
+	// if no changes were made, otherwise a newly created rel that includes the given expressions
+	CopyWithExpressionRewrite(rewriteFunc func(expr.Expression) (expr.Expression, error), inputs ...Rel) (Rel, error)
 }
 
 func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
