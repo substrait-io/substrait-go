@@ -1414,6 +1414,62 @@ func TestSetRelations(t *testing.T) {
 	checkRoundTrip(t, expectedJSON, p)
 }
 
+func TestEmptyVirtualTable(t *testing.T) {
+	const expectedJSON = `{
+		` + versionStruct + `,
+		"relations": [
+			{
+				"root": {
+					"input": {
+						"read": {
+							"common": {"direct":{}},
+							"baseSchema": {
+								"struct": {
+									"nullability": "NULLABILITY_REQUIRED"
+								}
+							},
+							"virtualTable": {
+								"values": [
+									{},
+									{},
+									{},
+									{},
+									{},
+									{},
+									{},
+									{},
+									{},
+									{},
+									{},
+									{},
+									{},
+									{},
+									{},
+									{},
+									{},
+									{},
+									{},
+									{}									
+								]
+							}
+						}
+					}
+				}
+			}
+		]
+	}`
+
+	b := plan.NewBuilderDefault()
+
+	virtual, err := b.VirtualTable(nil, make([]expr.StructLiteralValue, 20)...)
+	require.NoError(t, err)
+
+	p, err := b.Plan(virtual, []string{})
+	require.NoError(t, err)
+
+	checkRoundTrip(t, expectedJSON, p)
+}
+
 func TestSetRelErrors(t *testing.T) {
 	b := plan.NewBuilderDefault()
 
