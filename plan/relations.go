@@ -122,7 +122,7 @@ func (b *baseReadRel) GetInputs() []Rel {
 	return []Rel{}
 }
 
-func (b *baseReadRel) copyExpressions(rewriteFunc func(expr.Expression) (expr.Expression, error)) ([]expr.Expression, error) {
+func (b *baseReadRel) copyExpressions(rewriteFunc RewriteFunc) ([]expr.Expression, error) {
 	filter, err := rewriteFunc(b.filter)
 	if err != nil {
 		return nil, err
@@ -131,10 +131,15 @@ func (b *baseReadRel) copyExpressions(rewriteFunc func(expr.Expression) (expr.Ex
 	if err != nil {
 		return nil, err
 	}
-	if filter == b.filter && bestEffortFilter == b.bestEffortFilter {
-		return nil, nil
-	}
 	return []expr.Expression{filter, bestEffortFilter}, nil
+}
+
+func (b *baseReadRel) getExpressions() []expr.Expression {
+	return []expr.Expression{b.filter, b.bestEffortFilter}
+}
+
+func (b *baseReadRel) updateFilters(filters []expr.Expression) {
+	b.filter, b.bestEffortFilter = filters[0], filters[1]
 }
 
 // NamedTableReadRel is a named scan of a base table. The list of strings
@@ -176,21 +181,20 @@ func (n *NamedTableReadRel) ToProto() *proto.Rel {
 	}
 }
 
-func (n *NamedTableReadRel) Copy(newInputs ...Rel) (Rel, error) {
+func (n *NamedTableReadRel) Copy(_ ...Rel) (Rel, error) {
 	return n, nil
 }
 
-func (n *NamedTableReadRel) CopyWithExpressionRewrite(rewriteFunc func(expr.Expression) (expr.Expression, error), newInputs ...Rel) (Rel, error) {
-	newExprs, err := n.baseReadRel.copyExpressions(rewriteFunc)
+func (n *NamedTableReadRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, _ ...Rel) (Rel, error) {
+	newExprs, err := n.copyExpressions(rewriteFunc)
 	if err != nil {
 		return nil, err
 	}
-	if newExprs == nil {
-		return nil, nil
+	if slices.Equal(newExprs, n.getExpressions()) {
+		return n, nil
 	}
 	nt := *n
-	nt.filter = newExprs[0]
-	nt.bestEffortFilter = newExprs[1]
+	nt.updateFilters(newExprs)
 	return &nt, nil
 }
 
@@ -232,22 +236,21 @@ func (v *VirtualTableReadRel) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
-func (v *VirtualTableReadRel) Copy(newInputs ...Rel) (Rel, error) {
+func (v *VirtualTableReadRel) Copy(_ ...Rel) (Rel, error) {
 	return v, nil
 }
 
-func (v *VirtualTableReadRel) CopyWithExpressionRewrite(rewriteFunc func(expr.Expression) (expr.Expression, error), newInputs ...Rel) (Rel, error) {
-	newExprs, err := v.baseReadRel.copyExpressions(rewriteFunc)
+func (v *VirtualTableReadRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, _ ...Rel) (Rel, error) {
+	newExprs, err := v.copyExpressions(rewriteFunc)
 	if err != nil {
 		return nil, err
 	}
-	if newExprs == nil {
-		return nil, nil
+	if slices.Equal(newExprs, v.getExpressions()) {
+		return v, nil
 	}
-	nt := *v
-	nt.filter = newExprs[0]
-	nt.bestEffortFilter = newExprs[1]
-	return &nt, nil
+	vtr := *v
+	vtr.updateFilters(newExprs)
+	return &vtr, nil
 }
 
 // ExtensionTableReadRel is a stub type that can be used to extend
@@ -283,22 +286,21 @@ func (e *ExtensionTableReadRel) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
-func (e *ExtensionTableReadRel) Copy(newInputs ...Rel) (Rel, error) {
+func (e *ExtensionTableReadRel) Copy(_ ...Rel) (Rel, error) {
 	return e, nil
 }
 
-func (e *ExtensionTableReadRel) CopyWithExpressionRewrite(rewriteFunc func(expr.Expression) (expr.Expression, error), newInputs ...Rel) (Rel, error) {
-	newExprs, err := e.baseReadRel.copyExpressions(rewriteFunc)
+func (e *ExtensionTableReadRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, _ ...Rel) (Rel, error) {
+	newExprs, err := e.copyExpressions(rewriteFunc)
 	if err != nil {
 		return nil, err
 	}
-	if newExprs == nil {
-		return nil, nil
+	if slices.Equal(newExprs, e.getExpressions()) {
+		return e, nil
 	}
-	nt := *e
-	nt.filter = newExprs[0]
-	nt.bestEffortFilter = newExprs[1]
-	return &nt, nil
+	etr := *e
+	etr.updateFilters(newExprs)
+	return &etr, nil
 }
 
 // PathType is the type of a LocalFileReadRel's uris.
@@ -467,22 +469,21 @@ func (lf *LocalFileReadRel) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
-func (lf *LocalFileReadRel) Copy(newInputs ...Rel) (Rel, error) {
+func (lf *LocalFileReadRel) Copy(_ ...Rel) (Rel, error) {
 	return lf, nil
 }
 
-func (lf *LocalFileReadRel) CopyWithExpressionRewrite(rewriteFunc func(expr.Expression) (expr.Expression, error), newInputs ...Rel) (Rel, error) {
-	newExprs, err := lf.baseReadRel.copyExpressions(rewriteFunc)
+func (lf *LocalFileReadRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, _ ...Rel) (Rel, error) {
+	newExprs, err := lf.copyExpressions(rewriteFunc)
 	if err != nil {
 		return nil, err
 	}
-	if newExprs == nil {
-		return nil, nil
+	if slices.Equal(newExprs, lf.getExpressions()) {
+		return lf, nil
 	}
-	nt := *lf
-	nt.filter = newExprs[0]
-	nt.bestEffortFilter = newExprs[1]
-	return &nt, nil
+	lfr := *lf
+	lfr.updateFilters(newExprs)
+	return &lfr, nil
 }
 
 // ProjectRel represents calculated expressions of fields (e.g. a+b),
@@ -554,20 +555,19 @@ func (p *ProjectRel) Copy(newInputs ...Rel) (Rel, error) {
 	return &proj, nil
 }
 
-func (p *ProjectRel) CopyWithExpressionRewrite(rewriteFunc func(expr.Expression) (expr.Expression, error), newInputs ...Rel) (Rel, error) {
+func (p *ProjectRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error) {
 	if len(newInputs) != 1 {
 		return nil, substraitgo.ErrInvalidInputCount
 	}
+	var err error
 	exprs := make([]expr.Expression, len(p.exprs))
 	for i, e := range p.exprs {
-		newExpr, err := rewriteFunc(e)
-		if err != nil {
+		if exprs[i], err = rewriteFunc(e); err != nil {
 			return nil, err
 		}
-		exprs[i] = newExpr
 	}
-	if areExpressionsEqual(exprs, p.exprs) && areRelsEqual(newInputs, p.GetInputs()) {
-		return nil, nil
+	if slices.Equal(exprs, p.exprs) && slices.Equal(newInputs, p.GetInputs()) {
+		return p, nil
 	}
 	proj := *p
 	proj.input = newInputs[0]
@@ -699,32 +699,28 @@ func (j *JoinRel) Copy(newInputs ...Rel) (Rel, error) {
 		return nil, substraitgo.ErrInvalidInputCount
 	}
 	join := *j
-	join.left = newInputs[0]
-	join.right = newInputs[1]
+	join.left, join.right = newInputs[0], newInputs[1]
 	return &join, nil
 }
 
-func (j *JoinRel) CopyWithExpressionRewrite(rewriteFunc func(expr.Expression) (expr.Expression, error), newInputs ...Rel) (Rel, error) {
+func (j *JoinRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error) {
 	if len(newInputs) != 2 {
 		return nil, substraitgo.ErrInvalidInputCount
 	}
+	var err error
 	currExprs := []expr.Expression{j.expr, j.postJoinFilter}
-	exprs := make([]expr.Expression, len(currExprs))
+	exprs := make([]expr.Expression, 2)
 	for i, e := range currExprs {
-		newExpr, err := rewriteFunc(e)
-		if err != nil {
+		if exprs[i], err = rewriteFunc(e); err != nil {
 			return nil, err
 		}
-		exprs[i] = newExpr
 	}
-	if areExpressionsEqual(exprs, currExprs) && areRelsEqual(newInputs, j.GetInputs()) {
-		return nil, nil
+	if slices.Equal(exprs, currExprs) && slices.Equal(newInputs, j.GetInputs()) {
+		return j, nil
 	}
 	join := *j
-	join.left = newInputs[0]
-	join.right = newInputs[1]
-	join.expr = exprs[0]
-	join.postJoinFilter = exprs[1]
+	join.left, join.right = newInputs[0], newInputs[1]
+	join.expr, join.postJoinFilter = exprs[0], exprs[1]
 	return &join, nil
 }
 
@@ -779,14 +775,13 @@ func (c *CrossRel) Copy(newInputs ...Rel) (Rel, error) {
 		return nil, substraitgo.ErrInvalidInputCount
 	}
 	cross := *c
-	cross.left = newInputs[0]
-	cross.right = newInputs[1]
+	cross.left, cross.right = newInputs[0], newInputs[1]
 	return &cross, nil
 }
 
-func (c *CrossRel) CopyWithExpressionRewrite(rewriteFunc func(expr.Expression) (expr.Expression, error), newInputs ...Rel) (Rel, error) {
-	if areRelsEqual(newInputs, c.GetInputs()) {
-		return nil, nil
+func (c *CrossRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (Rel, error) {
+	if slices.Equal(newInputs, c.GetInputs()) {
+		return c, nil
 	}
 	return c.Copy(newInputs...)
 }
@@ -844,12 +839,12 @@ func (f *FetchRel) Copy(newInputs ...Rel) (Rel, error) {
 	return &fetch, nil
 }
 
-func (f *FetchRel) CopyWithExpressionRewrite(rewriteFunc func(expr.Expression) (expr.Expression, error), newInputs ...Rel) (Rel, error) {
+func (f *FetchRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (Rel, error) {
 	if len(newInputs) != 1 {
 		return nil, substraitgo.ErrInvalidInputCount
 	}
 	if newInputs[0] == f.input {
-		return nil, nil
+		return f, nil
 	}
 	return f.Copy(newInputs...)
 }
@@ -966,43 +961,34 @@ func (ar *AggregateRel) Copy(newInputs ...Rel) (Rel, error) {
 	return &aggregate, nil
 }
 
-func (ar *AggregateRel) CopyWithExpressionRewrite(rewriteFunc func(expr.Expression) (expr.Expression, error), newInputs ...Rel) (Rel, error) {
+func (ar *AggregateRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error) {
 	if len(newInputs) != 1 {
 		return nil, substraitgo.ErrInvalidInputCount
 	}
-	newGroups := make([][]expr.Expression, len(ar.groups))
+	var err error
 	groupsAreEqual := true
+	newGroups := make([][]expr.Expression, len(ar.groups))
 	for i, g := range ar.groups {
-		newGroup := make([]expr.Expression, len(g))
+		newGroups[i] = make([]expr.Expression, len(g))
 		for j, e := range g {
-			newExpr, err := rewriteFunc(e)
-			if err != nil {
+			if newGroups[i][j], err = rewriteFunc(e); err != nil {
 				return nil, err
 			}
-			if newExpr != e {
-				groupsAreEqual = false
-			}
-			newGroup[j] = newExpr
+			groupsAreEqual = groupsAreEqual && newGroups[i][j] == e
 		}
-		newGroups[i] = newGroup
 	}
-	newMeasures := make([]AggRelMeasure, len(ar.measures))
+
 	measuresAreEqual := true
+	newMeasures := make([]AggRelMeasure, len(ar.measures))
 	for i, m := range ar.measures {
-		newFilter, err := rewriteFunc(m.filter)
-		if err != nil {
+		if newMeasures[i].filter, err = rewriteFunc(m.filter); err != nil {
 			return nil, err
 		}
-		if newFilter != m.filter {
-			measuresAreEqual = false
-		}
-		newMeasures[i] = AggRelMeasure{
-			measure: m.measure,
-			filter:  newFilter,
-		}
+		measuresAreEqual = measuresAreEqual && newMeasures[i].filter == m.filter
+		newMeasures[i].measure = m.measure
 	}
 	if groupsAreEqual && measuresAreEqual && newInputs[0] == ar.input {
-		return nil, nil
+		return ar, nil
 	}
 	aggregate := *ar
 	aggregate.input = newInputs[0]
@@ -1065,27 +1051,22 @@ func (sr *SortRel) Copy(newInputs ...Rel) (Rel, error) {
 	return &proj, nil
 }
 
-func (sr *SortRel) CopyWithExpressionRewrite(rewriteFunc func(expr.Expression) (expr.Expression, error), newInputs ...Rel) (Rel, error) {
+func (sr *SortRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error) {
 	if len(newInputs) != 1 {
 		return nil, substraitgo.ErrInvalidInputCount
 	}
-	sorts := make([]expr.SortField, len(sr.sorts))
+	var err error
 	sortExpressionsAreEqual := true
+	sorts := make([]expr.SortField, len(sr.sorts))
 	for i, s := range sr.sorts {
-		newExpr, err := rewriteFunc(s.Expr)
-		if err != nil {
+		if sorts[i].Expr, err = rewriteFunc(s.Expr); err != nil {
 			return nil, err
 		}
-		if newExpr != s.Expr {
-			sortExpressionsAreEqual = false
-		}
-		sorts[i] = expr.SortField{
-			Expr: newExpr,
-			Kind: s.Kind,
-		}
+		sortExpressionsAreEqual = sortExpressionsAreEqual && sorts[i].Expr == s.Expr
+		sorts[i].Kind = s.Kind
 	}
 	if sortExpressionsAreEqual && newInputs[0] == sr.input {
-		return nil, nil
+		return sr, nil
 	}
 	sort := *sr
 	sort.input = newInputs[0]
@@ -1144,7 +1125,7 @@ func (fr *FilterRel) Copy(newInputs ...Rel) (Rel, error) {
 	return &proj, nil
 }
 
-func (fr *FilterRel) CopyWithExpressionRewrite(rewriteFunc func(expr.Expression) (expr.Expression, error), newInputs ...Rel) (Rel, error) {
+func (fr *FilterRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error) {
 	if len(newInputs) != 1 {
 		return nil, substraitgo.ErrInvalidInputCount
 	}
@@ -1153,7 +1134,7 @@ func (fr *FilterRel) CopyWithExpressionRewrite(rewriteFunc func(expr.Expression)
 		return nil, err
 	}
 	if newInputs[0] == fr.input && cond == fr.cond {
-		return nil, nil
+		return fr, nil
 	}
 	filter := *fr
 	filter.input = newInputs[0]
@@ -1224,9 +1205,9 @@ func (s *SetRel) Copy(newInputs ...Rel) (Rel, error) {
 	return &set, nil
 }
 
-func (s *SetRel) CopyWithExpressionRewrite(rewriteFunc func(expr.Expression) (expr.Expression, error), newInputs ...Rel) (Rel, error) {
-	if areRelsEqual(newInputs, s.GetInputs()) {
-		return nil, nil
+func (s *SetRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (Rel, error) {
+	if slices.Equal(newInputs, s.GetInputs()) {
+		return s, nil
 	}
 	return s.Copy(newInputs...)
 }
@@ -1277,9 +1258,9 @@ func (es *ExtensionSingleRel) Copy(newInputs ...Rel) (Rel, error) {
 	return &proj, nil
 }
 
-func (es *ExtensionSingleRel) CopyWithExpressionRewrite(rewriteFunc func(expr.Expression) (expr.Expression, error), newInputs ...Rel) (Rel, error) {
-	if areRelsEqual(newInputs, es.GetInputs()) {
-		return nil, nil
+func (es *ExtensionSingleRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (Rel, error) {
+	if slices.Equal(newInputs, es.GetInputs()) {
+		return es, nil
 	}
 	return es.Copy(newInputs...)
 }
@@ -1317,12 +1298,12 @@ func (el *ExtensionLeafRel) GetInputs() []Rel {
 	return []Rel{}
 }
 
-func (el *ExtensionLeafRel) Copy(newInputs ...Rel) (Rel, error) {
+func (el *ExtensionLeafRel) Copy(_ ...Rel) (Rel, error) {
 	return el, nil
 }
 
-func (el *ExtensionLeafRel) CopyWithExpressionRewrite(rewriteFunc func(expr.Expression) (expr.Expression, error), newInputs ...Rel) (Rel, error) {
-	return nil, nil
+func (el *ExtensionLeafRel) CopyWithExpressionRewrite(_ RewriteFunc, _ ...Rel) (Rel, error) {
+	return el, nil
 }
 
 // ExtensionMultiRel is a stub to support extensions with multiple inputs.
@@ -1371,9 +1352,9 @@ func (em *ExtensionMultiRel) Copy(newInputs ...Rel) (Rel, error) {
 	return &proj, nil
 }
 
-func (em *ExtensionMultiRel) CopyWithExpressionRewrite(rewriteFunc func(expr.Expression) (expr.Expression, error), newInputs ...Rel) (Rel, error) {
-	if areRelsEqual(newInputs, em.GetInputs()) {
-		return nil, nil
+func (em *ExtensionMultiRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (Rel, error) {
+	if slices.Equal(newInputs, em.GetInputs()) {
+		return em, nil
 	}
 	return em.Copy(newInputs...)
 }
@@ -1474,12 +1455,11 @@ func (hr *HashJoinRel) Copy(newInputs ...Rel) (Rel, error) {
 		return nil, substraitgo.ErrInvalidInputCount
 	}
 	join := *hr
-	join.left = newInputs[0]
-	join.right = newInputs[1]
+	join.left, join.right = newInputs[0], newInputs[1]
 	return &join, nil
 }
 
-func (hr *HashJoinRel) CopyWithExpressionRewrite(rewriteFunc func(expr.Expression) (expr.Expression, error), newInputs ...Rel) (Rel, error) {
+func (hr *HashJoinRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error) {
 	if len(newInputs) != 2 {
 		return nil, substraitgo.ErrInvalidInputCount
 	}
@@ -1487,12 +1467,11 @@ func (hr *HashJoinRel) CopyWithExpressionRewrite(rewriteFunc func(expr.Expressio
 	if err != nil {
 		return nil, err
 	}
-	if newExpr == hr.postJoinFilter && areRelsEqual(newInputs, hr.GetInputs()) {
-		return nil, nil
+	if newExpr == hr.postJoinFilter && slices.Equal(newInputs, hr.GetInputs()) {
+		return hr, nil
 	}
 	join := *hr
-	join.left = newInputs[0]
-	join.right = newInputs[1]
+	join.left, join.right = newInputs[0], newInputs[1]
 	join.postJoinFilter = newExpr
 	return &join, nil
 }
@@ -1578,13 +1557,12 @@ func (mr *MergeJoinRel) Copy(newInputs ...Rel) (Rel, error) {
 	if len(newInputs) != 2 {
 		return nil, substraitgo.ErrInvalidInputCount
 	}
-	join := *mr
-	join.left = newInputs[0]
-	join.right = newInputs[1]
-	return &join, nil
+	merge := *mr
+	merge.left, merge.right = newInputs[0], newInputs[1]
+	return &merge, nil
 }
 
-func (mr *MergeJoinRel) CopyWithExpressionRewrite(rewriteFunc func(expr.Expression) (expr.Expression, error), newInputs ...Rel) (Rel, error) {
+func (mr *MergeJoinRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error) {
 	if len(newInputs) != 2 {
 		return nil, substraitgo.ErrInvalidInputCount
 	}
@@ -1592,38 +1570,13 @@ func (mr *MergeJoinRel) CopyWithExpressionRewrite(rewriteFunc func(expr.Expressi
 	if err != nil {
 		return nil, err
 	}
-	if newExpr == mr.postJoinFilter && areRelsEqual(newInputs, mr.GetInputs()) {
-		return nil, nil
+	if newExpr == mr.postJoinFilter && slices.Equal(newInputs, mr.GetInputs()) {
+		return mr, nil
 	}
 	merge := *mr
-	merge.left = newInputs[0]
-	merge.right = newInputs[1]
+	merge.left, merge.right = newInputs[0], newInputs[1]
 	merge.postJoinFilter = newExpr
 	return &merge, nil
-}
-
-func areExpressionsEqual(exprs []expr.Expression, exprs2 []expr.Expression) bool {
-	if len(exprs) != len(exprs2) {
-		return false
-	}
-	for i, e := range exprs {
-		if e != exprs2[i] {
-			return false
-		}
-	}
-	return true
-}
-
-func areRelsEqual(slice1 []Rel, slice2 []Rel) bool {
-	if len(slice1) != len(slice2) {
-		return false
-	}
-	for i, e := range slice1 {
-		if e != slice2[i] {
-			return false
-		}
-	}
-	return true
 }
 
 var (
