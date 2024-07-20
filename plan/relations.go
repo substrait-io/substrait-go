@@ -3,6 +3,7 @@
 package plan
 
 import (
+	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/expr"
 	"github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/proto"
@@ -117,6 +118,30 @@ func (b *baseReadRel) toReadRelProto() *proto.ReadRel {
 	return out
 }
 
+func (b *baseReadRel) GetInputs() []Rel {
+	return []Rel{}
+}
+
+func (b *baseReadRel) copyExpressions(rewriteFunc RewriteFunc) ([]expr.Expression, error) {
+	filter, err := rewriteFunc(b.filter)
+	if err != nil {
+		return nil, err
+	}
+	bestEffortFilter, err := rewriteFunc(b.bestEffortFilter)
+	if err != nil {
+		return nil, err
+	}
+	return []expr.Expression{filter, bestEffortFilter}, nil
+}
+
+func (b *baseReadRel) getExpressions() []expr.Expression {
+	return []expr.Expression{b.filter, b.bestEffortFilter}
+}
+
+func (b *baseReadRel) updateFilters(filters []expr.Expression) {
+	b.filter, b.bestEffortFilter = filters[0], filters[1]
+}
+
 // NamedTableReadRel is a named scan of a base table. The list of strings
 // that make up the names are to represent namespacing (e.g. mydb.mytable).
 // This assumes a shared catalog between systems exchanging a message.
@@ -154,6 +179,23 @@ func (n *NamedTableReadRel) ToProto() *proto.Rel {
 			Read: readRel,
 		},
 	}
+}
+
+func (n *NamedTableReadRel) Copy(_ ...Rel) (Rel, error) {
+	return n, nil
+}
+
+func (n *NamedTableReadRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, _ ...Rel) (Rel, error) {
+	newExprs, err := n.copyExpressions(rewriteFunc)
+	if err != nil {
+		return nil, err
+	}
+	if slices.Equal(newExprs, n.getExpressions()) {
+		return n, nil
+	}
+	nt := *n
+	nt.updateFilters(newExprs)
+	return &nt, nil
 }
 
 // VirtualTableReadRel represents a table composed of literals.
@@ -194,6 +236,23 @@ func (v *VirtualTableReadRel) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
+func (v *VirtualTableReadRel) Copy(_ ...Rel) (Rel, error) {
+	return v, nil
+}
+
+func (v *VirtualTableReadRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, _ ...Rel) (Rel, error) {
+	newExprs, err := v.copyExpressions(rewriteFunc)
+	if err != nil {
+		return nil, err
+	}
+	if slices.Equal(newExprs, v.getExpressions()) {
+		return v, nil
+	}
+	vtr := *v
+	vtr.updateFilters(newExprs)
+	return &vtr, nil
+}
+
 // ExtensionTableReadRel is a stub type that can be used to extend
 // and introduce new table types outside the specification by utilizing
 // protobuf Any type.
@@ -225,6 +284,23 @@ func (e *ExtensionTableReadRel) ToProtoPlanRel() *proto.PlanRel {
 			Rel: e.ToProto(),
 		},
 	}
+}
+
+func (e *ExtensionTableReadRel) Copy(_ ...Rel) (Rel, error) {
+	return e, nil
+}
+
+func (e *ExtensionTableReadRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, _ ...Rel) (Rel, error) {
+	newExprs, err := e.copyExpressions(rewriteFunc)
+	if err != nil {
+		return nil, err
+	}
+	if slices.Equal(newExprs, e.getExpressions()) {
+		return e, nil
+	}
+	etr := *e
+	etr.updateFilters(newExprs)
+	return &etr, nil
 }
 
 // PathType is the type of a LocalFileReadRel's uris.
@@ -393,6 +469,23 @@ func (lf *LocalFileReadRel) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
+func (lf *LocalFileReadRel) Copy(_ ...Rel) (Rel, error) {
+	return lf, nil
+}
+
+func (lf *LocalFileReadRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, _ ...Rel) (Rel, error) {
+	newExprs, err := lf.copyExpressions(rewriteFunc)
+	if err != nil {
+		return nil, err
+	}
+	if slices.Equal(newExprs, lf.getExpressions()) {
+		return lf, nil
+	}
+	lfr := *lf
+	lfr.updateFilters(newExprs)
+	return &lfr, nil
+}
+
 // ProjectRel represents calculated expressions of fields (e.g. a+b),
 // the OutputMapping will be used to represent classical relational
 // projections.
@@ -447,6 +540,39 @@ func (p *ProjectRel) ToProtoPlanRel() *proto.PlanRel {
 			Rel: p.ToProto(),
 		},
 	}
+}
+
+func (p *ProjectRel) GetInputs() []Rel {
+	return []Rel{p.input}
+}
+
+func (p *ProjectRel) Copy(newInputs ...Rel) (Rel, error) {
+	if len(newInputs) != 1 {
+		return nil, substraitgo.ErrInvalidInputCount
+	}
+	proj := *p
+	proj.input = newInputs[0]
+	return &proj, nil
+}
+
+func (p *ProjectRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error) {
+	if len(newInputs) != 1 {
+		return nil, substraitgo.ErrInvalidInputCount
+	}
+	var err error
+	exprs := make([]expr.Expression, len(p.exprs))
+	for i, e := range p.exprs {
+		if exprs[i], err = rewriteFunc(e); err != nil {
+			return nil, err
+		}
+	}
+	if slices.Equal(exprs, p.exprs) && slices.Equal(newInputs, p.GetInputs()) {
+		return p, nil
+	}
+	proj := *p
+	proj.input = newInputs[0]
+	proj.exprs = exprs
+	return &proj, nil
 }
 
 var defFilter = expr.NewPrimitiveLiteral(true, false)
@@ -564,6 +690,40 @@ func (j *JoinRel) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
+func (j *JoinRel) GetInputs() []Rel {
+	return []Rel{j.left, j.right}
+}
+
+func (j *JoinRel) Copy(newInputs ...Rel) (Rel, error) {
+	if len(newInputs) != 2 {
+		return nil, substraitgo.ErrInvalidInputCount
+	}
+	join := *j
+	join.left, join.right = newInputs[0], newInputs[1]
+	return &join, nil
+}
+
+func (j *JoinRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error) {
+	if len(newInputs) != 2 {
+		return nil, substraitgo.ErrInvalidInputCount
+	}
+	var err error
+	currExprs := []expr.Expression{j.expr, j.postJoinFilter}
+	exprs := make([]expr.Expression, 2)
+	for i, e := range currExprs {
+		if exprs[i], err = rewriteFunc(e); err != nil {
+			return nil, err
+		}
+	}
+	if slices.Equal(exprs, currExprs) && slices.Equal(newInputs, j.GetInputs()) {
+		return j, nil
+	}
+	join := *j
+	join.left, join.right = newInputs[0], newInputs[1]
+	join.expr, join.postJoinFilter = exprs[0], exprs[1]
+	return &join, nil
+}
+
 // CrossRel is a cartesian product relational operator of two tables.
 type CrossRel struct {
 	RelCommon
@@ -606,6 +766,26 @@ func (c *CrossRel) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
+func (c *CrossRel) GetInputs() []Rel {
+	return []Rel{c.left, c.right}
+}
+
+func (c *CrossRel) Copy(newInputs ...Rel) (Rel, error) {
+	if len(newInputs) != 2 {
+		return nil, substraitgo.ErrInvalidInputCount
+	}
+	cross := *c
+	cross.left, cross.right = newInputs[0], newInputs[1]
+	return &cross, nil
+}
+
+func (c *CrossRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (Rel, error) {
+	if slices.Equal(newInputs, c.GetInputs()) {
+		return c, nil
+	}
+	return c.Copy(newInputs...)
+}
+
 // FetchRel is a relational operator representing LIMIT/OFFSET or
 // TOP type semantics.
 type FetchRel struct {
@@ -644,6 +824,29 @@ func (f *FetchRel) ToProtoPlanRel() *proto.PlanRel {
 			Rel: f.ToProto(),
 		},
 	}
+}
+
+func (f *FetchRel) GetInputs() []Rel {
+	return []Rel{f.input}
+}
+
+func (f *FetchRel) Copy(newInputs ...Rel) (Rel, error) {
+	if len(newInputs) != 1 {
+		return nil, substraitgo.ErrInvalidInputCount
+	}
+	fetch := *f
+	fetch.input = newInputs[0]
+	return &fetch, nil
+}
+
+func (f *FetchRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (Rel, error) {
+	if len(newInputs) != 1 {
+		return nil, substraitgo.ErrInvalidInputCount
+	}
+	if newInputs[0] == f.input {
+		return f, nil
+	}
+	return f.Copy(newInputs...)
 }
 
 type AggRelMeasure struct {
@@ -745,6 +948,54 @@ func (ar *AggregateRel) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
+func (ar *AggregateRel) GetInputs() []Rel {
+	return []Rel{ar.input}
+}
+
+func (ar *AggregateRel) Copy(newInputs ...Rel) (Rel, error) {
+	if len(newInputs) != 1 {
+		return nil, substraitgo.ErrInvalidInputCount
+	}
+	aggregate := *ar
+	aggregate.input = newInputs[0]
+	return &aggregate, nil
+}
+
+func (ar *AggregateRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error) {
+	if len(newInputs) != 1 {
+		return nil, substraitgo.ErrInvalidInputCount
+	}
+	var err error
+	groupsAreEqual := true
+	newGroups := make([][]expr.Expression, len(ar.groups))
+	for i, g := range ar.groups {
+		newGroups[i] = make([]expr.Expression, len(g))
+		for j, e := range g {
+			if newGroups[i][j], err = rewriteFunc(e); err != nil {
+				return nil, err
+			}
+			groupsAreEqual = groupsAreEqual && newGroups[i][j] == e
+		}
+	}
+
+	measuresAreEqual := true
+	newMeasures := make([]AggRelMeasure, len(ar.measures))
+	for i, m := range ar.measures {
+		if newMeasures[i].filter, err = rewriteFunc(m.filter); err != nil {
+			return nil, err
+		}
+		measuresAreEqual = measuresAreEqual && newMeasures[i].filter == m.filter
+		newMeasures[i].measure = m.measure
+	}
+	if groupsAreEqual && measuresAreEqual && newInputs[0] == ar.input {
+		return ar, nil
+	}
+	aggregate := *ar
+	aggregate.input = newInputs[0]
+	aggregate.groups = newGroups
+	return &aggregate, nil
+}
+
 // SortRel is an ORDER BY relational operator, describing a base relation,
 // it includes a list of fields to sort on.
 type SortRel struct {
@@ -787,6 +1038,42 @@ func (sr *SortRel) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
+func (sr *SortRel) GetInputs() []Rel {
+	return []Rel{sr.input}
+}
+
+func (sr *SortRel) Copy(newInputs ...Rel) (Rel, error) {
+	if len(newInputs) != 1 {
+		return nil, substraitgo.ErrInvalidInputCount
+	}
+	proj := *sr
+	proj.input = newInputs[0]
+	return &proj, nil
+}
+
+func (sr *SortRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error) {
+	if len(newInputs) != 1 {
+		return nil, substraitgo.ErrInvalidInputCount
+	}
+	var err error
+	sortExpressionsAreEqual := true
+	sorts := make([]expr.SortField, len(sr.sorts))
+	for i, s := range sr.sorts {
+		if sorts[i].Expr, err = rewriteFunc(s.Expr); err != nil {
+			return nil, err
+		}
+		sortExpressionsAreEqual = sortExpressionsAreEqual && sorts[i].Expr == s.Expr
+		sorts[i].Kind = s.Kind
+	}
+	if sortExpressionsAreEqual && newInputs[0] == sr.input {
+		return sr, nil
+	}
+	sort := *sr
+	sort.input = newInputs[0]
+	sort.sorts = sorts
+	return &sort, nil
+}
+
 // FilterRel is a relational operator capturing simple filters (
 // as in the WHERE clause of a SQL query).
 type FilterRel struct {
@@ -823,6 +1110,36 @@ func (fr *FilterRel) ToProtoPlanRel() *proto.PlanRel {
 			Rel: fr.ToProto(),
 		},
 	}
+}
+
+func (fr *FilterRel) GetInputs() []Rel {
+	return []Rel{fr.input}
+}
+
+func (fr *FilterRel) Copy(newInputs ...Rel) (Rel, error) {
+	if len(newInputs) != 1 {
+		return nil, substraitgo.ErrInvalidInputCount
+	}
+	proj := *fr
+	proj.input = newInputs[0]
+	return &proj, nil
+}
+
+func (fr *FilterRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error) {
+	if len(newInputs) != 1 {
+		return nil, substraitgo.ErrInvalidInputCount
+	}
+	cond, err := rewriteFunc(fr.cond)
+	if err != nil {
+		return nil, err
+	}
+	if newInputs[0] == fr.input && cond == fr.cond {
+		return fr, nil
+	}
+	filter := *fr
+	filter.input = newInputs[0]
+	filter.cond = cond
+	return &filter, nil
 }
 
 type SetOp = proto.SetRel_SetOp
@@ -878,6 +1195,23 @@ func (s *SetRel) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
+func (s *SetRel) GetInputs() []Rel {
+	return s.inputs
+}
+
+func (s *SetRel) Copy(newInputs ...Rel) (Rel, error) {
+	set := *s
+	set.inputs = newInputs
+	return &set, nil
+}
+
+func (s *SetRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (Rel, error) {
+	if slices.Equal(newInputs, s.GetInputs()) {
+		return s, nil
+	}
+	return s.Copy(newInputs...)
+}
+
 // ExtensionSingleRel is a stub to support extensions with a single input.
 type ExtensionSingleRel struct {
 	RelCommon
@@ -911,6 +1245,26 @@ func (es *ExtensionSingleRel) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
+func (es *ExtensionSingleRel) GetInputs() []Rel {
+	return []Rel{es.input}
+}
+
+func (es *ExtensionSingleRel) Copy(newInputs ...Rel) (Rel, error) {
+	if len(newInputs) != 1 {
+		return nil, substraitgo.ErrInvalidInputCount
+	}
+	proj := *es
+	proj.input = newInputs[0]
+	return &proj, nil
+}
+
+func (es *ExtensionSingleRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (Rel, error) {
+	if slices.Equal(newInputs, es.GetInputs()) {
+		return es, nil
+	}
+	return es.Copy(newInputs...)
+}
+
 // ExtensionLeafRel is a stub to support extensions with zero inputs.
 type ExtensionLeafRel struct {
 	RelCommon
@@ -938,6 +1292,18 @@ func (el *ExtensionLeafRel) ToProtoPlanRel() *proto.PlanRel {
 			Rel: el.ToProto(),
 		},
 	}
+}
+
+func (el *ExtensionLeafRel) GetInputs() []Rel {
+	return []Rel{}
+}
+
+func (el *ExtensionLeafRel) Copy(_ ...Rel) (Rel, error) {
+	return el, nil
+}
+
+func (el *ExtensionLeafRel) CopyWithExpressionRewrite(_ RewriteFunc, _ ...Rel) (Rel, error) {
+	return el, nil
 }
 
 // ExtensionMultiRel is a stub to support extensions with multiple inputs.
@@ -974,6 +1340,23 @@ func (em *ExtensionMultiRel) ToProtoPlanRel() *proto.PlanRel {
 			Rel: em.ToProto(),
 		},
 	}
+}
+
+func (em *ExtensionMultiRel) GetInputs() []Rel {
+	return em.inputs
+}
+
+func (em *ExtensionMultiRel) Copy(newInputs ...Rel) (Rel, error) {
+	proj := *em
+	proj.inputs = newInputs
+	return &proj, nil
+}
+
+func (em *ExtensionMultiRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (Rel, error) {
+	if slices.Equal(newInputs, em.GetInputs()) {
+		return em, nil
+	}
+	return em.Copy(newInputs...)
 }
 
 type HashMergeJoinType int8
@@ -1063,6 +1446,36 @@ func (hr *HashJoinRel) ToProtoPlanRel() *proto.PlanRel {
 	}
 }
 
+func (hr *HashJoinRel) GetInputs() []Rel {
+	return []Rel{hr.left, hr.right}
+}
+
+func (hr *HashJoinRel) Copy(newInputs ...Rel) (Rel, error) {
+	if len(newInputs) != 2 {
+		return nil, substraitgo.ErrInvalidInputCount
+	}
+	join := *hr
+	join.left, join.right = newInputs[0], newInputs[1]
+	return &join, nil
+}
+
+func (hr *HashJoinRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error) {
+	if len(newInputs) != 2 {
+		return nil, substraitgo.ErrInvalidInputCount
+	}
+	newExpr, err := rewriteFunc(hr.postJoinFilter)
+	if err != nil {
+		return nil, err
+	}
+	if newExpr == hr.postJoinFilter && slices.Equal(newInputs, hr.GetInputs()) {
+		return hr, nil
+	}
+	join := *hr
+	join.left, join.right = newInputs[0], newInputs[1]
+	join.postJoinFilter = newExpr
+	return &join, nil
+}
+
 // MergeJoinRel represents a join done by taking advantage of two sets
 // that are sorted on the join keys. This allows the join operation to
 // be done in a streaming fashion.
@@ -1134,6 +1547,36 @@ func (mr *MergeJoinRel) ToProtoPlanRel() *proto.PlanRel {
 			Rel: mr.ToProto(),
 		},
 	}
+}
+
+func (mr *MergeJoinRel) GetInputs() []Rel {
+	return []Rel{mr.left, mr.right}
+}
+
+func (mr *MergeJoinRel) Copy(newInputs ...Rel) (Rel, error) {
+	if len(newInputs) != 2 {
+		return nil, substraitgo.ErrInvalidInputCount
+	}
+	merge := *mr
+	merge.left, merge.right = newInputs[0], newInputs[1]
+	return &merge, nil
+}
+
+func (mr *MergeJoinRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error) {
+	if len(newInputs) != 2 {
+		return nil, substraitgo.ErrInvalidInputCount
+	}
+	newExpr, err := rewriteFunc(mr.postJoinFilter)
+	if err != nil {
+		return nil, err
+	}
+	if newExpr == mr.postJoinFilter && slices.Equal(newInputs, mr.GetInputs()) {
+		return mr, nil
+	}
+	merge := *mr
+	merge.left, merge.right = newInputs[0], newInputs[1]
+	merge.postJoinFilter = newExpr
+	return &merge, nil
 }
 
 var (

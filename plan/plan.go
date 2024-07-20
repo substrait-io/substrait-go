@@ -244,6 +244,8 @@ func (r *Root) RecordType() types.NamedStruct {
 	}
 }
 
+type RewriteFunc func(expr.Expression) (expr.Expression, error)
+
 // Rel is a relation tree, representing one of the expected Relation
 // types such as Fetch, Sort, Filter, Join, etc.
 //
@@ -278,6 +280,16 @@ type Rel interface {
 	GetAdvancedExtension() *extensions.AdvancedExtension
 	ToProto() *proto.Rel
 	ToProtoPlanRel() *proto.PlanRel
+
+	// Copy creates a copy of this relation with new inputs
+	Copy(newInputs ...Rel) (Rel, error)
+
+	// GetInputs returns a list of zero or more inputs for this relation
+	GetInputs() []Rel
+
+	// CopyWithExpressionRewrite rewrites all expression trees in this Rel. Returns original Rel
+	// if no changes were made, otherwise a newly created rel that includes the given expressions
+	CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error)
 }
 
 func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
