@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package extensions
 
 import (
@@ -15,9 +17,16 @@ const (
 )
 
 type Registry interface {
+	// Load : Load the dialect function registry from a reader.
 	Load(reader io.Reader) error
+
+	// LocalLookup : Lookup a function by its local name and argument types.
 	LocalLookup(funcName string, argTypes []string) (ID, FuncKind, bool)
+
+	// CanonicalLookup : Lookup a function by its canonical ID.
 	CanonicalLookup(id ID, funcKind FuncKind) (*LocalFunctionVariant, bool)
+
+	// BinaryFunctions : Return the list of binary functions.
 	BinaryFunctions() []ID
 }
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package extensions
 
 import (
@@ -42,7 +44,7 @@ supported_types:
   fp32: REAL
   fp64: DOUBLE
   bool: BOOLEAN
-  string: VARCHAR
+  str: VARCHAR
   date: DATE
   time: TIME
   ts: TIMESTAMP
