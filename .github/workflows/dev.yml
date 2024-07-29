@@ -33,7 +33,7 @@ jobs:
         run: go test -v ./...
       - name: Run Tests with Coverage
         if: runner.os == 'Linux'
-        run: go test -v -coverprofile=coverage.out ./...
+        run: go test -v -coverprofile=coverage.out $(go list ./... | grep -v /proto)
       - name: Upload coverage to Codecov
         if: runner.os == 'Linux' && github.repository == 'substrait-io/substrait-go'
         uses: codecov/codecov-action@v4
