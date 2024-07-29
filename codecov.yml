@@ -1,5 +1,3 @@
 codecov:
-  coverage:
-    exclude:
-      - proto/...
-      - "\\(\\w+ \\*?\\w+\\) String\\(\\) *{"  # Exclude String() methods with receiver
+  ignore:
+    - "proto/.*
