@@ -2,7 +2,7 @@
 
 Experimental Go bindings for [substrait](https://substrait.io)
 
-![example workflow](https://github.com/substrait-io/substrait-go/actions/workflows/release.yml/badge.svg)
+[![release status](https://github.com/substrait-io/substrait-go/actions/workflows/release.yml/badge.svg)](https://github.com/substrait-io/substrait-go/actions/workflows/release.yml)
 [![codecov](https://codecov.io/gh/substrait-io/substrait-go/branch/main/graph/badge.svg?token=7YXPNM3AMJ)](https://codecov.io/gh/substrait-io/substrait-go)
 ## Note:
 
