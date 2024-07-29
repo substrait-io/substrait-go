@@ -29,6 +29,13 @@ jobs:
       - name: Build
         run: go build ./...
       - name: Run Tests
-        run: go test -v ./...
+        run: go test -v -coverprofile=coverage.out ./...
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.out
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: true
       - name: Lint
         run: staticcheck -f stylish ./...
