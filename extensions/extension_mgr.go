@@ -19,13 +19,23 @@ type AdvancedExtension = extensions.AdvancedExtension
 const SubstraitDefaultURIPrefix = "https://github.com/substrait-io/substrait/blob/main/extensions/"
 
 // DefaultCollection is loaded with the default Substrait extension
-// definitions with the exception of decimal arithemtic. Decimal arithmetic
+// definitions with the exception of decimal arithmetic. Decimal arithmetic
 // functions are missing as the complex return type expressions are not
 // yet implemented.
 var DefaultCollection Collection
 
 //go:embed definitions/*
 var definitions embed.FS
+
+type FunctionRegistry interface {
+	LoadDialect(uri string, r io.Reader) error
+	GetDialect(name string) (Dialect, error)
+	GetBinaryFunctions() []FunctionVariant
+}
+
+func GetFunctionRegistry() FunctionRegistry {
+	return &DefaultCollection
+}
 
 func init() {
 	entries, err := definitions.ReadDir("definitions")
@@ -38,7 +48,7 @@ func init() {
 		if err != nil {
 			panic(err)
 		}
-		defer f.Close()
+		_ = f.Close()
 		err = DefaultCollection.Load(SubstraitDefaultURIPrefix+ent.Name(), f)
 		if err != nil {
 			panic(err)
@@ -46,7 +56,7 @@ func init() {
 	}
 }
 
-// The unique identifier for a substrait object
+// ID The unique identifier for a substrait object
 type ID struct {
 	URI string
 	// Name of the object. For functions, a simple name may be used for lookups,
@@ -64,6 +74,9 @@ type Collection struct {
 	windowMap        map[ID]*WindowFunctionVariant
 	typeMap          map[ID]Type
 	typeVariationMap map[ID]TypeVariation
+
+	binaryFunctions []FunctionVariant
+	dialects        map[string]Dialect
 }
 
 func (c *Collection) GetType(id ID) (t Type, ok bool) {
@@ -96,6 +109,11 @@ func checkMaps[T variants](id ID, m map[ID]T, simpleNames map[ID]string) (T, boo
 		}
 	}
 
+	for k, v := range m {
+		if k.Name == id.Name {
+			return v, true
+		}
+	}
 	return nil, false
 }
 
@@ -188,6 +206,11 @@ func (c *Collection) Load(uri string, r io.Reader) error {
 		addToMaps[*WindowFunctionVariant](id, &f, c.windowMap, simpleNames)
 	}
 
+	for _, f := range c.scalarMap {
+		if len(f.impl.Args) == 2 {
+			c.binaryFunctions = append(c.binaryFunctions, f)
+		}
+	}
 	// add simple name aliases
 	for k, v := range simpleNames {
 		id.Name = k
@@ -200,6 +223,41 @@ func (c *Collection) Load(uri string, r io.Reader) error {
 func (c *Collection) URILoaded(uri string) bool {
 	_, ok := c.uriSet[uri]
 	return ok
+}
+
+func (c *Collection) LoadDialect(name string, r io.Reader) error {
+	if c.dialects == nil {
+		c.dialects = make(map[string]Dialect)
+	}
+	if _, ok := c.dialects[name]; ok {
+		return fmt.Errorf("%w: dialect '%s' already loaded", substraitgo.ErrKeyExists, name)
+	}
+
+	dialect, err := newDialect(name, r)
+	if err != nil {
+		return err
+	}
+	c.dialects[name] = dialect
+	return nil
+}
+
+func (c *Collection) GetBinaryFunctions() []FunctionVariant {
+	return c.binaryFunctions
+}
+
+func (c *Collection) GetDialect(name string) (Dialect, error) {
+	if d, ok := c.dialects[name]; ok {
+		return d, nil
+	}
+	return nil, fmt.Errorf("%w: dialect '%s' not found", substraitgo.ErrNotFound, name)
+}
+
+func (c *Collection) GetSupportedDialects() []string {
+	var ret []string
+	for k := range c.dialects {
+		ret = append(ret, k)
+	}
+	return ret
 }
 
 type Set interface {

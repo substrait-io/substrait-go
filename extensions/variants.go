@@ -20,6 +20,7 @@ type FunctionVariant interface {
 	URI() string
 	ResolveType(argTypes []types.Type) (types.Type, error)
 	Variadic() *VariadicBehavior
+	GetDialectBinding(dialect string) (DialectFunctionBinding, bool)
 }
 
 func EvaluateTypeExpression(nullHandling NullabilityHandling, expr parser.TypeExpression, paramTypeList ArgumentList, actualTypes []types.Type) (types.Type, error) {
@@ -138,6 +139,7 @@ type ScalarFunctionVariant struct {
 	description string
 	uri         string
 	impl        ScalarFunctionImpl
+	dialects    map[string]DialectFunctionBinding
 }
 
 func (s *ScalarFunctionVariant) Name() string                     { return s.name }
@@ -157,6 +159,17 @@ func (s *ScalarFunctionVariant) CompoundName() string {
 }
 func (s *ScalarFunctionVariant) ID() ID {
 	return ID{URI: s.uri, Name: s.CompoundName()}
+}
+func (s *ScalarFunctionVariant) GetDialectBinding(dialect string) (DialectFunctionBinding, bool) {
+	binding, ok := s.dialects[dialect]
+	return binding, ok
+}
+
+func (s *ScalarFunctionVariant) AddDialect(dialect string, binding DialectFunctionBinding) {
+	if s.dialects == nil {
+		s.dialects = make(map[string]DialectFunctionBinding)
+	}
+	s.dialects[dialect] = binding
 }
 
 // NewAggFuncVariant constructs a variant with the provided name and uri
@@ -238,6 +251,7 @@ type AggregateFunctionVariant struct {
 	description string
 	uri         string
 	impl        AggregateFunctionImpl
+	dialects    map[string]DialectFunctionBinding
 }
 
 func (s *AggregateFunctionVariant) Name() string                     { return s.name }
@@ -267,12 +281,23 @@ func (s *AggregateFunctionVariant) Intermediate() (types.Type, error) {
 }
 func (s *AggregateFunctionVariant) Ordered() bool { return s.impl.Ordered }
 func (s *AggregateFunctionVariant) MaxSet() int   { return s.impl.MaxSet }
+func (s *AggregateFunctionVariant) GetDialectBinding(dialect string) (DialectFunctionBinding, bool) {
+	binding, ok := s.dialects[dialect]
+	return binding, ok
+}
+func (s *AggregateFunctionVariant) AddDialect(dialect string, binding DialectFunctionBinding) {
+	if s.dialects == nil {
+		s.dialects = make(map[string]DialectFunctionBinding)
+	}
+	s.dialects[dialect] = binding
+}
 
 type WindowFunctionVariant struct {
 	name        string
 	description string
 	uri         string
 	impl        WindowFunctionImpl
+	dialects    map[string]DialectFunctionBinding
 }
 
 func NewWindowFuncVariant(id ID) *WindowFunctionVariant {
@@ -375,3 +400,13 @@ func (s *WindowFunctionVariant) Intermediate() (types.Type, error) {
 func (s *WindowFunctionVariant) Ordered() bool          { return s.impl.Ordered }
 func (s *WindowFunctionVariant) MaxSet() int            { return s.impl.MaxSet }
 func (s *WindowFunctionVariant) WindowType() WindowType { return s.impl.WindowType }
+func (s *WindowFunctionVariant) GetDialectBinding(dialect string) (DialectFunctionBinding, bool) {
+	binding, ok := s.dialects[dialect]
+	return binding, ok
+}
+func (s *WindowFunctionVariant) AddDialect(dialect string, binding DialectFunctionBinding) {
+	if s.dialects == nil {
+		s.dialects = make(map[string]DialectFunctionBinding)
+	}
+	s.dialects[dialect] = binding
+}

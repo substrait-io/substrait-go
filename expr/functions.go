@@ -265,6 +265,9 @@ func (s *ScalarFunction) Deterministic() bool                    { return s.decl
 func (s *ScalarFunction) NArgs() int                             { return len(s.args) }
 func (s *ScalarFunction) Arg(i int) types.FuncArg                { return s.args[i] }
 func (s *ScalarFunction) FuncRef() uint32                        { return s.funcRef }
+func (s *ScalarFunction) GetDialectBinding(dialect string) (extensions.DialectFunctionBinding, bool) {
+	return s.declaration.GetDialectBinding(dialect)
+}
 func (s *ScalarFunction) IsScalar() bool {
 	for _, arg := range s.args {
 		if ex, ok := arg.(Expression); ok {
@@ -483,6 +486,10 @@ func (w *WindowFunction) MaxSet() int                           { return w.decla
 func (w *WindowFunction) IntermediateType() (types.Type, error) { return w.declaration.Intermediate() }
 func (w *WindowFunction) WindowType() extensions.WindowType     { return w.declaration.WindowType() }
 func (*WindowFunction) IsScalar() bool                          { return false }
+
+func (w *WindowFunction) GetDialectBinding(dialect string) (extensions.DialectFunctionBinding, bool) {
+	return w.declaration.GetDialectBinding(dialect)
+}
 
 func (*WindowFunction) isRootRef() {}
 
@@ -775,6 +782,10 @@ func (a *AggregateFunction) Ordered() bool { return a.declaration.Ordered() }
 func (a *AggregateFunction) MaxSet() int   { return a.declaration.MaxSet() }
 func (a *AggregateFunction) IntermediateType() (types.Type, error) {
 	return a.declaration.Intermediate()
+}
+
+func (a *AggregateFunction) GetDialectBinding(dialect string) (extensions.DialectFunctionBinding, bool) {
+	return a.declaration.GetDialectBinding(dialect)
 }
 
 func (a *AggregateFunction) String() string {
