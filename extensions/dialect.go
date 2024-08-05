@@ -133,7 +133,7 @@ func (d *dialectImpl) buildLocalFunctionMap(functions []DialectFunction, funcKin
 			id := ID{uri, name + ":" + kernel}
 			substraitFunc, ok := getSubstraitFunc(funcKind, id)
 			if !ok {
-				continue
+				panic("substrait function not found for local name " + id.Name)
 			}
 			lf := LocalFunctionVariant{
 				ID:            id,

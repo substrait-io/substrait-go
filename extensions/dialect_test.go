@@ -116,6 +116,37 @@ func TestMain(m *testing.M) {
 	m.Run()
 }
 
+func TestDialectApis(t *testing.T) {
+	dialect, err := GetFunctionRegistry().GetDialect(gDialectName)
+	assert.Nil(t, err)
+	assert.NotNil(t, dialect)
+
+	dialect, err = GetFunctionRegistry().GetDialect("non-existent")
+	assert.Error(t, err)
+	assert.Nil(t, dialect)
+	dialects := DefaultCollection.GetSupportedDialects()
+	assert.Len(t, dialects, 1)
+	assert.Contains(t, dialects, gDialectName)
+
+	err = GetFunctionRegistry().LoadDialect("second_dialect", strings.NewReader(sampleDialectYAML))
+	assert.NoError(t, err)
+	dialects = DefaultCollection.GetSupportedDialects()
+	assert.Len(t, dialects, 2)
+	assert.Contains(t, dialects, "second_dialect")
+	assert.Contains(t, dialects, gDialectName)
+
+	dialect, err = GetFunctionRegistry().GetDialect(gDialectName)
+	assert.Nil(t, err)
+	assert.NotNil(t, dialect)
+
+	dialect, err = GetFunctionRegistry().GetDialect("second_dialect")
+	assert.Nil(t, err)
+	assert.NotNil(t, dialect)
+
+	err = GetFunctionRegistry().LoadDialect(gDialectName, strings.NewReader(sampleDialectYAML))
+	assert.Error(t, err)
+}
+
 func TestRegistryLocalLookup(t *testing.T) {
 	expectedUri := "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
 	fv, ok := gDialect.LocalLookup("+", []string{"INTEGER", "INTEGER"})
@@ -125,6 +156,11 @@ func TestRegistryLocalLookup(t *testing.T) {
 	funcBinding, ok := fv.GetDialectBinding(gDialectName)
 	assert.True(t, ok)
 	assert.Equal(t, ScalarFunc, funcBinding.GetFuncKind())
+	assert.Equal(t, "+", funcBinding.GetLocalName())
+	assert.Equal(t, "add", funcBinding.GetName())
+	assert.Equal(t, "INTEGER", funcBinding.GetLocalArgumentTypes()[0])
+	assert.Equal(t, "INTEGER", funcBinding.GetLocalArgumentTypes()[1])
+	assert.Contains(t, funcBinding.GetOptions(), "overflow")
 
 	fv, ok = gDialect.LocalLookup("min", []string{"INTEGER"})
 	assert.True(t, ok)
@@ -177,4 +213,8 @@ func TestRegistryBinaryFunctions(t *testing.T) {
 	assert.Contains(t, compoundNames, "subtract:i64_i64")
 	assert.Equal(t, "add:i8_i8", binaryFunctions[0].CompoundName())
 	assert.Equal(t, "subtract:fp64_fp64", binaryFunctions[11].CompoundName())
+
+	binaryFunctions = GetFunctionRegistry().GetBinaryFunctions()
+	assert.Greater(t, len(binaryFunctions), 736)
+	assert.Equal(t, 2, len(binaryFunctions[0].Args()))
 }

@@ -109,11 +109,6 @@ func checkMaps[T variants](id ID, m map[ID]T, simpleNames map[ID]string) (T, boo
 		}
 	}
 
-	for k, v := range m {
-		if k.Name == id.Name {
-			return v, true
-		}
-	}
 	return nil, false
 }
 
