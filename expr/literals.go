@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//lint:file-ignore SA1019 Using a deprecated function, variable, constant or field
+
 package expr
 
 import (
