@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//lint:file-ignore SA1019 Using a deprecated function, variable, constant or field
+
 package plan
 
 import (
@@ -109,7 +111,7 @@ type Version interface {
 
 type AdvancedExtension interface {
 	GetEnhancement() *anypb.Any
-	GetOptimization() *anypb.Any
+	GetOptimization() []*anypb.Any
 }
 
 // Plan describes a set of operations to complete. For

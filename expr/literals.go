@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//lint:file-ignore SA1019 Using a deprecated function, variable, constant or field
+
 package expr
 
 import (
@@ -420,7 +422,7 @@ func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
 
 		lit.LiteralType = &proto.Expression_Literal_UserDefined_{
 			UserDefined: &proto.Expression_Literal_UserDefined{
-				Value:          v,
+				Val:            &proto.Expression_Literal_UserDefined_Value{Value: v},
 				TypeReference:  udft.TypeReference,
 				TypeParameters: params,
 			},
@@ -672,7 +674,7 @@ func NewLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {
 		}
 
 		return &ProtoLiteral{
-			Value: v.Value,
+			Value: v.Val,
 			Type: &types.UserDefinedType{
 				Nullability:    getNullability(nullable),
 				TypeReference:  v.TypeReference,
@@ -914,7 +916,7 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 		}
 
 		return &ProtoLiteral{
-			Value: lit.UserDefined.Value,
+			Value: lit.UserDefined.Val,
 			Type: &types.UserDefinedType{
 				Nullability:      nullability,
 				TypeVariationRef: l.TypeVariationReference,
