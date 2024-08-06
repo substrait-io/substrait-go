@@ -109,7 +109,7 @@ type Version interface {
 
 type AdvancedExtension interface {
 	GetEnhancement() *anypb.Any
-	GetOptimization() *anypb.Any
+	GetOptimization() []*anypb.Any
 }
 
 // Plan describes a set of operations to complete. For
