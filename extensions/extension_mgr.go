@@ -27,16 +27,6 @@ var DefaultCollection Collection
 //go:embed definitions/*
 var definitions embed.FS
 
-type FunctionRegistry interface {
-	LoadDialect(uri string, r io.Reader) error
-	GetDialect(name string) (Dialect, error)
-	GetBinaryFunctions() []FunctionVariant
-}
-
-func GetFunctionRegistry() FunctionRegistry {
-	return &DefaultCollection
-}
-
 func init() {
 	entries, err := definitions.ReadDir("definitions")
 	if err != nil {
@@ -76,7 +66,6 @@ type Collection struct {
 	typeVariationMap map[ID]TypeVariation
 
 	binaryFunctions []FunctionVariant
-	dialects        map[string]Dialect
 }
 
 func (c *Collection) GetType(id ID) (t Type, ok bool) {
@@ -220,37 +209,30 @@ func (c *Collection) URILoaded(uri string) bool {
 	return ok
 }
 
-func (c *Collection) LoadDialect(name string, r io.Reader) error {
-	if c.dialects == nil {
-		c.dialects = make(map[string]Dialect)
-	}
-	if _, ok := c.dialects[name]; ok {
-		return fmt.Errorf("%w: dialect '%s' already loaded", substraitgo.ErrKeyExists, name)
-	}
-
-	dialect, err := newDialect(name, r)
-	if err != nil {
-		return err
-	}
-	c.dialects[name] = dialect
-	return nil
-}
-
 func (c *Collection) GetBinaryFunctions() []FunctionVariant {
 	return c.binaryFunctions
 }
 
-func (c *Collection) GetDialect(name string) (Dialect, error) {
-	if d, ok := c.dialects[name]; ok {
-		return d, nil
+func (c *Collection) GetAllScalarFunctions() []*ScalarFunctionVariant {
+	var ret []*ScalarFunctionVariant
+	for _, v := range c.scalarMap {
+		ret = append(ret, v)
 	}
-	return nil, fmt.Errorf("%w: dialect '%s' not found", substraitgo.ErrNotFound, name)
+	return ret
 }
 
-func (c *Collection) GetSupportedDialects() []string {
-	var ret []string
-	for k := range c.dialects {
-		ret = append(ret, k)
+func (c *Collection) GetAllAggregateFunctions() []*AggregateFunctionVariant {
+	var ret []*AggregateFunctionVariant
+	for _, v := range c.aggregateMap {
+		ret = append(ret, v)
+	}
+	return ret
+}
+
+func (c *Collection) GetAllWindowFunctions() []*WindowFunctionVariant {
+	var ret []*WindowFunctionVariant
+	for _, v := range c.windowMap {
+		ret = append(ret, v)
 	}
 	return ret
 }
