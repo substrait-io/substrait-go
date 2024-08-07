@@ -55,11 +55,12 @@ type dialectImpl struct {
 
 	toLocalTypeMap map[string]dialectTypeInfo // substrait type name to dialectTypeInfo
 
-	binaryFunctions []extensions.FunctionVariant
-
 	localScalarFunctions    map[extensions.ID]*dialectFunctionInfo
 	localAggregateFunctions map[extensions.ID]*dialectFunctionInfo
 	localWindowFunctions    map[extensions.ID]*dialectFunctionInfo
+
+	localFunctionRegistry LocalFunctionRegistry
+	localTypeRegistry     LocalTypeRegistry
 }
 
 func (d *dialectImpl) Name() string {
@@ -67,11 +68,14 @@ func (d *dialectImpl) Name() string {
 }
 
 func (d *dialectImpl) LocalizeFunctionRegistry(registry FunctionRegistry) (LocalFunctionRegistry, error) {
-	scalarFunctions := makeLocalFunctionVariantMap(d.localScalarFunctions, registry.GetScalarFunctions, newLocalScalarFunctionVariant)
-	aggregateFunctions := makeLocalFunctionVariantMap(d.localAggregateFunctions, registry.GetAggregateFunctions, newLocalAggregateFunctionVariant)
-	windowFunctions := makeLocalFunctionVariantMap(d.localWindowFunctions, registry.GetWindowFunctions, newLocalWindowFunctionVariant)
+	if d.localFunctionRegistry == nil {
+		scalarFunctions := makeLocalFunctionVariantMap(d.localScalarFunctions, registry.GetScalarFunctions, newLocalScalarFunctionVariant)
+		aggregateFunctions := makeLocalFunctionVariantMap(d.localAggregateFunctions, registry.GetAggregateFunctions, newLocalAggregateFunctionVariant)
+		windowFunctions := makeLocalFunctionVariantMap(d.localWindowFunctions, registry.GetWindowFunctions, newLocalWindowFunctionVariant)
 
-	return newLocalFunctionRegistry(d, scalarFunctions, aggregateFunctions, windowFunctions), nil
+		d.localFunctionRegistry = newLocalFunctionRegistry(d, scalarFunctions, aggregateFunctions, windowFunctions)
+	}
+	return d.localFunctionRegistry, nil
 }
 
 type withID interface {
@@ -99,44 +103,19 @@ func makeLocalFunctionVariantMap[T withID, V any](dialectFunctionInfos map[exten
 	return localFunctionVariants
 }
 
-func makeLocalScalarFunctionVariantMap(registry FunctionRegistry, dialectFunctionInfos map[extensions.ID]*dialectFunctionInfo, localFunctionVariants map[string][]*LocalScalarFunctionVariant) {
-	for _, dfi1 := range dialectFunctionInfos {
-		if _, ok := localFunctionVariants[dfi1.Name]; ok {
-			continue
-		}
-		lsfArray := make([]*LocalScalarFunctionVariant, 0)
-		for _, sf := range registry.GetScalarFunctions(dfi1.Name) {
-			if dfi, ok := dialectFunctionInfos[sf.ID()]; ok {
-				lsf := LocalScalarFunctionVariant{
-					ScalarFunctionVariant: *sf,
-					localName:             dfi.LocalName,
-					supportedOptions:      dfi.Options,
-					notation:              dfi.Notation,
-				}
-				lsfArray = append(lsfArray, &lsf)
-			}
-		}
-		if len(lsfArray) != 0 {
-			localFunctionVariants[dfi1.Name] = lsfArray
-		}
-	}
-}
-
 func (d *dialectImpl) LocalizeTypeRegistry(registry TypeRegistry) (LocalTypeRegistry, error) {
-	typeInfos := make([]typeInfo, 0, len(d.toLocalTypeMap))
-	for name, info := range d.toLocalTypeMap {
-		typ, err := registry.GetTypeFromTypeString(name)
-		if err != nil {
-			return nil, err
+	if d.localTypeRegistry == nil {
+		typeInfos := make([]typeInfo, 0, len(d.toLocalTypeMap))
+		for name, info := range d.toLocalTypeMap {
+			typ, err := registry.GetTypeFromTypeString(name)
+			if err != nil {
+				return nil, err
+			}
+			typeInfos = append(typeInfos, typeInfo{typ: typ, name: name, localName: info.SqlTypeName, supportedAsColumn: info.SupportedAsColumn})
 		}
-		typeInfos = append(typeInfos, typeInfo{typ: typ, name: name, localName: info.SqlTypeName, supportedAsColumn: info.SupportedAsColumn})
+		d.localTypeRegistry = NewLocalTypeRegistry(typeInfos)
 	}
-	return NewLocalTypeRegistry(typeInfos), nil
-}
-
-type LocalFunctionID struct {
-	Name      string
-	Signature string
+	return d.localTypeRegistry, nil
 }
 
 func newDialect(name string, reader io.Reader) (Dialect, error) {
@@ -162,7 +141,6 @@ func (d *dialectImpl) Load(reader io.Reader) error {
 	d.localScalarFunctions = d.buildFunctionInfoMap(d.file.ScalarFunctions)
 	d.localAggregateFunctions = d.buildFunctionInfoMap(d.file.AggregateFunctions)
 	d.localWindowFunctions = d.buildFunctionInfoMap(d.file.WindowFunctions)
-
 	return nil
 }
 
@@ -187,14 +165,6 @@ func (d *dialectImpl) buildFunctionInfoMap(functions []dialectFunction) map[exte
 		}
 	}
 	return funcMap
-}
-
-func (d *dialectImpl) buildTypeMap() {
-	d.toLocalTypeMap = d.file.SupportedTypes
-}
-
-func (d *dialectImpl) GetBinaryFunctions() []extensions.FunctionVariant {
-	return d.binaryFunctions
 }
 
 type dialectFile struct {

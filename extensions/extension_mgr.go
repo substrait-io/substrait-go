@@ -64,8 +64,6 @@ type Collection struct {
 	windowMap        map[ID]*WindowFunctionVariant
 	typeMap          map[ID]Type
 	typeVariationMap map[ID]TypeVariation
-
-	binaryFunctions []FunctionVariant
 }
 
 func (c *Collection) GetType(id ID) (t Type, ok bool) {
@@ -190,11 +188,6 @@ func (c *Collection) Load(uri string, r io.Reader) error {
 		addToMaps[*WindowFunctionVariant](id, &f, c.windowMap, simpleNames)
 	}
 
-	for _, f := range c.scalarMap {
-		if len(f.impl.Args) == 2 {
-			c.binaryFunctions = append(c.binaryFunctions, f)
-		}
-	}
 	// add simple name aliases
 	for k, v := range simpleNames {
 		id.Name = k
@@ -209,32 +202,16 @@ func (c *Collection) URILoaded(uri string) bool {
 	return ok
 }
 
-func (c *Collection) GetBinaryFunctions() []FunctionVariant {
-	return c.binaryFunctions
+func (c *Collection) GetAllScalarFunctions() map[ID]*ScalarFunctionVariant {
+	return c.scalarMap
 }
 
-func (c *Collection) GetAllScalarFunctions() []*ScalarFunctionVariant {
-	var ret []*ScalarFunctionVariant
-	for _, v := range c.scalarMap {
-		ret = append(ret, v)
-	}
-	return ret
+func (c *Collection) GetAllAggregateFunctions() map[ID]*AggregateFunctionVariant {
+	return c.aggregateMap
 }
 
-func (c *Collection) GetAllAggregateFunctions() []*AggregateFunctionVariant {
-	var ret []*AggregateFunctionVariant
-	for _, v := range c.aggregateMap {
-		ret = append(ret, v)
-	}
-	return ret
-}
-
-func (c *Collection) GetAllWindowFunctions() []*WindowFunctionVariant {
-	var ret []*WindowFunctionVariant
-	for _, v := range c.windowMap {
-		ret = append(ret, v)
-	}
-	return ret
+func (c *Collection) GetAllWindowFunctions() map[ID]*WindowFunctionVariant {
+	return c.windowMap
 }
 
 type Set interface {

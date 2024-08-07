@@ -14,12 +14,10 @@ func GetDefaultFunctionRegistry() FunctionRegistry {
 }
 
 type functionRegistryImpl struct {
-	collection         *extensions.Collection
 	scalarFunctions    map[string][]*extensions.ScalarFunctionVariant
 	aggregateFunctions map[string][]*extensions.AggregateFunctionVariant
 	windowFunctions    map[string][]*extensions.WindowFunctionVariant
 	allFunctions       []extensions.FunctionVariant
-	dialects           map[string]Dialect
 }
 
 func NewFunctionRegistry(collection *extensions.Collection) FunctionRegistry {
@@ -40,14 +38,14 @@ func NewFunctionRegistry(collection *extensions.Collection) FunctionRegistry {
 	}
 }
 
-func processFunctions[T extensions.FunctionVariant](functions []T, funcMap map[string][]T, allFuncs *[]extensions.FunctionVariant) {
+func processFunctions[T extensions.FunctionVariant](functions map[extensions.ID]T, funcMap map[string][]T, allFunctions *[]extensions.FunctionVariant) {
 	for _, f := range functions {
 		name := f.Name()
 		if _, ok := funcMap[name]; !ok {
 			funcMap[name] = make([]T, 0)
 		}
 		funcMap[name] = append(funcMap[name], f)
-		*allFuncs = append(*allFuncs, f)
+		*allFunctions = append(*allFunctions, f)
 	}
 }
 
