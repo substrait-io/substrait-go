@@ -7,13 +7,13 @@ package expr
 import (
 	"bytes"
 	"fmt"
+	"google.golang.org/protobuf/types/known/anypb"
 	"reflect"
 
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/proto"
 	"github.com/substrait-io/substrait-go/types"
 	"golang.org/x/exp/slices"
-	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // PrimitiveLiteralValue is a type constraint that represents
@@ -404,6 +404,10 @@ type ProtoLiteral struct {
 func (*ProtoLiteral) isRootRef()            {}
 func (t *ProtoLiteral) GetType() types.Type { return t.Type }
 func (t *ProtoLiteral) String() string {
+	switch literalType := t.Type.(type) {
+	case types.PrecisionTimeStampType, types.PrecisionTimeStampTzType:
+		return fmt.Sprintf("%s(%d)", literalType, t.Value.(uint64))
+	}
 	return fmt.Sprintf("%s(%s)", t.Type, t.Value)
 }
 func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
@@ -412,47 +416,65 @@ func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
 		TypeVariationReference: t.Type.GetTypeVariationReference(),
 	}
 
-	switch v := t.Value.(type) {
-	case *anypb.Any:
-		udft := t.Type.(*types.UserDefinedType)
-		params := make([]*proto.Type_Parameter, len(udft.TypeParameters))
-		for i, p := range udft.TypeParameters {
+	switch literalType := t.Type.(type) {
+	case *types.UserDefinedType:
+		params := make([]*proto.Type_Parameter, len(literalType.TypeParameters))
+		for i, p := range literalType.TypeParameters {
 			params[i] = p.ToProto()
 		}
 
+		v := t.Value.(*anypb.Any)
 		lit.LiteralType = &proto.Expression_Literal_UserDefined_{
 			UserDefined: &proto.Expression_Literal_UserDefined{
 				Val:            &proto.Expression_Literal_UserDefined_Value{Value: v},
-				TypeReference:  udft.TypeReference,
+				TypeReference:  literalType.TypeReference,
 				TypeParameters: params,
 			},
 		}
-	case *types.IntervalYearToMonth:
+	case *types.IntervalYearType:
+		v := t.Value.(*types.IntervalYearToMonth)
 		lit.LiteralType = &proto.Expression_Literal_IntervalYearToMonth_{
 			IntervalYearToMonth: v,
 		}
-	case *types.IntervalDayToSecond:
+	case *types.IntervalDayType:
+		v := t.Value.(*types.IntervalDayToSecond)
 		lit.LiteralType = &proto.Expression_Literal_IntervalDayToSecond_{
 			IntervalDayToSecond: v,
 		}
-	case string:
+	case *types.VarCharType:
+		v := t.Value.(string)
 		lit.LiteralType = &proto.Expression_Literal_VarChar_{
 			VarChar: &proto.Expression_Literal_VarChar{
 				Value:  v,
-				Length: uint32(t.Type.(*types.VarCharType).Length),
+				Length: uint32(literalType.Length),
 			},
 		}
-	case []byte:
-		typ := t.Type.(*types.DecimalType)
+	case *types.DecimalType:
+		v := t.Value.([]byte)
 		lit.LiteralType = &proto.Expression_Literal_Decimal_{
 			Decimal: &proto.Expression_Literal_Decimal{
 				Value:     v,
-				Precision: typ.Precision,
-				Scale:     typ.Scale,
+				Precision: literalType.Precision,
+				Scale:     literalType.Scale,
+			},
+		}
+	case *types.PrecisionTimeStampType:
+		v := t.Value.(uint64)
+		lit.LiteralType = &proto.Expression_Literal_PrecisionTimestamp_{
+			PrecisionTimestamp: &proto.Expression_Literal_PrecisionTimestamp{
+				Precision: literalType.GetPrecisionProtoVal(),
+				Value:     int64(v),
+			},
+		}
+	case *types.PrecisionTimeStampTzType:
+		v := t.Value.(uint64)
+		lit.LiteralType = &proto.Expression_Literal_PrecisionTimestamp_{
+			PrecisionTimestamp: &proto.Expression_Literal_PrecisionTimestamp{
+				Precision: literalType.GetPrecisionProtoVal(),
+				Value:     int64(v),
 			},
 		}
 	}
-
 	return lit
 }
 
@@ -924,6 +946,42 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 				TypeParameters:   params,
 			},
 		}
+	case *proto.Expression_Literal_PrecisionTimestamp_:
+		precTimeStamp := lit.PrecisionTimestamp
+		precision, err := types.ProtoToTimePrecision(precTimeStamp.Precision)
+		if err != nil {
+			return nil
+		}
+		if precTimeStamp.Value < 0 {
+			return nil
+		}
+		return NewPrecisionTimestampLiteral(uint64(precTimeStamp.Value), precision, nullability)
+	case *proto.Expression_Literal_PrecisionTimestampTz:
+		precTimeStamp := lit.PrecisionTimestampTz
+		precision, err := types.ProtoToTimePrecision(precTimeStamp.Precision)
+		if err != nil {
+			return nil
+		}
+		if precTimeStamp.Value < 0 {
+			return nil
+		}
+		return NewPrecisionTimestampTzLiteral(uint64(precTimeStamp.Value), precision, nullability)
 	}
 	panic("unimplemented literal type")
+}
+
+func NewPrecisionTimestampLiteral(value uint64, precision types.TimePrecision, n types.Nullability) Literal {
+	precisionType := types.NewPrecisionTimestamp(precision).WithNullability(n)
+	return &ProtoLiteral{
+		Value: value,
+		Type:  precisionType,
+	}
+}
+
+func NewPrecisionTimestampTzLiteral(value uint64, precision types.TimePrecision, n types.Nullability) Literal {
+	precisionType := types.NewPrecisionTimestampTz(precision).WithNullability(n)
+	return &ProtoLiteral{
+		Value: value,
+		Type:  precisionType,
+	}
 }
