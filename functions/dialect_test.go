@@ -95,6 +95,7 @@ func getLocalFunctionRegistry(t *testing.T, dialectYaml string) LocalFunctionReg
 	dialect, err := GetDialect(t.Name())
 	assert.NoError(t, err)
 	localRegistry, err := dialect.LocalizeFunctionRegistry(registry)
+	assert.NoError(t, err)
 	return localRegistry
 }
 
