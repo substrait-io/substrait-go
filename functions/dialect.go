@@ -53,14 +53,11 @@ type dialectImpl struct {
 	name string
 	file dialectFile
 
-	toLocalTypeMap map[string]dialectTypeInfo // substrait type name to dialectTypeInfo
+	toLocalTypeMap map[string]dialectTypeInfo // substrait short type name to dialectTypeInfo
 
 	localScalarFunctions    map[extensions.ID]*dialectFunctionInfo
 	localAggregateFunctions map[extensions.ID]*dialectFunctionInfo
 	localWindowFunctions    map[extensions.ID]*dialectFunctionInfo
-
-	localFunctionRegistry LocalFunctionRegistry
-	localTypeRegistry     LocalTypeRegistry
 }
 
 func (d *dialectImpl) Name() string {
@@ -68,14 +65,11 @@ func (d *dialectImpl) Name() string {
 }
 
 func (d *dialectImpl) LocalizeFunctionRegistry(registry FunctionRegistry) (LocalFunctionRegistry, error) {
-	if d.localFunctionRegistry == nil {
-		scalarFunctions := makeLocalFunctionVariantMap(d.localScalarFunctions, registry.GetScalarFunctions, newLocalScalarFunctionVariant)
-		aggregateFunctions := makeLocalFunctionVariantMap(d.localAggregateFunctions, registry.GetAggregateFunctions, newLocalAggregateFunctionVariant)
-		windowFunctions := makeLocalFunctionVariantMap(d.localWindowFunctions, registry.GetWindowFunctions, newLocalWindowFunctionVariant)
+	scalarFunctions := makeLocalFunctionVariantMap(d.localScalarFunctions, registry.GetScalarFunctions, newLocalScalarFunctionVariant)
+	aggregateFunctions := makeLocalFunctionVariantMap(d.localAggregateFunctions, registry.GetAggregateFunctions, newLocalAggregateFunctionVariant)
+	windowFunctions := makeLocalFunctionVariantMap(d.localWindowFunctions, registry.GetWindowFunctions, newLocalWindowFunctionVariant)
 
-		d.localFunctionRegistry = newLocalFunctionRegistry(d, scalarFunctions, aggregateFunctions, windowFunctions)
-	}
-	return d.localFunctionRegistry, nil
+	return newLocalFunctionRegistry(d, scalarFunctions, aggregateFunctions, windowFunctions), nil
 }
 
 type withID interface {
@@ -104,18 +98,15 @@ func makeLocalFunctionVariantMap[T withID, V any](dialectFunctionInfos map[exten
 }
 
 func (d *dialectImpl) LocalizeTypeRegistry(registry TypeRegistry) (LocalTypeRegistry, error) {
-	if d.localTypeRegistry == nil {
-		typeInfos := make([]typeInfo, 0, len(d.toLocalTypeMap))
-		for name, info := range d.toLocalTypeMap {
-			typ, err := registry.GetTypeFromTypeString(name)
-			if err != nil {
-				return nil, err
-			}
-			typeInfos = append(typeInfos, typeInfo{typ: typ, name: name, localName: info.SqlTypeName, supportedAsColumn: info.SupportedAsColumn})
+	typeInfos := make([]typeInfo, 0, len(d.toLocalTypeMap))
+	for name, info := range d.toLocalTypeMap {
+		typ, err := registry.GetTypeFromTypeString(name)
+		if err != nil {
+			return nil, err
 		}
-		d.localTypeRegistry = NewLocalTypeRegistry(typeInfos)
+		typeInfos = append(typeInfos, typeInfo{typ: typ, shortName: name, localName: info.SqlTypeName, supportedAsColumn: info.SupportedAsColumn})
 	}
-	return d.localTypeRegistry, nil
+	return NewLocalTypeRegistry(typeInfos), nil
 }
 
 func newDialect(name string, reader io.Reader) (Dialect, error) {
@@ -214,7 +205,7 @@ func (d *dialectFile) validate() error {
 }
 
 func (d *dialectFile) validateFunction(df *dialectFunction) error {
-	if len(df.Name) == 0 {
+	if len(df.Name) == 0 || len(df.SupportedKernels) == 0 {
 		return substraitgo.ErrInvalidDialect
 	}
 	parts := strings.Split(df.Name, ".")
@@ -223,6 +214,10 @@ func (d *dialectFile) validateFunction(df *dialectFunction) error {
 	}
 	if _, ok := d.Dependencies[parts[0]]; !ok {
 		return substraitgo.ErrInvalidDialect
+	}
+
+	if err := df.validateAndFixKernels(); err != nil {
+		return err
 	}
 	return nil
 }
@@ -235,6 +230,25 @@ type dialectFunction struct {
 	RequiredOptions  map[string]string `yaml:"required_options,omitempty"`
 	Aggregate        bool              `yaml:"aggregate,omitempty"`
 	SupportedKernels []string          `yaml:"supported_kernels,omitempty"`
+}
+
+func (df *dialectFunction) validateAndFixKernels() error {
+	for i, kernel := range df.SupportedKernels {
+		argTypes := strings.Split(kernel, "_")
+		hasAnyType := false
+		for i, argType := range argTypes {
+			if strings.HasPrefix(argType, "any") {
+				argTypes[i] = "any"
+				hasAnyType = true
+			} else if !isSupportedType(argType) {
+				return fmt.Errorf("%w: unsupported type '%s'", substraitgo.ErrInvalidDialect, argType)
+			}
+		}
+		if hasAnyType {
+			df.SupportedKernels[i] = strings.Join(argTypes, "_")
+		}
+	}
+	return nil
 }
 
 func (df *dialectFunction) getOptions() map[string]extensions.Option {

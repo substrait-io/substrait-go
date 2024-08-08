@@ -13,30 +13,10 @@ const sampleDialectYAML = `---
 name: duckdb
 type: sql
 dependencies:
-  aggregate_approx: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_aggregate_approx.yaml
-  aggregate_generic: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_aggregate_generic.yaml
   arithmetic: 
     https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
-  arithmetic_decimal: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic_decimal.yaml
-  boolean: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_boolean.yaml
   comparison: 
     https://github.com/substrait-io/substrait/blob/main/extensions/functions_comparison.yaml
-  datetime: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_datetime.yaml
-  geometry: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_geometry.yaml
-  logarithmic: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_logarithmic.yaml
-  rounding: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_rounding.yaml
-  set: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_set.yaml
-  string: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_string.yaml
 supported_types:
   i8:
     sql_type_name: TINYINT,
@@ -107,6 +87,11 @@ scalar_functions:
   - i64_i64
   - fp32_fp32
   - fp64_fp64
+- name: comparison.is_null
+  local_name: IS NULL
+  postfix: true
+  supported_kernels:
+  - any1
 aggregate_functions:
 - name: arithmetic.min
   aggregate: true
@@ -126,6 +111,11 @@ aggregate_functions:
   - i64
   - fp32
   - fp64
+window_functions:
+- name: arithmetic.ntile
+  supported_kernels:
+  - i32
+  - i64
 `
 
 var gDialectName string
@@ -154,6 +144,7 @@ func TestDialectApis(t *testing.T) {
 	dialect, err := GetDialect(gDialectName)
 	assert.Nil(t, err)
 	assert.NotNil(t, dialect)
+	assert.Equal(t, gDialectName, dialect.Name())
 
 	dialect, err = GetDialect("non-existent")
 	assert.Error(t, err)
@@ -183,17 +174,34 @@ func TestDialectApis(t *testing.T) {
 
 func TestRegistryLookupByLocal(t *testing.T) {
 	expectedUri := "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	comparisionUri := "https://github.com/substrait-io/substrait/blob/main/extensions/functions_comparison.yaml"
 	fv := gLocalFunctionRegistry.GetScalarFunctionsBy("+", Local)
 	assert.Greater(t, len(fv), 1)
 	assert.Equal(t, expectedUri, fv[0].URI())
 	assert.Equal(t, "+", fv[0].LocalName())
 	assert.True(t, fv[0].IsOptionSupported("overflow", "ERROR"))
+	assert.Equal(t, INFIX, fv[0].Notation())
 	checkCompoundNames(t, getScalarCompoundNames(fv), []string{"add:i8_i8", "add:i16_i16", "add:fp32_fp32", "add:fp64_fp64"})
+
+	fv = gLocalFunctionRegistry.GetScalarFunctionsBy("IS NULL", Local)
+	assert.Equal(t, comparisionUri, fv[0].URI())
+	assert.Equal(t, "IS NULL", fv[0].LocalName())
+	assert.Equal(t, POSTFIX, fv[0].Notation())
+	checkCompoundNames(t, getScalarCompoundNames(fv), []string{"is_null:any"})
 
 	av := gLocalFunctionRegistry.GetAggregateFunctionsBy("min", Local)
 	assert.Equal(t, expectedUri, av[0].URI())
 	assert.Equal(t, "min", av[0].LocalName())
+	assert.Equal(t, PREFIX, av[0].Notation())
+	assert.False(t, av[0].IsOptionSupported("overflow", "ERROR"))
 	checkCompoundNames(t, getAggregateCompoundNames(av), []string{"min:i8", "min:i16", "min:fp32", "min:fp64"})
+
+	wv := gLocalFunctionRegistry.GetWindowFunctionsBy("ntile", Local)
+	assert.Equal(t, expectedUri, wv[0].URI())
+	assert.Equal(t, "ntile", wv[0].LocalName())
+	assert.Equal(t, PREFIX, wv[0].Notation())
+	assert.False(t, wv[0].IsOptionSupported("overflow", "ERROR"))
+	checkCompoundNames(t, getWindowCompoundNames(wv), []string{"ntile:i32", "ntile:i64"})
 }
 
 func TestRegistryLookupBySubstrait(t *testing.T) {
@@ -206,12 +214,18 @@ func TestRegistryLookupBySubstrait(t *testing.T) {
 	assert.Equal(t, expectedUri, fv[k].URI())
 	assert.Equal(t, "+", fv[k].LocalName())
 	assert.True(t, fv[0].IsOptionSupported("overflow", "ERROR"))
+	assert.False(t, fv[0].IsOptionSupported("overflow", "SILENT"))
 	checkCompoundNames(t, getScalarCompoundNames(fv), []string{"add:i8_i8", "add:i16_i16", "add:fp32_fp32", "add:fp64_fp64"})
 
 	av := gLocalFunctionRegistry.GetAggregateFunctionsBy("max", Substrait)
 	assert.Equal(t, expectedUri, av[0].URI())
 	assert.Equal(t, "max", av[0].LocalName())
 	checkCompoundNames(t, getAggregateCompoundNames(av), []string{"max:i8", "max:i16", "max:fp32", "max:fp64"})
+
+	wv := gLocalFunctionRegistry.GetWindowFunctionsBy("ntile", Substrait)
+	assert.Equal(t, expectedUri, wv[0].URI())
+	assert.Equal(t, "ntile", wv[0].LocalName())
+	checkCompoundNames(t, getWindowCompoundNames(wv), []string{"ntile:i32", "ntile:i64"})
 }
 
 func TestFunctionRegistry(t *testing.T) {
@@ -231,7 +245,15 @@ func TestFunctionRegistry(t *testing.T) {
 		assert.Contains(t, allFunctions, f)
 	}
 
+	isNullFunctions := registry.GetScalarFunctions("is_null")
+	assert.Greater(t, len(isNullFunctions), 0)
+	assert.Contains(t, allFunctions, isNullFunctions[0])
+
 	rankFunctions := registry.GetWindowFunctions("rank")
+	assert.Greater(t, len(rankFunctions), 0)
+	assert.Contains(t, allFunctions, rankFunctions[0])
+
+	rankFunctions = registry.GetWindowFunctions("ntile")
 	assert.Greater(t, len(rankFunctions), 0)
 	assert.Contains(t, allFunctions, rankFunctions[0])
 }
@@ -247,6 +269,14 @@ func getScalarCompoundNames(fv []*LocalScalarFunctionVariant) []string {
 func getAggregateCompoundNames(av []*LocalAggregateFunctionVariant) []string {
 	var compoundNames []string
 	for _, f := range av {
+		compoundNames = append(compoundNames, f.CompoundName())
+	}
+	return compoundNames
+}
+
+func getWindowCompoundNames(wv []*LocalWindowFunctionVariant) []string {
+	var compoundNames []string
+	for _, f := range wv {
 		compoundNames = append(compoundNames, f.CompoundName())
 	}
 	return compoundNames

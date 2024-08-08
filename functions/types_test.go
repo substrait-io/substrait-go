@@ -2,11 +2,13 @@ package functions
 
 import (
 	"github.com/stretchr/testify/assert"
+	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/types"
+	"strings"
 	"testing"
 )
 
-func TestNewTypeRegistry(t *testing.T) {
+func TestTypeRegistry(t *testing.T) {
 	typeRegistry := NewTypeRegistry()
 	tests := []struct {
 		name string
@@ -56,4 +58,124 @@ func TestNewTypeRegistry(t *testing.T) {
 			assert.Equal(t, tt.want, typ)
 		})
 	}
+
+	negativeTests := []struct {
+		name string
+	}{
+		{"badType"},
+		{"nonexistent?"},
+	}
+	for _, tt := range negativeTests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := typeRegistry.GetTypeFromTypeString(tt.name)
+			assert.Error(t, err)
+		})
+	}
+}
+
+func TestLocalTypeRegistry(t *testing.T) {
+	typeRegistry := NewTypeRegistry()
+	testDialect := `---
+name: testSql
+type: sql
+dependencies:
+  arithmetic: 
+    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+supported_types:
+  i32:
+    sql_type_name: int32
+    supported_as_column: true
+  i64:
+    sql_type_name: int64
+    supported_as_column: true
+    supported_as_column: true
+  date:
+    sql_type_name: DATE
+    supported_as_column: true
+  iyear:
+    sql_type_name: INTERVAL
+    supported_as_column: false
+  ts:
+    sql_type_name: TIMESTAMP
+    supported_as_column: true
+scalar_functions:
+- name: arithmetic.add
+  local_name: +
+  infix: true
+  required_options:
+    overflow: ERROR
+    rounding: TIE_TO_EVEN
+  supported_kernels:
+  - i32_i32
+  - i64_i64
+`
+	err := LoadDialect("testSql", strings.NewReader(testDialect))
+	assert.NoError(t, err)
+	dialect, err := GetDialect("testSql")
+	assert.NoError(t, err)
+	localTypeRegistry, err := dialect.LocalizeTypeRegistry(typeRegistry)
+	assert.NoError(t, err)
+
+	tests := []struct {
+		name      string
+		localName string
+		want      types.Type
+		asColumn  bool
+	}{
+		{"i32", "int32", &types.Int32Type{Nullability: types.NullabilityRequired}, true},
+		{"i64", "int64", &types.Int64Type{Nullability: types.NullabilityRequired}, true},
+		{"date", "DATE", &types.DateType{Nullability: types.NullabilityRequired}, true},
+		{"iyear", "INTERVAL", &types.IntervalYearType{Nullability: types.NullabilityRequired}, false},
+		{"timestamp", "TIMESTAMP", &types.TimestampType{Nullability: types.NullabilityRequired}, true},
+
+		// short names
+		{"ts", "TIMESTAMP", &types.TimestampType{Nullability: types.NullabilityRequired}, true},
+
+		// nullable types
+		{"i32?", "int32", &types.Int32Type{Nullability: types.NullabilityNullable}, true},
+		{"i64?", "int64", &types.Int64Type{Nullability: types.NullabilityNullable}, true},
+		{"date?", "DATE", &types.DateType{Nullability: types.NullabilityNullable}, true},
+		{"iyear?", "INTERVAL", &types.IntervalYearType{Nullability: types.NullabilityNullable}, false},
+		{"timestamp?", "TIMESTAMP", &types.TimestampType{Nullability: types.NullabilityNullable}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			typ, err := localTypeRegistry.GetTypeFromTypeString(tt.name)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, typ)
+
+			typ, err = localTypeRegistry.GetSubstraitTypeFromLocalType(tt.localName)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want.WithNullability(types.NullabilityRequired), typ)
+
+			localType, err := localTypeRegistry.GetLocalTypeFromSubstraitType(tt.want)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.localName, localType)
+
+			assert.Equal(t, tt.asColumn, localTypeRegistry.IsTypeSupportedInTables(tt.want))
+		})
+	}
+
+	negativeTests := []struct {
+		name      string
+		localName string
+		typ       types.Type
+	}{
+		{"i8", "int8", &types.Int8Type{Nullability: types.NullabilityRequired}},
+	}
+	for _, tt := range negativeTests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := localTypeRegistry.GetTypeFromTypeString(tt.name)
+			assert.Error(t, err, substraitgo.ErrNotFound)
+
+			_, err = localTypeRegistry.GetSubstraitTypeFromLocalType(tt.localName)
+			assert.Error(t, err, substraitgo.ErrNotFound)
+
+			_, err = localTypeRegistry.GetLocalTypeFromSubstraitType(tt.typ)
+			assert.Error(t, err, substraitgo.ErrNotFound)
+
+			assert.False(t, localTypeRegistry.IsTypeSupportedInTables(tt.typ))
+		})
+	}
+
 }

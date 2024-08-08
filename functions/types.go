@@ -34,6 +34,11 @@ var nameToTypeMap = map[string]types.Type{
 	"iday":  &types.IntervalDayType{},
 }
 
+func isSupportedType(typeString string) bool {
+	_, ok := nameToTypeMap[typeString]
+	return ok
+}
+
 type typeRegistryImpl struct {
 	typeMap map[string]types.Type
 }
@@ -62,12 +67,12 @@ func getTypeFromTypeString(typeString string, typeMap map[string]types.Type) (ty
 type localTypeRegistryImpl struct {
 	nameToType      map[string]types.Type
 	localNameToType map[string]types.Type
-	typeInfoMap     map[types.Type]typeInfo
+	typeInfoMap     map[string]typeInfo
 }
 
 type typeInfo struct {
 	typ               types.Type
-	name              string
+	shortName         string
 	localName         string
 	supportedAsColumn bool
 }
@@ -75,11 +80,17 @@ type typeInfo struct {
 func NewLocalTypeRegistry(typeInfos []typeInfo) LocalTypeRegistry {
 	nameToType := make(map[string]types.Type)
 	localNameToType := make(map[string]types.Type)
-	typeInfoMap := make(map[types.Type]typeInfo)
+	typeInfoMap := make(map[string]typeInfo)
 	for _, ti := range typeInfos {
-		nameToType[ti.name] = ti.typ
+		nameToType[ti.shortName] = ti.typ
 		localNameToType[ti.localName] = ti.typ
-		typeInfoMap[ti.typ] = ti
+		typeInfoMap[ti.shortName] = ti
+		longName := ti.typ.String()
+		if longName != ti.shortName {
+			// add long name if it is different from short name
+			nameToType[longName] = ti.typ
+			typeInfoMap[longName] = ti
+		}
 	}
 	return &localTypeRegistryImpl{
 		nameToType:      nameToType,
@@ -97,14 +108,16 @@ func (t *localTypeRegistryImpl) GetSubstraitTypeFromLocalType(localType string) 
 }
 
 func (t *localTypeRegistryImpl) GetLocalTypeFromSubstraitType(typ types.Type) (string, error) {
-	if ti, ok := t.typeInfoMap[typ]; ok {
+	// TODO check if nullable needs to be handled
+	name := typ.ShortString()
+	if ti, ok := t.typeInfoMap[name]; ok {
 		return ti.localName, nil
 	}
 	return "", substraitgo.ErrNotFound
 }
 
 func (t *localTypeRegistryImpl) IsTypeSupportedInTables(typ types.Type) bool {
-	if ti, ok := t.typeInfoMap[typ]; ok {
+	if ti, ok := t.typeInfoMap[typ.ShortString()]; ok {
 		return ti.supportedAsColumn
 	}
 	return false

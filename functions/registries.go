@@ -17,9 +17,15 @@ type TypeRegistry interface {
 
 // LocalTypeRegistry is a registry that contains all types associated with a particular dialect.
 type LocalTypeRegistry interface {
+	// GetTypeFromTypeString Given a Substrait standard typeString, get the Substrait type.
 	GetTypeFromTypeString(typeString string) (types.Type, error)
+
+	// GetSubstraitTypeFromLocalType Given a local type string, get the Substrait type.
 	GetSubstraitTypeFromLocalType(localType string) (types.Type, error)
+
+	// GetLocalTypeFromSubstraitType Given a Substrait type, get the local type string.
 	GetLocalTypeFromSubstraitType(typ types.Type) (string, error)
+
 	//GetTypeClasses() []types.TypeClass // TODO
 
 	// IsTypeSupportedInTables Whether a particular type is supported in tables. Some types (such as INTERVAL) may
@@ -43,7 +49,10 @@ type Dialect interface {
 }
 
 type FunctionRegistry interface {
+	// GetScalarFunctions returns a set of zero or more function variants that match the provided name.
 	GetScalarFunctions(name string) []*extensions.ScalarFunctionVariant
+
+	// GetAggregateFunctions returns a set of zero or more function variants that match the provided name.
 	GetAggregateFunctions(name string) []*extensions.AggregateFunctionVariant
 
 	// GetWindowFunctions returns a set of zero or more function variants that match the provided name.
@@ -61,6 +70,7 @@ const (
 
 // LocalFunctionRegistry is a collection of functions localized to a particular Dialect
 type LocalFunctionRegistry interface {
+	// GetScalarFunctionsBy returns a set of zero or more function variants that match the provided name & kind.
 	GetScalarFunctionsBy(name string, kind NameKind) []*LocalScalarFunctionVariant
 	GetAggregateFunctionsBy(name string, kind NameKind) []*LocalAggregateFunctionVariant
 	GetWindowFunctionsBy(name string, kind NameKind) []*LocalWindowFunctionVariant
@@ -164,7 +174,7 @@ func isOptionSupported(name string, value string, options map[string]extensions.
 	val, exists := options[name]
 	if !exists {
 		// TODO: should this be true or false?
-		return true
+		return false
 	}
 	for _, v := range val.Values {
 		if strings.EqualFold(v, value) {
