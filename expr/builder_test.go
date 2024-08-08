@@ -25,8 +25,8 @@ func TestExprBuilder(t *testing.T) {
 		err      string
 	}{
 		{"literal", "i8?(5)", b.Wrap(expr.NewLiteral(int8(5), true)), ""},
-		{"preciseTimeStampliteral", "precisiontimestamp?<3>(123456)", b.Wrap(expr.NewPrecisionTimestampLiteral(123456, types.Milliseconds, types.NullabilityNullable), nil), ""},
-		{"preciseTimeStampTzliteral", "precisiontimestamptz?<6>(123456)", b.Wrap(expr.NewPrecisionTimestampTzLiteral(123456, types.Microseconds, types.NullabilityNullable), nil), ""},
+		{"preciseTimeStampliteral", "precisiontimestamp?<3>(123456)", b.Wrap(expr.NewPrecisionTimestampLiteral(123456, types.MilliSeconds, types.NullabilityNullable), nil), ""},
+		{"preciseTimeStampTzliteral", "precisiontimestamptz?<6>(123456)", b.Wrap(expr.NewPrecisionTimestampTzLiteral(123456, types.MicroSeconds, types.NullabilityNullable), nil), ""},
 		{"simple add", "add(.field(1) => i8, i8(5)) => i8?",
 			b.ScalarFunc(addID).Args(
 				b.RootRef(expr.NewStructFieldRef(1)),

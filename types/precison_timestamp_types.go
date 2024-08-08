@@ -11,20 +11,38 @@ type TimePrecision int
 const (
 	UnknownPrecision TimePrecision = iota
 	Seconds
-	Milliseconds
-	Microseconds
-	Nanoseconds
+	DeciSeconds
+	CentiSeconds
+	MilliSeconds
+	EMinus4Seconds // 10^-4 of seconds
+	EMinus5Seconds // 10^-5 of seconds
+	MicroSeconds
+	EMinus7Seconds // 10^-7 of seconds
+	EMinus8Seconds // 10^-8 of seconds
+	NanoSeconds
 )
 
 func timePrecisionToProtoVal(val TimePrecision) int32 {
 	switch val {
 	case Seconds:
 		return 0
-	case Milliseconds:
+	case DeciSeconds:
+		return 1
+	case CentiSeconds:
+		return 2
+	case MilliSeconds:
 		return 3
-	case Microseconds:
+	case EMinus4Seconds:
+		return 4
+	case EMinus5Seconds:
+		return 5
+	case MicroSeconds:
 		return 6
-	case Nanoseconds:
+	case EMinus7Seconds:
+		return 7
+	case EMinus8Seconds:
+		return 8
+	case NanoSeconds:
 		return 9
 	}
 	panic("unreachable")
@@ -34,12 +52,24 @@ func ProtoToTimePrecision(val int32) (TimePrecision, error) {
 	switch val {
 	case 0:
 		return Seconds, nil
+	case 1:
+		return DeciSeconds, nil
+	case 2:
+		return CentiSeconds, nil
 	case 3:
-		return Milliseconds, nil
+		return MilliSeconds, nil
+	case 4:
+		return EMinus4Seconds, nil
+	case 5:
+		return EMinus5Seconds, nil
 	case 6:
-		return Microseconds, nil
+		return MicroSeconds, nil
+	case 7:
+		return EMinus7Seconds, nil
+	case 8:
+		return EMinus8Seconds, nil
 	case 9:
-		return Nanoseconds, nil
+		return NanoSeconds, nil
 	}
 	return UnknownPrecision, errors.Newf("invalid TimePrecision value %d", val)
 }
@@ -50,7 +80,7 @@ type PrecisionTimeStampType struct {
 	nullability      Nullability
 }
 
-func NewPrecisionTimestamp(precision TimePrecision) PrecisionTimeStampType {
+func NewPrecisionTimestampType(precision TimePrecision) PrecisionTimeStampType {
 	return PrecisionTimeStampType{
 		precision:   precision,
 		nullability: NullabilityNullable,
@@ -108,7 +138,7 @@ type PrecisionTimeStampTzType struct {
 }
 
 // creates a new precision timestamp with nullability as Nullable
-func NewPrecisionTimestampTz(precision TimePrecision) PrecisionTimeStampTzType {
+func NewPrecisionTimestampTzType(precision TimePrecision) PrecisionTimeStampTzType {
 	return PrecisionTimeStampTzType{
 		PrecisionTimeStampType: PrecisionTimeStampType{
 			precision:   precision,

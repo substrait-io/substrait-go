@@ -458,7 +458,7 @@ func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
 				Scale:     literalType.Scale,
 			},
 		}
-	case *types.PrecisionTimeStampType:
+	case types.PrecisionTimeStampType:
 		v := t.Value.(uint64)
 		lit.LiteralType = &proto.Expression_Literal_PrecisionTimestamp_{
 			PrecisionTimestamp: &proto.Expression_Literal_PrecisionTimestamp{
@@ -466,10 +466,10 @@ func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
 				Value:     int64(v),
 			},
 		}
-	case *types.PrecisionTimeStampTzType:
+	case types.PrecisionTimeStampTzType:
 		v := t.Value.(uint64)
-		lit.LiteralType = &proto.Expression_Literal_PrecisionTimestamp_{
-			PrecisionTimestamp: &proto.Expression_Literal_PrecisionTimestamp{
+		lit.LiteralType = &proto.Expression_Literal_PrecisionTimestampTz{
+			PrecisionTimestampTz: &proto.Expression_Literal_PrecisionTimestamp{
 				Precision: literalType.GetPrecisionProtoVal(),
 				Value:     int64(v),
 			},
@@ -970,16 +970,20 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 	panic("unimplemented literal type")
 }
 
+// NewPrecisionTimestampLiteral it takes timestamp value which is in specified precision
+// and nullable property (n) and returns a PrecisionTimestamp Literal
 func NewPrecisionTimestampLiteral(value uint64, precision types.TimePrecision, n types.Nullability) Literal {
-	precisionType := types.NewPrecisionTimestamp(precision).WithNullability(n)
+	precisionType := types.NewPrecisionTimestampType(precision).WithNullability(n)
 	return &ProtoLiteral{
 		Value: value,
 		Type:  precisionType,
 	}
 }
 
+// NewPrecisionTimestampTzLiteral it takes timestamp value which is in specified precision
+// and nullable property (n) and returns a PrecisionTimestampTz Literal
 func NewPrecisionTimestampTzLiteral(value uint64, precision types.TimePrecision, n types.Nullability) Literal {
-	precisionType := types.NewPrecisionTimestampTz(precision).WithNullability(n)
+	precisionType := types.NewPrecisionTimestampTzType(precision).WithNullability(n)
 	return &ProtoLiteral{
 		Value: value,
 		Type:  precisionType,
