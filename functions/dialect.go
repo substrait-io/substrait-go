@@ -100,7 +100,7 @@ func makeLocalFunctionVariantMap[T withID, V any](dialectFunctionInfos map[exten
 func (d *dialectImpl) LocalizeTypeRegistry(registry TypeRegistry) (LocalTypeRegistry, error) {
 	typeInfos := make([]typeInfo, 0, len(d.toLocalTypeMap))
 	for name, info := range d.toLocalTypeMap {
-		typ, err := registry.GetTypeFromTypeString(name)
+		typ, err := getTypeFromBaseTypeName(name)
 		if err != nil {
 			return nil, err
 		}
