@@ -240,7 +240,7 @@ func (df *dialectFunction) validateAndFixKernels() error {
 			if strings.HasPrefix(argType, "any") {
 				argTypes[i] = "any"
 				hasAnyType = true
-			} else if !isSupportedType(argType) {
+			} else if argType != "" && !isSupportedType(argType) {
 				return fmt.Errorf("%w: unsupported type '%s'", substraitgo.ErrInvalidDialect, argType)
 			}
 		}
