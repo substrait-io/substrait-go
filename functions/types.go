@@ -168,9 +168,8 @@ func (ti *typeInfo) getLongName() string {
 }
 
 func (ti *typeInfo) getLocalTypeString(input types.Type, enclosure typeEnclosure) string {
-	switch input.(type) {
-	case types.ParameterizedType:
-		return ti.localName + enclosure.containerStart() + input.(types.ParameterizedType).ParameterString() + enclosure.containerEnd()
+	if paramType, ok := input.(types.ParameterizedType); ok {
+		return ti.localName + enclosure.containerStart() + paramType.ParameterString() + enclosure.containerEnd()
 	}
 	return ti.localName
 }
