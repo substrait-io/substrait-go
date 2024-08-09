@@ -406,7 +406,7 @@ func (t *ProtoLiteral) GetType() types.Type { return t.Type }
 func (t *ProtoLiteral) String() string {
 	switch literalType := t.Type.(type) {
 	case types.PrecisionTimeStampType, types.PrecisionTimeStampTzType:
-		return fmt.Sprintf("%s(%d)", literalType, t.Value.(uint64))
+		return fmt.Sprintf("%s(%d)", literalType, t.Value)
 	}
 	return fmt.Sprintf("%s(%s)", t.Type, t.Value)
 }

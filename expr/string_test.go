@@ -38,14 +38,14 @@ func TestLiteralToString(t *testing.T) {
 		}, true), "list?<map?<string,char<3>>>([map?<string,char<3>>([{string(foo) char<3>(bar)} {string(baz) char<3>(bar)}])])"},
 		{MustLiteral(expr.NewLiteral(float32(1.5), false)), "fp32(1.5)"},
 		{MustLiteral(expr.NewLiteral(&types.VarChar{Value: "foobar", Length: 7}, true)), "varchar?<7>(foobar)"},
-		{expr.NewPrecisionTimestampLiteral(123456, types.Seconds, types.NullabilityNullable), "precisiontimestamp?<0>(123456)"},
-		{expr.NewPrecisionTimestampLiteral(123456, types.MilliSeconds, types.NullabilityNullable), "precisiontimestamp?<3>(123456)"},
-		{expr.NewPrecisionTimestampLiteral(123456, types.MicroSeconds, types.NullabilityNullable), "precisiontimestamp?<6>(123456)"},
-		{expr.NewPrecisionTimestampLiteral(123456, types.NanoSeconds, types.NullabilityNullable), "precisiontimestamp?<9>(123456)"},
-		{expr.NewPrecisionTimestampTzLiteral(123456, types.Seconds, types.NullabilityNullable), "precisiontimestamptz?<0>(123456)"},
-		{expr.NewPrecisionTimestampTzLiteral(123456, types.MilliSeconds, types.NullabilityNullable), "precisiontimestamptz?<3>(123456)"},
-		{expr.NewPrecisionTimestampTzLiteral(123456, types.MicroSeconds, types.NullabilityNullable), "precisiontimestamptz?<6>(123456)"},
-		{expr.NewPrecisionTimestampTzLiteral(123456, types.NanoSeconds, types.NullabilityNullable), "precisiontimestamptz?<9>(123456)"},
+		{expr.NewPrecisionTimestampLiteral(123456, types.PrecisionSeconds, types.NullabilityNullable), "precisiontimestamp?<0>(123456)"},
+		{expr.NewPrecisionTimestampLiteral(123456, types.PrecisionMilliSeconds, types.NullabilityNullable), "precisiontimestamp?<3>(123456)"},
+		{expr.NewPrecisionTimestampLiteral(123456, types.PrecisionMicroSeconds, types.NullabilityNullable), "precisiontimestamp?<6>(123456)"},
+		{expr.NewPrecisionTimestampLiteral(123456, types.PrecisionNanoSeconds, types.NullabilityNullable), "precisiontimestamp?<9>(123456)"},
+		{expr.NewPrecisionTimestampTzLiteral(123456, types.PrecisionSeconds, types.NullabilityNullable), "precisiontimestamptz?<0>(123456)"},
+		{expr.NewPrecisionTimestampTzLiteral(123456, types.PrecisionMilliSeconds, types.NullabilityNullable), "precisiontimestamptz?<3>(123456)"},
+		{expr.NewPrecisionTimestampTzLiteral(123456, types.PrecisionMicroSeconds, types.NullabilityNullable), "precisiontimestamptz?<6>(123456)"},
+		{expr.NewPrecisionTimestampTzLiteral(123456, types.PrecisionNanoSeconds, types.NullabilityNullable), "precisiontimestamptz?<9>(123456)"},
 	}
 
 	for _, tt := range tests {

@@ -2,84 +2,48 @@ package types
 
 import (
 	"fmt"
-	"github.com/cockroachdb/errors"
 	"github.com/substrait-io/substrait-go/proto"
 )
 
-type TimePrecision int
+// TimePrecision is used to represent the precision of a timestamp
+type TimePrecision int32
 
+const PrecisionUnknown TimePrecision = -1
+
+// precision values are proto values
 const (
-	UnknownPrecision TimePrecision = iota
-	Seconds
-	DeciSeconds
-	CentiSeconds
-	MilliSeconds
-	EMinus4Seconds // 10^-4 of seconds
-	EMinus5Seconds // 10^-5 of seconds
-	MicroSeconds
-	EMinus7Seconds // 10^-7 of seconds
-	EMinus8Seconds // 10^-8 of seconds
-	NanoSeconds
+	PrecisionSeconds TimePrecision = iota
+	PrecisionDeciSeconds
+	PrecisionCentiSeconds
+	PrecisionMilliSeconds
+	PrecisionEMinus4Seconds // 10^-4 of seconds
+	PrecisionEMinus5Seconds // 10^-5 of seconds
+	PrecisionMicroSeconds
+	PrecisionEMinus7Seconds // 10^-7 of seconds
+	PrecisionEMinus8Seconds // 10^-8 of seconds
+	PrecisionNanoSeconds
 )
 
 func timePrecisionToProtoVal(val TimePrecision) int32 {
-	switch val {
-	case Seconds:
-		return 0
-	case DeciSeconds:
-		return 1
-	case CentiSeconds:
-		return 2
-	case MilliSeconds:
-		return 3
-	case EMinus4Seconds:
-		return 4
-	case EMinus5Seconds:
-		return 5
-	case MicroSeconds:
-		return 6
-	case EMinus7Seconds:
-		return 7
-	case EMinus8Seconds:
-		return 8
-	case NanoSeconds:
-		return 9
-	}
-	panic("unreachable")
+	return int32(val)
 }
 
 func ProtoToTimePrecision(val int32) (TimePrecision, error) {
-	switch val {
-	case 0:
-		return Seconds, nil
-	case 1:
-		return DeciSeconds, nil
-	case 2:
-		return CentiSeconds, nil
-	case 3:
-		return MilliSeconds, nil
-	case 4:
-		return EMinus4Seconds, nil
-	case 5:
-		return EMinus5Seconds, nil
-	case 6:
-		return MicroSeconds, nil
-	case 7:
-		return EMinus7Seconds, nil
-	case 8:
-		return EMinus8Seconds, nil
-	case 9:
-		return NanoSeconds, nil
+	if val < 0 || val > 9 {
+		return PrecisionUnknown, fmt.Errorf("invalid TimePrecision value %d", val)
 	}
-	return UnknownPrecision, errors.Newf("invalid TimePrecision value %d", val)
+	return TimePrecision(val), nil
 }
 
+// PrecisionTimeStampType this is used to represent a type of precision timestamp
 type PrecisionTimeStampType struct {
 	precision        TimePrecision
 	typeVariationRef uint32
 	nullability      Nullability
 }
 
+// NewPrecisionTimestampType creates a type of new precision timestamp.
+// Created type has nullability as Nullable
 func NewPrecisionTimestampType(precision TimePrecision) PrecisionTimeStampType {
 	return PrecisionTimeStampType{
 		precision:   precision,
@@ -133,17 +97,25 @@ func (m PrecisionTimeStampType) String() string {
 		timePrecisionToProtoVal(m.precision))
 }
 
+// PrecisionTimeStampTzType this is used to represent a type of precision timestamp with TimeZone
 type PrecisionTimeStampTzType struct {
 	PrecisionTimeStampType
 }
 
-// creates a new precision timestamp with nullability as Nullable
+// NewPrecisionTimestampTzType creates a type of new precision timestamp with TimeZone.
+// Created type has nullability as Nullable
 func NewPrecisionTimestampTzType(precision TimePrecision) PrecisionTimeStampTzType {
 	return PrecisionTimeStampTzType{
 		PrecisionTimeStampType: PrecisionTimeStampType{
 			precision:   precision,
 			nullability: NullabilityNullable,
 		},
+	}
+}
+
+func (m PrecisionTimeStampTzType) ToProtoFuncArg() *proto.FunctionArgument {
+	return &proto.FunctionArgument{
+		ArgType: &proto.FunctionArgument_Type{Type: m.ToProto()},
 	}
 }
 
@@ -165,3 +137,11 @@ func (m PrecisionTimeStampTzType) WithNullability(n Nullability) Type {
 		PrecisionTimeStampType: m.PrecisionTimeStampType.withNullability(n),
 	}
 }
+
+func (m PrecisionTimeStampTzType) Equals(rhs Type) bool {
+	if o, ok := rhs.(PrecisionTimeStampTzType); ok {
+		return o == m
+	}
+	return false
+}
+func (PrecisionTimeStampTzType) ShortString() string { return "pretstz" }
