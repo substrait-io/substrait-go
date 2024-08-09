@@ -7,29 +7,27 @@ import (
 )
 
 type TypeRegistry interface {
-	// GetTypeFromTypeString Given a Substrait standard typeString, get the Substrait type. Return
-	// error if type doesn't parse. This type registry should support both standard types and any
-	// available extension types.
+	// GetTypeFromTypeString gets the Substrait type for a given Substrait standard typeString.
+	// Returns an error if type doesn't parse. This type registry should support both standard types
+	// and any available extension types.
 	GetTypeFromTypeString(typeString string) (types.Type, error)
-
-	//GetTypeClasses() []types.TypeClass // TODO define TypeClass so we can get things like DECIMAL<?,?>.
 }
 
 // LocalTypeRegistry is a registry that contains all types associated with a particular dialect.
 type LocalTypeRegistry interface {
-	// GetTypeFromTypeString Given a Substrait standard typeString, get the Substrait type.
+	// GetTypeFromTypeString gets the Substrait type for a given Substrait standard typeString.
 	GetTypeFromTypeString(typeString string) (types.Type, error)
 
-	// GetSubstraitTypeFromLocalType Given a local type string, get the Substrait type.
+	// GetSubstraitTypeFromLocalType gets the Substrait type for a given local type string.
 	GetSubstraitTypeFromLocalType(localType string) (types.Type, error)
 
-	// GetLocalTypeFromSubstraitType Given a Substrait type, get the local type string.
+	// GetLocalTypeFromSubstraitType gets the local type string for a given Substrait type.
 	GetLocalTypeFromSubstraitType(typ types.Type) (string, error)
 
 	//GetTypeClasses() []types.TypeClass // TODO
 
-	// IsTypeSupportedInTables Whether a particular type is supported in tables. Some types (such as INTERVAL) may
-	// only be supported in literal contexts.
+	// IsTypeSupportedInTables checks whether a particular type is supported in tables.
+	// Some types (such as INTERVAL) may only be supported in literal contexts.
 	IsTypeSupportedInTables(typ types.Type) bool
 }
 
@@ -49,18 +47,20 @@ type Dialect interface {
 }
 
 type FunctionRegistry interface {
-	// GetScalarFunctions returns a set of zero or more function variants that match the provided name.
+	// GetScalarFunctions returns a slice of zero or more scalar function variants that match the provided name.
 	GetScalarFunctions(name string) []*extensions.ScalarFunctionVariant
 
-	// GetAggregateFunctions returns a set of zero or more function variants that match the provided name.
+	// GetAggregateFunctions returns a slice of zero or more aggregate function variants that match the provided name.
 	GetAggregateFunctions(name string) []*extensions.AggregateFunctionVariant
 
-	// GetWindowFunctions returns a set of zero or more function variants that match the provided name.
+	// GetWindowFunctions returns a slice of zero or more window function variants that match the provided name.
 	GetWindowFunctions(name string) []*extensions.WindowFunctionVariant
 
+	// GetAllFunctions returns all function variants in the registry
 	GetAllFunctions() []extensions.FunctionVariant
 }
 
+// NameKind is an enum that describes the kind of name being used to look up a function
 type NameKind int
 
 const (
@@ -70,10 +70,16 @@ const (
 
 // LocalFunctionRegistry is a collection of functions localized to a particular Dialect
 type LocalFunctionRegistry interface {
-	// GetScalarFunctionsBy returns a set of zero or more function variants that match the provided name & kind.
+	// GetScalarFunctionsBy returns a slice of zero or more scalar function variants that match the given name & kind.
 	GetScalarFunctionsBy(name string, kind NameKind) []*LocalScalarFunctionVariant
+
+	// GetAggregateFunctionsBy returns a slice of zero or more aggregate function variants that match the given name & kind.
 	GetAggregateFunctionsBy(name string, kind NameKind) []*LocalAggregateFunctionVariant
+
+	// GetWindowFunctionsBy returns a slice of zero or more window function variants that match the given name & kind.
 	GetWindowFunctionsBy(name string, kind NameKind) []*LocalWindowFunctionVariant
+
+	// GetDialect returns the dialect that this function registry is localized to
 	GetDialect() Dialect
 }
 
@@ -85,93 +91,22 @@ const (
 	POSTFIX
 )
 
-// LocalScalarFunctionVariant is a ScalarFunctionVariant that also understands its context in a particular dialect
-type LocalScalarFunctionVariant struct {
-	extensions.ScalarFunctionVariant
+type LocalFunctionVariant struct {
 	localName        string
 	supportedOptions map[string]extensions.Option
 	notation         FunctionNotation
 }
 
-func newLocalScalarFunctionVariant(sf *extensions.ScalarFunctionVariant, dfi *dialectFunctionInfo) *LocalScalarFunctionVariant {
-	return &LocalScalarFunctionVariant{
-		ScalarFunctionVariant: *sf,
-		localName:             dfi.LocalName,
-		supportedOptions:      dfi.Options,
-		notation:              dfi.Notation,
-	}
-}
-
-func (l *LocalScalarFunctionVariant) LocalName() string {
+func (l *LocalFunctionVariant) LocalName() string {
 	return l.localName
 }
 
-func (l *LocalScalarFunctionVariant) Notation() FunctionNotation {
+func (l *LocalFunctionVariant) Notation() FunctionNotation {
 	return l.notation
 }
 
-func (l *LocalScalarFunctionVariant) IsOptionSupported(name string, value string) bool {
-	return isOptionSupported(name, value, l.supportedOptions)
-}
-
-type LocalAggregateFunctionVariant struct {
-	extensions.AggregateFunctionVariant
-	localName        string
-	supportedOptions map[string]extensions.Option
-	notation         FunctionNotation
-}
-
-func newLocalAggregateFunctionVariant(af *extensions.AggregateFunctionVariant, dfi *dialectFunctionInfo) *LocalAggregateFunctionVariant {
-	return &LocalAggregateFunctionVariant{
-		AggregateFunctionVariant: *af,
-		localName:                dfi.LocalName,
-		supportedOptions:         dfi.Options,
-		notation:                 dfi.Notation,
-	}
-}
-
-func (l LocalAggregateFunctionVariant) LocalName() string {
-	return l.localName
-}
-
-func (l LocalAggregateFunctionVariant) Notation() FunctionNotation {
-	return l.notation
-}
-
-func (l LocalAggregateFunctionVariant) IsOptionSupported(name string, value string) bool {
-	return isOptionSupported(name, value, l.supportedOptions)
-}
-
-type LocalWindowFunctionVariant struct {
-	extensions.WindowFunctionVariant
-	localName        string
-	supportedOptions map[string]extensions.Option
-	notation         FunctionNotation
-}
-
-func newLocalWindowFunctionVariant(wf *extensions.WindowFunctionVariant, dfi *dialectFunctionInfo) *LocalWindowFunctionVariant {
-	return &LocalWindowFunctionVariant{
-		WindowFunctionVariant: *wf,
-		localName:             dfi.LocalName,
-		supportedOptions:      dfi.Options,
-		notation:              dfi.Notation,
-	}
-}
-
-func (l LocalWindowFunctionVariant) LocalName() string {
-	return l.localName
-}
-
-func (l LocalWindowFunctionVariant) Notation() FunctionNotation {
-	return l.notation
-}
-
-func (l LocalWindowFunctionVariant) IsOptionSupported(name string, value string) bool {
-	return isOptionSupported(name, value, l.supportedOptions)
-}
-
-func isOptionSupported(name string, value string, options map[string]extensions.Option) bool {
-	val, exists := options[name]
+func (l *LocalFunctionVariant) IsOptionSupported(name string, value string) bool {
+	val, exists := l.supportedOptions[name]
 	if !exists {
 		// TODO: should this be true or false?
 		return false
@@ -182,4 +117,53 @@ func isOptionSupported(name string, value string, options map[string]extensions.
 		}
 	}
 	return false
+}
+
+// LocalScalarFunctionVariant is a ScalarFunctionVariant that also understands its context in a particular dialect
+type LocalScalarFunctionVariant struct {
+	extensions.ScalarFunctionVariant
+	LocalFunctionVariant
+}
+
+type LocalAggregateFunctionVariant struct {
+	extensions.AggregateFunctionVariant
+	LocalFunctionVariant
+}
+
+type LocalWindowFunctionVariant struct {
+	extensions.WindowFunctionVariant
+	LocalFunctionVariant
+}
+
+func newLocalScalarFunctionVariant(sf *extensions.ScalarFunctionVariant, dfi *dialectFunctionInfo) *LocalScalarFunctionVariant {
+	return &LocalScalarFunctionVariant{
+		ScalarFunctionVariant: *sf,
+		LocalFunctionVariant: LocalFunctionVariant{
+			localName:        dfi.LocalName,
+			supportedOptions: dfi.Options,
+			notation:         dfi.Notation,
+		},
+	}
+}
+
+func newLocalAggregateFunctionVariant(af *extensions.AggregateFunctionVariant, dfi *dialectFunctionInfo) *LocalAggregateFunctionVariant {
+	return &LocalAggregateFunctionVariant{
+		AggregateFunctionVariant: *af,
+		LocalFunctionVariant: LocalFunctionVariant{
+			localName:        dfi.LocalName,
+			supportedOptions: dfi.Options,
+			notation:         dfi.Notation,
+		},
+	}
+}
+
+func newLocalWindowFunctionVariant(wf *extensions.WindowFunctionVariant, dfi *dialectFunctionInfo) *LocalWindowFunctionVariant {
+	return &LocalWindowFunctionVariant{
+		WindowFunctionVariant: *wf,
+		LocalFunctionVariant: LocalFunctionVariant{
+			localName:        dfi.LocalName,
+			supportedOptions: dfi.Options,
+			notation:         dfi.Notation,
+		},
+	}
 }

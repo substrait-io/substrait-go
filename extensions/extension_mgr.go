@@ -38,15 +38,15 @@ func init() {
 		if err != nil {
 			panic(err)
 		}
-		_ = f.Close()
 		err = DefaultCollection.Load(SubstraitDefaultURIPrefix+ent.Name(), f)
 		if err != nil {
 			panic(err)
 		}
+		_ = f.Close()
 	}
 }
 
-// ID The unique identifier for a substrait object
+// ID is the unique identifier for a substrait object
 type ID struct {
 	URI string
 	// Name of the object. For functions, a simple name may be used for lookups,
@@ -202,16 +202,28 @@ func (c *Collection) URILoaded(uri string) bool {
 	return ok
 }
 
-func (c *Collection) GetAllScalarFunctions() map[ID]*ScalarFunctionVariant {
-	return c.scalarMap
+func (c *Collection) GetAllScalarFunctions() []*ScalarFunctionVariant {
+	scalarFunctions := make([]*ScalarFunctionVariant, 0, len(c.scalarMap))
+	for _, v := range c.scalarMap {
+		scalarFunctions = append(scalarFunctions, v)
+	}
+	return scalarFunctions
 }
 
-func (c *Collection) GetAllAggregateFunctions() map[ID]*AggregateFunctionVariant {
-	return c.aggregateMap
+func (c *Collection) GetAllAggregateFunctions() []*AggregateFunctionVariant {
+	aggregateFunctions := make([]*AggregateFunctionVariant, 0, len(c.aggregateMap))
+	for _, v := range c.aggregateMap {
+		aggregateFunctions = append(aggregateFunctions, v)
+	}
+	return aggregateFunctions
 }
 
-func (c *Collection) GetAllWindowFunctions() map[ID]*WindowFunctionVariant {
-	return c.windowMap
+func (c *Collection) GetAllWindowFunctions() []*WindowFunctionVariant {
+	windowFunctions := make([]*WindowFunctionVariant, 0, len(c.windowMap))
+	for _, v := range c.windowMap {
+		windowFunctions = append(windowFunctions, v)
+	}
+	return windowFunctions
 }
 
 type Set interface {

@@ -4,15 +4,6 @@ import (
 	"github.com/substrait-io/substrait-go/extensions"
 )
 
-var DefaultRegistry FunctionRegistry
-
-func GetDefaultFunctionRegistry() FunctionRegistry {
-	if DefaultRegistry == nil {
-		DefaultRegistry = NewFunctionRegistry(&extensions.DefaultCollection)
-	}
-	return DefaultRegistry
-}
-
 type functionRegistryImpl struct {
 	scalarFunctions    map[string][]*extensions.ScalarFunctionVariant
 	aggregateFunctions map[string][]*extensions.AggregateFunctionVariant
@@ -38,7 +29,7 @@ func NewFunctionRegistry(collection *extensions.Collection) FunctionRegistry {
 	}
 }
 
-func processFunctions[T extensions.FunctionVariant](functions map[extensions.ID]T, funcMap map[string][]T, allFunctions *[]extensions.FunctionVariant) {
+func processFunctions[T extensions.FunctionVariant](functions []T, funcMap map[string][]T, allFunctions *[]extensions.FunctionVariant) {
 	for _, f := range functions {
 		name := f.Name()
 		if _, ok := funcMap[name]; !ok {

@@ -1,10 +1,11 @@
 package functions
 
 import (
-	substraitgo "github.com/substrait-io/substrait-go"
-	"github.com/substrait-io/substrait-go/types"
 	"strconv"
 	"strings"
+
+	substraitgo "github.com/substrait-io/substrait-go"
+	"github.com/substrait-io/substrait-go/types"
 )
 
 var nameToTypeMap = map[string]types.Type{

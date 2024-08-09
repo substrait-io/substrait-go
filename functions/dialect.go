@@ -4,41 +4,20 @@ package functions
 
 import (
 	"fmt"
+	"io"
+	"strings"
+
 	"github.com/goccy/go-yaml"
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/extensions"
-	"io"
-	"strings"
 )
 
-var loadedDialects = make(map[string]Dialect)
-
-func LoadDialect(name string, r io.Reader) error {
-	if _, ok := loadedDialects[name]; ok {
-		return fmt.Errorf("%w: dialect '%s' already loaded", substraitgo.ErrKeyExists, name)
-	}
-
+func LoadDialect(name string, r io.Reader) (Dialect, error) {
 	dialect, err := newDialect(name, r)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	loadedDialects[name] = dialect
-	return nil
-}
-
-func GetDialect(name string) (Dialect, error) {
-	if d, ok := loadedDialects[name]; ok {
-		return d, nil
-	}
-	return nil, fmt.Errorf("%w: dialect '%s' not found", substraitgo.ErrNotFound, name)
-}
-
-func GetSupportedDialects() []string {
-	var ret []string
-	for k := range loadedDialects {
-		ret = append(ret, k)
-	}
-	return ret
+	return dialect, nil
 }
 
 type dialectFunctionInfo struct {
@@ -65,44 +44,81 @@ func (d *dialectImpl) Name() string {
 }
 
 func (d *dialectImpl) LocalizeFunctionRegistry(registry FunctionRegistry) (LocalFunctionRegistry, error) {
-	scalarFunctions := makeLocalFunctionVariantMap(d.localScalarFunctions, registry.GetScalarFunctions, newLocalScalarFunctionVariant)
-	aggregateFunctions := makeLocalFunctionVariantMap(d.localAggregateFunctions, registry.GetAggregateFunctions, newLocalAggregateFunctionVariant)
-	windowFunctions := makeLocalFunctionVariantMap(d.localWindowFunctions, registry.GetWindowFunctions, newLocalWindowFunctionVariant)
+	scalarFunctions, err := makeLocalFunctionVariantMap(d.localScalarFunctions, registry.GetScalarFunctions, newLocalScalarFunctionVariant)
+	if err != nil {
+		return nil, err
+	}
+	aggregateFunctions, err := makeLocalFunctionVariantMap(d.localAggregateFunctions, registry.GetAggregateFunctions, newLocalAggregateFunctionVariant)
+	if err != nil {
+		return nil, err
+	}
+	windowFunctions, err := makeLocalFunctionVariantMap(d.localWindowFunctions, registry.GetWindowFunctions, newLocalWindowFunctionVariant)
+	if err != nil {
+		return nil, err
+	}
 
-	return newLocalFunctionRegistry(d, scalarFunctions, aggregateFunctions, windowFunctions), nil
+	return &localFunctionRegistryImpl{
+		dialect:                 d,
+		scalarFunctions:         scalarFunctions,
+		aggregateFunctions:      aggregateFunctions,
+		windowFunctions:         windowFunctions,
+		localScalarFunctions:    buildReverseMap(scalarFunctions),
+		localAggregateFunctions: buildReverseMap(aggregateFunctions),
+		localWindowFunctions:    buildReverseMap(windowFunctions),
+	}, nil
+}
+
+type withLocalName interface {
+	LocalName() string
+}
+
+func buildReverseMap[T withLocalName](localFunctionVariants map[string][]T) map[string][]T {
+	reverseMap := make(map[string][]T)
+	for _, variants := range localFunctionVariants {
+		reverseMap[variants[0].LocalName()] = variants
+	}
+	return reverseMap
 }
 
 type withID interface {
 	ID() extensions.ID
 }
 
-func makeLocalFunctionVariantMap[T withID, V any](dialectFunctionInfos map[extensions.ID]*dialectFunctionInfo, getFunctionVariants func(string) []T, createLocalVariant func(T, *dialectFunctionInfo) *V) map[string][]*V {
+func makeLocalFunctionVariantMap[T withID, V any](dialectFunctionInfos map[extensions.ID]*dialectFunctionInfo, getFunctionVariants func(string) []T, createLocalVariant func(T, *dialectFunctionInfo) *V) (map[string][]*V, error) {
+	processedFunctions := make(map[extensions.ID]bool)
 	localFunctionVariants := make(map[string][]*V)
 	for _, dfi := range dialectFunctionInfos {
-		if _, ok := localFunctionVariants[dfi.Name]; ok {
-			// skip if function name is already added
+		if _, nameAlreadyProcessed := localFunctionVariants[dfi.Name]; nameAlreadyProcessed {
+			if _, ok := processedFunctions[dfi.ID]; !ok {
+				return nil, fmt.Errorf("%w: no function variant found for '%s'", substraitgo.ErrInvalidDialect, dfi.ID)
+			}
 			continue
 		}
+
 		localVariantArray := make([]*V, 0)
 		for _, f := range getFunctionVariants(dfi.Name) {
 			if dfi, ok := dialectFunctionInfos[f.ID()]; ok {
-				// add functionVariant to local registry only if it is present in the dialect
 				localVariantArray = append(localVariantArray, createLocalVariant(f, dfi))
+				processedFunctions[f.ID()] = true
 			}
 		}
-		if len(localVariantArray) != 0 {
+		if _, ok := processedFunctions[dfi.ID]; !ok {
+			return nil, fmt.Errorf("%w: no function variant found for '%s'", substraitgo.ErrInvalidDialect, dfi.ID)
+		}
+		if len(localVariantArray) > 0 {
 			localFunctionVariants[dfi.Name] = localVariantArray
 		}
 	}
-	return localFunctionVariants
+	return localFunctionVariants, nil
 }
 
 func (d *dialectImpl) LocalizeTypeRegistry(registry TypeRegistry) (LocalTypeRegistry, error) {
 	typeInfos := make([]typeInfo, 0, len(d.toLocalTypeMap))
 	for name, info := range d.toLocalTypeMap {
+		// TODO use registry.GetTypeClasses
 		typ, err := getTypeFromBaseTypeName(name)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%w: unknown type %v", substraitgo.ErrInvalidDialect, name)
 		}
 		typeInfos = append(typeInfos, typeInfo{typ: typ, shortName: name, localName: info.SqlTypeName, supportedAsColumn: info.SupportedAsColumn})
 	}
@@ -180,10 +196,10 @@ func (d *dialectFile) getUriAndFunctionName(df *dialectFunction) (string, string
 
 func (d *dialectFile) validate() error {
 	if len(d.SupportedTypes) == 0 {
-		return substraitgo.ErrInvalidDialect
+		return fmt.Errorf("%w: no supported types provided", substraitgo.ErrInvalidDialect)
 	}
 	if len(d.ScalarFunctions) == 0 && len(d.AggregateFunctions) == 0 && len(d.WindowFunctions) == 0 {
-		return substraitgo.ErrInvalidDialect
+		return fmt.Errorf("%w: no functions provided", substraitgo.ErrInvalidDialect)
 	}
 
 	validate := func(functions []dialectFunction) error {
@@ -206,14 +222,14 @@ func (d *dialectFile) validate() error {
 
 func (d *dialectFile) validateFunction(df *dialectFunction) error {
 	if len(df.Name) == 0 || len(df.SupportedKernels) == 0 {
-		return substraitgo.ErrInvalidDialect
+		return fmt.Errorf("%w: invalid function", substraitgo.ErrInvalidDialect)
 	}
 	parts := strings.Split(df.Name, ".")
 	if len(parts) != 2 {
-		return substraitgo.ErrInvalidDialect
+		return fmt.Errorf("%w: invalid function name '%s'", substraitgo.ErrInvalidDialect, df.Name)
 	}
 	if _, ok := d.Dependencies[parts[0]]; !ok {
-		return substraitgo.ErrInvalidDialect
+		return fmt.Errorf("%w: unknown dependency '%s' in function", substraitgo.ErrInvalidDialect, parts[0])
 	}
 
 	if err := df.validateAndFixKernels(); err != nil {

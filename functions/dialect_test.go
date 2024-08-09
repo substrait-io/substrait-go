@@ -3,10 +3,19 @@
 package functions
 
 import (
-	"github.com/stretchr/testify/assert"
+	"github.com/substrait-io/substrait-go/extensions"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
+
+var gFunctionRegistry FunctionRegistry
+
+func TestMain(m *testing.M) {
+	gFunctionRegistry = NewFunctionRegistry(&extensions.DefaultCollection)
+	m.Run()
+}
 
 func TestDialectApis(t *testing.T) {
 	dialectYaml := `
@@ -25,12 +34,17 @@ supported_types:
     sql_type_name: TINYINT,
     supported_as_column: true
 scalar_functions:
+- name: comparison.is_null
+  local_name: IS NULL
+  postfix: true
+  supported_kernels:
+  - any1
+aggregate_functions:
 - name: arithmetic.max
   aggregate: true
   supported_kernels:
   - i32
   - i64
-aggregate_functions:
 - name: arithmetic.min
   aggregate: true
   supported_kernels:
@@ -44,66 +58,207 @@ window_functions:
   supported_kernels:
   - ""
 `
-	dialectName := t.Name()
-	localRegistry := getLocalFunctionRegistry(t, dialectYaml)
+	dialect, err := LoadDialect(t.Name(), strings.NewReader(dialectYaml))
+	assert.Nil(t, err)
+	assert.NotNil(t, dialect)
+	assert.Equal(t, t.Name(), dialect.Name())
+	localRegistry, err := dialect.LocalizeFunctionRegistry(gFunctionRegistry)
+	assert.NoError(t, err)
+	assert.Equal(t, t.Name(), localRegistry.GetDialect().Name())
+}
 
-	t.Run("GetDialect", func(t *testing.T) {
-		dialect, err := GetDialect(dialectName)
-		assert.Nil(t, err)
-		assert.NotNil(t, dialect)
-		assert.Equal(t, dialectName, dialect.Name())
+func TestBadDialects(t *testing.T) {
+	type testcase struct {
+		error       string
+		dialectYaml string
+	}
+	tests := []testcase{
+		{`no supported types`, `name: testdb`},
+		{`no supported types`, `name: testdb
+type: sql
+dependencies:
+supported_types:
+window_functions:
+- name: arithmetic.ntile
+  supported_kernels:
+  - i32
+`},
+		{`no functions`, `name: testdb
+type: sql
+dependencies:
+supported_types:
+  i32:
+   sql_type_name: TINYINT,
+   supported_as_column: true
+`,
+		},
+		{`unknown dependency`, `name: testdb
+type: sql
+dependencies:
+supported_types:
+  i32:
+    sql_type_name: TINYINT,
+    supported_as_column: true
+window_functions:
+- name: arithmetic.ntile
+  supported_kernels:
+  - i32
+`},
+		{`invalid function name`, `name: testdb
+type: sql
+dependencies:
+supported_types:
+  i32:
+    sql_type_name: TINYINT,
+    supported_as_column: true
+aggregate_functions:
+- name: max
+  supported_kernels:
+  - i32
+`},
+		{`invalid function`, `name: testdb
+type: sql
+dependencies:
+supported_types:
+  i32:
+    sql_type_name: TINYINT,
+    supported_as_column: true
+scalar_functions:
+- name: arithmetic.add
+  supported_kernels:
+`},
+		{`unsupported type`, `name: testdb
+type: sql
+dependencies:
+dependencies:
+  arithmetic: 
+    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+supported_types:
+  i32:
+    sql_type_name: TINYINT,
+    supported_as_column: true
+window_functions:
+- name: arithmetic.unknown_function
+  supported_kernels:
+  - i99
+`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.error, func(t *testing.T) {
+			_, err := LoadDialect(t.Name(), strings.NewReader(tt.dialectYaml))
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tt.error)
+		})
+	}
 
-		dialect, err = GetDialect("non-existent")
-		assert.Error(t, err)
-		assert.Nil(t, dialect)
-	})
+	localizeTestcases := []testcase{
+		{`no function variant found`, `name: testdb
+type: sql
+dependencies:
+  arithmetic: 
+    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+supported_types:
+  i32:
+    sql_type_name: TINYINT,
+    supported_as_column: true
+  fp32:
+    sql_type_name: FLOAT,
+    supported_as_column: true
+scalar_functions:
+- name: arithmetic.add
+  supported_kernels:
+    - i32_i32
+    - i32_fp32
+`},
+		{`no function variant found`, `name: testdb
+type: sql
+dependencies:
+  arithmetic: 
+    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+supported_types:
+  i32:
+    sql_type_name: TINYINT,
+    supported_as_column: true
+aggregate_functions:
+- name: arithmetic.max
+  supported_kernels:
+    - i32
+    - str
+`},
+		{`no function variant found`, `name: testdb
+type: sql
+dependencies:
+  arithmetic: 
+    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+supported_types:
+  i32:
+    sql_type_name: TINYINT,
+    supported_as_column: true
+window_functions:
+- name: arithmetic.ntile
+  supported_kernels:
+    - str
+    - i64
+`},
+	}
+	for _, tt := range localizeTestcases {
+		t.Run(tt.error, func(t *testing.T) {
+			dialect, err := LoadDialect(t.Name(), strings.NewReader(tt.dialectYaml))
+			assert.NoError(t, err)
 
-	t.Run("GetSupportedDialects", func(t *testing.T) {
-		dialects := GetSupportedDialects()
-		assert.Len(t, dialects, 1)
-		assert.Contains(t, dialects, dialectName)
+			_, err = dialect.LocalizeFunctionRegistry(gFunctionRegistry)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tt.error)
+		})
+	}
 
-		err := LoadDialect("second_dialect", strings.NewReader(dialectYaml))
-		assert.NoError(t, err)
-		dialects = GetSupportedDialects()
-		assert.Len(t, dialects, 2)
-		assert.Contains(t, dialects, "second_dialect")
-		assert.Contains(t, dialects, dialectName)
-	})
+	badTypeTestcases := []testcase{
+		{`unknown type`, `name: testdb
+type: sql
+dependencies:
+dependencies:
+  arithmetic: 
+    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+supported_types:
+  i32:
+    sql_type_name: TINYINT,
+    supported_as_column: true
+  myth:
+    sql_type_name: TINYINT,
+    supported_as_column: true
+scalar_functions:
+- name: arithmetic.add
+  supported_kernels:
+  - i32_i32
+`,
+		},
+	}
+	for _, tt := range badTypeTestcases {
+		t.Run(tt.error, func(t *testing.T) {
+			dialect, err := LoadDialect(t.Name(), strings.NewReader(tt.dialectYaml))
+			assert.NoError(t, err)
 
-	t.Run("LoadDialectError", func(t *testing.T) {
-		err := LoadDialect(dialectName, strings.NewReader(dialectYaml))
-		assert.Error(t, err)
-	})
-
-	t.Run("GetDialect", func(t *testing.T) {
-		dialect, err := GetDialect(dialectName)
-		assert.Nil(t, err)
-		assert.NotNil(t, dialect)
-		assert.Equal(t, dialectName, dialect.Name())
-
-		dialect = localRegistry.GetDialect()
-		assert.NotNil(t, dialect)
-		assert.Equal(t, dialectName, dialect.Name())
-	})
+			typeRegistry := NewTypeRegistry()
+			_, err = dialect.LocalizeTypeRegistry(typeRegistry)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tt.error)
+		})
+	}
 }
 
 func getLocalFunctionRegistry(t *testing.T, dialectYaml string) LocalFunctionRegistry {
-	err := LoadDialect(t.Name(), strings.NewReader(dialectYaml))
+	dialect, err := LoadDialect(t.Name(), strings.NewReader(dialectYaml))
 	assert.NoError(t, err)
-	registry := GetDefaultFunctionRegistry()
-	dialect, err := GetDialect(t.Name())
-	assert.NoError(t, err)
-	localRegistry, err := dialect.LocalizeFunctionRegistry(registry)
+	localRegistry, err := dialect.LocalizeFunctionRegistry(gFunctionRegistry)
 	assert.NoError(t, err)
 	return localRegistry
 }
 
 func TestScalarFunctionsLookup(t *testing.T) {
 	expectedUri := "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
-	comparisionUri := "https://github.com/substrait-io/substrait/blob/main/extensions/functions_comparison.yaml"
-	registry := GetDefaultFunctionRegistry()
-	allFunctions := registry.GetAllFunctions()
+	comparisonUri := "https://github.com/substrait-io/substrait/blob/main/extensions/functions_comparison.yaml"
+	allFunctions := gFunctionRegistry.GetAllFunctions()
 
 	dialectYaml := `
 name: test
@@ -167,7 +322,7 @@ scalar_functions:
 	}{
 		{"+", "add", expectedUri, []string{"add:i32_i32", "add:i64_i64", "add:fp32_fp32", "add:fp64_fp64"}, INFIX, true},
 		{"-", "subtract", expectedUri, []string{"subtract:fp32_fp32", "subtract:fp64_fp64"}, INFIX, true},
-		{"IS NULL", "is_null", comparisionUri, []string{"is_null:any"}, POSTFIX, false},
+		{"IS NULL", "is_null", comparisonUri, []string{"is_null:any"}, POSTFIX, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.substraitName, func(t *testing.T) {
@@ -189,7 +344,7 @@ scalar_functions:
 			assert.Equal(t, tt.substraitName, fv[0].Name())
 			checkCompoundNames(t, getScalarCompoundNames(fv), tt.expectedNames)
 
-			winFunctions := registry.GetScalarFunctions(tt.substraitName)
+			winFunctions := gFunctionRegistry.GetScalarFunctions(tt.substraitName)
 			assert.Greater(t, len(winFunctions), 0)
 			for _, f := range winFunctions {
 				assert.Contains(t, allFunctions, f)
@@ -200,8 +355,7 @@ scalar_functions:
 
 func TestAggregateFunctionsLookup(t *testing.T) {
 	expectedUri := "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
-	registry := GetDefaultFunctionRegistry()
-	allFunctions := registry.GetAllFunctions()
+	allFunctions := gFunctionRegistry.GetAllFunctions()
 	dialectYaml := `
 name: test
 type: sql
@@ -266,7 +420,7 @@ aggregate_functions:
 			assert.Equal(t, tt.substraitName, av[0].LocalName())
 			checkCompoundNames(t, getAggregateCompoundNames(av), tt.expectedNames)
 
-			winFunctions := registry.GetAggregateFunctions(tt.substraitName)
+			winFunctions := gFunctionRegistry.GetAggregateFunctions(tt.substraitName)
 			assert.Greater(t, len(winFunctions), 0)
 			for _, f := range winFunctions {
 				assert.Contains(t, allFunctions, f)
@@ -277,8 +431,7 @@ aggregate_functions:
 
 func TestWindowFunctionsLookup(t *testing.T) {
 	expectedUri := "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
-	registry := GetDefaultFunctionRegistry()
-	allFunctions := registry.GetAllFunctions()
+	allFunctions := gFunctionRegistry.GetAllFunctions()
 	dialectYaml := `
 name: test
 type: sql
@@ -328,7 +481,7 @@ window_functions:
 			assert.Equal(t, tt.substraitName, wf[0].LocalName())
 			checkCompoundNames(t, getWindowCompoundNames(wf), tt.expectedNames)
 
-			winFunctions := registry.GetWindowFunctions(tt.substraitName)
+			winFunctions := gFunctionRegistry.GetWindowFunctions(tt.substraitName)
 			assert.Greater(t, len(winFunctions), 0)
 			for _, f := range winFunctions {
 				assert.Contains(t, allFunctions, f)

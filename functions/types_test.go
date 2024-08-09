@@ -132,9 +132,7 @@ scalar_functions:
   - i32_i32
   - i64_i64
 `
-	err := LoadDialect("testSql", strings.NewReader(testDialect))
-	assert.NoError(t, err)
-	dialect, err := GetDialect("testSql")
+	dialect, err := LoadDialect("testSql", strings.NewReader(testDialect))
 	assert.NoError(t, err)
 	localTypeRegistry, err := dialect.LocalizeTypeRegistry(typeRegistry)
 	assert.NoError(t, err)
