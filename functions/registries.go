@@ -47,14 +47,17 @@ type Dialect interface {
 }
 
 type FunctionRegistry interface {
-	// GetScalarFunctions returns a slice of zero or more scalar function variants that match the provided name.
-	GetScalarFunctions(name string) []*extensions.ScalarFunctionVariant
+	// GetScalarFunctions returns a slice of zero or more scalar function variants that match the provided name & numArgs
+	GetScalarFunctions(name string, numArgs int) []*extensions.ScalarFunctionVariant
+	GetScalarFunctionsByName(name string) []*extensions.ScalarFunctionVariant
 
-	// GetAggregateFunctions returns a slice of zero or more aggregate function variants that match the provided name.
-	GetAggregateFunctions(name string) []*extensions.AggregateFunctionVariant
+	// GetAggregateFunctions returns a slice of zero or more aggregate function variants that match the provided name & numArgs
+	GetAggregateFunctions(name string, numArgs int) []*extensions.AggregateFunctionVariant
+	GetAggregateFunctionsByName(name string) []*extensions.AggregateFunctionVariant
 
-	// GetWindowFunctions returns a slice of zero or more window function variants that match the provided name.
-	GetWindowFunctions(name string) []*extensions.WindowFunctionVariant
+	// GetWindowFunctions returns a slice of zero or more window function variants that match the provided name & numArgs
+	GetWindowFunctions(name string, numArgs int) []*extensions.WindowFunctionVariant
+	GetWindowFunctionsByName(name string) []*extensions.WindowFunctionVariant
 
 	// GetAllFunctions returns all function variants in the registry
 	GetAllFunctions() []extensions.FunctionVariant
@@ -70,14 +73,14 @@ const (
 
 // LocalFunctionRegistry is a collection of functions localized to a particular Dialect
 type LocalFunctionRegistry interface {
-	// GetScalarFunctionsBy returns a slice of zero or more scalar function variants that match the given name & kind.
-	GetScalarFunctionsBy(name string, kind NameKind) []*LocalScalarFunctionVariant
+	// GetScalarFunctionsBy returns a slice of zero or more scalar function variants that match the given name, numArgs & kind.
+	GetScalarFunctionsBy(name string, numArgs int, kind NameKind) []*LocalScalarFunctionVariant
 
-	// GetAggregateFunctionsBy returns a slice of zero or more aggregate function variants that match the given name & kind.
-	GetAggregateFunctionsBy(name string, kind NameKind) []*LocalAggregateFunctionVariant
+	// GetAggregateFunctionsBy returns a slice of zero or more aggregate function variants that match the given name, numArgs & kind.
+	GetAggregateFunctionsBy(name string, numArgs int, kind NameKind) []*LocalAggregateFunctionVariant
 
-	// GetWindowFunctionsBy returns a slice of zero or more window function variants that match the given name & kind.
-	GetWindowFunctionsBy(name string, kind NameKind) []*LocalWindowFunctionVariant
+	// GetWindowFunctionsBy returns a slice of zero or more window function variants that match the given name, numArgs & kind.
+	GetWindowFunctionsBy(name string, numArgs int, kind NameKind) []*LocalWindowFunctionVariant
 
 	// GetDialect returns the dialect that this function registry is localized to
 	GetDialect() Dialect

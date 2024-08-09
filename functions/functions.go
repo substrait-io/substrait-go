@@ -44,14 +44,36 @@ func (f *functionRegistryImpl) GetAllFunctions() []extensions.FunctionVariant {
 	return f.allFunctions
 }
 
-func (f *functionRegistryImpl) GetScalarFunctions(name string) []*extensions.ScalarFunctionVariant {
+func (f *functionRegistryImpl) GetScalarFunctionsByName(name string) []*extensions.ScalarFunctionVariant {
 	return f.scalarFunctions[name]
 }
 
-func (f *functionRegistryImpl) GetAggregateFunctions(name string) []*extensions.AggregateFunctionVariant {
+func (f *functionRegistryImpl) GetAggregateFunctionsByName(name string) []*extensions.AggregateFunctionVariant {
 	return f.aggregateFunctions[name]
 }
 
-func (f *functionRegistryImpl) GetWindowFunctions(name string) []*extensions.WindowFunctionVariant {
+func (f *functionRegistryImpl) GetWindowFunctionsByName(name string) []*extensions.WindowFunctionVariant {
 	return f.windowFunctions[name]
+}
+
+func (f *functionRegistryImpl) GetScalarFunctions(name string, numArgs int) []*extensions.ScalarFunctionVariant {
+	return getFunctionVariantsByCount(f.scalarFunctions[name], numArgs)
+}
+
+func (f *functionRegistryImpl) GetAggregateFunctions(name string, numArgs int) []*extensions.AggregateFunctionVariant {
+	return getFunctionVariantsByCount(f.aggregateFunctions[name], numArgs)
+}
+
+func (f *functionRegistryImpl) GetWindowFunctions(name string, numArgs int) []*extensions.WindowFunctionVariant {
+	return getFunctionVariantsByCount(f.windowFunctions[name], numArgs)
+}
+
+func getFunctionVariantsByCount[T extensions.FunctionVariant](functions []T, numArgs int) []T {
+	ret := make([]T, 0)
+	for _, f := range functions {
+		if len(f.Args()) == numArgs || f.Variadic().IsValidArgumentCount(numArgs) {
+			ret = append(ret, f)
+		}
+	}
+	return ret
 }

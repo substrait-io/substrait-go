@@ -44,15 +44,15 @@ func (d *dialectImpl) Name() string {
 }
 
 func (d *dialectImpl) LocalizeFunctionRegistry(registry FunctionRegistry) (LocalFunctionRegistry, error) {
-	scalarFunctions, err := makeLocalFunctionVariantMap(d.localScalarFunctions, registry.GetScalarFunctions, newLocalScalarFunctionVariant)
+	scalarFunctions, err := makeLocalFunctionVariantMap(d.localScalarFunctions, registry.GetScalarFunctionsByName, newLocalScalarFunctionVariant)
 	if err != nil {
 		return nil, err
 	}
-	aggregateFunctions, err := makeLocalFunctionVariantMap(d.localAggregateFunctions, registry.GetAggregateFunctions, newLocalAggregateFunctionVariant)
+	aggregateFunctions, err := makeLocalFunctionVariantMap(d.localAggregateFunctions, registry.GetAggregateFunctionsByName, newLocalAggregateFunctionVariant)
 	if err != nil {
 		return nil, err
 	}
-	windowFunctions, err := makeLocalFunctionVariantMap(d.localWindowFunctions, registry.GetWindowFunctions, newLocalWindowFunctionVariant)
+	windowFunctions, err := makeLocalFunctionVariantMap(d.localWindowFunctions, registry.GetWindowFunctionsByName, newLocalWindowFunctionVariant)
 	if err != nil {
 		return nil, err
 	}
@@ -246,6 +246,8 @@ type dialectFunction struct {
 	RequiredOptions  map[string]string `yaml:"required_options,omitempty"`
 	Aggregate        bool              `yaml:"aggregate,omitempty"`
 	SupportedKernels []string          `yaml:"supported_kernels,omitempty"`
+	// TODO handle variadic behavior in dialect,
+	// if infix is true variadic min cannot be 1?
 }
 
 func (df *dialectFunction) validateAndFixKernels() error {

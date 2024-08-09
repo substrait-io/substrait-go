@@ -256,8 +256,11 @@ func getLocalFunctionRegistry(t *testing.T, dialectYaml string) LocalFunctionReg
 }
 
 func TestScalarFunctionsLookup(t *testing.T) {
-	expectedUri := "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
-	comparisonUri := "https://github.com/substrait-io/substrait/blob/main/extensions/functions_comparison.yaml"
+	baseUri := "https://github.com/substrait-io/substrait/blob/main/extensions/"
+	arithmeticUri := baseUri + "functions_arithmetic.yaml"
+	booleanUri := baseUri + "functions_boolean.yaml"
+	comparisonUri := baseUri + "functions_comparison.yaml"
+	stringUri := baseUri + "functions_string.yaml"
 	allFunctions := gFunctionRegistry.GetAllFunctions()
 
 	dialectYaml := `
@@ -266,8 +269,12 @@ type: sql
 dependencies:
   arithmetic: 
     https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+  boolean: 
+    https://github.com/substrait-io/substrait/blob/main/extensions/functions_boolean.yaml
   comparison: 
     https://github.com/substrait-io/substrait/blob/main/extensions/functions_comparison.yaml
+  string: 
+    https://github.com/substrait-io/substrait/blob/main/extensions/functions_string.yaml
 supported_types:
   i32:
     sql_type_name: INTEGER
@@ -305,14 +312,29 @@ scalar_functions:
   supported_kernels:
   - fp32_fp32
   - fp64_fp64
+- name: boolean.and
+  local_name: and
+  infix: true
+  supported_kernels:
+  - bool
 - name: comparison.is_null
   local_name: IS NULL
   postfix: true
   supported_kernels:
   - any1
+- name: string.concat
+  local_name: '||'
+  required_options:
+    null_handling: ACCEPT_NULLS
+  infix: true
+  supported_kernels:
+  - vchar
+  - str
+  variadic: 1
 `
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml)
 	tests := []struct {
+		numArgs          int
 		localName        string
 		substraitName    string
 		expectedUri      string
@@ -320,14 +342,20 @@ scalar_functions:
 		expectedNotation FunctionNotation
 		isOverflowError  bool
 	}{
-		{"+", "add", expectedUri, []string{"add:i32_i32", "add:i64_i64", "add:fp32_fp32", "add:fp64_fp64"}, INFIX, true},
-		{"-", "subtract", expectedUri, []string{"subtract:fp32_fp32", "subtract:fp64_fp64"}, INFIX, true},
-		{"IS NULL", "is_null", comparisonUri, []string{"is_null:any"}, POSTFIX, false},
+		{2, "+", "add", arithmeticUri, []string{"add:i32_i32", "add:i64_i64", "add:fp32_fp32", "add:fp64_fp64"}, INFIX, true},
+		{2, "-", "subtract", arithmeticUri, []string{"subtract:fp32_fp32", "subtract:fp64_fp64"}, INFIX, true},
+		{1, "IS NULL", "is_null", comparisonUri, []string{"is_null:any"}, POSTFIX, false},
+		{3, "and", "and", booleanUri, []string{"and:bool"}, INFIX, false},
+		{2, "and", "and", booleanUri, []string{"and:bool"}, INFIX, false},
+		{1, "and", "and", booleanUri, []string{"and:bool"}, INFIX, false},
+		{0, "and", "and", booleanUri, []string{"and:bool"}, INFIX, false},
+		{2, "||", "concat", stringUri, []string{"concat:vchar", "concat:str"}, INFIX, false},
+		{3, "||", "concat", stringUri, []string{"concat:vchar", "concat:str"}, INFIX, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.substraitName, func(t *testing.T) {
 			var fv []*LocalScalarFunctionVariant
-			fv = localRegistry.GetScalarFunctionsBy(tt.localName, Local)
+			fv = localRegistry.GetScalarFunctionsBy(tt.localName, tt.numArgs, Local)
 
 			assert.Greater(t, len(fv), 0)
 			assert.Equal(t, tt.expectedUri, fv[0].URI())
@@ -337,16 +365,21 @@ scalar_functions:
 			assert.False(t, fv[0].IsOptionSupported("overflow", "SILENT"))
 			checkCompoundNames(t, getScalarCompoundNames(fv), tt.expectedNames)
 
-			fv = localRegistry.GetScalarFunctionsBy(tt.substraitName, Substrait)
+			fv = localRegistry.GetScalarFunctionsBy(tt.substraitName, tt.numArgs, Substrait)
 			assert.Greater(t, len(fv), 0)
 			assert.Equal(t, tt.expectedUri, fv[0].URI())
 			assert.Equal(t, tt.localName, fv[0].LocalName())
 			assert.Equal(t, tt.substraitName, fv[0].Name())
 			checkCompoundNames(t, getScalarCompoundNames(fv), tt.expectedNames)
 
-			winFunctions := gFunctionRegistry.GetScalarFunctions(tt.substraitName)
-			assert.Greater(t, len(winFunctions), 0)
-			for _, f := range winFunctions {
+			scalarFunctions := gFunctionRegistry.GetScalarFunctions(tt.substraitName, tt.numArgs)
+			assert.Greater(t, len(scalarFunctions), 0)
+			for _, f := range scalarFunctions {
+				assert.Contains(t, allFunctions, f)
+			}
+			scalarFunctions = gFunctionRegistry.GetScalarFunctionsByName(tt.substraitName)
+			assert.Greater(t, len(scalarFunctions), 0)
+			for _, f := range scalarFunctions {
 				assert.Contains(t, allFunctions, f)
 			}
 		})
@@ -394,18 +427,19 @@ aggregate_functions:
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml)
 
 	tests := []struct {
+		numArgs          int
 		localName        string
 		substraitName    string
 		expectedUri      string
 		expectedNames    []string
 		expectedNotation FunctionNotation
 	}{
-		{"max", "max", expectedUri, []string{"max:i8", "max:i16", "max:fp32", "max:fp64"}, PREFIX},
-		{"min", "min", expectedUri, []string{"min:i8", "min:i16", "min:fp32", "min:fp64"}, PREFIX},
+		{1, "max", "max", expectedUri, []string{"max:i8", "max:i16", "max:fp32", "max:fp64"}, PREFIX},
+		{1, "min", "min", expectedUri, []string{"min:i8", "min:i16", "min:fp32", "min:fp64"}, PREFIX},
 	}
 	for _, tt := range tests {
 		t.Run(tt.substraitName, func(t *testing.T) {
-			av := localRegistry.GetAggregateFunctionsBy(tt.localName, Local)
+			av := localRegistry.GetAggregateFunctionsBy(tt.localName, 1, Local)
 
 			assert.Greater(t, len(av), 0)
 			assert.Equal(t, tt.expectedUri, av[0].URI())
@@ -414,13 +448,18 @@ aggregate_functions:
 			assert.False(t, av[0].IsOptionSupported("overflow", "ERROR"))
 			checkCompoundNames(t, getAggregateCompoundNames(av), tt.expectedNames)
 
-			av = localRegistry.GetAggregateFunctionsBy(tt.substraitName, Substrait)
+			av = localRegistry.GetAggregateFunctionsBy(tt.substraitName, 1, Substrait)
 			assert.Greater(t, len(av), 0)
 			assert.Equal(t, tt.expectedUri, av[0].URI())
 			assert.Equal(t, tt.substraitName, av[0].LocalName())
 			checkCompoundNames(t, getAggregateCompoundNames(av), tt.expectedNames)
 
-			winFunctions := gFunctionRegistry.GetAggregateFunctions(tt.substraitName)
+			winFunctions := gFunctionRegistry.GetAggregateFunctions(tt.substraitName, tt.numArgs)
+			assert.Greater(t, len(winFunctions), 0)
+			for _, f := range winFunctions {
+				assert.Contains(t, allFunctions, f)
+			}
+			winFunctions = gFunctionRegistry.GetAggregateFunctionsByName(tt.substraitName)
 			assert.Greater(t, len(winFunctions), 0)
 			for _, f := range winFunctions {
 				assert.Contains(t, allFunctions, f)
@@ -456,18 +495,19 @@ window_functions:
 `
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml)
 	tests := []struct {
+		numArgs          int
 		localName        string
 		substraitName    string
 		expectedUri      string
 		expectedNames    []string
 		expectedNotation FunctionNotation
 	}{
-		{"ntile", "ntile", expectedUri, []string{"ntile:i32", "ntile:i64"}, PREFIX},
-		{"rank", "rank", expectedUri, []string{"rank:", "rank:"}, PREFIX},
+		{1, "ntile", "ntile", expectedUri, []string{"ntile:i32", "ntile:i64"}, PREFIX},
+		{0, "rank", "rank", expectedUri, []string{"rank:", "rank:"}, PREFIX},
 	}
 	for _, tt := range tests {
 		t.Run(tt.substraitName, func(t *testing.T) {
-			wf := localRegistry.GetWindowFunctionsBy(tt.localName, Local)
+			wf := localRegistry.GetWindowFunctionsBy(tt.localName, tt.numArgs, Local)
 			assert.Greater(t, len(wf), 0)
 			assert.Equal(t, tt.expectedUri, wf[0].URI())
 			assert.Equal(t, tt.localName, wf[0].LocalName())
@@ -475,13 +515,18 @@ window_functions:
 			assert.False(t, wf[0].IsOptionSupported("overflow", "ERROR"))
 			checkCompoundNames(t, getWindowCompoundNames(wf), tt.expectedNames)
 
-			wf = localRegistry.GetWindowFunctionsBy(tt.substraitName, Substrait)
+			wf = localRegistry.GetWindowFunctionsBy(tt.substraitName, tt.numArgs, Substrait)
 			assert.Greater(t, len(wf), 0)
 			assert.Equal(t, tt.expectedUri, wf[0].URI())
 			assert.Equal(t, tt.substraitName, wf[0].LocalName())
 			checkCompoundNames(t, getWindowCompoundNames(wf), tt.expectedNames)
 
-			winFunctions := gFunctionRegistry.GetWindowFunctions(tt.substraitName)
+			winFunctions := gFunctionRegistry.GetWindowFunctions(tt.substraitName, tt.numArgs)
+			assert.Greater(t, len(winFunctions), 0)
+			for _, f := range winFunctions {
+				assert.Contains(t, allFunctions, f)
+			}
+			winFunctions = gFunctionRegistry.GetWindowFunctionsByName(tt.substraitName)
 			assert.Greater(t, len(winFunctions), 0)
 			for _, f := range winFunctions {
 				assert.Contains(t, allFunctions, f)
