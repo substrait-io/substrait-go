@@ -178,6 +178,10 @@ type VariadicBehavior struct {
 	ParameterConsistency ParameterConsistency `yaml:"parameterConsistency,omitempty"`
 }
 
+func (v *VariadicBehavior) IsValidArgumentCount(count int) bool {
+	return v != nil && count >= v.Min && (count <= v.Max || v.Max == 0)
+}
+
 type Function interface {
 	ResolveURI(uri string) []FunctionVariant
 }

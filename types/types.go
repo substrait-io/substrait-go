@@ -265,6 +265,12 @@ type (
 		// the nullability set to the passed in value
 		WithNullability(Nullability) Type
 	}
+
+	ParameterizedType interface {
+		Type
+		ParameterString() string
+		BaseString() string
+	}
 )
 
 // TypeToProto properly constructs the appropriate protobuf message
@@ -554,6 +560,15 @@ func (s *FixedLenType[T]) String() string {
 		typeNames[reflect.TypeOf(z)], strNullable(s), s.Length)
 }
 
+func (s *FixedLenType[T]) ParameterString() string {
+	return fmt.Sprintf("%d", s.Length)
+}
+
+func (s *FixedLenType[T]) BaseString() string {
+	var z *T
+	return typeNames[reflect.TypeOf(z)]
+}
+
 type DecimalType struct {
 	Nullability      Nullability
 	TypeVariationRef uint32
@@ -584,18 +599,26 @@ func (s *DecimalType) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 
-func (t *DecimalType) ToProto() *proto.Type {
+func (s *DecimalType) ToProto() *proto.Type {
 	return &proto.Type{Kind: &proto.Type_Decimal_{
 		Decimal: &proto.Type_Decimal{
-			Scale: t.Scale, Precision: t.Precision,
-			Nullability:            t.Nullability,
-			TypeVariationReference: t.TypeVariationRef}}}
+			Scale: s.Scale, Precision: s.Precision,
+			Nullability:            s.Nullability,
+			TypeVariationReference: s.TypeVariationRef}}}
 }
 
 func (*DecimalType) ShortString() string { return "dec" }
-func (t *DecimalType) String() string {
-	return fmt.Sprintf("decimal%s<%d,%d>", strNullable(t),
-		t.Precision, t.Scale)
+func (s *DecimalType) String() string {
+	return fmt.Sprintf("decimal%s<%d,%d>", strNullable(s),
+		s.Precision, s.Scale)
+}
+
+func (s *DecimalType) ParameterString() string {
+	return fmt.Sprintf("%d,%d", s.Precision, s.Scale)
+}
+
+func (*DecimalType) BaseString() string {
+	return "decimal"
 }
 
 type StructType struct {

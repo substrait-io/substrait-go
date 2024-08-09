@@ -13,4 +13,5 @@ var (
 	ErrInvalidRel        = errors.New("invalid relation")
 	ErrInvalidArg        = errors.New("invalid argument")
 	ErrInvalidInputCount = errors.New("invalid input count")
+	ErrInvalidDialect    = errors.New("invalid dialect")
 )
