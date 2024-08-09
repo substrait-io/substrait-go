@@ -46,7 +46,7 @@ func TestNewPrecisionTimestampType(t *testing.T) {
 		for _, nullability := range allPossibleNullability {
 			expectedPrecisionTimeStampType := PrecisionTimeStampType{precision: precision, nullability: nullability}
 			expectedPrecisionTimeStampTzType := PrecisionTimeStampTzType{PrecisionTimeStampType: expectedPrecisionTimeStampType}
-			expectedFormatString := fmt.Sprintf("%s<%d>", strNullable(expectedPrecisionTimeStampType), timePrecisionToProtoVal(precision))
+			expectedFormatString := fmt.Sprintf("%s<%d>", strNullable(expectedPrecisionTimeStampType), precision.ToProtoVal())
 			// verify PrecisionTimeStampType
 			createdPrecTimeStampType := NewPrecisionTimestampType(precision).WithNullability(nullability)
 			createdPrecTimeStamp := createdPrecTimeStampType.(PrecisionTimeStampType)
@@ -81,7 +81,7 @@ func assertPrecisionTimeStampProto(t *testing.T, expectedPrecision TimePrecision
 
 	expectedTypeProto := &proto.Type{Kind: &proto.Type_PrecisionTimestamp_{
 		PrecisionTimestamp: &proto.Type_PrecisionTimestamp{
-			Precision:   timePrecisionToProtoVal(expectedPrecision),
+			Precision:   expectedPrecision.ToProtoVal(),
 			Nullability: expectedNullability,
 		},
 	}}
@@ -100,7 +100,7 @@ func assertPrecisionTimeStampProto(t *testing.T, expectedPrecision TimePrecision
 func assertPrecisionTimeStampTzProto(t *testing.T, expectedPrecision TimePrecision, expectedNullability Nullability, toVerifyType PrecisionTimeStampTzType) {
 	expectedTypeProto := &proto.Type{Kind: &proto.Type_PrecisionTimestampTz{
 		PrecisionTimestampTz: &proto.Type_PrecisionTimestampTZ{
-			Precision:   timePrecisionToProtoVal(expectedPrecision),
+			Precision:   expectedPrecision.ToProtoVal(),
 			Nullability: expectedNullability,
 		},
 	}}

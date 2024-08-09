@@ -24,12 +24,12 @@ const (
 	PrecisionNanoSeconds
 )
 
-func timePrecisionToProtoVal(val TimePrecision) int32 {
-	return int32(val)
+func (m TimePrecision) ToProtoVal() int32 {
+	return int32(m)
 }
 
 func ProtoToTimePrecision(val int32) (TimePrecision, error) {
-	if val < 0 || val > 9 {
+	if val < PrecisionSeconds.ToProtoVal() || val > PrecisionNanoSeconds.ToProtoVal() {
 		return PrecisionUnknown, fmt.Errorf("invalid TimePrecision value %d", val)
 	}
 	return TimePrecision(val), nil
@@ -52,7 +52,7 @@ func NewPrecisionTimestampType(precision TimePrecision) PrecisionTimeStampType {
 }
 
 func (m PrecisionTimeStampType) GetPrecisionProtoVal() int32 {
-	return timePrecisionToProtoVal(m.precision)
+	return m.precision.ToProtoVal()
 }
 
 func (PrecisionTimeStampType) isRootRef() {}
@@ -86,7 +86,7 @@ func (m PrecisionTimeStampType) ToProtoFuncArg() *proto.FunctionArgument {
 func (m PrecisionTimeStampType) ToProto() *proto.Type {
 	return &proto.Type{Kind: &proto.Type_PrecisionTimestamp_{
 		PrecisionTimestamp: &proto.Type_PrecisionTimestamp{
-			Precision:              timePrecisionToProtoVal(m.precision),
+			Precision:              m.precision.ToProtoVal(),
 			Nullability:            m.nullability,
 			TypeVariationReference: m.typeVariationRef}}}
 }
@@ -94,7 +94,7 @@ func (m PrecisionTimeStampType) ToProto() *proto.Type {
 func (PrecisionTimeStampType) ShortString() string { return "prets" }
 func (m PrecisionTimeStampType) String() string {
 	return fmt.Sprintf("precisiontimestamp%s<%d>", strNullable(m),
-		timePrecisionToProtoVal(m.precision))
+		m.precision.ToProtoVal())
 }
 
 // PrecisionTimeStampTzType this is used to represent a type of precision timestamp with TimeZone
@@ -122,14 +122,14 @@ func (m PrecisionTimeStampTzType) ToProtoFuncArg() *proto.FunctionArgument {
 func (m PrecisionTimeStampTzType) ToProto() *proto.Type {
 	return &proto.Type{Kind: &proto.Type_PrecisionTimestampTz{
 		PrecisionTimestampTz: &proto.Type_PrecisionTimestampTZ{
-			Precision:              timePrecisionToProtoVal(m.precision),
+			Precision:              m.precision.ToProtoVal(),
 			Nullability:            m.nullability,
 			TypeVariationReference: m.typeVariationRef}}}
 }
 
 func (m PrecisionTimeStampTzType) String() string {
 	return fmt.Sprintf("precisiontimestamptz%s<%d>", strNullable(m),
-		timePrecisionToProtoVal(m.precision))
+		m.precision.ToProtoVal())
 }
 
 func (m PrecisionTimeStampTzType) WithNullability(n Nullability) Type {
