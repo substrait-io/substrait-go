@@ -8,42 +8,27 @@ import (
 	"github.com/substrait-io/substrait-go/types"
 )
 
-var nameToTypeMap = map[string]types.Type{
-	"boolean":       &types.BooleanType{},
-	"i8":            &types.Int8Type{},
-	"i16":           &types.Int16Type{},
-	"i32":           &types.Int32Type{},
-	"i64":           &types.Int64Type{},
-	"fp32":          &types.Float32Type{},
-	"fp64":          &types.Float64Type{},
-	"binary":        &types.BinaryType{},
-	"string":        &types.StringType{},
-	"timestamp":     &types.TimestampType{},
-	"date":          &types.DateType{},
-	"time":          &types.TimeType{},
-	"timestamp_tz":  &types.TimestampTzType{},
-	"interval_year": &types.IntervalYearType{},
-	"interval_day":  &types.IntervalDayType{},
-	"uuid":          &types.UUIDType{},
+var (
+	nameToTypeMap  map[string]types.Type
+	toShortNameMap map[string]string
+)
 
-	"fixedbinary": &types.FixedBinaryType{},
-	"fixedchar":   &types.FixedCharType{},
-	"varchar":     &types.VarCharType{},
-	"decimal":     &types.DecimalType{},
+func init() {
+	initTypeMaps()
+}
 
-	// short names
-	"bool":  &types.BooleanType{},
-	"vbin":  &types.BinaryType{},
-	"str":   &types.StringType{},
-	"ts":    &types.TimestampType{},
-	"tstz":  &types.TimestampTzType{},
-	"iyear": &types.IntervalYearType{},
-	"iday":  &types.IntervalDayType{},
-
-	"fbin":  &types.FixedBinaryType{},
-	"fchar": &types.FixedCharType{},
-	"vchar": &types.VarCharType{},
-	"dec":   &types.DecimalType{},
+func initTypeMaps() {
+	nameToTypeMap = types.GetTypeNameToTypeMap()
+	toShortNameMap = make(map[string]string)
+	for k, _ := range nameToTypeMap {
+		shortName := types.GetShortTypeName(types.TypeName(k))
+		if shortName != k {
+			toShortNameMap[k] = shortName
+		}
+	}
+	for k, v := range toShortNameMap {
+		nameToTypeMap[v] = nameToTypeMap[k]
+	}
 }
 
 func getTypeFromBaseTypeName(baseType string) (types.Type, error) {

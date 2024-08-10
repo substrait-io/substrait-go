@@ -124,25 +124,7 @@ func (t *nonParamType) ShortType() string {
 		return "any"
 	}
 
-	switch t.TypeName {
-	case "timestamp":
-		return "ts"
-	case "timestamp_tz":
-		return "tstz"
-	case "interval_day":
-		return "iday"
-	case "interval_year":
-		return "iyear"
-	case "string":
-		return "str"
-	case "binary":
-		return "vbin"
-	case "boolean":
-		return "bool"
-	default:
-		return string(t.TypeName)
-	}
-
+	return types.GetShortTypeName(types.TypeName(t.TypeName))
 }
 
 func (t *nonParamType) Type() (types.Type, error) {
@@ -152,41 +134,11 @@ func (t *nonParamType) Type() (types.Type, error) {
 	} else {
 		n = types.NullabilityRequired
 	}
-	switch t.TypeName {
-	case "i8":
-		return &types.Int8Type{Nullability: n}, nil
-	case "i16":
-		return &types.Int16Type{Nullability: n}, nil
-	case "i32":
-		return &types.Int32Type{Nullability: n}, nil
-	case "i64":
-		return &types.Int64Type{Nullability: n}, nil
-	case "fp32":
-		return &types.Float32Type{Nullability: n}, nil
-	case "fp64":
-		return &types.Float64Type{Nullability: n}, nil
-	case "timestamp":
-		return &types.TimestampType{Nullability: n}, nil
-	case "timestamp_tz":
-		return &types.TimestampTzType{Nullability: n}, nil
-	case "date":
-		return &types.DateType{Nullability: n}, nil
-	case "time":
-		return &types.TimeType{Nullability: n}, nil
-	case "interval_day":
-		return &types.IntervalDayType{Nullability: n}, nil
-	case "interval_year":
-		return &types.IntervalYearType{Nullability: n}, nil
-	case "uuid":
-		return &types.UUIDType{Nullability: n}, nil
-	case "string":
-		return &types.StringType{Nullability: n}, nil
-	case "binary":
-		return &types.BinaryType{Nullability: n}, nil
-	case "boolean":
-		return &types.BooleanType{Nullability: n}, nil
+	typ, err := types.SimpleTypeNameToType(types.TypeName(t.TypeName))
+	if err == nil {
+		return typ.WithNullability(n), nil
 	}
-	return nil, substraitgo.ErrNotFound
+	return nil, err
 }
 
 type listType struct {
@@ -234,12 +186,8 @@ type lengthType struct {
 
 func (p *lengthType) ShortType() string {
 	switch p.TypeName {
-	case "fixedchar":
-		return "fchar"
-	case "fixedbinary":
-		return "fbin"
-	case "varchar":
-		return "vchar"
+	case "fixedchar", "varchar", "fixedbinary":
+		return types.GetShortTypeName(types.TypeName(p.TypeName))
 	}
 	return ""
 }
@@ -257,25 +205,11 @@ func (p *lengthType) Type() (types.Type, error) {
 		return nil, substraitgo.ErrNotImplemented
 	}
 
-	switch p.TypeName {
-	case "fixedchar":
-		return &types.FixedCharType{
-			Length:      lit.Value,
-			Nullability: n,
-		}, nil
-	case "fixedbinary":
-		return &types.FixedBinaryType{
-			Length:      lit.Value,
-			Nullability: n,
-		}, nil
-	case "varchar":
-		return &types.VarCharType{
-			Length:      lit.Value,
-			Nullability: n,
-		}, nil
-	default:
-		return nil, substraitgo.ErrInvalidType
+	typ, err := types.FixedTypeNameToType(types.TypeName(p.TypeName))
+	if err != nil {
+		return nil, err
 	}
+	return typ.WithLength(lit.Value).WithNullability(n), nil
 }
 
 type decimalType struct {
