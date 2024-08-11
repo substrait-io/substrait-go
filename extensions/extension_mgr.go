@@ -380,7 +380,10 @@ func (e *set) DecodeType(anchor uint32) (id ID, ok bool) {
 func (e *set) GetTypeAnchor(id ID) uint32 {
 	a, ok := e.types[id]
 	if !ok {
-		e.addOrGetURI(id.URI)
+		_, err := e.addOrGetURI(id.URI)
+		if err != nil {
+			panic(err)
+		}
 		a = uint32(len(e.types)) + 1
 		e.encodeType(a, id)
 	}
@@ -390,7 +393,10 @@ func (e *set) GetTypeAnchor(id ID) uint32 {
 func (e *set) GetFuncAnchor(id ID) uint32 {
 	a, ok := e.funcs[id]
 	if !ok {
-		e.addOrGetURI(id.URI)
+		_, err := e.addOrGetURI(id.URI)
+		if err != nil {
+			panic(err)
+		}
 		a = uint32(len(e.funcs)) + 1
 		e.encodeFunc(a, id)
 	}
@@ -400,7 +406,10 @@ func (e *set) GetFuncAnchor(id ID) uint32 {
 func (e *set) GetTypeVariationAnchor(id ID) uint32 {
 	a, ok := e.typeVariations[id]
 	if !ok {
-		e.addOrGetURI(id.URI)
+		_, err := e.addOrGetURI(id.URI)
+		if err != nil {
+			panic(err)
+		}
 		// add 1 to the length to avoid an anchor of 0
 		// so that it's easier to tell when there is no
 		// type variation.

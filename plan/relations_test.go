@@ -1,10 +1,11 @@
 package plan
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/substrait-io/substrait-go/expr"
 	"github.com/substrait-io/substrait-go/types"
-	"testing"
 )
 
 func noOpRewrite(e expr.Expression) (expr.Expression, error) {

@@ -3,6 +3,7 @@
 package extensions
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -130,7 +131,7 @@ func (a *ArgumentList) UnmarshalYAML(fn func(interface{}) error) error {
 				Value:       new(parser.TypeExpression),
 				Constant:    constant,
 			}
-			arg.Value.UnmarshalYAML(func(v any) error {
+			err := arg.Value.UnmarshalYAML(func(v any) error {
 				rv := reflect.ValueOf(v)
 				if rv.Type().Kind() != reflect.Ptr {
 					return substraitgo.ErrInvalidType
@@ -138,6 +139,11 @@ func (a *ArgumentList) UnmarshalYAML(fn func(interface{}) error) error {
 				rv.Elem().Set(reflect.ValueOf(val))
 				return nil
 			})
+
+			if err != nil {
+				return fmt.Errorf("failure reading YAML %v", err)
+			}
+
 			(*a)[i] = arg
 
 		} else if typ, ok := arg["type"]; ok {

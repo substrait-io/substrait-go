@@ -7,13 +7,13 @@ package expr
 import (
 	"bytes"
 	"fmt"
-	"google.golang.org/protobuf/types/known/anypb"
 	"reflect"
 
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/proto"
 	"github.com/substrait-io/substrait-go/types"
 	"golang.org/x/exp/slices"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // PrimitiveLiteralValue is a type constraint that represents
