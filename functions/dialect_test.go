@@ -3,11 +3,11 @@
 package functions
 
 import (
-	"github.com/substrait-io/substrait-go/extensions"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/substrait-io/substrait-go/extensions"
 )
 
 var gFunctionRegistry FunctionRegistry

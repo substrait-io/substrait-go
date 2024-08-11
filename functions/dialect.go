@@ -80,15 +80,11 @@ func (d *dialectImpl) LocalizeFunctionRegistry(registry FunctionRegistry) (Local
 	}, nil
 }
 
-type withLocalName interface {
-	LocalName() string
-}
-
 type withID interface {
 	ID() extensions.ID
 }
 
-func makeLocalFunctionVariantMap[T withID, V any](dialectFunctionInfos map[extensions.ID]*dialectFunctionInfo, getFunctionVariants func(string) []T, createLocalVariant func(T, *dialectFunctionInfo) *V) (map[FunctionName][]*V, error) {
+func makeLocalFunctionVariantMap[T withID, V any](dialectFunctionInfos map[extensions.ID]*dialectFunctionInfo, getFunctionVariants func(string) []extensions.ID, createLocalVariant func(T, *dialectFunctionInfo) *V) (map[FunctionName][]*V, error) {
 	processedFunctions := make(map[extensions.ID]bool)
 	localFunctionVariants := make(map[FunctionName][]*V)
 	for _, dfi := range dialectFunctionInfos {
