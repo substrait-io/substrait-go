@@ -8,6 +8,18 @@ permissions:
   contents: read
 
 jobs:
+  golangci:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.59
   build:
     name: Build and Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -24,10 +36,6 @@ jobs:
         with:
           go-version: '>=1.18'
           cache: true
-      - name: Install staticcheck
-        run: go install honnef.co/go/tools/cmd/staticcheck@latest
-      - name: Install goimports
-        run: go install golang.org/x/tools/cmd/goimports@latest
       - name: Build
         run: go build ./...
       - name: Run Tests
@@ -44,7 +52,3 @@ jobs:
           disable_search: true
           file: ./coverage.out
           fail_ci_if_error: true
-      - name: Lint
-        run: staticcheck -f stylish ./...
-      - name: Check goimports
-        run: goimports -l -w .
