@@ -355,7 +355,7 @@ scalar_functions:
 	for _, tt := range tests {
 		t.Run(tt.substraitName, func(t *testing.T) {
 			var fv []*LocalScalarFunctionVariant
-			fv = localRegistry.GetScalarFunctionsBy(tt.localName, tt.numArgs, Local)
+			fv = localRegistry.GetScalarFunctions(LocalFunctionName(tt.localName), tt.numArgs)
 
 			assert.Greater(t, len(fv), 0)
 			assert.Equal(t, tt.expectedUri, fv[0].URI())
@@ -365,7 +365,7 @@ scalar_functions:
 			assert.False(t, fv[0].IsOptionSupported("overflow", "SILENT"))
 			checkCompoundNames(t, getScalarCompoundNames(fv), tt.expectedNames)
 
-			fv = localRegistry.GetScalarFunctionsBy(tt.substraitName, tt.numArgs, Substrait)
+			fv = localRegistry.GetScalarFunctions(SubstraitFunctionName(tt.substraitName), tt.numArgs)
 			assert.Greater(t, len(fv), 0)
 			assert.Equal(t, tt.expectedUri, fv[0].URI())
 			assert.Equal(t, tt.localName, fv[0].LocalName())
@@ -439,7 +439,7 @@ aggregate_functions:
 	}
 	for _, tt := range tests {
 		t.Run(tt.substraitName, func(t *testing.T) {
-			av := localRegistry.GetAggregateFunctionsBy(tt.localName, 1, Local)
+			av := localRegistry.GetAggregateFunctions(LocalFunctionName(tt.localName), 1)
 
 			assert.Greater(t, len(av), 0)
 			assert.Equal(t, tt.expectedUri, av[0].URI())
@@ -448,7 +448,7 @@ aggregate_functions:
 			assert.False(t, av[0].IsOptionSupported("overflow", "ERROR"))
 			checkCompoundNames(t, getAggregateCompoundNames(av), tt.expectedNames)
 
-			av = localRegistry.GetAggregateFunctionsBy(tt.substraitName, 1, Substrait)
+			av = localRegistry.GetAggregateFunctions(SubstraitFunctionName(tt.substraitName), 1)
 			assert.Greater(t, len(av), 0)
 			assert.Equal(t, tt.expectedUri, av[0].URI())
 			assert.Equal(t, tt.substraitName, av[0].LocalName())
@@ -507,7 +507,7 @@ window_functions:
 	}
 	for _, tt := range tests {
 		t.Run(tt.substraitName, func(t *testing.T) {
-			wf := localRegistry.GetWindowFunctionsBy(tt.localName, tt.numArgs, Local)
+			wf := localRegistry.GetWindowFunctions(LocalFunctionName(tt.localName), tt.numArgs)
 			assert.Greater(t, len(wf), 0)
 			assert.Equal(t, tt.expectedUri, wf[0].URI())
 			assert.Equal(t, tt.localName, wf[0].LocalName())
@@ -515,7 +515,7 @@ window_functions:
 			assert.False(t, wf[0].IsOptionSupported("overflow", "ERROR"))
 			checkCompoundNames(t, getWindowCompoundNames(wf), tt.expectedNames)
 
-			wf = localRegistry.GetWindowFunctionsBy(tt.substraitName, tt.numArgs, Substrait)
+			wf = localRegistry.GetWindowFunctions(SubstraitFunctionName(tt.substraitName), tt.numArgs)
 			assert.Greater(t, len(wf), 0)
 			assert.Equal(t, tt.expectedUri, wf[0].URI())
 			assert.Equal(t, tt.substraitName, wf[0].LocalName())

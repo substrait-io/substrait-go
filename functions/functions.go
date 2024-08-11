@@ -11,6 +11,16 @@ type functionRegistryImpl struct {
 	allFunctions       []extensions.FunctionVariant
 }
 
+func getOrEmpty[K comparable, V any](key K, m map[K][]V) []V {
+	if value, exists := m[key]; exists {
+		return value
+	}
+
+	return make([]V, 0)
+}
+
+var _ FunctionRegistry = &functionRegistryImpl{}
+
 func NewFunctionRegistry(collection *extensions.Collection) FunctionRegistry {
 	scalarFunctions := make(map[string][]*extensions.ScalarFunctionVariant)
 	aggregateFunctions := make(map[string][]*extensions.AggregateFunctionVariant)
@@ -45,27 +55,27 @@ func (f *functionRegistryImpl) GetAllFunctions() []extensions.FunctionVariant {
 }
 
 func (f *functionRegistryImpl) GetScalarFunctionsByName(name string) []*extensions.ScalarFunctionVariant {
-	return f.scalarFunctions[name]
+	return getOrEmpty(name, f.scalarFunctions)
 }
 
 func (f *functionRegistryImpl) GetAggregateFunctionsByName(name string) []*extensions.AggregateFunctionVariant {
-	return f.aggregateFunctions[name]
+	return getOrEmpty(name, f.aggregateFunctions)
 }
 
 func (f *functionRegistryImpl) GetWindowFunctionsByName(name string) []*extensions.WindowFunctionVariant {
-	return f.windowFunctions[name]
+	return getOrEmpty(name, f.windowFunctions)
 }
 
 func (f *functionRegistryImpl) GetScalarFunctions(name string, numArgs int) []*extensions.ScalarFunctionVariant {
-	return getFunctionVariantsByCount(f.scalarFunctions[name], numArgs)
+	return getFunctionVariantsByCount(f.GetScalarFunctionsByName(name), numArgs)
 }
 
 func (f *functionRegistryImpl) GetAggregateFunctions(name string, numArgs int) []*extensions.AggregateFunctionVariant {
-	return getFunctionVariantsByCount(f.aggregateFunctions[name], numArgs)
+	return getFunctionVariantsByCount(f.GetAggregateFunctionsByName(name), numArgs)
 }
 
 func (f *functionRegistryImpl) GetWindowFunctions(name string, numArgs int) []*extensions.WindowFunctionVariant {
-	return getFunctionVariantsByCount(f.windowFunctions[name], numArgs)
+	return getFunctionVariantsByCount(f.GetWindowFunctionsByName(name), numArgs)
 }
 
 func getFunctionVariantsByCount[T extensions.FunctionVariant](functions []T, numArgs int) []T {
@@ -77,3 +87,5 @@ func getFunctionVariantsByCount[T extensions.FunctionVariant](functions []T, num
 	}
 	return ret
 }
+
+var _ FunctionRegistry = &functionRegistryImpl{}

@@ -46,43 +46,43 @@ type Dialect interface {
 	LocalizeTypeRegistry(registry TypeRegistry) (LocalTypeRegistry, error)
 }
 
-type FunctionRegistry interface {
+type FunctionName interface {
+	functionName()
+}
+
+// LocalFunctionName is a function name localized to a specific dialect
+type LocalFunctionName string
+
+// SubstraitFunctionName is the short name of the function (excluded URI and argument types) in Substrait
+type SubstraitFunctionName string
+
+func (LocalFunctionName) functionName()     {}
+func (SubstraitFunctionName) functionName() {}
+
+type functionRegistryBase[L any, S extensions.FunctionVariant, A extensions.FunctionVariant, W extensions.FunctionVariant] interface {
 	// GetScalarFunctions returns a slice of zero or more scalar function variants that match the provided name & numArgs
-	GetScalarFunctions(name string, numArgs int) []*extensions.ScalarFunctionVariant
-	GetScalarFunctionsByName(name string) []*extensions.ScalarFunctionVariant
+	GetScalarFunctions(name L, numArgs int) []S
 
 	// GetAggregateFunctions returns a slice of zero or more aggregate function variants that match the provided name & numArgs
-	GetAggregateFunctions(name string, numArgs int) []*extensions.AggregateFunctionVariant
-	GetAggregateFunctionsByName(name string) []*extensions.AggregateFunctionVariant
+	GetAggregateFunctions(name L, numArgs int) []A
 
 	// GetWindowFunctions returns a slice of zero or more window function variants that match the provided name & numArgs
-	GetWindowFunctions(name string, numArgs int) []*extensions.WindowFunctionVariant
-	GetWindowFunctionsByName(name string) []*extensions.WindowFunctionVariant
+	GetWindowFunctions(name L, numArgs int) []W
 
 	// GetAllFunctions returns all function variants in the registry
 	GetAllFunctions() []extensions.FunctionVariant
 }
 
-// NameKind is an enum that describes the kind of name being used to look up a function
-type NameKind int
-
-const (
-	Substrait NameKind = iota
-	Local
-)
+type FunctionRegistry interface {
+	functionRegistryBase[string, *extensions.ScalarFunctionVariant, *extensions.AggregateFunctionVariant, *extensions.WindowFunctionVariant]
+	GetScalarFunctionsByName(name string) []*extensions.ScalarFunctionVariant
+	GetAggregateFunctionsByName(name string) []*extensions.AggregateFunctionVariant
+	GetWindowFunctionsByName(name string) []*extensions.WindowFunctionVariant
+}
 
 // LocalFunctionRegistry is a collection of functions localized to a particular Dialect
 type LocalFunctionRegistry interface {
-	// GetScalarFunctionsBy returns a slice of zero or more scalar function variants that match the given name, numArgs & kind.
-	GetScalarFunctionsBy(name string, numArgs int, kind NameKind) []*LocalScalarFunctionVariant
-
-	// GetAggregateFunctionsBy returns a slice of zero or more aggregate function variants that match the given name, numArgs & kind.
-	GetAggregateFunctionsBy(name string, numArgs int, kind NameKind) []*LocalAggregateFunctionVariant
-
-	// GetWindowFunctionsBy returns a slice of zero or more window function variants that match the given name, numArgs & kind.
-	GetWindowFunctionsBy(name string, numArgs int, kind NameKind) []*LocalWindowFunctionVariant
-
-	// GetDialect returns the dialect that this function registry is localized to
+	functionRegistryBase[FunctionName, *LocalScalarFunctionVariant, *LocalAggregateFunctionVariant, *LocalWindowFunctionVariant]
 	GetDialect() Dialect
 }
 
@@ -128,15 +128,21 @@ type LocalScalarFunctionVariant struct {
 	LocalFunctionVariant
 }
 
+var _ extensions.FunctionVariant = &LocalScalarFunctionVariant{}
+
 type LocalAggregateFunctionVariant struct {
 	extensions.AggregateFunctionVariant
 	LocalFunctionVariant
 }
 
+var _ extensions.FunctionVariant = &LocalAggregateFunctionVariant{}
+
 type LocalWindowFunctionVariant struct {
 	extensions.WindowFunctionVariant
 	LocalFunctionVariant
 }
+
+var _ extensions.FunctionVariant = &LocalWindowFunctionVariant{}
 
 func newLocalScalarFunctionVariant(sf *extensions.ScalarFunctionVariant, dfi *dialectFunctionInfo) *LocalScalarFunctionVariant {
 	return &LocalScalarFunctionVariant{

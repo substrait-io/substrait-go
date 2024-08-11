@@ -43,6 +43,15 @@ func (d *dialectImpl) Name() string {
 	return d.name
 }
 
+func appendVariants[T extensions.FunctionVariant](variants []extensions.FunctionVariant, m map[FunctionName][]T) []extensions.FunctionVariant {
+	for _, structs := range m {
+		for _, s := range structs {
+			variants = append(variants, s)
+		}
+	}
+	return variants
+}
+
 func (d *dialectImpl) LocalizeFunctionRegistry(registry FunctionRegistry) (LocalFunctionRegistry, error) {
 	scalarFunctions, err := makeLocalFunctionVariantMap(d.localScalarFunctions, registry.GetScalarFunctionsByName, newLocalScalarFunctionVariant)
 	if err != nil {
@@ -57,14 +66,17 @@ func (d *dialectImpl) LocalizeFunctionRegistry(registry FunctionRegistry) (Local
 		return nil, err
 	}
 
+	var allVariants []extensions.FunctionVariant
+	allVariants = appendVariants(allVariants, scalarFunctions)
+	allVariants = appendVariants(allVariants, aggregateFunctions)
+	allVariants = appendVariants(allVariants, windowFunctions)
+
 	return &localFunctionRegistryImpl{
-		dialect:                 d,
-		scalarFunctions:         scalarFunctions,
-		aggregateFunctions:      aggregateFunctions,
-		windowFunctions:         windowFunctions,
-		localScalarFunctions:    buildReverseMap(scalarFunctions),
-		localAggregateFunctions: buildReverseMap(aggregateFunctions),
-		localWindowFunctions:    buildReverseMap(windowFunctions),
+		dialect:            d,
+		scalarFunctions:    scalarFunctions,
+		aggregateFunctions: aggregateFunctions,
+		windowFunctions:    windowFunctions,
+		allFunctions:       allVariants,
 	}, nil
 }
 
@@ -72,23 +84,15 @@ type withLocalName interface {
 	LocalName() string
 }
 
-func buildReverseMap[T withLocalName](localFunctionVariants map[string][]T) map[string][]T {
-	reverseMap := make(map[string][]T)
-	for _, variants := range localFunctionVariants {
-		reverseMap[variants[0].LocalName()] = variants
-	}
-	return reverseMap
-}
-
 type withID interface {
 	ID() extensions.ID
 }
 
-func makeLocalFunctionVariantMap[T withID, V any](dialectFunctionInfos map[extensions.ID]*dialectFunctionInfo, getFunctionVariants func(string) []T, createLocalVariant func(T, *dialectFunctionInfo) *V) (map[string][]*V, error) {
+func makeLocalFunctionVariantMap[T withID, V any](dialectFunctionInfos map[extensions.ID]*dialectFunctionInfo, getFunctionVariants func(string) []T, createLocalVariant func(T, *dialectFunctionInfo) *V) (map[FunctionName][]*V, error) {
 	processedFunctions := make(map[extensions.ID]bool)
-	localFunctionVariants := make(map[string][]*V)
+	localFunctionVariants := make(map[FunctionName][]*V)
 	for _, dfi := range dialectFunctionInfos {
-		if _, nameAlreadyProcessed := localFunctionVariants[dfi.Name]; nameAlreadyProcessed {
+		if _, nameAlreadyProcessed := localFunctionVariants[LocalFunctionName(dfi.Name)]; nameAlreadyProcessed {
 			if _, ok := processedFunctions[dfi.ID]; !ok {
 				return nil, fmt.Errorf("%w: no function variant found for '%s'", substraitgo.ErrInvalidDialect, dfi.ID)
 			}
@@ -106,7 +110,8 @@ func makeLocalFunctionVariantMap[T withID, V any](dialectFunctionInfos map[exten
 			return nil, fmt.Errorf("%w: no function variant found for '%s'", substraitgo.ErrInvalidDialect, dfi.ID)
 		}
 		if len(localVariantArray) > 0 {
-			localFunctionVariants[dfi.Name] = localVariantArray
+			localFunctionVariants[SubstraitFunctionName(dfi.Name)] = localVariantArray
+			localFunctionVariants[LocalFunctionName(dfi.LocalName)] = localVariantArray
 		}
 	}
 	return localFunctionVariants, nil
