@@ -26,6 +26,8 @@ jobs:
           cache: true
       - name: Install staticcheck
         run: go install honnef.co/go/tools/cmd/staticcheck@latest
+      - name: Install goimports
+        run: go install golang.org/x/tools/cmd/goimports@latest
       - name: Build
         run: go build ./...
       - name: Run Tests
@@ -44,3 +46,5 @@ jobs:
           fail_ci_if_error: true
       - name: Lint
         run: staticcheck -f stylish ./...
+      - name: Check goimports
+        run: goimports -l -w .

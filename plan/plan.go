@@ -5,7 +5,6 @@
 package plan
 
 import (
-	"fmt"
 	"runtime/debug"
 	"strings"
 
