@@ -7,6 +7,7 @@ package plan
 import (
 	"runtime/debug"
 	"strings"
+        "fmt"
 
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/expr"
