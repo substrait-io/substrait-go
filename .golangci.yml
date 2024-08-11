@@ -1,0 +1,13 @@
+issues:
+  exclude-dirs:
+    - proto
+linters-settings:
+  staticcheck:
+    checks:
+      - "-SA1019" #disabled until deprecation warnings are fixed.
+  gci:
+    custom-order: false
+linters:
+  enable:
+    - gci
+

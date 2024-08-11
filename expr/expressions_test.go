@@ -43,7 +43,10 @@ scalar_functions:
 var collection ext.Collection
 
 func init() {
-	collection.Load("https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml", strings.NewReader(sampleYAML))
+	err := collection.Load("https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml", strings.NewReader(sampleYAML))
+	if err != nil {
+		panic(err)
+	}
 }
 
 func ExampleExpression_scalarFunction() {
