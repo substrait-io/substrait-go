@@ -8,6 +8,7 @@ require (
 	github.com/alecthomas/participle/v2 v2.0.0
 	github.com/goccy/go-yaml v1.9.8
 	github.com/google/go-cmp v0.5.9
+	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.8.2
 	golang.org/x/exp v0.0.0-20230206171751-46f607a40771
 	google.golang.org/protobuf v1.33.0
