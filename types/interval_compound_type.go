@@ -1,0 +1,68 @@
+package types
+
+import (
+	"fmt"
+	"github.com/substrait-io/substrait-go/proto"
+)
+
+// IntervalCompoundType this is used to represent a type of interval compound.
+type IntervalCompoundType struct {
+	precision        TimePrecision
+	typeVariationRef uint32
+	nullability      Nullability
+}
+
+// NewIntervalCompoundType creates a type of new interval compound.
+// Created type has nullability as Nullable
+func NewIntervalCompoundType(precision TimePrecision) IntervalCompoundType {
+	return IntervalCompoundType{
+		precision:   precision,
+		nullability: NullabilityNullable,
+	}
+}
+
+func (m IntervalCompoundType) GetPrecisionProtoVal() int32 {
+	return m.precision.ToProtoVal()
+}
+
+func (IntervalCompoundType) isRootRef() {}
+func (m IntervalCompoundType) WithNullability(n Nullability) Type {
+	return m.withNullability(n)
+}
+
+func (m IntervalCompoundType) withNullability(n Nullability) IntervalCompoundType {
+	return IntervalCompoundType{
+		precision:   m.precision,
+		nullability: n,
+	}
+}
+
+func (m IntervalCompoundType) GetType() Type                     { return m }
+func (m IntervalCompoundType) GetNullability() Nullability       { return m.nullability }
+func (m IntervalCompoundType) GetTypeVariationReference() uint32 { return m.typeVariationRef }
+func (m IntervalCompoundType) Equals(rhs Type) bool {
+	if o, ok := rhs.(IntervalCompoundType); ok {
+		return o == m
+	}
+	return false
+}
+
+func (m IntervalCompoundType) ToProtoFuncArg() *proto.FunctionArgument {
+	return &proto.FunctionArgument{
+		ArgType: &proto.FunctionArgument_Type{Type: m.ToProto()},
+	}
+}
+
+func (m IntervalCompoundType) ToProto() *proto.Type {
+	return &proto.Type{Kind: &proto.Type_IntervalCompound_{
+		IntervalCompound: &proto.Type_IntervalCompound{
+			Precision:              m.precision.ToProtoVal(),
+			Nullability:            m.nullability,
+			TypeVariationReference: m.typeVariationRef}}}
+}
+
+func (IntervalCompoundType) ShortString() string { return "intrcomp" }
+func (m IntervalCompoundType) String() string {
+	return fmt.Sprintf("intervalcompound%s<%d>", strNullable(m),
+		m.precision.ToProtoVal())
+}
