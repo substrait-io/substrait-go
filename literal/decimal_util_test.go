@@ -2,10 +2,11 @@ package literal
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"math/big"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_decimalStringToBytes(t *testing.T) {
