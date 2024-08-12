@@ -2,11 +2,12 @@ package types
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/substrait-io/substrait-go/proto"
 	"google.golang.org/protobuf/testing/protocmp"
-	"testing"
 )
 
 func TestNewIntervalCompoundType(t *testing.T) {

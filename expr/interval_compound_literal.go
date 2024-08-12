@@ -2,6 +2,7 @@ package expr
 
 import (
 	"errors"
+
 	"github.com/substrait-io/substrait-go/proto"
 	"github.com/substrait-io/substrait-go/types"
 )
@@ -49,6 +50,7 @@ func WithIntervalCompoundSubSeconds(subSeconds int64) func(*intervalDateParts) {
 // NewIntervalLiteralUptoSubSecondPrecision creates an interval literal which allows upto subsecond precision
 // arguments: precision and nullable property (n)
 // datePartsOptions is options to set value parts (month, year, day, seconds, subseconds).
+// datePartsOptions can be set using WithIntervalCompound(Years|Months|Days|Seconds|SubSeconds) functions
 // If multiple options of same types (e.g. multiple second options) are provided only value of last part is considered
 func NewIntervalLiteralUptoSubSecondPrecision(precision types.TimePrecision, n types.Nullability, datePartsOptions ...intervalDatePartsOptions) Literal {
 	intervalCompoundType := types.NewIntervalCompoundType(precision).WithNullability(n)
@@ -76,10 +78,6 @@ func intervalPartsValToProto(idp *intervalDateParts, ict *types.IntervalCompound
 			Months: idp.months,
 		}
 		intrCompPB.IntervalYearToMonth = yearToMonthProto
-	}
-	if idp.days == 0 && idp.seconds == 0 && idp.subSeconds == 0 {
-		// all parts are >= month granularity so no need to set daytosecond component
-		return intrCompPB
 	}
 
 	dayToSecondProto := &proto.Expression_Literal_IntervalDayToSecond{

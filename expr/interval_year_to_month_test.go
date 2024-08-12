@@ -1,12 +1,13 @@
 package expr
 
 import (
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/substrait-io/substrait-go/proto"
 	"github.com/substrait-io/substrait-go/types"
 	"google.golang.org/protobuf/testing/protocmp"
-	"testing"
 )
 
 func TestIntervalYearToMonthToProto(t *testing.T) {

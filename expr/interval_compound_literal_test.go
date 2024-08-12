@@ -1,12 +1,13 @@
 package expr
 
 import (
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/substrait-io/substrait-go/proto"
 	"github.com/substrait-io/substrait-go/types"
 	"google.golang.org/protobuf/testing/protocmp"
-	"testing"
 )
 
 const (
@@ -17,7 +18,7 @@ const (
 	subSecondsVal int64 = 10000
 )
 
-func TestIntervalCompoundProtoExpressionLiteral(t *testing.T) {
+func TestIntervalCompoundToProto(t *testing.T) {
 	// precision and nullability belong to type. In type unit tests they are already tested
 	// for different values so no need to test for multiple values
 	precisonVal := types.PrecisionNanoSeconds
@@ -39,6 +40,7 @@ func TestIntervalCompoundProtoExpressionLiteral(t *testing.T) {
 			[]intervalDatePartsOptions{yearOption, monthOption},
 			&proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
 				IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: yearVal, Months: monthVal},
+				IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{PrecisionMode: nanoSecPrecision},
 			}},
 		},
 		{"WithOnlyDayToSecond",
@@ -67,8 +69,7 @@ func TestIntervalCompoundProtoExpressionLiteral(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			expectedProtoExpression := &proto.Expression_Literal{LiteralType: tc.expectedExpressionLiteral, Nullable: nullable}
-			var intervalCompoundLiteral Literal
-			intervalCompoundLiteral = NewIntervalLiteralUptoSubSecondPrecision(precisonVal, nullability, tc.options...)
+			intervalCompoundLiteral := NewIntervalLiteralUptoSubSecondPrecision(precisonVal, nullability, tc.options...)
 			if diff := cmp.Diff(intervalCompoundLiteral.ToProtoLiteral(), expectedProtoExpression, protocmp.Transform()); diff != "" {
 				t.Errorf("proto didn't match, diff:\n%v", diff)
 			}
