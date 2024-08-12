@@ -19,7 +19,7 @@ type AdvancedExtension = extensions.AdvancedExtension
 const SubstraitDefaultURIPrefix = "https://github.com/substrait-io/substrait/blob/main/extensions/"
 
 // DefaultCollection is loaded with the default Substrait extension
-// definitions with the exception of decimal arithemtic. Decimal arithmetic
+// definitions with the exception of decimal arithmetic. Decimal arithmetic
 // functions are missing as the complex return type expressions are not
 // yet implemented.
 var DefaultCollection Collection
@@ -38,15 +38,15 @@ func init() {
 		if err != nil {
 			panic(err)
 		}
-		defer f.Close()
 		err = DefaultCollection.Load(SubstraitDefaultURIPrefix+ent.Name(), f)
 		if err != nil {
 			panic(err)
 		}
+		_ = f.Close()
 	}
 }
 
-// The unique identifier for a substrait object
+// ID is the unique identifier for a substrait object
 type ID struct {
 	URI string
 	// Name of the object. For functions, a simple name may be used for lookups,
@@ -200,6 +200,30 @@ func (c *Collection) Load(uri string, r io.Reader) error {
 func (c *Collection) URILoaded(uri string) bool {
 	_, ok := c.uriSet[uri]
 	return ok
+}
+
+func (c *Collection) GetAllScalarFunctions() []*ScalarFunctionVariant {
+	scalarFunctions := make([]*ScalarFunctionVariant, 0, len(c.scalarMap))
+	for _, v := range c.scalarMap {
+		scalarFunctions = append(scalarFunctions, v)
+	}
+	return scalarFunctions
+}
+
+func (c *Collection) GetAllAggregateFunctions() []*AggregateFunctionVariant {
+	aggregateFunctions := make([]*AggregateFunctionVariant, 0, len(c.aggregateMap))
+	for _, v := range c.aggregateMap {
+		aggregateFunctions = append(aggregateFunctions, v)
+	}
+	return aggregateFunctions
+}
+
+func (c *Collection) GetAllWindowFunctions() []*WindowFunctionVariant {
+	windowFunctions := make([]*WindowFunctionVariant, 0, len(c.windowMap))
+	for _, v := range c.windowMap {
+		windowFunctions = append(windowFunctions, v)
+	}
+	return windowFunctions
 }
 
 type Set interface {
