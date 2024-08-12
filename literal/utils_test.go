@@ -1,17 +1,17 @@
 package literal
 
 import (
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/substrait-io/substrait-go/expr"
-	"github.com/substrait-io/substrait-go/proto"
-	"github.com/substrait-io/substrait-go/types"
-
 	"fmt"
 	"math"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/substrait-io/substrait-go/expr"
+	"github.com/substrait-io/substrait-go/proto"
+	"github.com/substrait-io/substrait-go/types"
 )
 
 func TestNewBool(t *testing.T) {
