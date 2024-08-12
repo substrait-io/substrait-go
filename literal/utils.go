@@ -2,10 +2,11 @@ package literal
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/substrait-io/substrait-go/expr"
 	"github.com/substrait-io/substrait-go/types"
-	"time"
 )
 
 func NewBool(value bool) (expr.Literal, error) {
