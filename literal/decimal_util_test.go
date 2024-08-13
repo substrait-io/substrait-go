@@ -70,26 +70,27 @@ func testDecimalStringToBytes(t *testing.T, input, hexWant string, expPrecision,
 	got, precision, scale, err := decimalStringToBytes(input)
 	assert.NoError(t, err)
 	assert.Len(t, got, 16)
-	assert.Equal(t, hexToBytes(hexWant), got[:])
+	assert.Equal(t, hexToBytes(t, hexWant), got[:])
 	assert.Equal(t, expPrecision, precision)
 	assert.Equal(t, expScale, scale)
 	if err != nil {
 		// verify that the conversion is correct
-		string := decimalBytesToString(got, precision, scale)
+		decStr := decimalBytesToString(got, precision)
 		strings.TrimPrefix(input, "+")
-		assert.Equal(t, input, string)
+		assert.Equal(t, input, decStr)
 	}
 }
 
-func hexToBytes(input string) []byte {
+func hexToBytes(t *testing.T, input string) []byte {
 	bytes := make([]byte, len(input)/2)
 	for i := 0; i < len(input); i += 2 {
-		fmt.Sscanf(input[i:i+2], "%02x", &bytes[i/2])
+		_, err := fmt.Sscanf(input[i:i+2], "%02x", &bytes[i/2])
+		assert.NoError(t, err)
 	}
 	return bytes
 }
 
-func decimalBytesToString(decimalBytes [16]byte, precision, scale int32) string {
+func decimalBytesToString(decimalBytes [16]byte, precision int32) string {
 	// Reverse the byte array to big-endian
 	for i, j := 0, len(decimalBytes)-1; i < j; i, j = i+1, j-1 {
 		decimalBytes[i], decimalBytes[j] = decimalBytes[j], decimalBytes[i]
