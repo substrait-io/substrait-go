@@ -20,7 +20,7 @@ func init() {
 func initTypeMaps() {
 	nameToTypeMap = types.GetTypeNameToTypeMap()
 	toShortNameMap = make(map[string]string)
-	for k, _ := range nameToTypeMap {
+	for k := range nameToTypeMap {
 		shortName := types.GetShortTypeName(types.TypeName(k))
 		if shortName != k {
 			toShortNameMap[k] = shortName
