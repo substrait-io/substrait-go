@@ -69,22 +69,22 @@ func newIntervalPartsValInternal(datePartsOptions ...intervalDatePartsOptions) *
 	return intervalPartsVal
 }
 
-func intervalPartsValToProto(idp *intervalDateParts, ict *types.IntervalCompoundType) *proto.Expression_Literal_IntervalCompound {
+func (m *intervalDateParts) ToProto(ict *types.IntervalCompoundType) *proto.Expression_Literal_IntervalCompound {
 	intrCompPB := &proto.Expression_Literal_IntervalCompound{}
 
-	if idp.years > 0 || idp.months > 0 {
+	if m.years > 0 || m.months > 0 {
 		yearToMonthProto := &proto.Expression_Literal_IntervalYearToMonth{
-			Years:  idp.years,
-			Months: idp.months,
+			Years:  m.years,
+			Months: m.months,
 		}
 		intrCompPB.IntervalYearToMonth = yearToMonthProto
 	}
 
 	dayToSecondProto := &proto.Expression_Literal_IntervalDayToSecond{
-		Days:          idp.days,
-		Seconds:       idp.seconds,
+		Days:          m.days,
+		Seconds:       m.seconds,
 		PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{Precision: ict.GetPrecisionProtoVal()},
-		Subseconds:    idp.subSeconds,
+		Subseconds:    m.subSeconds,
 	}
 	intrCompPB.IntervalDayToSecond = dayToSecondProto
 	return intrCompPB

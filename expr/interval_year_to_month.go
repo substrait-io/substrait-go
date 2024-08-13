@@ -10,9 +10,9 @@ type intervalYearMonthVal struct {
 	months int32
 }
 
-// NewIntervalLiteralUptoMonth creates an interval literal which allows setting only year and month
+// NewIntervalLiteralYearToMonth creates an interval literal which allows setting only year and month
 // arguments: nullable property (n), years and months
-func NewIntervalLiteralUptoMonth(n types.Nullability, years int32, months int32) Literal {
+func NewIntervalLiteralYearToMonth(n types.Nullability, years int32, months int32) Literal {
 	intervalCompoundType := types.NewIntervalYearToMonthType().WithNullability(n)
 	intervalPartsVal := &intervalYearMonthVal{
 		years:  years,
@@ -24,13 +24,13 @@ func NewIntervalLiteralUptoMonth(n types.Nullability, years int32, months int32)
 	}
 }
 
-func intervalYearToMonthValToProto(idp *intervalYearMonthVal) *proto.Expression_Literal_IntervalYearToMonth {
+func (m *intervalYearMonthVal) ToProto() *proto.Expression_Literal_IntervalYearToMonth {
 	return &proto.Expression_Literal_IntervalYearToMonth{
-		Years:  idp.years,
-		Months: idp.months,
+		Years:  m.years,
+		Months: m.months,
 	}
 }
 
 func intervalYearToMonthFromProto(protoVal *proto.Expression_Literal_IntervalYearToMonth, nullability types.Nullability) Literal {
-	return NewIntervalLiteralUptoMonth(nullability, protoVal.Years, protoVal.Months)
+	return NewIntervalLiteralYearToMonth(nullability, protoVal.Years, protoVal.Months)
 }

@@ -477,12 +477,12 @@ func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
 	case types.IntervalCompoundType:
 		v := t.Value.(*intervalDateParts)
 		lit.LiteralType = &proto.Expression_Literal_IntervalCompound_{
-			IntervalCompound: intervalPartsValToProto(v, &literalType),
+			IntervalCompound: v.ToProto(&literalType),
 		}
 	case types.IntervalYearToMonthType:
 		v := t.Value.(*intervalYearMonthVal)
 		lit.LiteralType = &proto.Expression_Literal_IntervalYearToMonth_{
-			IntervalYearToMonth: intervalYearToMonthValToProto(v),
+			IntervalYearToMonth: v.ToProto(),
 		}
 	}
 	return lit

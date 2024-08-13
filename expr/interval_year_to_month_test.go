@@ -24,11 +24,11 @@ func TestIntervalYearToMonthToProto(t *testing.T) {
 		expectedExpressionLiteral *proto.Expression_Literal_IntervalYearToMonth_
 	}{
 		{"WithOnlyYear",
-			NewIntervalLiteralUptoMonth(nullability, oneYear, 0),
+			NewIntervalLiteralYearToMonth(nullability, oneYear, 0),
 			&proto.Expression_Literal_IntervalYearToMonth_{IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: oneYear}},
 		},
 		{"WithOnlyMonth",
-			NewIntervalLiteralUptoMonth(nullability, 0, oneMonth),
+			NewIntervalLiteralYearToMonth(nullability, 0, oneMonth),
 			&proto.Expression_Literal_IntervalYearToMonth_{IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Months: oneMonth}},
 		},
 	} {
