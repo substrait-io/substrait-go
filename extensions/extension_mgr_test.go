@@ -301,3 +301,44 @@ func TestDefaultCollection(t *testing.T) {
 	assert.Equal(t, "point", et.Name)
 	assert.Equal(t, map[string]interface{}{"latitude": "i32", "longitude": "i32"}, et.Structure)
 }
+
+func TestCollection_GetAllScalarFunctions(t *testing.T) {
+	scalarFunctions := extensions.DefaultCollection.GetAllScalarFunctions()
+	aggregateFunctions := extensions.DefaultCollection.GetAllAggregateFunctions()
+	windowFunctions := extensions.DefaultCollection.GetAllWindowFunctions()
+	assert.GreaterOrEqual(t, len(scalarFunctions), 309)
+	assert.GreaterOrEqual(t, len(aggregateFunctions), 62)
+	assert.GreaterOrEqual(t, len(windowFunctions), 7)
+	tests := []struct {
+		uri         string
+		signature   string
+		isScalar    bool
+		isAggregate bool
+		isWindow    bool
+	}{
+		{extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml", "add:i32_i32", true, false, false},
+		{extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml", "variance:fp64", false, true, false},
+		{extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml", "dense_rank:", false, false, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.signature, func(t *testing.T) {
+			assert.True(t, tt.isScalar || tt.isAggregate || tt.isWindow)
+			c := extensions.DefaultCollection
+			if tt.isScalar {
+				sf, ok := c.GetScalarFunc(extensions.ID{URI: tt.uri, Name: tt.signature})
+				assert.True(t, ok)
+				assert.Contains(t, scalarFunctions, sf)
+			}
+			if tt.isAggregate {
+				af, ok := c.GetAggregateFunc(extensions.ID{URI: tt.uri, Name: tt.signature})
+				assert.True(t, ok)
+				assert.Contains(t, aggregateFunctions, af)
+			}
+			if tt.isWindow {
+				wf, ok := c.GetWindowFunc(extensions.ID{URI: tt.uri, Name: tt.signature})
+				assert.True(t, ok)
+				assert.Contains(t, windowFunctions, wf)
+			}
+		})
+	}
+}
