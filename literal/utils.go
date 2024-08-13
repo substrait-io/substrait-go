@@ -45,6 +45,8 @@ func NewDate(days int) (expr.Literal, error) {
 	return expr.NewLiteral[types.Date](types.Date(days), false)
 }
 
+// NewTime creates a new Time literal from a time.Time value.
+// This uses the number of microseconds elapsed since the start of the day.
 func NewTime(tm time.Time) (expr.Literal, error) {
 	startOfTheDay := time.Date(tm.Year(), tm.Month(), tm.Day(), 0, 0, 0, 0, tm.Location())
 	return expr.NewLiteral[types.Time](types.Time(tm.Sub(startOfTheDay).Microseconds()), false)
@@ -57,16 +59,20 @@ func NewTimeFromMicros(micros int64) (expr.Literal, error) {
 	return expr.NewLiteral[types.Time](types.Time(micros), false)
 }
 
-func NewTimestamp(tm time.Time) (expr.Literal, error) {
-	return expr.NewLiteral[types.Timestamp](types.Timestamp(tm.UnixMicro()), false)
+// NewTimestamp creates a new Timestamp literal from a time.Time timestamp value.
+// This uses the number of microseconds elapsed since January 1, 1970 00:00:00 UTC
+func NewTimestamp(timestamp time.Time) (expr.Literal, error) {
+	return expr.NewLiteral[types.Timestamp](types.Timestamp(timestamp.UnixMicro()), false)
 }
 
 func NewTimestampFromMicros(micros int64) (expr.Literal, error) {
 	return expr.NewLiteral[types.Timestamp](types.Timestamp(micros), false)
 }
 
-func NewTimestampTZ(tm time.Time) (expr.Literal, error) {
-	return expr.NewLiteral[types.TimestampTz](types.TimestampTz(tm.UnixMicro()), false)
+// NewTimestampTZ creates a new TimestampTz literal from a time.Time timestamp value.
+// This uses the number of microseconds elapsed since January 1, 1970 00:00:00 UTC
+func NewTimestampTZ(timestamp time.Time) (expr.Literal, error) {
+	return expr.NewLiteral[types.TimestampTz](types.TimestampTz(timestamp.UnixMicro()), false)
 }
 
 func NewTimestampTZFromMicros(micros int64) (expr.Literal, error) {

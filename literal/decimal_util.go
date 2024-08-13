@@ -2,72 +2,67 @@ package literal
 
 import (
 	"fmt"
-	"math/big"
+	"regexp"
 	"strings"
+
+	"github.com/cockroachdb/apd"
 )
 
+var decimalPattern = regexp.MustCompile(`^[+-]?[\d]{0,38}(\.[\d]{0,38})?$`)
+
+// decimalStringToBytes converts a decimal string to a 16-byte byte array.
+// 16-byte bytes represents a little-endian 128-bit integer, to be divided by 10^Scale to get the decimal value.
+// This function also returns the precision and scale of the decimal value.
+// The precision is the total number of digits in the decimal value. The precision is limited to 38 digits.
+// The scale is the number of digits to the right of the decimal point. The scale is limited to the precision.
 func decimalStringToBytes(decimalStr string) ([16]byte, int32, int32, error) {
 	var result [16]byte
 
-	// Split the string into integer and fractional parts
-	parts := strings.Split(decimalStr, ".")
-	if len(parts) > 2 {
-		return result, 0, 0, fmt.Errorf("invalid decimal string")
-	}
-	precision := int32(len(parts[0])) // Precision starts with the length of the integer part
-	scale := int32(0)
-
-	isNeg := strings.HasPrefix(decimalStr, "-")
-	if strings.HasPrefix(decimalStr, "-") || strings.HasPrefix(decimalStr, "+") {
-		precision-- // Exclude the sign from the precision
-	}
-	// If there's a fractional part, adjust precision and scale
-	if len(parts) > 1 {
-		scale = int32(len(parts[1]))
-		precision += scale
-		decimalStr = parts[0] + parts[1] // Concatenate parts without the decimal point
-	}
-
-	// Parse the concatenated string to a big.Int
-	intValue, success := new(big.Int).SetString(decimalStr, 10)
-	if !success {
+	strings.Trim(decimalStr, " ")
+	if !decimalPattern.MatchString(decimalStr) {
 		return result, 0, 0, fmt.Errorf("invalid decimal string")
 	}
 
-	// Convert the big.Int to a byte array
-	byteArray := intValue.Bytes()
+	// Parse the decimal string using apd
+	dec, cond, err := apd.NewFromString(decimalStr)
+	if err != nil || cond.Any() {
+		return result, 0, 0, fmt.Errorf("invalid decimal string: %v", err)
+	}
 
-	// Ensure the byte array fits within 16 bytes
+	// Convert the coefficient to a byte array
+	byteArray := dec.Coeff.Bytes()
 	if len(byteArray) > 16 {
-		return result, precision, scale, fmt.Errorf("number exceeds 16 bytes")
+		return result, 0, 0, fmt.Errorf("number exceeds 16 bytes")
 	}
-
-	// Copy the bytes to the fixed 16-byte array
 	copy(result[16-len(byteArray):], byteArray)
 
-	if isNeg {
-		// Negate the bytes to get the two's complement
-		for i := range result {
-			result[i] = ^result[i]
-		}
-		// Add 1 to the two's complement to get the negative value
-		carry := byte(1)
-		for i := len(result) - 1; i >= 0; i-- {
-			result[i] += carry
-			if result[i] == 0 {
-				carry = 1
-			} else {
-				break
-			}
-		}
+	// Handle the sign and two's complement for negative numbers
+	if dec.Negative {
+		twosComplement(result[:])
 	}
+
 	// Reverse the byte array to little-endian
 	for i, j := 0, len(result)-1; i < j; i, j = i+1, j-1 {
 		result[i], result[j] = result[j], result[i]
 	}
 
+	scale := -dec.Exponent
+	precision := max(int32(apd.NumDigits(&dec.Coeff)), scale+1)
 	if precision > 38 {
 		return result, precision, scale, fmt.Errorf("number exceeds maximum precision of 38")
 	}
 	return result, precision, scale, nil
+}
+
+func twosComplement(bytes []byte) {
+	for i := range bytes {
+		bytes[i] = ^bytes[i]
+	}
+	carry := byte(1)
+	for i := len(bytes) - 1; i >= 0; i-- {
+		bytes[i] += carry
+		if bytes[i] != 0 {
+			break
+		}
+	}
 }
