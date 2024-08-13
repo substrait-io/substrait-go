@@ -142,3 +142,51 @@ func TestGetTypeNameToTypeMap(t *testing.T) {
 		})
 	}
 }
+
+func TestGetShortTypeName(t *testing.T) {
+	tests := []struct {
+		name     TypeName
+		expShort string
+	}{
+		{"boolean", "bool"},
+		{"i8", "i8"},
+		{"timestamp", "ts"},
+		{"uuid", "uuid"},
+		{"binary", "vbin"},
+		{"fixedbinary", "fbin"},
+		{"fixedchar", "fchar"},
+		{"varchar", "vchar"},
+		{"string", "str"},
+		{"decimal", "dec"},
+		{"unknown", "unknown"},
+	}
+	for _, tt := range tests {
+		t.Run(string(tt.name), func(t *testing.T) {
+			assert.Equal(t, tt.expShort, GetShortTypeName(tt.name))
+		})
+	}
+}
+
+func TestFixedLenType_WithLength(t *testing.T) {
+	tests := []struct {
+		typeStr  string
+		typ      FixedType
+		length   int32
+		expError bool
+	}{
+		{"fixedbinary", &FixedBinaryType{}, 10, false},
+		{"char", &FixedCharType{}, 20, false},
+		{"varchar", &VarCharType{}, 30, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.typeStr, func(t *testing.T) {
+			typ := tt.typ.WithLength(tt.length)
+			if tt.expError {
+				assert.Nil(t, typ)
+				return
+			}
+			assert.Equal(t, fmt.Sprintf("%d", tt.length), typ.ParameterString())
+			assert.Equal(t, tt.typeStr, typ.BaseString())
+		})
+	}
+}
