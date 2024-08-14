@@ -45,13 +45,18 @@ func NewDate(days int) (expr.Literal, error) {
 	return expr.NewLiteral[types.Date](types.Date(days), false)
 }
 
-// NewTime creates a new Time literal from a time.Time value.
-// This uses the number of microseconds elapsed since the start of the day.
-func NewTime(tm time.Time) (expr.Literal, error) {
-	startOfTheDay := time.Date(tm.Year(), tm.Month(), tm.Day(), 0, 0, 0, 0, tm.Location())
-	return expr.NewLiteral[types.Time](types.Time(tm.Sub(startOfTheDay).Microseconds()), false)
+// NewTime creates a new Time literal from the given hours, minutes, seconds and microseconds.
+// The total microseconds should be in the range [0, 86400_000_000) to represent a valid time within a day.
+func NewTime(hours, minutes, seconds, microseconds int32) (expr.Literal, error) {
+	duration := time.Duration(hours)*time.Hour + time.Duration(minutes)*time.Minute + time.Duration(seconds)*time.Second + time.Duration(microseconds)*time.Microsecond
+	micros := duration.Microseconds()
+	if micros < 0 || micros >= (24*time.Hour).Microseconds() {
+		return nil, fmt.Errorf("invalid time value %d:%d:%d.%d", hours, minutes, seconds, microseconds)
+	}
+	return expr.NewLiteral[types.Time](types.Time(duration.Microseconds()), false)
 }
 
+// NewTimeFromMicros creates a new Time literal from the given microseconds.
 func NewTimeFromMicros(micros int64) (expr.Literal, error) {
 	if micros < 0 || micros >= (24*time.Hour).Microseconds() {
 		return nil, fmt.Errorf("invalid time value %d", micros)

@@ -435,35 +435,55 @@ func TestNewString(t *testing.T) {
 }
 
 func TestNewTime(t *testing.T) {
-	now := time.Now()
-	anHourAgo := now.Add(-time.Hour)
-	anYearAgo := now.AddDate(-1, 0, 0)
-	tests := []struct {
+	type testcase struct {
 		name    string
-		tm      time.Time
-		want    expr.Literal
-		wantErr assert.ErrorAssertionFunc
-	}{
-		{"now", now, expr.NewPrimitiveLiteral(types.Time(microSecondsOfTheDay(now)), false), assert.NoError},
-		{"an hour ago", anHourAgo, expr.NewPrimitiveLiteral(types.Time(microSecondsOfTheDay(anHourAgo)), false), assert.NoError},
-		{"an year ago", anYearAgo, expr.NewPrimitiveLiteral(types.Time(microSecondsOfTheDay(anYearAgo)), false), assert.NoError},
+		hours   int32
+		minutes int32
+		seconds int32
+		micros  int32
+	}
+	tests := []testcase{
+		{"zero", 0, 0, 0, 0},
+		{"10:30:20.999", 10, 30, 40, 999},
+		{"23:59:59.99999", 23, 59, 59, 999999},
+		{"300 minutes", 0, 300, 0, 0},
+		{"5000 seconds", 0, 0, 5000, 0},
+		{"86399 seconds", 0, 0, 86399, 0},
+		{"MaxInt32 microseconds", 0, 0, 0, math.MaxInt32},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewTime(tt.tm)
-			if !tt.wantErr(t, err, fmt.Sprintf("NewTime(%v)", tt.tm)) {
-				return
-			}
-			assert.Equalf(t, tt.want, got, "NewTime(%v)", tt.tm)
+			got, err := NewTime(tt.hours, tt.minutes, tt.seconds, tt.micros)
+			assert.NoError(t, err)
+			want := expr.NewPrimitiveLiteral(types.Time(getMicroSeconds(tt.hours, tt.minutes, tt.seconds, tt.micros)), false)
+			assert.Equal(t, want, got)
+		})
+	}
+
+	negTests := []testcase{
+		{"24:01:01.123", 24, 1, 1, 123},
+		{"23:60:01.123", 23, 60, 1, 123},
+		{"23:59:60.123", 23, 59, 60, 123},
+		{"23:59:59.1000000", 23, 59, 59, 1_000_000},
+		{"23:59:59.MaxInt32", 23, 59, 59, math.MaxInt32},
+		{"86400 seconds", 0, 0, 86400, 0},
+		{"24 hours", 24, 0, 0, 0},
+		{"-1 hour", -1, 0, 0, 0},
+		{"1440 minutes", 0, 1440, 0, 0},
+	}
+	for _, tt := range negTests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewTime(tt.hours, tt.minutes, tt.seconds, tt.micros)
+			assert.Error(t, err)
 		})
 	}
 }
 
-func microSecondsOfTheDay(tm time.Time) int64 {
-	return (time.Duration(tm.Hour()) * time.Hour).Microseconds() +
-		(time.Duration(tm.Minute()) * time.Minute).Microseconds() +
-		(time.Duration(tm.Second()) * time.Second).Microseconds() +
-		(time.Duration(tm.Nanosecond()) * time.Nanosecond).Microseconds()
+func getMicroSeconds(hours, minutes, seconds, microseconds int32) int64 {
+	return (time.Duration(hours) * time.Hour).Microseconds() +
+		(time.Duration(minutes) * time.Minute).Microseconds() +
+		(time.Duration(seconds) * time.Second).Microseconds() +
+		(time.Duration(microseconds) * time.Microsecond).Microseconds()
 }
 
 func TestNewTimeFromMicros(t *testing.T) {
