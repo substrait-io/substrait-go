@@ -98,3 +98,95 @@ func TestTypeRoundtrip(t *testing.T) {
 		})
 	}
 }
+
+func TestGetTypeNameToTypeMap(t *testing.T) {
+	typeMap := GetTypeNameToTypeMap()
+	tests := []struct {
+		name     string
+		typ      Type
+		isSimple bool
+		expError bool
+	}{
+		{"boolean", &BooleanType{}, true, false},
+		{"i8", &Int8Type{}, true, false},
+		{"timestamp", &TimestampType{}, true, false},
+		{"uuid", &UUIDType{}, true, false},
+		{"fixedbinary", &FixedBinaryType{}, false, false},
+		{"fixedchar", &FixedCharType{}, false, false},
+		{"varchar", &VarCharType{}, false, false},
+		{"decimal", &DecimalType{}, false, false},
+
+		{"unknown1", nil, true, true},
+		{"unknown2", nil, false, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.expError {
+				assert.Nil(t, typeMap[tt.name])
+				_, err := SimpleTypeNameToType(TypeName(tt.name))
+				assert.Error(t, err)
+				_, err = FixedTypeNameToType(TypeName(tt.name))
+				assert.Error(t, err)
+				return
+			}
+			assert.Equalf(t, tt.typ, typeMap[tt.name], "GetTypeNameToTypeMap()[%s] = %v, want %v", tt.name, typeMap[tt.name], tt.typ)
+			if tt.isSimple {
+				typ, err := SimpleTypeNameToType(TypeName(tt.name))
+				assert.NoError(t, err)
+				assert.Equalf(t, tt.typ, typ, "SimpleTypeNameToType(%s) = %v, want %v", tt.name, typ, tt.typ)
+			} else if tt.name != "decimal" {
+				typ, err := FixedTypeNameToType(TypeName(tt.name))
+				assert.NoError(t, err)
+				assert.Equalf(t, tt.typ, typ, "FixedTypeNameToType(%s) = %v, want %v", tt.name, typ, tt.typ)
+			}
+		})
+	}
+}
+
+func TestGetShortTypeName(t *testing.T) {
+	tests := []struct {
+		name     TypeName
+		expShort string
+	}{
+		{"boolean", "bool"},
+		{"i8", "i8"},
+		{"timestamp", "ts"},
+		{"uuid", "uuid"},
+		{"binary", "vbin"},
+		{"fixedbinary", "fbin"},
+		{"fixedchar", "fchar"},
+		{"varchar", "vchar"},
+		{"string", "str"},
+		{"decimal", "dec"},
+		{"unknown", "unknown"},
+	}
+	for _, tt := range tests {
+		t.Run(string(tt.name), func(t *testing.T) {
+			assert.Equal(t, tt.expShort, GetShortTypeName(tt.name))
+		})
+	}
+}
+
+func TestFixedLenType_WithLength(t *testing.T) {
+	tests := []struct {
+		typeStr  string
+		typ      FixedType
+		length   int32
+		expError bool
+	}{
+		{"fixedbinary", &FixedBinaryType{}, 10, false},
+		{"char", &FixedCharType{}, 20, false},
+		{"varchar", &VarCharType{}, 30, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.typeStr, func(t *testing.T) {
+			typ := tt.typ.WithLength(tt.length)
+			if tt.expError {
+				assert.Nil(t, typ)
+				return
+			}
+			assert.Equal(t, fmt.Sprintf("%d", tt.length), typ.ParameterString())
+			assert.Equal(t, tt.typeStr, typ.BaseString())
+		})
+	}
+}

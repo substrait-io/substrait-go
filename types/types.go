@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/proto"
 )
 
@@ -22,6 +23,106 @@ const (
 	NullabilityNullable    = proto.Type_NULLABILITY_NULLABLE
 	NullabilityRequired    = proto.Type_NULLABILITY_REQUIRED
 )
+
+type TypeName string
+
+const (
+	TypeNameI8           TypeName = "i8"
+	TypeNameI16          TypeName = "i16"
+	TypeNameI32          TypeName = "i32"
+	TypeNameI64          TypeName = "i64"
+	TypeNameFp32         TypeName = "fp32"
+	TypeNameFp64         TypeName = "fp64"
+	TypeNameString       TypeName = "string"
+	TypeNameBinary       TypeName = "binary"
+	TypeNameBoolean      TypeName = "boolean"
+	TypeNameDate         TypeName = "date"
+	TypeNameTime         TypeName = "time"
+	TypeNameTimestamp    TypeName = "timestamp"
+	TypeNameTimestampTz  TypeName = "timestamp_tz"
+	TypeNameIntervalYear TypeName = "interval_year"
+	TypeNameIntervalDay  TypeName = "interval_day"
+	TypeNameUUID         TypeName = "uuid"
+
+	TypeNameFixedBinary TypeName = "fixedbinary"
+	TypeNameFixedChar   TypeName = "fixedchar"
+	TypeNameVarChar     TypeName = "varchar"
+	TypeNameDecimal     TypeName = "decimal"
+)
+
+var simpleTypeNameMap = map[TypeName]Type{
+	TypeNameI8:           &Int8Type{},
+	TypeNameI16:          &Int16Type{},
+	TypeNameI32:          &Int32Type{},
+	TypeNameI64:          &Int64Type{},
+	TypeNameFp32:         &Float32Type{},
+	TypeNameFp64:         &Float64Type{},
+	TypeNameString:       &StringType{},
+	TypeNameBinary:       &BinaryType{},
+	TypeNameBoolean:      &BooleanType{},
+	TypeNameDate:         &DateType{},
+	TypeNameTime:         &TimeType{},
+	TypeNameTimestamp:    &TimestampType{},
+	TypeNameTimestampTz:  &TimestampTzType{},
+	TypeNameIntervalYear: &IntervalYearType{},
+	TypeNameIntervalDay:  &IntervalDayType{},
+	TypeNameUUID:         &UUIDType{},
+}
+
+var fixedTypeNameMap = map[TypeName]FixedType{
+	TypeNameFixedBinary: &FixedBinaryType{},
+	TypeNameFixedChar:   &FixedCharType{},
+	TypeNameVarChar:     &VarCharType{},
+}
+
+var shortTypeNames = map[TypeName]string{
+	TypeNameString:       "str",
+	TypeNameBinary:       "vbin",
+	TypeNameBoolean:      "bool",
+	TypeNameTimestamp:    "ts",
+	TypeNameTimestampTz:  "tstz",
+	TypeNameIntervalYear: "iyear",
+	TypeNameIntervalDay:  "iday",
+
+	TypeNameFixedBinary: "fbin",
+	TypeNameFixedChar:   "fchar",
+	TypeNameVarChar:     "vchar",
+
+	TypeNameDecimal: "dec",
+}
+
+func GetShortTypeName(name TypeName) string {
+	if n, ok := shortTypeNames[name]; ok {
+		return n
+	}
+	return string(name)
+}
+
+func SimpleTypeNameToType(name TypeName) (Type, error) {
+	if t, ok := simpleTypeNameMap[name]; ok {
+		return t, nil
+	}
+	return nil, substraitgo.ErrNotFound
+}
+
+func FixedTypeNameToType(name TypeName) (FixedType, error) {
+	if t, ok := fixedTypeNameMap[name]; ok {
+		return t, nil
+	}
+	return nil, substraitgo.ErrInvalidType
+}
+
+func GetTypeNameToTypeMap() map[string]Type {
+	typeMap := make(map[string]Type)
+	for k, v := range simpleTypeNameMap {
+		typeMap[string(k)] = v
+	}
+	for k, v := range fixedTypeNameMap {
+		typeMap[string(k)] = v
+	}
+	typeMap[string(TypeNameDecimal)] = &DecimalType{}
+	return typeMap
+}
 
 type AggregationPhase = proto.AggregationPhase
 
@@ -270,6 +371,11 @@ type (
 		Type
 		ParameterString() string
 		BaseString() string
+	}
+
+	FixedType interface {
+		ParameterizedType
+		WithLength(int32) FixedType
 	}
 )
 
@@ -567,6 +673,12 @@ func (s *FixedLenType[T]) ParameterString() string {
 func (s *FixedLenType[T]) BaseString() string {
 	var z *T
 	return typeNames[reflect.TypeOf(z)]
+}
+
+func (s *FixedLenType[T]) WithLength(length int32) FixedType {
+	out := *s
+	out.Length = length
+	return &out
 }
 
 type DecimalType struct {
