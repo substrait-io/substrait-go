@@ -11,67 +11,145 @@ import (
 )
 
 const (
-	yearVal       int32 = 1
-	monthVal      int32 = 10
-	dayVal        int32 = 100
-	secondsVal    int32 = 1000
-	subSecondsVal int64 = 10000
+	yearVal          int32 = 1
+	monthVal         int32 = 10
+	dayVal           int32 = 100
+	secondsVal       int32 = 1000
+	subSecondsVal    int64 = 10000
+	negativeInt32Val int32 = -5
+	negativeInt64Val int64 = -100000
 )
+
+func TestDatePartBuilder(t *testing.T) {
+
+	var origYearVal, origMonthVal, origDayVal, origSecondsVal int32
+	var origSubSecondsVal int64
+	origYearVal = 1
+	origMonthVal = -2
+	origDayVal = 3
+	origSecondsVal = -4
+	origNullabilityVal := types.NullabilityRequired
+	origPrecisionVal := types.PrecisionEMinus7Seconds
+	origSubSecondsVal = 5
+	origLiteral := IntervalCompoundLiteral{years: origYearVal, months: origMonthVal, days: origDayVal, seconds: origSecondsVal, subSeconds: origSubSecondsVal, precision: origPrecisionVal, nullability: origNullabilityVal}
+
+	// verify that With* Method only change respective fields
+
+	expectedUpdatedLiteral := origLiteral
+	expectedUpdatedLiteral.nullability = types.NullabilityNullable
+	assert.Equal(t, origLiteral.WithNullability(types.NullabilityNullable), expectedUpdatedLiteral)
+
+	expectedUpdatedLiteral = origLiteral
+	expectedUpdatedLiteral.years = 10
+	assert.Equal(t, origLiteral.WithYears(10), expectedUpdatedLiteral)
+
+	expectedUpdatedLiteral = origLiteral
+	expectedUpdatedLiteral.months = -20
+	assert.Equal(t, origLiteral.WithMonths(-20), expectedUpdatedLiteral)
+
+	expectedUpdatedLiteral = origLiteral
+	expectedUpdatedLiteral.days = 30
+	assert.Equal(t, origLiteral.WithDays(30), expectedUpdatedLiteral)
+
+	expectedUpdatedLiteral = origLiteral
+	expectedUpdatedLiteral.seconds = 40
+	assert.Equal(t, origLiteral.WithSeconds(40), expectedUpdatedLiteral)
+
+	expectedUpdatedLiteral = origLiteral
+	expectedUpdatedLiteral.precision = types.PrecisionDeciSeconds
+	expectedUpdatedLiteral.subSeconds = -50
+	assert.Equal(t, origLiteral.WithSubSecond(-50, types.PrecisionDeciSeconds), expectedUpdatedLiteral)
+
+	expectedUpdatedLiteral = origLiteral
+	expectedUpdatedLiteral.precision = types.PrecisionMilliSeconds
+	expectedUpdatedLiteral.subSeconds = -50
+	assert.Equal(t, origLiteral.WithMiliSecond(-50), expectedUpdatedLiteral)
+
+	expectedUpdatedLiteral = origLiteral
+	expectedUpdatedLiteral.precision = types.PrecisionMicroSeconds
+	expectedUpdatedLiteral.subSeconds = -50
+	assert.Equal(t, origLiteral.WithMicroSecond(-50), expectedUpdatedLiteral)
+
+	expectedUpdatedLiteral = origLiteral
+	expectedUpdatedLiteral.precision = types.PrecisionNanoSeconds
+	expectedUpdatedLiteral.subSeconds = -50
+	assert.Equal(t, origLiteral.WithNanoSecond(-50), expectedUpdatedLiteral)
+}
 
 func TestIntervalCompoundToProto(t *testing.T) {
 	// precision and nullability belong to type. In type unit tests they are already tested
 	// for different values so no need to test for multiple values
-	precisonVal := types.PrecisionNanoSeconds
-	nanoSecPrecision := &proto.Expression_Literal_IntervalDayToSecond_Precision{Precision: precisonVal.ToProtoVal()}
+	precisionVal := types.PrecisionNanoSeconds
+	nanoSecPrecision := &proto.Expression_Literal_IntervalDayToSecond_Precision{Precision: precisionVal.ToProtoVal()}
 	nullable := true
 	nullability := types.NullabilityNullable
+	literalWithNullability := IntervalCompoundLiteral{}.WithNullability(nullability)
 
-	yearOption := WithIntervalCompoundYears(yearVal)
-	monthOption := WithIntervalCompoundMonths(monthVal)
-	dayOption := WithIntervalCompoundDays(dayVal)
-	secondsOption := WithIntervalCompoundSeconds(secondsVal)
-	subSecondsOption := WithIntervalCompoundSubSeconds(subSecondsVal)
 	for _, tc := range []struct {
 		name                      string
-		options                   []intervalDatePartsOptions
+		inputLiteral              IntervalCompoundLiteral
 		expectedExpressionLiteral *proto.Expression_Literal_IntervalCompound_
 	}{
 		{"WithOnlyYearAndMonth",
-			[]intervalDatePartsOptions{yearOption, monthOption},
+			literalWithNullability.WithYears(yearVal).WithMonths(monthVal),
 			&proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
 				IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: yearVal, Months: monthVal},
-				IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{PrecisionMode: nanoSecPrecision},
+			}},
+		},
+		{"WithOnlyYearAndMonthNegativeVal",
+			literalWithNullability.WithYears(negativeInt32Val).WithMonths(negativeInt32Val),
+			&proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
+				IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: negativeInt32Val, Months: negativeInt32Val},
 			}},
 		},
 		{"WithOnlyDayToSecond",
-			[]intervalDatePartsOptions{dayOption, secondsOption, subSecondsOption},
+			literalWithNullability.WithDays(dayVal).WithSeconds(secondsVal).WithSubSecond(subSecondsVal, precisionVal),
 			&proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
 				IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{
-					Days:          dayVal,
-					Seconds:       secondsVal,
-					PrecisionMode: nanoSecPrecision,
-					Subseconds:    subSecondsVal,
+					Days: dayVal, Seconds: secondsVal, PrecisionMode: nanoSecPrecision, Subseconds: subSecondsVal,
+				},
+			}},
+		},
+		{"WithOnlyDayToSecondNegativeVal",
+			literalWithNullability.WithDays(negativeInt32Val).WithSeconds(negativeInt32Val).WithSubSecond(negativeInt64Val, precisionVal),
+			&proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
+				IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{
+					Days: negativeInt32Val, Seconds: negativeInt32Val, PrecisionMode: nanoSecPrecision, Subseconds: negativeInt64Val,
 				},
 			}},
 		},
 		{"WithBothYearToMonthAndDayToSecond",
-			[]intervalDatePartsOptions{yearOption, monthOption, dayOption, secondsOption, subSecondsOption},
+			literalWithNullability.WithYears(yearVal).WithMonths(monthVal).WithDays(dayVal).WithSeconds(secondsVal).WithSubSecond(subSecondsVal, precisionVal),
 			&proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
-				IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: 1, Months: 10},
+				IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: yearVal, Months: monthVal},
 				IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{
-					Days:          dayVal,
-					Seconds:       secondsVal,
-					PrecisionMode: nanoSecPrecision,
-					Subseconds:    subSecondsVal,
+					Days: dayVal, Seconds: secondsVal, PrecisionMode: nanoSecPrecision, Subseconds: subSecondsVal,
+				},
+			}},
+		},
+		{"WithBothYearToMonthAndDayToSecondAllNegativeVal",
+			literalWithNullability.WithYears(negativeInt32Val).WithMonths(negativeInt32Val).WithDays(negativeInt32Val).WithSeconds(negativeInt32Val).WithSubSecond(negativeInt64Val, precisionVal),
+			&proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
+				IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: negativeInt32Val, Months: negativeInt32Val},
+				IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{
+					Days: negativeInt32Val, Seconds: negativeInt32Val, PrecisionMode: nanoSecPrecision, Subseconds: negativeInt64Val,
 				},
 			}},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			expectedProtoExpression := &proto.Expression_Literal{LiteralType: tc.expectedExpressionLiteral, Nullable: nullable}
-			intervalCompoundLiteral := NewIntervalLiteralUptoSubSecondPrecision(precisonVal, nullability, tc.options...)
-			if diff := cmp.Diff(intervalCompoundLiteral.ToProtoLiteral(), expectedProtoExpression, protocmp.Transform()); diff != "" {
+			expectedProtoExpression := &proto.Expression{RexType: &proto.Expression_Literal_{Literal: &proto.Expression_Literal{LiteralType: tc.expectedExpressionLiteral, Nullable: nullable}}}
+			gotExpressionProto := tc.inputLiteral.ToProto()
+			assert.NotNil(t, gotExpressionProto)
+			if diff := cmp.Diff(gotExpressionProto, expectedProtoExpression, protocmp.Transform()); diff != "" {
 				t.Errorf("proto didn't match, diff:\n%v", diff)
+			}
+			// verify ToProtoFuncArg
+			funcArgProto := &proto.FunctionArgument{
+				ArgType: &proto.FunctionArgument_Value{Value: gotExpressionProto},
+			}
+			if diff := cmp.Diff(tc.inputLiteral.ToProtoFuncArg(), funcArgProto, protocmp.Transform()); diff != "" {
+				t.Errorf("expression proto didn't match, diff:\n%v", diff)
 			}
 		})
 
@@ -87,30 +165,33 @@ func TestIntervalCompoundFromProto(t *testing.T) {
 		Microseconds: microSecondVal}
 	nullable := true
 	nullability := types.NullabilityNullable
+	literalWithNullability := IntervalCompoundLiteral{}.WithNullability(nullability)
 	for _, tc := range []struct {
 		name             string
 		constructedProto *proto.Expression_Literal
-		expectedVal      *intervalDateParts
-		expectedType     types.Type
+		expectedLiteral  IntervalCompoundLiteral
 	}{
 		{"NoPartsValue",
 			&proto.Expression_Literal{
-				LiteralType: &proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
-					IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{PrecisionMode: nanoSecPrecision},
-				}},
-				Nullable: nullable},
-			&intervalDateParts{},
-			types.NewIntervalCompoundType(precisionNanoVal).WithNullability(nullability),
+				LiteralType: &proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{}},
+				Nullable:    nullable},
+			literalWithNullability,
 		},
 		{"OnlyYearAndMonth",
 			&proto.Expression_Literal{
 				LiteralType: &proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
 					IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: yearVal, Months: monthVal},
-					IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{PrecisionMode: nanoSecPrecision},
 				}},
 				Nullable: nullable},
-			&intervalDateParts{years: yearVal, months: monthVal},
-			types.NewIntervalCompoundType(precisionNanoVal).WithNullability(nullability),
+			literalWithNullability.WithYears(yearVal).WithMonths(monthVal),
+		},
+		{"OnlyYearAndMonthNegativeVal",
+			&proto.Expression_Literal{
+				LiteralType: &proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
+					IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: negativeInt32Val, Months: negativeInt32Val},
+				}},
+				Nullable: nullable},
+			literalWithNullability.WithYears(negativeInt32Val).WithMonths(negativeInt32Val),
 		},
 		{"OnlyDayToSecond",
 			&proto.Expression_Literal{
@@ -119,8 +200,16 @@ func TestIntervalCompoundFromProto(t *testing.T) {
 						PrecisionMode: nanoSecPrecision, Subseconds: subSecondsVal},
 				}},
 				Nullable: nullable},
-			&intervalDateParts{days: dayVal, seconds: secondsVal, subSeconds: subSecondsVal},
-			types.NewIntervalCompoundType(precisionNanoVal).WithNullability(nullability),
+			literalWithNullability.WithDays(dayVal).WithSeconds(secondsVal).WithSubSecond(subSecondsVal, precisionNanoVal),
+		},
+		{"OnlyDayToSecondNegativeVal",
+			&proto.Expression_Literal{
+				LiteralType: &proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
+					IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{Days: negativeInt32Val, Seconds: negativeInt32Val,
+						PrecisionMode: nanoSecPrecision, Subseconds: negativeInt64Val},
+				}},
+				Nullable: nullable},
+			literalWithNullability.WithDays(negativeInt32Val).WithSeconds(negativeInt32Val).WithSubSecond(negativeInt64Val, precisionNanoVal),
 		},
 		{"BothYearToMonthAndDayToSecond",
 			&proto.Expression_Literal{
@@ -130,8 +219,17 @@ func TestIntervalCompoundFromProto(t *testing.T) {
 						PrecisionMode: nanoSecPrecision, Subseconds: subSecondsVal},
 				}},
 				Nullable: nullable},
-			&intervalDateParts{years: yearVal, months: monthVal, days: dayVal, seconds: secondsVal, subSeconds: subSecondsVal},
-			types.NewIntervalCompoundType(precisionNanoVal).WithNullability(nullability),
+			literalWithNullability.WithYears(yearVal).WithMonths(monthVal).WithDays(dayVal).WithSeconds(secondsVal).WithSubSecond(subSecondsVal, precisionNanoVal),
+		},
+		{"BothYearToMonthAndDayToSecondAllNegVal",
+			&proto.Expression_Literal{
+				LiteralType: &proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
+					IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: negativeInt32Val, Months: negativeInt32Val},
+					IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{Days: negativeInt32Val, Seconds: negativeInt32Val,
+						PrecisionMode: nanoSecPrecision, Subseconds: negativeInt64Val},
+				}},
+				Nullable: nullable},
+			literalWithNullability.WithYears(negativeInt32Val).WithMonths(negativeInt32Val).WithDays(negativeInt32Val).WithSeconds(negativeInt32Val).WithSubSecond(negativeInt64Val, precisionNanoVal),
 		},
 		{"WithDeprecatedMicroSecondPrecision",
 			&proto.Expression_Literal{
@@ -141,14 +239,18 @@ func TestIntervalCompoundFromProto(t *testing.T) {
 						PrecisionMode: deprecatedMicroSecPrecision},
 				}},
 				Nullable: nullable},
-			&intervalDateParts{years: yearVal, months: monthVal, days: dayVal, seconds: secondsVal, subSeconds: 70},
-			types.NewIntervalCompoundType(types.PrecisionMicroSeconds).WithNullability(nullability),
+			literalWithNullability.WithYears(yearVal).WithMonths(monthVal).WithDays(dayVal).WithSeconds(secondsVal).WithMicroSecond(int64(microSecondVal)),
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			expectedLiteral := &ProtoLiteral{Value: tc.expectedVal, Type: tc.expectedType}
 			gotLiteral := LiteralFromProto(tc.constructedProto)
-			assert.Equal(t, expectedLiteral, gotLiteral)
+			assert.NotNil(t, gotLiteral)
+			assert.Equal(t, tc.expectedLiteral, gotLiteral)
+			// verify equal method too returns true
+			assert.True(t, tc.expectedLiteral.Equals(gotLiteral))
+			assert.True(t, gotLiteral.IsScalar())
+			// got literal after serialization is different from empty literal
+			assert.False(t, IntervalCompoundLiteral{}.Equals(gotLiteral))
 		})
 
 	}

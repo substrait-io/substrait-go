@@ -19,23 +19,42 @@ func TestIntervalYearToMonthToProto(t *testing.T) {
 	var oneMonth int32 = 1
 
 	for _, tc := range []struct {
-		name                      string
-		literal                   Literal
-		expectedExpressionLiteral *proto.Expression_Literal_IntervalYearToMonth_
+		name               string
+		literal            Literal
+		expectedExpression *proto.Expression
 	}{
 		{"WithOnlyYear",
-			NewIntervalLiteralYearToMonth(nullability, oneYear, 0),
-			&proto.Expression_Literal_IntervalYearToMonth_{IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: oneYear}},
+			IntervalYearToMonthLiteral{}.WithYear(oneYear).WithNullability(nullability),
+			&proto.Expression{
+				RexType: &proto.Expression_Literal_{Literal: &proto.Expression_Literal{
+					LiteralType: &proto.Expression_Literal_IntervalYearToMonth_{
+						IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: oneYear}},
+					Nullable: nullable,
+				}},
+			},
 		},
 		{"WithOnlyMonth",
-			NewIntervalLiteralYearToMonth(nullability, 0, oneMonth),
-			&proto.Expression_Literal_IntervalYearToMonth_{IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Months: oneMonth}},
+			IntervalYearToMonthLiteral{}.WithMonth(oneMonth).WithNullability(nullability),
+			&proto.Expression{
+				RexType: &proto.Expression_Literal_{Literal: &proto.Expression_Literal{
+					LiteralType: &proto.Expression_Literal_IntervalYearToMonth_{
+						IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Months: oneMonth}},
+					Nullable: nullable,
+				}},
+			},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			expectedProtoExpression := &proto.Expression_Literal{LiteralType: tc.expectedExpressionLiteral, Nullable: nullable}
-			if diff := cmp.Diff(tc.literal.ToProtoLiteral(), expectedProtoExpression, protocmp.Transform()); diff != "" {
-				t.Errorf("proto didn't match, diff:\n%v", diff)
+			toProto := tc.literal.ToProto()
+			if diff := cmp.Diff(toProto, tc.expectedExpression, protocmp.Transform()); diff != "" {
+				t.Errorf("expression proto didn't match, diff:\n%v", diff)
+			}
+			// verify ToProtoFuncArg
+			funcArgProto := &proto.FunctionArgument{
+				ArgType: &proto.FunctionArgument_Value{Value: toProto},
+			}
+			if diff := cmp.Diff(tc.literal.ToProtoFuncArg(), funcArgProto, protocmp.Transform()); diff != "" {
+				t.Errorf("expression proto didn't match, diff:\n%v", diff)
 			}
 		})
 
@@ -48,24 +67,26 @@ func TestIntervalYearToMonthFromProto(t *testing.T) {
 	var oneYear int32 = 1
 	var oneMonth int32 = 1
 	for _, tc := range []struct {
-		name         string
-		inputProto   *proto.Expression_Literal
-		expectedVal  *intervalYearMonthVal
-		expectedType types.Type
+		name            string
+		inputProto      *proto.Expression_Literal
+		expectedLiteral IntervalYearToMonthLiteral
 	}{
 		{"OnlyYearToMonth",
 			&proto.Expression_Literal{
 				LiteralType: &proto.Expression_Literal_IntervalYearToMonth_{
 					IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: oneYear, Months: oneMonth}},
 				Nullable: nullable},
-			&intervalYearMonthVal{years: oneYear, months: oneMonth},
-			types.NewIntervalYearToMonthType().WithNullability(nullability),
+			IntervalYearToMonthLiteral{years: oneYear, months: oneMonth, nullability: nullability},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			expectedLiteral := &ProtoLiteral{Value: tc.expectedVal, Type: tc.expectedType}
-			gotLiteral := LiteralFromProto(tc.inputProto)
-			assert.Equal(t, expectedLiteral, gotLiteral)
+			gotLiteral := intervalYearToMonthLiteralFromProto(tc.inputProto)
+			assert.Equal(t, tc.expectedLiteral, gotLiteral)
+			// verify equal method too returns true
+			assert.True(t, tc.expectedLiteral.Equals(gotLiteral))
+			assert.True(t, gotLiteral.IsScalar())
+			// got literal after serialization is different from empty literal
+			assert.False(t, IntervalYearToMonthLiteral{}.Equals(gotLiteral))
 		})
 
 	}

@@ -2,77 +2,140 @@ package expr
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/substrait-io/substrait-go/proto"
 	"github.com/substrait-io/substrait-go/types"
 )
 
-type intervalDateParts struct {
-	years      int32
-	months     int32
-	days       int32
-	seconds    int32
-	subSeconds int64
+// IntervalCompoundLiteral creates an interval compound literal
+type IntervalCompoundLiteral struct {
+	years       int32
+	months      int32
+	days        int32
+	seconds     int32
+	subSeconds  int64
+	precision   types.TimePrecision
+	nullability types.Nullability
 }
 
-type intervalDatePartsOptions func(parts *intervalDateParts)
-
-func WithIntervalCompoundYears(years int32) func(*intervalDateParts) {
-	return func(idp *intervalDateParts) {
-		idp.years = years
+func (m IntervalCompoundLiteral) WithYears(years int32) IntervalCompoundLiteral {
+	return IntervalCompoundLiteral{
+		years:       years,
+		months:      m.months,
+		days:        m.days,
+		seconds:     m.seconds,
+		subSeconds:  m.subSeconds,
+		precision:   m.precision,
+		nullability: m.nullability,
 	}
 }
 
-func WithIntervalCompoundMonths(months int32) func(*intervalDateParts) {
-	return func(idp *intervalDateParts) {
-		idp.months = months
+func (m IntervalCompoundLiteral) WithMonths(months int32) IntervalCompoundLiteral {
+	return IntervalCompoundLiteral{
+		years:       m.years,
+		months:      months,
+		days:        m.days,
+		seconds:     m.seconds,
+		subSeconds:  m.subSeconds,
+		precision:   m.precision,
+		nullability: m.nullability,
 	}
 }
 
-func WithIntervalCompoundDays(days int32) func(*intervalDateParts) {
-	return func(idp *intervalDateParts) {
-		idp.days = days
+func (m IntervalCompoundLiteral) WithDays(days int32) IntervalCompoundLiteral {
+	return IntervalCompoundLiteral{
+		years:       m.years,
+		months:      m.months,
+		days:        days,
+		seconds:     m.seconds,
+		subSeconds:  m.subSeconds,
+		precision:   m.precision,
+		nullability: m.nullability,
 	}
 }
 
-func WithIntervalCompoundSeconds(seconds int32) func(*intervalDateParts) {
-	return func(idp *intervalDateParts) {
-		idp.seconds = seconds
+func (m IntervalCompoundLiteral) WithSeconds(seconds int32) IntervalCompoundLiteral {
+	return IntervalCompoundLiteral{
+		years:       m.years,
+		months:      m.months,
+		days:        m.days,
+		seconds:     seconds,
+		subSeconds:  m.subSeconds,
+		precision:   m.precision,
+		nullability: m.nullability,
 	}
 }
 
-func WithIntervalCompoundSubSeconds(subSeconds int64) func(*intervalDateParts) {
-	return func(idp *intervalDateParts) {
-		idp.subSeconds = subSeconds
+func (m IntervalCompoundLiteral) WithMiliSecond(milliSeconds int64) IntervalCompoundLiteral {
+	return IntervalCompoundLiteral{
+		years:       m.years,
+		months:      m.months,
+		days:        m.days,
+		seconds:     m.seconds,
+		subSeconds:  milliSeconds,
+		precision:   types.PrecisionMilliSeconds,
+		nullability: m.nullability,
 	}
 }
 
-// NewIntervalLiteralUptoSubSecondPrecision creates an interval literal which allows upto subsecond precision
-// arguments: precision and nullable property (n)
-// datePartsOptions is options to set value parts (month, year, day, seconds, subseconds).
-// datePartsOptions can be set using WithIntervalCompound(Years|Months|Days|Seconds|SubSeconds) functions
-// If multiple options of same types (e.g. multiple second options) are provided only value of last part is considered
-func NewIntervalLiteralUptoSubSecondPrecision(precision types.TimePrecision, n types.Nullability, datePartsOptions ...intervalDatePartsOptions) Literal {
-	intervalCompoundType := types.NewIntervalCompoundType(precision).WithNullability(n)
-	intervalPartsVal := newIntervalPartsValInternal(datePartsOptions...)
-	return &ProtoLiteral{
-		Value: intervalPartsVal,
-		Type:  intervalCompoundType,
+func (m IntervalCompoundLiteral) WithMicroSecond(microSeconds int64) IntervalCompoundLiteral {
+	return IntervalCompoundLiteral{
+		years:       m.years,
+		months:      m.months,
+		days:        m.days,
+		seconds:     m.seconds,
+		subSeconds:  microSeconds,
+		precision:   types.PrecisionMicroSeconds,
+		nullability: m.nullability,
 	}
 }
 
-func newIntervalPartsValInternal(datePartsOptions ...intervalDatePartsOptions) *intervalDateParts {
-	intervalPartsVal := &intervalDateParts{}
-	for _, datePart := range datePartsOptions {
-		datePart(intervalPartsVal)
+func (m IntervalCompoundLiteral) WithNanoSecond(nanoSeconds int64) IntervalCompoundLiteral {
+	return IntervalCompoundLiteral{
+		years:       m.years,
+		months:      m.months,
+		days:        m.days,
+		seconds:     m.seconds,
+		subSeconds:  nanoSeconds,
+		precision:   types.PrecisionNanoSeconds,
+		nullability: m.nullability,
 	}
-	return intervalPartsVal
 }
 
-func (m *intervalDateParts) ToProto(ict *types.IntervalCompoundType) *proto.Expression_Literal_IntervalCompound {
+func (m IntervalCompoundLiteral) WithSubSecond(subSeconds int64, precision types.TimePrecision) IntervalCompoundLiteral {
+	return IntervalCompoundLiteral{
+		years:       m.years,
+		months:      m.months,
+		days:        m.days,
+		seconds:     m.seconds,
+		subSeconds:  subSeconds,
+		precision:   precision,
+		nullability: m.nullability,
+	}
+}
+
+func (m IntervalCompoundLiteral) WithNullability(nullability types.Nullability) IntervalCompoundLiteral {
+	return IntervalCompoundLiteral{
+		years:       m.years,
+		months:      m.months,
+		days:        m.days,
+		seconds:     m.seconds,
+		subSeconds:  m.subSeconds,
+		precision:   m.precision,
+		nullability: nullability,
+	}
+}
+
+func (m IntervalCompoundLiteral) getType() types.Type {
+	return types.NewIntervalCompoundType().WithPrecision(m.precision).WithNullability(m.nullability)
+}
+
+func (m IntervalCompoundLiteral) ToProtoLiteral() *proto.Expression_Literal {
+	t := m.getType()
 	intrCompPB := &proto.Expression_Literal_IntervalCompound{}
 
-	if m.years > 0 || m.months > 0 {
+	if m.years != 0 || m.months != 0 {
 		yearToMonthProto := &proto.Expression_Literal_IntervalYearToMonth{
 			Years:  m.years,
 			Months: m.months,
@@ -80,49 +143,74 @@ func (m *intervalDateParts) ToProto(ict *types.IntervalCompoundType) *proto.Expr
 		intrCompPB.IntervalYearToMonth = yearToMonthProto
 	}
 
-	dayToSecondProto := &proto.Expression_Literal_IntervalDayToSecond{
-		Days:          m.days,
-		Seconds:       m.seconds,
-		PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{Precision: ict.GetPrecisionProtoVal()},
-		Subseconds:    m.subSeconds,
+	if m.days != 0 || m.seconds != 0 || m.subSeconds != 0 {
+		dayToSecondProto := &proto.Expression_Literal_IntervalDayToSecond{
+			Days:          m.days,
+			Seconds:       m.seconds,
+			PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{Precision: m.precision.ToProtoVal()},
+			Subseconds:    m.subSeconds,
+		}
+		intrCompPB.IntervalDayToSecond = dayToSecondProto
 	}
-	intrCompPB.IntervalDayToSecond = dayToSecondProto
-	return intrCompPB
+
+	return &proto.Expression_Literal{
+		LiteralType:            &proto.Expression_Literal_IntervalCompound_{IntervalCompound: intrCompPB},
+		Nullable:               t.GetNullability() == types.NullabilityNullable,
+		TypeVariationReference: t.GetTypeVariationReference(),
+	}
 }
 
-func intervalCompoundLiteralFromProto(protoVal *proto.Expression_Literal_IntervalCompound, nullability types.Nullability) Literal {
-	var datePartsOptions []intervalDatePartsOptions
-	if protoVal.IntervalYearToMonth != nil {
-		if protoVal.IntervalYearToMonth.Years > 0 {
-			datePartsOptions = append(datePartsOptions, WithIntervalCompoundYears(protoVal.IntervalYearToMonth.Years))
-		}
-		if protoVal.IntervalYearToMonth.Months > 0 {
-			datePartsOptions = append(datePartsOptions, WithIntervalCompoundMonths(protoVal.IntervalYearToMonth.Months))
-		}
-	}
-	idts := protoVal.IntervalDayToSecond
-	err := validateIntervalDayToSecondProto(idts)
-	if err != nil {
-		return nil
-	}
-	precision, err := intervalCompoundPrecisionFromProto(idts)
-	if err != nil {
-		return nil
-	}
-	if idts.Days > 0 {
-		datePartsOptions = append(datePartsOptions, WithIntervalCompoundDays(protoVal.IntervalDayToSecond.Days))
-	}
-	if idts.Seconds > 0 {
-		datePartsOptions = append(datePartsOptions, WithIntervalCompoundSeconds(protoVal.IntervalDayToSecond.Seconds))
-	}
-	if idts.Subseconds > 0 {
-		datePartsOptions = append(datePartsOptions, WithIntervalCompoundSubSeconds(protoVal.IntervalDayToSecond.Subseconds))
-	} else if val, ok := idts.PrecisionMode.(*proto.Expression_Literal_IntervalDayToSecond_Microseconds); ok {
-		// deprecated field microsecond is set, set its value as subsecond
-		datePartsOptions = append(datePartsOptions, WithIntervalCompoundSubSeconds(int64(val.Microseconds)))
-	}
-	return NewIntervalLiteralUptoSubSecondPrecision(precision, nullability, datePartsOptions...)
+func (m IntervalCompoundLiteral) ToProto() *proto.Expression {
+	return &proto.Expression{RexType: &proto.Expression_Literal_{
+		Literal: m.ToProtoLiteral(),
+	}}
 }
+
+func intervalCompoundLiteralFromProto(l *proto.Expression_Literal) Literal {
+	icLiteral := IntervalCompoundLiteral{}.WithNullability(getNullability(l.Nullable))
+	yearToMonth := l.GetIntervalCompound().GetIntervalYearToMonth()
+	if yearToMonth != nil {
+		icLiteral = icLiteral.WithYears(yearToMonth.Years).WithMonths(yearToMonth.Months)
+	}
+	dayToSecond := l.GetIntervalCompound().GetIntervalDayToSecond()
+	if dayToSecond == nil {
+		// no day to second part
+		return icLiteral
+	}
+	err := validateIntervalDayToSecondProto(dayToSecond)
+	if err != nil {
+		return nil
+	}
+
+	// get subSecond/precision value from proto. To get value it takes care of deprecated microseconds
+	precision, subSeconds, err := intervalCompoundPrecisionSubSecondsFromProto(dayToSecond)
+	if err != nil {
+		return nil
+	}
+	return icLiteral.WithDays(dayToSecond.Days).WithSeconds(dayToSecond.Seconds).WithSubSecond(subSeconds, precision)
+}
+
+func (IntervalCompoundLiteral) isRootRef()            {}
+func (m IntervalCompoundLiteral) GetType() types.Type { return m.getType() }
+func (m IntervalCompoundLiteral) String() string {
+	return fmt.Sprintf("%s(years:%d,months:%d, days:%d, seconds:%d subseconds:%d)",
+		m.getType(), m.years, m.months, m.days, m.seconds, m.subSeconds)
+}
+func (m IntervalCompoundLiteral) Equals(rhs Expression) bool {
+	if other, ok := rhs.(IntervalCompoundLiteral); ok {
+		return m.getType().Equals(other.GetType()) && (m == other)
+	}
+	return false
+}
+
+func (m IntervalCompoundLiteral) ToProtoFuncArg() *proto.FunctionArgument {
+	return &proto.FunctionArgument{
+		ArgType: &proto.FunctionArgument_Value{Value: m.ToProto()},
+	}
+}
+
+func (m IntervalCompoundLiteral) Visit(VisitFunc) Expression { return m }
+func (IntervalCompoundLiteral) IsScalar() bool               { return true }
 
 func validateIntervalDayToSecondProto(idts *proto.Expression_Literal_IntervalDayToSecond) error {
 	if idts.PrecisionMode == nil {
@@ -138,17 +226,21 @@ func validateIntervalDayToSecondProto(idts *proto.Expression_Literal_IntervalDay
 	return nil
 }
 
-func intervalCompoundPrecisionFromProto(protoVal *proto.Expression_Literal_IntervalDayToSecond) (types.TimePrecision, error) {
+func intervalCompoundPrecisionSubSecondsFromProto(protoVal *proto.Expression_Literal_IntervalDayToSecond) (types.TimePrecision, int64, error) {
 	var precisionVal int32
+	var subSecondVal int64
 	switch pmt := protoVal.PrecisionMode.(type) {
 	case *proto.Expression_Literal_IntervalDayToSecond_Precision:
 		precisionVal = pmt.Precision
+		subSecondVal = protoVal.Subseconds
 	case *proto.Expression_Literal_IntervalDayToSecond_Microseconds:
+		// deprecated field microsecond is set, treat its value subsecond
 		precisionVal = types.PrecisionMicroSeconds.ToProtoVal()
+		subSecondVal = int64(pmt.Microseconds)
 	}
 	precision, err := types.ProtoToTimePrecision(precisionVal)
 	if err != nil {
-		return types.PrecisionUnknown, err
+		return types.PrecisionUnknown, 0, err
 	}
-	return precision, nil
+	return precision, subSecondVal, nil
 }

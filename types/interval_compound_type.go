@@ -14,12 +14,8 @@ type IntervalCompoundType struct {
 }
 
 // NewIntervalCompoundType creates a type of new interval compound.
-// Created type has nullability as Nullable
-func NewIntervalCompoundType(precision TimePrecision) IntervalCompoundType {
-	return IntervalCompoundType{
-		precision:   precision,
-		nullability: NullabilityNullable,
-	}
+func NewIntervalCompoundType() IntervalCompoundType {
+	return IntervalCompoundType{}
 }
 
 func (m IntervalCompoundType) GetPrecisionProtoVal() int32 {
@@ -28,13 +24,16 @@ func (m IntervalCompoundType) GetPrecisionProtoVal() int32 {
 
 func (IntervalCompoundType) isRootRef() {}
 func (m IntervalCompoundType) WithNullability(n Nullability) Type {
-	return m.withNullability(n)
-}
-
-func (m IntervalCompoundType) withNullability(n Nullability) IntervalCompoundType {
 	return IntervalCompoundType{
 		precision:   m.precision,
 		nullability: n,
+	}
+}
+
+func (m IntervalCompoundType) WithPrecision(precision TimePrecision) IntervalCompoundType {
+	return IntervalCompoundType{
+		precision:   precision,
+		nullability: m.nullability,
 	}
 }
 
