@@ -678,3 +678,63 @@ func createVarCharLiteral(value string) *expr.ProtoLiteral {
 		},
 	}
 }
+
+func TestNewPrecisionTimestampFromTime(t *testing.T) {
+	now := time.Now()
+	tests := []struct {
+		name      string
+		precision types.TimePrecision
+		tm        time.Time
+		want      expr.Literal
+	}{
+		//{"zero", types.PrecisionSeconds, time.Unix(0, 0), expr.NewPrimitiveLiteral(types.Timestamp(0), false), assert.NoError},
+		{"nowInSecs", types.PrecisionSeconds, now, &expr.ProtoLiteral{Value: now.Unix(), Type: &types.PrecisionTimestampType{Precision: types.PrecisionSeconds, Nullability: types.NullabilityRequired}}},
+		{"nowInDeciSecs", types.PrecisionDeciSeconds, now, &expr.ProtoLiteral{Value: now.UnixMilli() / 100, Type: &types.PrecisionTimestampType{Precision: types.PrecisionDeciSeconds, Nullability: types.NullabilityRequired}}},
+		{"nowInCentiSecs", types.PrecisionCentiSeconds, now, &expr.ProtoLiteral{Value: now.UnixMilli() / 10, Type: &types.PrecisionTimestampType{Precision: types.PrecisionCentiSeconds, Nullability: types.NullabilityRequired}}},
+		{"nowInMilliSecs", types.PrecisionMilliSeconds, now, &expr.ProtoLiteral{Value: now.UnixMilli(), Type: &types.PrecisionTimestampType{Precision: types.PrecisionMilliSeconds, Nullability: types.NullabilityRequired}}},
+		{"nowIn100MicroSecs", types.PrecisionEMinus4Seconds, now, &expr.ProtoLiteral{Value: now.UnixMicro() / 100, Type: &types.PrecisionTimestampType{Precision: types.PrecisionEMinus4Seconds, Nullability: types.NullabilityRequired}}},
+		{"nowIn10MicroSecs", types.PrecisionEMinus5Seconds, now, &expr.ProtoLiteral{Value: now.UnixMicro() / 10, Type: &types.PrecisionTimestampType{Precision: types.PrecisionEMinus5Seconds, Nullability: types.NullabilityRequired}}},
+		{"nowInMicros", types.PrecisionMicroSeconds, now, &expr.ProtoLiteral{Value: now.UnixMicro(), Type: &types.PrecisionTimestampType{Precision: types.PrecisionMicroSeconds, Nullability: types.NullabilityRequired}}},
+		{"nowIn100NanoSecs", types.PrecisionEMinus7Seconds, now, &expr.ProtoLiteral{Value: now.UnixNano() / 100, Type: &types.PrecisionTimestampType{Precision: types.PrecisionEMinus7Seconds, Nullability: types.NullabilityRequired}}},
+		{"nowIn10NanoSecs", types.PrecisionEMinus8Seconds, now, &expr.ProtoLiteral{Value: now.UnixNano() / 10, Type: &types.PrecisionTimestampType{Precision: types.PrecisionEMinus8Seconds, Nullability: types.NullabilityRequired}}},
+		{"nowInNanoSecs", types.PrecisionNanoSeconds, now, &expr.ProtoLiteral{Value: now.UnixNano(), Type: &types.PrecisionTimestampType{Precision: types.PrecisionNanoSeconds, Nullability: types.NullabilityRequired}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewPrecisionTimestampFromTime(tt.precision, tt.tm)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+			assert.True(t, tt.want.Equals(got))
+		})
+	}
+}
+
+func TestNewPrecisionTimestampTz(t *testing.T) {
+	now := time.Now()
+	tests := []struct {
+		name      string
+		precision types.TimePrecision
+		tm        time.Time
+		want      expr.Literal
+	}{
+		//{"zero", types.PrecisionSeconds, time.Unix(0, 0), expr.NewPrimitiveLiteral(types.Timestamp(0), false), assert.NoError},
+		{"nowInSecs", types.PrecisionSeconds, now, &expr.ProtoLiteral{Value: now.Unix(), Type: &types.PrecisionTimestampTzType{PrecisionTimestampType: types.PrecisionTimestampType{Precision: types.PrecisionSeconds, Nullability: types.NullabilityRequired}}}},
+		{"nowInDeciSecs", types.PrecisionDeciSeconds, now, &expr.ProtoLiteral{Value: now.UnixMilli() / 100, Type: &types.PrecisionTimestampTzType{PrecisionTimestampType: types.PrecisionTimestampType{Precision: types.PrecisionDeciSeconds, Nullability: types.NullabilityRequired}}}},
+		{"nowInCentiSecs", types.PrecisionCentiSeconds, now, &expr.ProtoLiteral{Value: now.UnixMilli() / 10, Type: &types.PrecisionTimestampTzType{PrecisionTimestampType: types.PrecisionTimestampType{Precision: types.PrecisionCentiSeconds, Nullability: types.NullabilityRequired}}}},
+		{"nowInMilliSecs", types.PrecisionMilliSeconds, now, &expr.ProtoLiteral{Value: now.UnixMilli(), Type: &types.PrecisionTimestampTzType{PrecisionTimestampType: types.PrecisionTimestampType{Precision: types.PrecisionMilliSeconds, Nullability: types.NullabilityRequired}}}},
+		{"nowIn100MicroSecs", types.PrecisionEMinus4Seconds, now, &expr.ProtoLiteral{Value: now.UnixMicro() / 100, Type: &types.PrecisionTimestampTzType{PrecisionTimestampType: types.PrecisionTimestampType{Precision: types.PrecisionEMinus4Seconds, Nullability: types.NullabilityRequired}}}},
+		{"nowIn10MicroSecs", types.PrecisionEMinus5Seconds, now, &expr.ProtoLiteral{Value: now.UnixMicro() / 10, Type: &types.PrecisionTimestampTzType{PrecisionTimestampType: types.PrecisionTimestampType{Precision: types.PrecisionEMinus5Seconds, Nullability: types.NullabilityRequired}}}},
+		{"nowInMicros", types.PrecisionMicroSeconds, now, &expr.ProtoLiteral{Value: now.UnixMicro(), Type: &types.PrecisionTimestampTzType{PrecisionTimestampType: types.PrecisionTimestampType{Precision: types.PrecisionMicroSeconds, Nullability: types.NullabilityRequired}}}},
+		{"nowIn100NanoSecs", types.PrecisionEMinus7Seconds, now, &expr.ProtoLiteral{Value: now.UnixNano() / 100, Type: &types.PrecisionTimestampTzType{PrecisionTimestampType: types.PrecisionTimestampType{Precision: types.PrecisionEMinus7Seconds, Nullability: types.NullabilityRequired}}}},
+		{"nowIn10NanoSecs", types.PrecisionEMinus8Seconds, now, &expr.ProtoLiteral{Value: now.UnixNano() / 10, Type: &types.PrecisionTimestampTzType{PrecisionTimestampType: types.PrecisionTimestampType{Precision: types.PrecisionEMinus8Seconds, Nullability: types.NullabilityRequired}}}},
+		{"nowInNanoSecs", types.PrecisionNanoSeconds, now, &expr.ProtoLiteral{Value: now.UnixNano(), Type: &types.PrecisionTimestampTzType{PrecisionTimestampType: types.PrecisionTimestampType{Precision: types.PrecisionNanoSeconds, Nullability: types.NullabilityRequired}}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewPrecisionTimestampTzFromTime(tt.precision, tt.tm)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+			assert.True(t, tt.want.Equals(got))
+		})
+	}
+}

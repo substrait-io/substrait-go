@@ -405,7 +405,7 @@ func (*ProtoLiteral) isRootRef()            {}
 func (t *ProtoLiteral) GetType() types.Type { return t.Type }
 func (t *ProtoLiteral) String() string {
 	switch literalType := t.Type.(type) {
-	case types.PrecisionTimeStampType, types.PrecisionTimeStampTzType:
+	case *types.PrecisionTimestampType, *types.PrecisionTimestampTzType:
 		return fmt.Sprintf("%s(%d)", literalType, t.Value)
 	}
 	return fmt.Sprintf("%s(%s)", t.Type, t.Value)
@@ -458,7 +458,7 @@ func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
 				Scale:     literalType.Scale,
 			},
 		}
-	case types.PrecisionTimeStampType:
+	case *types.PrecisionTimestampType:
 		v := t.Value.(uint64)
 		lit.LiteralType = &proto.Expression_Literal_PrecisionTimestamp_{
 			PrecisionTimestamp: &proto.Expression_Literal_PrecisionTimestamp{
@@ -466,7 +466,7 @@ func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
 				Value:     int64(v),
 			},
 		}
-	case types.PrecisionTimeStampTzType:
+	case *types.PrecisionTimestampTzType:
 		v := t.Value.(uint64)
 		lit.LiteralType = &proto.Expression_Literal_PrecisionTimestampTz{
 			PrecisionTimestampTz: &proto.Expression_Literal_PrecisionTimestamp{
@@ -623,7 +623,8 @@ func NewFixedBinaryLiteral(val types.FixedBinary, nullable bool) *ByteSliceLiter
 type allLiteralTypes interface {
 	PrimitiveLiteralValue | nestedLiteral | MapLiteralValue |
 		[]byte | types.UUID | types.FixedBinary | *types.IntervalYearToMonth |
-		*types.IntervalDayToSecond | *types.VarChar | *types.Decimal | *types.UserDefinedLiteral
+		*types.IntervalDayToSecond | *types.VarChar | *types.Decimal | *types.UserDefinedLiteral |
+		*types.PrecisionTimestamp | *types.PrecisionTimestampTz
 }
 
 func NewLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {
@@ -711,6 +712,10 @@ func NewLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {
 				Length:      int32(v.Length),
 			},
 		}, nil
+	case *types.PrecisionTimestamp:
+		return NewPrecisionTimestampLiteral(v.PrecisionTimestamp.Value, types.TimePrecision(v.PrecisionTimestamp.Precision), getNullability(nullable)), nil
+	case *types.PrecisionTimestampTz:
+		return NewPrecisionTimestampTzLiteral(v.PrecisionTimestampTz.Value, types.TimePrecision(v.PrecisionTimestampTz.Precision), getNullability(nullable)), nil
 	}
 
 	return nil, substraitgo.ErrNotImplemented
@@ -955,7 +960,7 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 		if precTimeStamp.Value < 0 {
 			return nil
 		}
-		return NewPrecisionTimestampLiteral(uint64(precTimeStamp.Value), precision, nullability)
+		return NewPrecisionTimestampLiteral(precTimeStamp.Value, precision, nullability)
 	case *proto.Expression_Literal_PrecisionTimestampTz:
 		precTimeStamp := lit.PrecisionTimestampTz
 		precision, err := types.ProtoToTimePrecision(precTimeStamp.Precision)
@@ -965,27 +970,33 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 		if precTimeStamp.Value < 0 {
 			return nil
 		}
-		return NewPrecisionTimestampTzLiteral(uint64(precTimeStamp.Value), precision, nullability)
+		return NewPrecisionTimestampTzLiteral(precTimeStamp.Value, precision, nullability)
 	}
 	panic("unimplemented literal type")
 }
 
 // NewPrecisionTimestampLiteral it takes timestamp value which is in specified precision
 // and nullable property (n) and returns a PrecisionTimestamp Literal
-func NewPrecisionTimestampLiteral(value uint64, precision types.TimePrecision, n types.Nullability) Literal {
-	precisionType := types.NewPrecisionTimestampType(precision).WithNullability(n)
+func NewPrecisionTimestampLiteral(value int64, precision types.TimePrecision, n types.Nullability) Literal {
 	return &ProtoLiteral{
 		Value: value,
-		Type:  precisionType,
+		Type: &types.PrecisionTimestampType{
+			Precision:   precision,
+			Nullability: n,
+		},
 	}
 }
 
 // NewPrecisionTimestampTzLiteral it takes timestamp value which is in specified precision
 // and nullable property (n) and returns a PrecisionTimestampTz Literal
-func NewPrecisionTimestampTzLiteral(value uint64, precision types.TimePrecision, n types.Nullability) Literal {
-	precisionType := types.NewPrecisionTimestampTzType(precision).WithNullability(n)
+func NewPrecisionTimestampTzLiteral(value int64, precision types.TimePrecision, n types.Nullability) Literal {
 	return &ProtoLiteral{
 		Value: value,
-		Type:  precisionType,
+		Type: &types.PrecisionTimestampTzType{
+			PrecisionTimestampType: types.PrecisionTimestampType{
+				Precision:   precision,
+				Nullability: n,
+			},
+		},
 	}
 }

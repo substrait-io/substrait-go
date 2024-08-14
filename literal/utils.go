@@ -148,3 +148,60 @@ func NewDecimalFromString(value string) (expr.Literal, error) {
 	}
 	return expr.NewLiteral[*types.Decimal](&types.Decimal{Value: v[:16], Precision: precision, Scale: scale}, false)
 }
+
+// NewPrecisionTimestampFromTime creates a new PrecisionTimestamp literal from a time.Time timestamp value with given precision.
+func NewPrecisionTimestampFromTime(precision types.TimePrecision, tm time.Time) (expr.Literal, error) {
+	return NewPrecisionTimestamp(precision, getTimeValueByPrecision(tm, precision))
+}
+
+// NewPrecisionTimestamp creates a new PrecisionTimestamp literal with given precision and value.
+func NewPrecisionTimestamp(precision types.TimePrecision, value int64) (expr.Literal, error) {
+	return expr.NewLiteral[*types.PrecisionTimestamp](&types.PrecisionTimestamp{
+		PrecisionTimestamp: &proto.Expression_Literal_PrecisionTimestamp{
+			Precision: int32(precision),
+			Value:     value,
+		},
+	}, false)
+}
+
+// NewPrecisionTimestampTzFromTime creates a new PrecisionTimestampTz literal from a time.Time timestamp value with given precision.
+func NewPrecisionTimestampTzFromTime(precision types.TimePrecision, tm time.Time) (expr.Literal, error) {
+	return NewPrecisionTimestampTz(precision, getTimeValueByPrecision(tm, precision))
+}
+
+// NewPrecisionTimestampTz creates a new PrecisionTimestampTz literal with given precision and value.
+func NewPrecisionTimestampTz(precision types.TimePrecision, value int64) (expr.Literal, error) {
+	return expr.NewLiteral[*types.PrecisionTimestampTz](&types.PrecisionTimestampTz{
+		PrecisionTimestampTz: &proto.Expression_Literal_PrecisionTimestamp{
+			Precision: int32(precision),
+			Value:     value,
+		},
+	}, false)
+}
+
+func getTimeValueByPrecision(tm time.Time, precision types.TimePrecision) int64 {
+	switch precision {
+	case types.PrecisionSeconds:
+		return tm.Unix()
+	case types.PrecisionDeciSeconds:
+		return tm.UnixMilli() / 100
+	case types.PrecisionCentiSeconds:
+		return tm.UnixMilli() / 10
+	case types.PrecisionMilliSeconds:
+		return tm.UnixMilli()
+	case types.PrecisionEMinus4Seconds:
+		return tm.UnixMicro() / 100
+	case types.PrecisionEMinus5Seconds:
+		return tm.UnixMicro() / 10
+	case types.PrecisionMicroSeconds:
+		return tm.UnixMicro()
+	case types.PrecisionEMinus7Seconds:
+		return tm.UnixNano() / 100
+	case types.PrecisionEMinus8Seconds:
+		return tm.UnixNano() / 10
+	case types.PrecisionNanoSeconds:
+		return tm.UnixNano()
+	default:
+		panic(fmt.Sprintf("unknown TimePrecision %v", precision))
+	}
+}

@@ -35,113 +35,113 @@ func ProtoToTimePrecision(val int32) (TimePrecision, error) {
 	return TimePrecision(val), nil
 }
 
-// PrecisionTimeStampType this is used to represent a type of precision timestamp
-type PrecisionTimeStampType struct {
-	precision        TimePrecision
-	typeVariationRef uint32
-	nullability      Nullability
+// PrecisionTimestampType this is used to represent a type of Precision timestamp
+type PrecisionTimestampType struct {
+	Precision        TimePrecision
+	TypeVariationRef uint32
+	Nullability      Nullability
 }
 
-// NewPrecisionTimestampType creates a type of new precision timestamp.
-// Created type has nullability as Nullable
-func NewPrecisionTimestampType(precision TimePrecision) PrecisionTimeStampType {
-	return PrecisionTimeStampType{
-		precision:   precision,
-		nullability: NullabilityNullable,
+// NewPrecisionTimestampType creates a type of new Precision timestamp.
+// Created type has Nullability as Nullable
+func NewPrecisionTimestampType(precision TimePrecision) *PrecisionTimestampType {
+	return &PrecisionTimestampType{
+		Precision:   precision,
+		Nullability: NullabilityNullable,
 	}
 }
 
-func (m PrecisionTimeStampType) GetPrecisionProtoVal() int32 {
-	return m.precision.ToProtoVal()
+func (m *PrecisionTimestampType) GetPrecisionProtoVal() int32 {
+	return m.Precision.ToProtoVal()
 }
 
-func (PrecisionTimeStampType) isRootRef() {}
-func (m PrecisionTimeStampType) WithNullability(n Nullability) Type {
+func (*PrecisionTimestampType) isRootRef() {}
+func (m *PrecisionTimestampType) WithNullability(n Nullability) Type {
 	return m.withNullability(n)
 }
 
-func (m PrecisionTimeStampType) withNullability(n Nullability) PrecisionTimeStampType {
-	return PrecisionTimeStampType{
-		precision:   m.precision,
-		nullability: n,
+func (m *PrecisionTimestampType) withNullability(n Nullability) *PrecisionTimestampType {
+	return &PrecisionTimestampType{
+		Precision:   m.Precision,
+		Nullability: n,
 	}
 }
 
-func (m PrecisionTimeStampType) GetType() Type                     { return m }
-func (m PrecisionTimeStampType) GetNullability() Nullability       { return m.nullability }
-func (m PrecisionTimeStampType) GetTypeVariationReference() uint32 { return m.typeVariationRef }
-func (m PrecisionTimeStampType) Equals(rhs Type) bool {
-	if o, ok := rhs.(PrecisionTimeStampType); ok {
-		return o == m
+func (m *PrecisionTimestampType) GetType() Type                     { return m }
+func (m *PrecisionTimestampType) GetNullability() Nullability       { return m.Nullability }
+func (m *PrecisionTimestampType) GetTypeVariationReference() uint32 { return m.TypeVariationRef }
+func (m *PrecisionTimestampType) Equals(rhs Type) bool {
+	if o, ok := rhs.(*PrecisionTimestampType); ok {
+		return *o == *m
 	}
 	return false
 }
 
-func (m PrecisionTimeStampType) ToProtoFuncArg() *proto.FunctionArgument {
+func (m *PrecisionTimestampType) ToProtoFuncArg() *proto.FunctionArgument {
 	return &proto.FunctionArgument{
 		ArgType: &proto.FunctionArgument_Type{Type: m.ToProto()},
 	}
 }
 
-func (m PrecisionTimeStampType) ToProto() *proto.Type {
+func (m *PrecisionTimestampType) ToProto() *proto.Type {
 	return &proto.Type{Kind: &proto.Type_PrecisionTimestamp_{
 		PrecisionTimestamp: &proto.Type_PrecisionTimestamp{
-			Precision:              m.precision.ToProtoVal(),
-			Nullability:            m.nullability,
-			TypeVariationReference: m.typeVariationRef}}}
+			Precision:              m.Precision.ToProtoVal(),
+			Nullability:            m.Nullability,
+			TypeVariationReference: m.TypeVariationRef}}}
 }
 
-func (PrecisionTimeStampType) ShortString() string { return "prets" }
-func (m PrecisionTimeStampType) String() string {
+func (*PrecisionTimestampType) ShortString() string { return "prets" }
+func (m *PrecisionTimestampType) String() string {
 	return fmt.Sprintf("precisiontimestamp%s<%d>", strNullable(m),
-		m.precision.ToProtoVal())
+		m.Precision.ToProtoVal())
 }
 
-// PrecisionTimeStampTzType this is used to represent a type of precision timestamp with TimeZone
-type PrecisionTimeStampTzType struct {
-	PrecisionTimeStampType
+// PrecisionTimestampTzType this is used to represent a type of Precision timestamp with TimeZone
+type PrecisionTimestampTzType struct {
+	PrecisionTimestampType
 }
 
-// NewPrecisionTimestampTzType creates a type of new precision timestamp with TimeZone.
-// Created type has nullability as Nullable
-func NewPrecisionTimestampTzType(precision TimePrecision) PrecisionTimeStampTzType {
-	return PrecisionTimeStampTzType{
-		PrecisionTimeStampType: PrecisionTimeStampType{
-			precision:   precision,
-			nullability: NullabilityNullable,
+// NewPrecisionTimestampTzType creates a type of new Precision timestamp with TimeZone.
+// Created type has Nullability as Nullable
+func NewPrecisionTimestampTzType(precision TimePrecision) *PrecisionTimestampTzType {
+	return &PrecisionTimestampTzType{
+		PrecisionTimestampType: PrecisionTimestampType{
+			Precision:   precision,
+			Nullability: NullabilityNullable,
 		},
 	}
 }
 
-func (m PrecisionTimeStampTzType) ToProtoFuncArg() *proto.FunctionArgument {
+func (m *PrecisionTimestampTzType) ToProtoFuncArg() *proto.FunctionArgument {
 	return &proto.FunctionArgument{
 		ArgType: &proto.FunctionArgument_Type{Type: m.ToProto()},
 	}
 }
 
-func (m PrecisionTimeStampTzType) ToProto() *proto.Type {
+func (m *PrecisionTimestampTzType) ToProto() *proto.Type {
 	return &proto.Type{Kind: &proto.Type_PrecisionTimestampTz{
 		PrecisionTimestampTz: &proto.Type_PrecisionTimestampTZ{
-			Precision:              m.precision.ToProtoVal(),
-			Nullability:            m.nullability,
-			TypeVariationReference: m.typeVariationRef}}}
+			Precision:              m.Precision.ToProtoVal(),
+			Nullability:            m.Nullability,
+			TypeVariationReference: m.TypeVariationRef}}}
 }
 
-func (m PrecisionTimeStampTzType) String() string {
+func (m *PrecisionTimestampTzType) String() string {
 	return fmt.Sprintf("precisiontimestamptz%s<%d>", strNullable(m),
-		m.precision.ToProtoVal())
+		m.Precision.ToProtoVal())
 }
 
-func (m PrecisionTimeStampTzType) WithNullability(n Nullability) Type {
-	return PrecisionTimeStampTzType{
-		PrecisionTimeStampType: m.PrecisionTimeStampType.withNullability(n),
+func (m *PrecisionTimestampTzType) WithNullability(n Nullability) Type {
+	return &PrecisionTimestampTzType{
+		PrecisionTimestampType: *m.PrecisionTimestampType.withNullability(n),
 	}
 }
 
-func (m PrecisionTimeStampTzType) Equals(rhs Type) bool {
-	if o, ok := rhs.(PrecisionTimeStampTzType); ok {
-		return o == m
+func (m *PrecisionTimestampTzType) Equals(rhs Type) bool {
+	if o, ok := rhs.(*PrecisionTimestampTzType); ok {
+		return *o == *m
 	}
 	return false
 }
-func (PrecisionTimeStampTzType) ShortString() string { return "pretstz" }
+func (*PrecisionTimestampTzType) ShortString() string { return "pretstz" }
