@@ -38,6 +38,7 @@ func Test_decimalStringToBytes(t *testing.T) {
 		{"12345.6789", "15cd5b07000000000000000000000000", 9, 4},
 		{"1234567890123456", "c0ba8a3cd56204000000000000000000", 16, 0},
 		{"1234567890123456.78901234", "f2af966ca0101f9b241a000000000000", 24, 8},
+		{"1230000000000000", "00e012b1ad5e04000000000000000000", 16, 0},
 		{"0.0012345678901234", "f22fce733a0b00000000000000000000", 17, 16},
 		{"-0.0012345678901234", "0ed0318cc5f4ffffffffffffffffffff", 17, 16},
 		{"123456789012345678901234567890.1234", "f2af967ed05c82de3297ff6fde3c0000", 34, 4},
@@ -51,17 +52,17 @@ func Test_decimalStringToBytes(t *testing.T) {
 		})
 	}
 
-	badInputs := []string{
-		"12345678901234567890123456789012345678901234",
-		"abc",
-		"12.34.56",
-		"199999999999999999999999999999999999999",
-		"1.23e20",
+	badInputs := []struct{ input string }{
+		{"12345678901234567890123456789012345678901234"},
+		{"abc"},
+		{"12.34.56"},
+		{"199999999999999999999999999999999999999"},
+		{"1.23e20"},
 	}
-	for _, input := range badInputs {
-		t.Run(input, func(t *testing.T) {
-			_, _, _, err := decimalStringToBytes(input)
-			assert.Error(t, err, "decimalStringToBytes(%v) expected error", input)
+	for _, tt := range badInputs {
+		t.Run(tt.input, func(t *testing.T) {
+			_, _, _, err := decimalStringToBytes(tt.input)
+			assert.Error(t, err, "decimalStringToBytes(%v) expected error", tt.input)
 		})
 	}
 }

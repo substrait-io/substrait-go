@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/cockroachdb/apd"
+	apd "github.com/cockroachdb/apd/v3"
 )
 
 var decimalPattern = regexp.MustCompile(`^[+-]?[\d]{0,38}(\.[\d]{0,38})?$`)

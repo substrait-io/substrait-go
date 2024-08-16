@@ -6,7 +6,7 @@ go 1.21
 
 require (
 	github.com/alecthomas/participle/v2 v2.0.0
-	github.com/cockroachdb/apd v1.1.0
+	github.com/cockroachdb/apd/v3 v3.2.1
 	github.com/goccy/go-yaml v1.9.8
 	github.com/google/go-cmp v0.5.9
 	github.com/google/uuid v1.6.0
