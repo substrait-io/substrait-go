@@ -619,12 +619,12 @@ func TestJoinRelOutputRecordTypes(t *testing.T) {
 		recordString string
 	}{
 		{"JOIN_TYPE_INNER", plan.JoinTypeInner, []string{"a", "b", "c", "d"}, "NSTRUCT<a: string, b: fp32, c: i32, d: boolean>"},
-		{"JOIN_TYPE_SEMI", plan.JoinTypeSemi, []string{"a", "b"}, "NSTRUCT<a: string, b: fp32>"},
+		{"JOIN_TYPE_LEFT_SEMI", plan.JoinTypeLeftSemi, []string{"a", "b"}, "NSTRUCT<a: string, b: fp32>"},
 		{"JOIN_TYPE_OUTER", plan.JoinTypeOuter, []string{"a", "b", "c", "d"}, "NSTRUCT<a: string?, b: fp32?, c: i32?, d: boolean?>"},
 		{"JOIN_TYPE_LEFT", plan.JoinTypeLeft, []string{"a", "b", "c", "d"}, "NSTRUCT<a: string, b: fp32, c: i32?, d: boolean?>"},
 		{"JOIN_TYPE_RIGHT", plan.JoinTypeRight, []string{"a", "b", "c", "d"}, "NSTRUCT<a: string?, b: fp32?, c: i32, d: boolean>"},
-		{"JOIN_TYPE_ANTI", plan.JoinTypeAnti, []string{"a", "b"}, "NSTRUCT<a: string, b: fp32>"},
-		{"JOIN_TYPE_SINGLE", plan.JoinTypeSingle, []string{"a", "b", "c", "d"}, "NSTRUCT<a: string, b: fp32, c: i32?, d: boolean?>"},
+		{"JOIN_TYPE_LEFT_ANTI", plan.JoinTypeLeftAnti, []string{"a", "b"}, "NSTRUCT<a: string, b: fp32>"},
+		{"JOIN_TYPE_LEFT_SINGLE", plan.JoinTypeLeftSingle, []string{"a", "b", "c", "d"}, "NSTRUCT<a: string, b: fp32, c: i32?, d: boolean?>"},
 	}
 
 	for _, tt := range tests {
@@ -764,7 +764,7 @@ func TestJoinRelationError(t *testing.T) {
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
-	_, err = b.JoinRemap(left, right, goodcond, plan.JoinTypeAnti, []int32{2})
+	_, err = b.JoinRemap(left, right, goodcond, plan.JoinTypeLeftAnti, []int32{2})
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 

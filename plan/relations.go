@@ -585,9 +585,9 @@ const (
 	JoinTypeOuter       = proto.JoinRel_JOIN_TYPE_OUTER
 	JoinTypeLeft        = proto.JoinRel_JOIN_TYPE_LEFT
 	JoinTypeRight       = proto.JoinRel_JOIN_TYPE_RIGHT
-	JoinTypeSemi        = proto.JoinRel_JOIN_TYPE_SEMI
-	JoinTypeAnti        = proto.JoinRel_JOIN_TYPE_ANTI
-	JoinTypeSingle      = proto.JoinRel_JOIN_TYPE_SINGLE
+	JoinTypeLeftSemi    = proto.JoinRel_JOIN_TYPE_LEFT_SEMI
+	JoinTypeLeftAnti    = proto.JoinRel_JOIN_TYPE_LEFT_ANTI
+	JoinTypeLeftSingle  = proto.JoinRel_JOIN_TYPE_LEFT_SINGLE
 )
 
 // JoinRel is a binary Join relational operator representing left-join-right,
@@ -607,14 +607,14 @@ func (j *JoinRel) RecordType() types.StructType {
 	switch j.joinType {
 	case JoinTypeInner:
 		return j.JoinedRecordType()
-	case JoinTypeSemi:
+	case JoinTypeLeftSemi:
 		return j.left.Remap(j.left.RecordType())
 	case JoinTypeOuter:
 		typeList = j.JoinedRecordType().Types
 		for i, t := range typeList {
 			typeList[i] = t.WithNullability(types.NullabilityNullable)
 		}
-	case JoinTypeLeft, JoinTypeSingle:
+	case JoinTypeLeft, JoinTypeLeftSingle:
 		left := j.left.Remap(j.left.RecordType())
 		right := j.right.Remap(j.right.RecordType())
 		typeList = make([]types.Type, 0, len(left.Types)+len(right.Types))
@@ -630,7 +630,7 @@ func (j *JoinRel) RecordType() types.StructType {
 			typeList = append(typeList, l.WithNullability(types.NullabilityNullable))
 		}
 		typeList = append(typeList, right.Types...)
-	case JoinTypeAnti:
+	case JoinTypeLeftAnti:
 		typeList = j.left.RecordType().Types
 	}
 
