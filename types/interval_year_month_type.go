@@ -20,15 +20,15 @@ func NewIntervalYearToMonthType() IntervalYearToMonthType {
 	}
 }
 
-func (IntervalYearToMonthType) isRootRef() {}
-func (m IntervalYearToMonthType) WithNullability(n Nullability) Type {
-	return m.withNullability(n)
+func (m IntervalYearToMonthType) WithTypeVariationRef(typeVariationRef uint32) IntervalYearToMonthType {
+	m.typeVariationRef = typeVariationRef
+	return m
 }
 
-func (m IntervalYearToMonthType) withNullability(n Nullability) IntervalYearToMonthType {
-	return IntervalYearToMonthType{
-		nullability: n,
-	}
+func (IntervalYearToMonthType) isRootRef() {}
+func (m IntervalYearToMonthType) WithNullability(n Nullability) Type {
+	m.nullability = n
+	return m
 }
 
 func (m IntervalYearToMonthType) GetType() Type                     { return m }

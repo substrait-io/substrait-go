@@ -9,37 +9,28 @@ import (
 
 // IntervalYearToMonthLiteral implements Literal interface for interval year to month type
 type IntervalYearToMonthLiteral struct {
-	years       int32
-	months      int32
-	nullability types.Nullability
+	Years       int32
+	Months      int32
+	Nullability types.Nullability
 }
 
 func (m IntervalYearToMonthLiteral) WithYear(years int32) IntervalYearToMonthLiteral {
-	return IntervalYearToMonthLiteral{
-		years:       years,
-		months:      m.months,
-		nullability: m.nullability,
-	}
+	m.Years = years
+	return m
 }
 
 func (m IntervalYearToMonthLiteral) WithMonth(months int32) IntervalYearToMonthLiteral {
-	return IntervalYearToMonthLiteral{
-		years:       m.years,
-		months:      months,
-		nullability: m.nullability,
-	}
+	m.Months = months
+	return m
 }
 
 func (m IntervalYearToMonthLiteral) WithNullability(nullability types.Nullability) IntervalYearToMonthLiteral {
-	return IntervalYearToMonthLiteral{
-		years:       m.years,
-		months:      m.months,
-		nullability: nullability,
-	}
+	m.Nullability = nullability
+	return m
 }
 
 func (m IntervalYearToMonthLiteral) getType() types.Type {
-	return types.NewIntervalYearToMonthType().WithNullability(m.nullability)
+	return types.NewIntervalYearToMonthType().WithNullability(m.Nullability)
 }
 
 func (m IntervalYearToMonthLiteral) ToProtoLiteral() *proto.Expression_Literal {
@@ -47,8 +38,8 @@ func (m IntervalYearToMonthLiteral) ToProtoLiteral() *proto.Expression_Literal {
 	return &proto.Expression_Literal{
 		LiteralType: &proto.Expression_Literal_IntervalYearToMonth_{
 			IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{
-				Years:  m.years,
-				Months: m.months,
+				Years:  m.Years,
+				Months: m.Months,
 			},
 		},
 		Nullable:               t.GetNullability() == types.NullabilityNullable,
@@ -64,16 +55,16 @@ func (m IntervalYearToMonthLiteral) ToProto() *proto.Expression {
 
 func intervalYearToMonthLiteralFromProto(l *proto.Expression_Literal) Literal {
 	return IntervalYearToMonthLiteral{
-		years:       l.GetIntervalYearToMonth().Years,
-		months:      l.GetIntervalYearToMonth().Months,
-		nullability: getNullability(l.Nullable),
+		Years:       l.GetIntervalYearToMonth().Years,
+		Months:      l.GetIntervalYearToMonth().Months,
+		Nullability: getNullability(l.Nullable),
 	}
 }
 
 func (IntervalYearToMonthLiteral) isRootRef()            {}
 func (m IntervalYearToMonthLiteral) GetType() types.Type { return m.getType() }
 func (m IntervalYearToMonthLiteral) String() string {
-	return fmt.Sprintf("%s(years:%d,months:%d)", m.getType(), m.years, m.months)
+	return fmt.Sprintf("%s(years:%d,months:%d)", m.getType(), m.Years, m.Months)
 }
 func (m IntervalYearToMonthLiteral) Equals(rhs Expression) bool {
 	if other, ok := rhs.(IntervalYearToMonthLiteral); ok {

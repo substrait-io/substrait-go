@@ -10,145 +10,86 @@ import (
 
 // IntervalCompoundLiteral creates an interval compound literal
 type IntervalCompoundLiteral struct {
-	years       int32
-	months      int32
-	days        int32
-	seconds     int32
-	subSeconds  int64
-	precision   types.TimePrecision
-	nullability types.Nullability
+	Years              int32
+	Months             int32
+	Days               int32
+	Seconds            int32
+	SubSeconds         int64
+	SubSecondPrecision types.TimePrecision
+	Nullability        types.Nullability
 }
 
 func (m IntervalCompoundLiteral) WithYears(years int32) IntervalCompoundLiteral {
-	return IntervalCompoundLiteral{
-		years:       years,
-		months:      m.months,
-		days:        m.days,
-		seconds:     m.seconds,
-		subSeconds:  m.subSeconds,
-		precision:   m.precision,
-		nullability: m.nullability,
-	}
+	m.Years = years
+	return m
 }
 
 func (m IntervalCompoundLiteral) WithMonths(months int32) IntervalCompoundLiteral {
-	return IntervalCompoundLiteral{
-		years:       m.years,
-		months:      months,
-		days:        m.days,
-		seconds:     m.seconds,
-		subSeconds:  m.subSeconds,
-		precision:   m.precision,
-		nullability: m.nullability,
-	}
+	m.Months = months
+	return m
 }
 
 func (m IntervalCompoundLiteral) WithDays(days int32) IntervalCompoundLiteral {
-	return IntervalCompoundLiteral{
-		years:       m.years,
-		months:      m.months,
-		days:        days,
-		seconds:     m.seconds,
-		subSeconds:  m.subSeconds,
-		precision:   m.precision,
-		nullability: m.nullability,
-	}
+	m.Days = days
+	return m
 }
 
 func (m IntervalCompoundLiteral) WithSeconds(seconds int32) IntervalCompoundLiteral {
-	return IntervalCompoundLiteral{
-		years:       m.years,
-		months:      m.months,
-		days:        m.days,
-		seconds:     seconds,
-		subSeconds:  m.subSeconds,
-		precision:   m.precision,
-		nullability: m.nullability,
-	}
+	m.Seconds = seconds
+	return m
 }
 
-func (m IntervalCompoundLiteral) WithMiliSecond(milliSeconds int64) IntervalCompoundLiteral {
-	return IntervalCompoundLiteral{
-		years:       m.years,
-		months:      m.months,
-		days:        m.days,
-		seconds:     m.seconds,
-		subSeconds:  milliSeconds,
-		precision:   types.PrecisionMilliSeconds,
-		nullability: m.nullability,
-	}
+func (m IntervalCompoundLiteral) WithMilliSecond(milliSeconds int64) IntervalCompoundLiteral {
+	m.SubSeconds = milliSeconds
+	m.SubSecondPrecision = types.PrecisionMilliSeconds
+	return m
 }
 
 func (m IntervalCompoundLiteral) WithMicroSecond(microSeconds int64) IntervalCompoundLiteral {
-	return IntervalCompoundLiteral{
-		years:       m.years,
-		months:      m.months,
-		days:        m.days,
-		seconds:     m.seconds,
-		subSeconds:  microSeconds,
-		precision:   types.PrecisionMicroSeconds,
-		nullability: m.nullability,
-	}
+	m.SubSeconds = microSeconds
+	m.SubSecondPrecision = types.PrecisionMicroSeconds
+	return m
 }
 
 func (m IntervalCompoundLiteral) WithNanoSecond(nanoSeconds int64) IntervalCompoundLiteral {
-	return IntervalCompoundLiteral{
-		years:       m.years,
-		months:      m.months,
-		days:        m.days,
-		seconds:     m.seconds,
-		subSeconds:  nanoSeconds,
-		precision:   types.PrecisionNanoSeconds,
-		nullability: m.nullability,
-	}
+	m.SubSeconds = nanoSeconds
+	m.SubSecondPrecision = types.PrecisionNanoSeconds
+	return m
 }
 
 func (m IntervalCompoundLiteral) WithSubSecond(subSeconds int64, precision types.TimePrecision) IntervalCompoundLiteral {
-	return IntervalCompoundLiteral{
-		years:       m.years,
-		months:      m.months,
-		days:        m.days,
-		seconds:     m.seconds,
-		subSeconds:  subSeconds,
-		precision:   precision,
-		nullability: m.nullability,
-	}
+	m.SubSeconds = subSeconds
+	m.SubSecondPrecision = precision
+	return m
 }
 
 func (m IntervalCompoundLiteral) WithNullability(nullability types.Nullability) IntervalCompoundLiteral {
-	return IntervalCompoundLiteral{
-		years:       m.years,
-		months:      m.months,
-		days:        m.days,
-		seconds:     m.seconds,
-		subSeconds:  m.subSeconds,
-		precision:   m.precision,
-		nullability: nullability,
-	}
+	m.Nullability = nullability
+	return m
 }
 
 func (m IntervalCompoundLiteral) getType() types.Type {
-	return types.NewIntervalCompoundType().WithPrecision(m.precision).WithNullability(m.nullability)
+	return types.NewIntervalCompoundType().WithPrecision(m.SubSecondPrecision).WithNullability(m.Nullability)
 }
 
 func (m IntervalCompoundLiteral) ToProtoLiteral() *proto.Expression_Literal {
 	t := m.getType()
 	intrCompPB := &proto.Expression_Literal_IntervalCompound{}
 
-	if m.years != 0 || m.months != 0 {
+	if m.Years != 0 || m.Months != 0 {
 		yearToMonthProto := &proto.Expression_Literal_IntervalYearToMonth{
-			Years:  m.years,
-			Months: m.months,
+			Years:  m.Years,
+			Months: m.Months,
 		}
 		intrCompPB.IntervalYearToMonth = yearToMonthProto
 	}
 
-	if m.days != 0 || m.seconds != 0 || m.subSeconds != 0 {
+	if m.Days != 0 || m.Seconds != 0 || m.SubSeconds != 0 {
 		dayToSecondProto := &proto.Expression_Literal_IntervalDayToSecond{
-			Days:          m.days,
-			Seconds:       m.seconds,
-			PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{Precision: m.precision.ToProtoVal()},
-			Subseconds:    m.subSeconds,
+			Days:          m.Days,
+			Seconds:       m.Seconds,
+			PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{Precision: m.SubSecondPrecision.ToProtoVal()},
+			Subseconds:    m.SubSeconds,
 		}
 		intrCompPB.IntervalDayToSecond = dayToSecondProto
 	}
@@ -167,10 +108,11 @@ func (m IntervalCompoundLiteral) ToProto() *proto.Expression {
 }
 
 func intervalCompoundLiteralFromProto(l *proto.Expression_Literal) Literal {
-	icLiteral := IntervalCompoundLiteral{}.WithNullability(getNullability(l.Nullable))
+	icLiteral := IntervalCompoundLiteral{Nullability: getNullability(l.Nullable)}
 	yearToMonth := l.GetIntervalCompound().GetIntervalYearToMonth()
 	if yearToMonth != nil {
-		icLiteral = icLiteral.WithYears(yearToMonth.Years).WithMonths(yearToMonth.Months)
+		icLiteral.Years = yearToMonth.Years
+		icLiteral.Months = yearToMonth.Months
 	}
 	dayToSecond := l.GetIntervalCompound().GetIntervalDayToSecond()
 	if dayToSecond == nil {
@@ -187,14 +129,18 @@ func intervalCompoundLiteralFromProto(l *proto.Expression_Literal) Literal {
 	if err != nil {
 		return nil
 	}
-	return icLiteral.WithDays(dayToSecond.Days).WithSeconds(dayToSecond.Seconds).WithSubSecond(subSeconds, precision)
+	icLiteral.Days = dayToSecond.Days
+	icLiteral.Seconds = dayToSecond.Seconds
+	icLiteral.SubSeconds = subSeconds
+	icLiteral.SubSecondPrecision = precision
+	return icLiteral
 }
 
 func (IntervalCompoundLiteral) isRootRef()            {}
 func (m IntervalCompoundLiteral) GetType() types.Type { return m.getType() }
 func (m IntervalCompoundLiteral) String() string {
 	return fmt.Sprintf("%s(years:%d,months:%d, days:%d, seconds:%d subseconds:%d)",
-		m.getType(), m.years, m.months, m.days, m.seconds, m.subSeconds)
+		m.getType(), m.Years, m.Months, m.Days, m.Seconds, m.SubSeconds)
 }
 func (m IntervalCompoundLiteral) Equals(rhs Expression) bool {
 	if other, ok := rhs.(IntervalCompoundLiteral); ok {

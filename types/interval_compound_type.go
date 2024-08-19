@@ -18,6 +18,11 @@ func NewIntervalCompoundType() IntervalCompoundType {
 	return IntervalCompoundType{}
 }
 
+func (m IntervalCompoundType) WithTypeVariationRef(typeVariationRef uint32) IntervalCompoundType {
+	m.typeVariationRef = typeVariationRef
+	return m
+}
+
 func (m IntervalCompoundType) GetPrecisionProtoVal() int32 {
 	return m.precision.ToProtoVal()
 }

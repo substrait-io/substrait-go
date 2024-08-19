@@ -962,13 +962,7 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 		if precTimeStamp.Value < 0 {
 			return nil
 		}
-<<<<<<< HEAD
 		return NewPrecisionTimestampTzLiteral(precTimeStamp.Value, precision, nullability)
-	case *proto.Expression_Literal_IntervalCompound_:
-		return intervalCompoundLiteralFromProto(lit.IntervalCompound, nullability)
-=======
-		return NewPrecisionTimestampTzLiteral(uint64(precTimeStamp.Value), precision, nullability)
->>>>>>> 43a4ebe (Address review comments)
 	case *proto.Expression_Literal_IntervalYearToMonth_:
 		return intervalYearToMonthLiteralFromProto(l)
 	case *proto.Expression_Literal_IntervalCompound_:

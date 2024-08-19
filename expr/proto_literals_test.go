@@ -51,7 +51,7 @@ func TestLiteralFromProtoLiteral(t *testing.T) {
 		},
 		{"IntervalYearToMonthType",
 			&proto.Expression_Literal{LiteralType: &proto.Expression_Literal_IntervalYearToMonth_{IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: 1234, Months: 5}}, Nullable: true},
-			IntervalYearToMonthLiteral{years: 1234, months: 5, nullability: types.NullabilityNullable},
+			IntervalYearToMonthLiteral{Years: 1234, Months: 5, Nullability: types.NullabilityNullable},
 		},
 		{"IntervalCompoundType",
 			&proto.Expression_Literal{LiteralType: &proto.Expression_Literal_IntervalCompound_{
@@ -62,7 +62,7 @@ func TestLiteralFromProtoLiteral(t *testing.T) {
 						Subseconds:    -9,
 					},
 				}}, Nullable: true},
-			IntervalCompoundLiteral{years: 1234, months: -5, days: 6, seconds: -7, precision: 8, subSeconds: -9, nullability: types.NullabilityNullable},
+			IntervalCompoundLiteral{Years: 1234, Months: -5, Days: 6, Seconds: -7, SubSecondPrecision: 8, SubSeconds: -9, Nullability: types.NullabilityNullable},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

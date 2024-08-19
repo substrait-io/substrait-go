@@ -20,7 +20,7 @@ func TestNewIntervalCompoundType(t *testing.T) {
 			expectedIntervalCompoundType := IntervalCompoundType{precision: precision, nullability: nullability}
 			expectedFormatString := fmt.Sprintf("%s<%d>", strNullable(expectedIntervalCompoundType), precision.ToProtoVal())
 			// verify IntervalCompoundType
-			createdIntervalCompoundTypeIfc := NewIntervalCompoundType().WithPrecision(precision).WithNullability(nullability)
+			createdIntervalCompoundTypeIfc := NewIntervalCompoundType().WithPrecision(precision).WithTypeVariationRef(0).WithNullability(nullability)
 			createdIntervalCompoundType := createdIntervalCompoundTypeIfc.(IntervalCompoundType)
 			assert.True(t, createdIntervalCompoundType.Equals(expectedIntervalCompoundType))
 			assert.Equal(t, expectedProtoValMap[precision], createdIntervalCompoundType.GetPrecisionProtoVal())

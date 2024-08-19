@@ -31,48 +31,48 @@ func TestDatePartBuilder(t *testing.T) {
 	origNullabilityVal := types.NullabilityRequired
 	origPrecisionVal := types.PrecisionEMinus7Seconds
 	origSubSecondsVal = 5
-	origLiteral := IntervalCompoundLiteral{years: origYearVal, months: origMonthVal, days: origDayVal, seconds: origSecondsVal, subSeconds: origSubSecondsVal, precision: origPrecisionVal, nullability: origNullabilityVal}
+	origLiteral := IntervalCompoundLiteral{Years: origYearVal, Months: origMonthVal, Days: origDayVal, Seconds: origSecondsVal, SubSeconds: origSubSecondsVal, SubSecondPrecision: origPrecisionVal, Nullability: origNullabilityVal}
 
 	// verify that With* Method only change respective fields
 
 	expectedUpdatedLiteral := origLiteral
-	expectedUpdatedLiteral.nullability = types.NullabilityNullable
+	expectedUpdatedLiteral.Nullability = types.NullabilityNullable
 	assert.Equal(t, origLiteral.WithNullability(types.NullabilityNullable), expectedUpdatedLiteral)
 
 	expectedUpdatedLiteral = origLiteral
-	expectedUpdatedLiteral.years = 10
+	expectedUpdatedLiteral.Years = 10
 	assert.Equal(t, origLiteral.WithYears(10), expectedUpdatedLiteral)
 
 	expectedUpdatedLiteral = origLiteral
-	expectedUpdatedLiteral.months = -20
+	expectedUpdatedLiteral.Months = -20
 	assert.Equal(t, origLiteral.WithMonths(-20), expectedUpdatedLiteral)
 
 	expectedUpdatedLiteral = origLiteral
-	expectedUpdatedLiteral.days = 30
+	expectedUpdatedLiteral.Days = 30
 	assert.Equal(t, origLiteral.WithDays(30), expectedUpdatedLiteral)
 
 	expectedUpdatedLiteral = origLiteral
-	expectedUpdatedLiteral.seconds = 40
+	expectedUpdatedLiteral.Seconds = 40
 	assert.Equal(t, origLiteral.WithSeconds(40), expectedUpdatedLiteral)
 
 	expectedUpdatedLiteral = origLiteral
-	expectedUpdatedLiteral.precision = types.PrecisionDeciSeconds
-	expectedUpdatedLiteral.subSeconds = -50
+	expectedUpdatedLiteral.SubSecondPrecision = types.PrecisionDeciSeconds
+	expectedUpdatedLiteral.SubSeconds = -50
 	assert.Equal(t, origLiteral.WithSubSecond(-50, types.PrecisionDeciSeconds), expectedUpdatedLiteral)
 
 	expectedUpdatedLiteral = origLiteral
-	expectedUpdatedLiteral.precision = types.PrecisionMilliSeconds
-	expectedUpdatedLiteral.subSeconds = -50
-	assert.Equal(t, origLiteral.WithMiliSecond(-50), expectedUpdatedLiteral)
+	expectedUpdatedLiteral.SubSecondPrecision = types.PrecisionMilliSeconds
+	expectedUpdatedLiteral.SubSeconds = -50
+	assert.Equal(t, origLiteral.WithMilliSecond(-50), expectedUpdatedLiteral)
 
 	expectedUpdatedLiteral = origLiteral
-	expectedUpdatedLiteral.precision = types.PrecisionMicroSeconds
-	expectedUpdatedLiteral.subSeconds = -50
+	expectedUpdatedLiteral.SubSecondPrecision = types.PrecisionMicroSeconds
+	expectedUpdatedLiteral.SubSeconds = -50
 	assert.Equal(t, origLiteral.WithMicroSecond(-50), expectedUpdatedLiteral)
 
 	expectedUpdatedLiteral = origLiteral
-	expectedUpdatedLiteral.precision = types.PrecisionNanoSeconds
-	expectedUpdatedLiteral.subSeconds = -50
+	expectedUpdatedLiteral.SubSecondPrecision = types.PrecisionNanoSeconds
+	expectedUpdatedLiteral.SubSeconds = -50
 	assert.Equal(t, origLiteral.WithNanoSecond(-50), expectedUpdatedLiteral)
 }
 

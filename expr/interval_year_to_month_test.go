@@ -76,7 +76,7 @@ func TestIntervalYearToMonthFromProto(t *testing.T) {
 				LiteralType: &proto.Expression_Literal_IntervalYearToMonth_{
 					IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: oneYear, Months: oneMonth}},
 				Nullable: nullable},
-			IntervalYearToMonthLiteral{years: oneYear, months: oneMonth, nullability: nullability},
+			IntervalYearToMonthLiteral{Years: oneYear, Months: oneMonth, Nullability: nullability},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
