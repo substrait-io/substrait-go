@@ -42,7 +42,9 @@ func init() {
 		if err != nil {
 			panic(err)
 		}
-		_ = f.Close()
+		if err := f.Close(); err != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -203,27 +205,23 @@ func (c *Collection) URILoaded(uri string) bool {
 }
 
 func (c *Collection) GetAllScalarFunctions() []*ScalarFunctionVariant {
-	scalarFunctions := make([]*ScalarFunctionVariant, 0, len(c.scalarMap))
-	for _, v := range c.scalarMap {
-		scalarFunctions = append(scalarFunctions, v)
-	}
-	return scalarFunctions
+	return getValues(c.scalarMap)
 }
 
 func (c *Collection) GetAllAggregateFunctions() []*AggregateFunctionVariant {
-	aggregateFunctions := make([]*AggregateFunctionVariant, 0, len(c.aggregateMap))
-	for _, v := range c.aggregateMap {
-		aggregateFunctions = append(aggregateFunctions, v)
-	}
-	return aggregateFunctions
+	return getValues(c.aggregateMap)
 }
 
 func (c *Collection) GetAllWindowFunctions() []*WindowFunctionVariant {
-	windowFunctions := make([]*WindowFunctionVariant, 0, len(c.windowMap))
-	for _, v := range c.windowMap {
-		windowFunctions = append(windowFunctions, v)
+	return getValues(c.windowMap)
+}
+
+func getValues[M ~map[K]V, K comparable, V any](m M) []V {
+	result := make([]V, 0, len(m))
+	for _, v := range m {
+		result = append(result, v)
 	}
-	return windowFunctions
+	return result
 }
 
 type Set interface {
