@@ -19,7 +19,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.59
+          version: v1.60.1
   build:
     name: Build and Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
