@@ -3,6 +3,8 @@
 package plan
 
 import (
+	"fmt"
+
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/expr"
 	"github.com/substrait-io/substrait-go/extensions"
@@ -588,6 +590,9 @@ const (
 	JoinTypeLeftSemi    = proto.JoinRel_JOIN_TYPE_LEFT_SEMI
 	JoinTypeLeftAnti    = proto.JoinRel_JOIN_TYPE_LEFT_ANTI
 	JoinTypeLeftSingle  = proto.JoinRel_JOIN_TYPE_LEFT_SINGLE
+	JoinTypeRightSemi   = proto.JoinRel_JOIN_TYPE_RIGHT_SEMI
+	JoinTypeRightAnti   = proto.JoinRel_JOIN_TYPE_RIGHT_ANTI
+	JoinTypeRightSingle = proto.JoinRel_JOIN_TYPE_RIGHT_SINGLE
 )
 
 // JoinRel is a binary Join relational operator representing left-join-right,
@@ -632,6 +637,8 @@ func (j *JoinRel) RecordType() types.StructType {
 		typeList = append(typeList, right.Types...)
 	case JoinTypeLeftAnti:
 		typeList = j.left.RecordType().Types
+	case JoinTypeRightSemi, JoinTypeRightAnti, JoinTypeRightSingle:
+		panic(fmt.Sprintf("join type: %v not supported", j.joinType))
 	}
 
 	return types.StructType{
