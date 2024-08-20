@@ -9,20 +9,19 @@ import (
 // TimePrecision is used to represent the precision of a timestamp
 type TimePrecision int32
 
-const PrecisionUnknown TimePrecision = -1
-
-// precision values are proto values
 const (
-	PrecisionSeconds TimePrecision = iota
-	PrecisionDeciSeconds
-	PrecisionCentiSeconds
-	PrecisionMilliSeconds
-	PrecisionEMinus4Seconds // 10^-4 of seconds
-	PrecisionEMinus5Seconds // 10^-5 of seconds
-	PrecisionMicroSeconds
-	PrecisionEMinus7Seconds // 10^-7 of seconds
-	PrecisionEMinus8Seconds // 10^-8 of seconds
-	PrecisionNanoSeconds
+	PrecisionUnknown TimePrecision = -1
+	// below precision values are proto values
+	PrecisionSeconds        TimePrecision = 0
+	PrecisionDeciSeconds    TimePrecision = 1
+	PrecisionCentiSeconds   TimePrecision = 2
+	PrecisionMilliSeconds   TimePrecision = 3
+	PrecisionEMinus4Seconds TimePrecision = 4 // 10^-4 of seconds
+	PrecisionEMinus5Seconds TimePrecision = 5 // 10^-5 of seconds
+	PrecisionMicroSeconds   TimePrecision = 6
+	PrecisionEMinus7Seconds TimePrecision = 7 // 10^-7 of seconds
+	PrecisionEMinus8Seconds TimePrecision = 8 // 10^-8 of seconds
+	PrecisionNanoSeconds    TimePrecision = 9
 )
 
 func (m TimePrecision) ToProtoVal() int32 {
