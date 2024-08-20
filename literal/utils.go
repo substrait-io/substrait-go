@@ -91,10 +91,12 @@ func NewIntervalYearsToMonth(years, months int32) (expr.Literal, error) {
 
 func NewIntervalDaysToSecond(days, seconds int32, micros int64) (expr.Literal, error) {
 	return expr.NewLiteral[*types.IntervalDayToSecond](&types.IntervalDayToSecond{
-		Days:          days,
-		Seconds:       seconds,
-		PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{Precision: 6},
-		Subseconds:    micros,
+		Days:    days,
+		Seconds: seconds,
+		PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{
+			Precision: int32(types.PrecisionMicroSeconds),
+		},
+		Subseconds: micros,
 	}, false)
 }
 
