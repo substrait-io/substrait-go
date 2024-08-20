@@ -342,7 +342,7 @@ func TestNewIntervalDaysToSecond(t *testing.T) {
 		name    string
 		days    int32
 		seconds int32
-		micros  int32
+		micros  int64
 		want    expr.Literal
 		wantErr assert.ErrorAssertionFunc
 	}{
@@ -363,12 +363,13 @@ func TestNewIntervalDaysToSecond(t *testing.T) {
 	}
 }
 
-func createIntervalDaysLiteral(days, seconds, micros int32) *expr.ProtoLiteral {
+func createIntervalDaysLiteral(days, seconds int32, micros int64) *expr.ProtoLiteral {
 	return &expr.ProtoLiteral{
 		Value: &types.IntervalDayToSecond{
-			Days:         days,
-			Seconds:      seconds,
-			Microseconds: micros,
+			Days:          days,
+			Seconds:       seconds,
+			Subseconds:    micros,
+			PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{Precision: 6},
 		},
 		Type: &types.IntervalDayType{
 			Nullability: proto.Type_NULLABILITY_REQUIRED,

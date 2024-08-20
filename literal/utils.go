@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/substrait-io/substrait-go/expr"
+	"github.com/substrait-io/substrait-go/proto"
 	"github.com/substrait-io/substrait-go/types"
 )
 
@@ -88,8 +89,13 @@ func NewIntervalYearsToMonth(years, months int32) (expr.Literal, error) {
 	return expr.NewLiteral[*types.IntervalYearToMonth](&types.IntervalYearToMonth{Years: years, Months: months}, false)
 }
 
-func NewIntervalDaysToSecond(days, seconds, micros int32) (expr.Literal, error) {
-	return expr.NewLiteral[*types.IntervalDayToSecond](&types.IntervalDayToSecond{Days: days, Seconds: seconds, Microseconds: micros}, false)
+func NewIntervalDaysToSecond(days, seconds int32, micros int64) (expr.Literal, error) {
+	return expr.NewLiteral[*types.IntervalDayToSecond](&types.IntervalDayToSecond{
+		Days:          days,
+		Seconds:       seconds,
+		PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{Precision: 6},
+		Subseconds:    micros,
+	}, false)
 }
 
 func NewUUID(guid uuid.UUID) (expr.Literal, error) {
