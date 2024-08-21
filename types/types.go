@@ -172,11 +172,13 @@ const (
 )
 
 type (
-	IntervalYearToMonth = proto.Expression_Literal_IntervalYearToMonth
-	IntervalDayToSecond = proto.Expression_Literal_IntervalDayToSecond
-	VarChar             = proto.Expression_Literal_VarChar
-	Decimal             = proto.Expression_Literal_Decimal
-	UserDefinedLiteral  = proto.Expression_Literal_UserDefined
+	IntervalYearToMonth  = proto.Expression_Literal_IntervalYearToMonth
+	IntervalDayToSecond  = proto.Expression_Literal_IntervalDayToSecond
+	VarChar              = proto.Expression_Literal_VarChar
+	Decimal              = proto.Expression_Literal_Decimal
+	UserDefinedLiteral   = proto.Expression_Literal_UserDefined
+	PrecisionTimestamp   = proto.Expression_Literal_PrecisionTimestamp_
+	PrecisionTimestampTz = proto.Expression_Literal_PrecisionTimestampTz
 )
 
 // TypeFromProto returns the appropriate Type object from a protobuf

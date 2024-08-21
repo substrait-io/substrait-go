@@ -45,30 +45,30 @@ func TestNewPrecisionTimestampType(t *testing.T) {
 
 	for _, precision := range allPossibleTimePrecision {
 		for _, nullability := range allPossibleNullability {
-			expectedPrecisionTimeStampType := PrecisionTimeStampType{precision: precision, nullability: nullability}
-			expectedPrecisionTimeStampTzType := PrecisionTimeStampTzType{PrecisionTimeStampType: expectedPrecisionTimeStampType}
-			expectedFormatString := fmt.Sprintf("%s<%d>", strNullable(expectedPrecisionTimeStampType), precision.ToProtoVal())
-			// verify PrecisionTimeStampType
+			expectedPrecisionTimeStampType := PrecisionTimestampType{Precision: precision, Nullability: nullability}
+			expectedPrecisionTimeStampTzType := PrecisionTimestampTzType{PrecisionTimestampType: expectedPrecisionTimeStampType}
+			expectedFormatString := fmt.Sprintf("%s<%d>", strNullable(&expectedPrecisionTimeStampType), precision.ToProtoVal())
+			// verify PrecisionTimestampType
 			createdPrecTimeStampType := NewPrecisionTimestampType(precision).WithNullability(nullability)
-			createdPrecTimeStamp := createdPrecTimeStampType.(PrecisionTimeStampType)
-			assert.True(t, createdPrecTimeStamp.Equals(expectedPrecisionTimeStampType))
+			createdPrecTimeStamp := createdPrecTimeStampType.(*PrecisionTimestampType)
+			assert.True(t, createdPrecTimeStamp.Equals(&expectedPrecisionTimeStampType))
 			assert.Equal(t, expectedProtoValMap[precision], createdPrecTimeStamp.GetPrecisionProtoVal())
 			assert.Equal(t, nullability, createdPrecTimeStamp.GetNullability())
 			assert.Zero(t, createdPrecTimeStamp.GetTypeVariationReference())
 			assert.Equal(t, fmt.Sprintf("precisiontimestamp%s", expectedFormatString), createdPrecTimeStamp.String())
 			assert.Equal(t, "prets", createdPrecTimeStamp.ShortString())
-			assertPrecisionTimeStampProto(t, precision, nullability, createdPrecTimeStamp)
+			assertPrecisionTimeStampProto(t, precision, nullability, *createdPrecTimeStamp)
 
-			// verify PrecisionTimeStampTzType
+			// verify PrecisionTimestampTzType
 			createdPrecTimeStampTzType := NewPrecisionTimestampTzType(precision).WithNullability(nullability)
-			createdPrecTimeStampTz := createdPrecTimeStampTzType.(PrecisionTimeStampTzType)
-			assert.True(t, createdPrecTimeStampTz.Equals(expectedPrecisionTimeStampTzType))
+			createdPrecTimeStampTz := createdPrecTimeStampTzType.(*PrecisionTimestampTzType)
+			assert.True(t, createdPrecTimeStampTz.Equals(&expectedPrecisionTimeStampTzType))
 			assert.Equal(t, expectedProtoValMap[precision], createdPrecTimeStampTz.GetPrecisionProtoVal())
 			assert.Equal(t, nullability, createdPrecTimeStampTz.GetNullability())
 			assert.Zero(t, createdPrecTimeStampTz.GetTypeVariationReference())
 			assert.Equal(t, fmt.Sprintf("precisiontimestamptz%s", expectedFormatString), createdPrecTimeStampTz.String())
 			assert.Equal(t, "pretstz", createdPrecTimeStampTz.ShortString())
-			assertPrecisionTimeStampTzProto(t, precision, nullability, createdPrecTimeStampTz)
+			assertPrecisionTimeStampTzProto(t, precision, nullability, *createdPrecTimeStampTz)
 
 			// assert that both types are not equal
 			assert.False(t, createdPrecTimeStampType.Equals(createdPrecTimeStampTzType))
@@ -78,7 +78,7 @@ func TestNewPrecisionTimestampType(t *testing.T) {
 }
 
 func assertPrecisionTimeStampProto(t *testing.T, expectedPrecision TimePrecision, expectedNullability Nullability,
-	toVerifyType PrecisionTimeStampType) {
+	toVerifyType PrecisionTimestampType) {
 
 	expectedTypeProto := &proto.Type{Kind: &proto.Type_PrecisionTimestamp_{
 		PrecisionTimestamp: &proto.Type_PrecisionTimestamp{
@@ -98,7 +98,7 @@ func assertPrecisionTimeStampProto(t *testing.T, expectedPrecision TimePrecision
 	}
 }
 
-func assertPrecisionTimeStampTzProto(t *testing.T, expectedPrecision TimePrecision, expectedNullability Nullability, toVerifyType PrecisionTimeStampTzType) {
+func assertPrecisionTimeStampTzProto(t *testing.T, expectedPrecision TimePrecision, expectedNullability Nullability, toVerifyType PrecisionTimestampTzType) {
 	expectedTypeProto := &proto.Type{Kind: &proto.Type_PrecisionTimestampTz{
 		PrecisionTimestampTz: &proto.Type_PrecisionTimestampTZ{
 			Precision:   expectedPrecision.ToProtoVal(),
