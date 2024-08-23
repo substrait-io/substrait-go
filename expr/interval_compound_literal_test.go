@@ -20,62 +20,6 @@ const (
 	negativeInt64Val int64 = -100000
 )
 
-func TestDatePartBuilder(t *testing.T) {
-
-	var origYearVal, origMonthVal, origDayVal, origSecondsVal int32
-	var origSubSecondsVal int64
-	origYearVal = 1
-	origMonthVal = -2
-	origDayVal = 3
-	origSecondsVal = -4
-	origNullabilityVal := types.NullabilityRequired
-	origPrecisionVal := types.PrecisionEMinus7Seconds
-	origSubSecondsVal = 5
-	origLiteral := IntervalCompoundLiteral{Years: origYearVal, Months: origMonthVal, Days: origDayVal, Seconds: origSecondsVal, SubSeconds: origSubSecondsVal, SubSecondPrecision: origPrecisionVal, Nullability: origNullabilityVal}
-
-	// verify that With* Method only change respective fields
-
-	expectedUpdatedLiteral := origLiteral
-	expectedUpdatedLiteral.Nullability = types.NullabilityNullable
-	assert.Equal(t, origLiteral.WithNullability(types.NullabilityNullable), expectedUpdatedLiteral)
-
-	expectedUpdatedLiteral = origLiteral
-	expectedUpdatedLiteral.Years = 10
-	assert.Equal(t, origLiteral.WithYears(10), expectedUpdatedLiteral)
-
-	expectedUpdatedLiteral = origLiteral
-	expectedUpdatedLiteral.Months = -20
-	assert.Equal(t, origLiteral.WithMonths(-20), expectedUpdatedLiteral)
-
-	expectedUpdatedLiteral = origLiteral
-	expectedUpdatedLiteral.Days = 30
-	assert.Equal(t, origLiteral.WithDays(30), expectedUpdatedLiteral)
-
-	expectedUpdatedLiteral = origLiteral
-	expectedUpdatedLiteral.Seconds = 40
-	assert.Equal(t, origLiteral.WithSeconds(40), expectedUpdatedLiteral)
-
-	expectedUpdatedLiteral = origLiteral
-	expectedUpdatedLiteral.SubSecondPrecision = types.PrecisionDeciSeconds
-	expectedUpdatedLiteral.SubSeconds = -50
-	assert.Equal(t, origLiteral.WithSubSecond(-50, types.PrecisionDeciSeconds), expectedUpdatedLiteral)
-
-	expectedUpdatedLiteral = origLiteral
-	expectedUpdatedLiteral.SubSecondPrecision = types.PrecisionMilliSeconds
-	expectedUpdatedLiteral.SubSeconds = -50
-	assert.Equal(t, origLiteral.WithMilliSecond(-50), expectedUpdatedLiteral)
-
-	expectedUpdatedLiteral = origLiteral
-	expectedUpdatedLiteral.SubSecondPrecision = types.PrecisionMicroSeconds
-	expectedUpdatedLiteral.SubSeconds = -50
-	assert.Equal(t, origLiteral.WithMicroSecond(-50), expectedUpdatedLiteral)
-
-	expectedUpdatedLiteral = origLiteral
-	expectedUpdatedLiteral.SubSecondPrecision = types.PrecisionNanoSeconds
-	expectedUpdatedLiteral.SubSeconds = -50
-	assert.Equal(t, origLiteral.WithNanoSecond(-50), expectedUpdatedLiteral)
-}
-
 func TestIntervalCompoundToProto(t *testing.T) {
 	// precision and nullability belong to type. In type unit tests they are already tested
 	// for different values so no need to test for multiple values
@@ -83,7 +27,6 @@ func TestIntervalCompoundToProto(t *testing.T) {
 	nanoSecPrecision := &proto.Expression_Literal_IntervalDayToSecond_Precision{Precision: precisionVal.ToProtoVal()}
 	nullable := true
 	nullability := types.NullabilityNullable
-	literalWithNullability := IntervalCompoundLiteral{}.WithNullability(nullability)
 
 	for _, tc := range []struct {
 		name                      string
@@ -91,19 +34,19 @@ func TestIntervalCompoundToProto(t *testing.T) {
 		expectedExpressionLiteral *proto.Expression_Literal_IntervalCompound_
 	}{
 		{"WithOnlyYearAndMonth",
-			literalWithNullability.WithYears(yearVal).WithMonths(monthVal),
+			IntervalCompoundLiteral{Nullability: nullability, Years: yearVal, Months: monthVal},
 			&proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
 				IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: yearVal, Months: monthVal},
 			}},
 		},
 		{"WithOnlyYearAndMonthNegativeVal",
-			literalWithNullability.WithYears(negativeInt32Val).WithMonths(negativeInt32Val),
+			IntervalCompoundLiteral{Nullability: nullability, Years: negativeInt32Val, Months: negativeInt32Val},
 			&proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
 				IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: negativeInt32Val, Months: negativeInt32Val},
 			}},
 		},
 		{"WithOnlyDayToSecond",
-			literalWithNullability.WithDays(dayVal).WithSeconds(secondsVal).WithSubSecond(subSecondsVal, precisionVal),
+			IntervalCompoundLiteral{Nullability: nullability, Days: dayVal, Seconds: secondsVal, SubSeconds: subSecondsVal, SubSecondPrecision: precisionVal},
 			&proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
 				IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{
 					Days: dayVal, Seconds: secondsVal, PrecisionMode: nanoSecPrecision, Subseconds: subSecondsVal,
@@ -111,7 +54,7 @@ func TestIntervalCompoundToProto(t *testing.T) {
 			}},
 		},
 		{"WithOnlyDayToSecondNegativeVal",
-			literalWithNullability.WithDays(negativeInt32Val).WithSeconds(negativeInt32Val).WithSubSecond(negativeInt64Val, precisionVal),
+			IntervalCompoundLiteral{Nullability: nullability, Days: negativeInt32Val, Seconds: negativeInt32Val, SubSeconds: negativeInt64Val, SubSecondPrecision: precisionVal},
 			&proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
 				IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{
 					Days: negativeInt32Val, Seconds: negativeInt32Val, PrecisionMode: nanoSecPrecision, Subseconds: negativeInt64Val,
@@ -119,7 +62,7 @@ func TestIntervalCompoundToProto(t *testing.T) {
 			}},
 		},
 		{"WithBothYearToMonthAndDayToSecond",
-			literalWithNullability.WithYears(yearVal).WithMonths(monthVal).WithDays(dayVal).WithSeconds(secondsVal).WithSubSecond(subSecondsVal, precisionVal),
+			IntervalCompoundLiteral{Nullability: nullability, Years: yearVal, Months: monthVal, Days: dayVal, Seconds: secondsVal, SubSeconds: subSecondsVal, SubSecondPrecision: precisionVal},
 			&proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
 				IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: yearVal, Months: monthVal},
 				IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{
@@ -128,7 +71,7 @@ func TestIntervalCompoundToProto(t *testing.T) {
 			}},
 		},
 		{"WithBothYearToMonthAndDayToSecondAllNegativeVal",
-			literalWithNullability.WithYears(negativeInt32Val).WithMonths(negativeInt32Val).WithDays(negativeInt32Val).WithSeconds(negativeInt32Val).WithSubSecond(negativeInt64Val, precisionVal),
+			IntervalCompoundLiteral{Nullability: nullability, Years: negativeInt32Val, Months: negativeInt32Val, Days: negativeInt32Val, Seconds: negativeInt32Val, SubSeconds: negativeInt64Val, SubSecondPrecision: precisionVal},
 			&proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
 				IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: negativeInt32Val, Months: negativeInt32Val},
 				IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{
@@ -165,7 +108,6 @@ func TestIntervalCompoundFromProto(t *testing.T) {
 		Microseconds: microSecondVal}
 	nullable := true
 	nullability := types.NullabilityNullable
-	literalWithNullability := IntervalCompoundLiteral{}.WithNullability(nullability)
 	for _, tc := range []struct {
 		name             string
 		constructedProto *proto.Expression_Literal
@@ -175,7 +117,7 @@ func TestIntervalCompoundFromProto(t *testing.T) {
 			&proto.Expression_Literal{
 				LiteralType: &proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{}},
 				Nullable:    nullable},
-			literalWithNullability,
+			IntervalCompoundLiteral{Nullability: nullability},
 		},
 		{"OnlyYearAndMonth",
 			&proto.Expression_Literal{
@@ -183,7 +125,7 @@ func TestIntervalCompoundFromProto(t *testing.T) {
 					IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: yearVal, Months: monthVal},
 				}},
 				Nullable: nullable},
-			literalWithNullability.WithYears(yearVal).WithMonths(monthVal),
+			IntervalCompoundLiteral{Nullability: nullability, Years: yearVal, Months: monthVal},
 		},
 		{"OnlyYearAndMonthNegativeVal",
 			&proto.Expression_Literal{
@@ -191,7 +133,7 @@ func TestIntervalCompoundFromProto(t *testing.T) {
 					IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: negativeInt32Val, Months: negativeInt32Val},
 				}},
 				Nullable: nullable},
-			literalWithNullability.WithYears(negativeInt32Val).WithMonths(negativeInt32Val),
+			IntervalCompoundLiteral{Nullability: nullability, Years: negativeInt32Val, Months: negativeInt32Val},
 		},
 		{"OnlyDayToSecond",
 			&proto.Expression_Literal{
@@ -200,7 +142,7 @@ func TestIntervalCompoundFromProto(t *testing.T) {
 						PrecisionMode: nanoSecPrecision, Subseconds: subSecondsVal},
 				}},
 				Nullable: nullable},
-			literalWithNullability.WithDays(dayVal).WithSeconds(secondsVal).WithSubSecond(subSecondsVal, precisionNanoVal),
+			IntervalCompoundLiteral{Nullability: nullability, Days: dayVal, Seconds: secondsVal, SubSeconds: subSecondsVal, SubSecondPrecision: precisionNanoVal},
 		},
 		{"OnlyDayToSecondNegativeVal",
 			&proto.Expression_Literal{
@@ -209,7 +151,7 @@ func TestIntervalCompoundFromProto(t *testing.T) {
 						PrecisionMode: nanoSecPrecision, Subseconds: negativeInt64Val},
 				}},
 				Nullable: nullable},
-			literalWithNullability.WithDays(negativeInt32Val).WithSeconds(negativeInt32Val).WithSubSecond(negativeInt64Val, precisionNanoVal),
+			IntervalCompoundLiteral{Nullability: nullability, Days: negativeInt32Val, Seconds: negativeInt32Val, SubSeconds: negativeInt64Val, SubSecondPrecision: precisionNanoVal},
 		},
 		{"BothYearToMonthAndDayToSecond",
 			&proto.Expression_Literal{
@@ -219,7 +161,7 @@ func TestIntervalCompoundFromProto(t *testing.T) {
 						PrecisionMode: nanoSecPrecision, Subseconds: subSecondsVal},
 				}},
 				Nullable: nullable},
-			literalWithNullability.WithYears(yearVal).WithMonths(monthVal).WithDays(dayVal).WithSeconds(secondsVal).WithSubSecond(subSecondsVal, precisionNanoVal),
+			IntervalCompoundLiteral{Nullability: nullability, Years: yearVal, Months: monthVal, Days: dayVal, Seconds: secondsVal, SubSeconds: subSecondsVal, SubSecondPrecision: precisionNanoVal},
 		},
 		{"BothYearToMonthAndDayToSecondAllNegVal",
 			&proto.Expression_Literal{
@@ -229,7 +171,7 @@ func TestIntervalCompoundFromProto(t *testing.T) {
 						PrecisionMode: nanoSecPrecision, Subseconds: negativeInt64Val},
 				}},
 				Nullable: nullable},
-			literalWithNullability.WithYears(negativeInt32Val).WithMonths(negativeInt32Val).WithDays(negativeInt32Val).WithSeconds(negativeInt32Val).WithSubSecond(negativeInt64Val, precisionNanoVal),
+			IntervalCompoundLiteral{Nullability: nullability, Years: negativeInt32Val, Months: negativeInt32Val, Days: negativeInt32Val, Seconds: negativeInt32Val, SubSeconds: negativeInt64Val, SubSecondPrecision: precisionNanoVal},
 		},
 		{"WithDeprecatedMicroSecondPrecision",
 			&proto.Expression_Literal{
@@ -239,7 +181,7 @@ func TestIntervalCompoundFromProto(t *testing.T) {
 						PrecisionMode: deprecatedMicroSecPrecision},
 				}},
 				Nullable: nullable},
-			literalWithNullability.WithYears(yearVal).WithMonths(monthVal).WithDays(dayVal).WithSeconds(secondsVal).WithMicroSecond(int64(microSecondVal)),
+			IntervalCompoundLiteral{Nullability: nullability, Years: yearVal, Months: monthVal, Days: dayVal, Seconds: secondsVal, SubSeconds: int64(microSecondVal), SubSecondPrecision: types.PrecisionMicroSeconds},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

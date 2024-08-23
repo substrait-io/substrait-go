@@ -14,21 +14,6 @@ type IntervalYearToMonthLiteral struct {
 	Nullability types.Nullability
 }
 
-func (m IntervalYearToMonthLiteral) WithYear(years int32) IntervalYearToMonthLiteral {
-	m.Years = years
-	return m
-}
-
-func (m IntervalYearToMonthLiteral) WithMonth(months int32) IntervalYearToMonthLiteral {
-	m.Months = months
-	return m
-}
-
-func (m IntervalYearToMonthLiteral) WithNullability(nullability types.Nullability) IntervalYearToMonthLiteral {
-	m.Nullability = nullability
-	return m
-}
-
 func (m IntervalYearToMonthLiteral) getType() types.Type {
 	return types.NewIntervalYearToMonthType().WithNullability(m.Nullability)
 }

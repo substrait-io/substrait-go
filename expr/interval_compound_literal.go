@@ -19,55 +19,6 @@ type IntervalCompoundLiteral struct {
 	Nullability        types.Nullability
 }
 
-func (m IntervalCompoundLiteral) WithYears(years int32) IntervalCompoundLiteral {
-	m.Years = years
-	return m
-}
-
-func (m IntervalCompoundLiteral) WithMonths(months int32) IntervalCompoundLiteral {
-	m.Months = months
-	return m
-}
-
-func (m IntervalCompoundLiteral) WithDays(days int32) IntervalCompoundLiteral {
-	m.Days = days
-	return m
-}
-
-func (m IntervalCompoundLiteral) WithSeconds(seconds int32) IntervalCompoundLiteral {
-	m.Seconds = seconds
-	return m
-}
-
-func (m IntervalCompoundLiteral) WithMilliSecond(milliSeconds int64) IntervalCompoundLiteral {
-	m.SubSeconds = milliSeconds
-	m.SubSecondPrecision = types.PrecisionMilliSeconds
-	return m
-}
-
-func (m IntervalCompoundLiteral) WithMicroSecond(microSeconds int64) IntervalCompoundLiteral {
-	m.SubSeconds = microSeconds
-	m.SubSecondPrecision = types.PrecisionMicroSeconds
-	return m
-}
-
-func (m IntervalCompoundLiteral) WithNanoSecond(nanoSeconds int64) IntervalCompoundLiteral {
-	m.SubSeconds = nanoSeconds
-	m.SubSecondPrecision = types.PrecisionNanoSeconds
-	return m
-}
-
-func (m IntervalCompoundLiteral) WithSubSecond(subSeconds int64, precision types.TimePrecision) IntervalCompoundLiteral {
-	m.SubSeconds = subSeconds
-	m.SubSecondPrecision = precision
-	return m
-}
-
-func (m IntervalCompoundLiteral) WithNullability(nullability types.Nullability) IntervalCompoundLiteral {
-	m.Nullability = nullability
-	return m
-}
-
 func (m IntervalCompoundLiteral) getType() types.Type {
 	return types.NewIntervalCompoundType().WithPrecision(m.SubSecondPrecision).WithNullability(m.Nullability)
 }
