@@ -811,14 +811,6 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
 			}}
-	case *proto.Expression_Literal_IntervalYearToMonth_:
-		return &ProtoLiteral{
-			Value: lit.IntervalYearToMonth,
-			Type: &types.IntervalYearType{
-				Nullability:      nullability,
-				TypeVariationRef: l.TypeVariationReference,
-			},
-		}
 	case *proto.Expression_Literal_IntervalDayToSecond_:
 		return &ProtoLiteral{
 			Value: lit.IntervalDayToSecond,
@@ -971,6 +963,10 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 			return nil
 		}
 		return NewPrecisionTimestampTzLiteral(precTimeStamp.Value, precision, nullability)
+	case *proto.Expression_Literal_IntervalYearToMonth_:
+		return intervalYearToMonthLiteralFromProto(l)
+	case *proto.Expression_Literal_IntervalCompound_:
+		return intervalCompoundLiteralFromProto(l)
 	}
 	panic("unimplemented literal type")
 }
