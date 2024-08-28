@@ -3,6 +3,7 @@
 package parser
 
 import (
+	"errors"
 	"io"
 	"strconv"
 	"strings"
@@ -20,6 +21,14 @@ type TypeExpression struct {
 }
 
 func (t TypeExpression) String() string { return t.Expr.String() }
+
+func (t TypeExpression) Type() (types.Type, error) {
+	typeDef, ok := t.Expr.(Def)
+	if !ok {
+		return nil, errors.New("type expression doesn't represent type")
+	}
+	return typeDef.Type()
+}
 
 func (t TypeExpression) MarshalYAML() (interface{}, error) {
 	return t.Expr.String(), nil
@@ -104,7 +113,7 @@ func (t *typename) Capture(values []string) error {
 }
 
 type nonParamType struct {
-	TypeName    typename `parser:"@(AnyType | Template | IntType | Boolean | FPType | Temporal | BinaryType)"`
+	TypeName    typename `parser:"@(IntType | Boolean | FPType | Temporal | BinaryType)"`
 	Nullability bool     `parser:"@'?'?"`
 	// Variation   int      `parser:"'[' @\d+ ']'?"`
 }
@@ -120,10 +129,6 @@ func (t *nonParamType) String() string {
 }
 
 func (t *nonParamType) ShortType() string {
-	if strings.HasPrefix(string(t.TypeName), "any") {
-		return "any"
-	}
-
 	return types.GetShortTypeName(types.TypeName(t.TypeName))
 }
 
@@ -188,6 +193,10 @@ func (p *lengthType) ShortType() string {
 	switch p.TypeName {
 	case "fixedchar", "varchar", "fixedbinary":
 		return types.GetShortTypeName(types.TypeName(p.TypeName))
+	case "precision_timestamp":
+		return "prets"
+	case "precision_timestamp_tz":
+		return "pretstz"
 	}
 	return ""
 }
@@ -200,16 +209,62 @@ func (p *lengthType) Optional() bool { return false }
 
 func (p *lengthType) Type() (types.Type, error) {
 	var n types.Nullability
-	lit, ok := p.NumericParam.Expr.(*IntegerLiteral)
-	if !ok {
+
+	var typ types.Type
+	var err error
+	switch t := p.NumericParam.Expr.(type) {
+	case *IntegerLiteral:
+		typ, err = getFixedTypeFromConcreteParam(p.TypeName, t)
+	case *ParamName:
+		typ, err = getParameterizedTypeSingleParam(p.TypeName, t)
+	default:
 		return nil, substraitgo.ErrNotImplemented
 	}
-
-	typ, err := types.FixedTypeNameToType(types.TypeName(p.TypeName))
 	if err != nil {
 		return nil, err
 	}
-	return typ.WithLength(lit.Value).WithNullability(n), nil
+	return typ.WithNullability(n), nil
+}
+
+func getFixedTypeFromConcreteParam(name string, param *IntegerLiteral) (types.Type, error) {
+	typeName := types.TypeName(name)
+	switch typeName {
+	case types.TypeNamePrecisionTimestamp:
+		precision, err := types.ProtoToTimePrecision(param.Value)
+		if err != nil {
+			return nil, err
+		}
+		return types.NewPrecisionTimestampType(precision), nil
+	case types.TypeNamePrecisionTimestampTz:
+		precision, err := types.ProtoToTimePrecision(param.Value)
+		if err != nil {
+			return nil, err
+		}
+		return types.NewPrecisionTimestampTzType(precision), nil
+	}
+	typ, err := types.FixedTypeNameToType(typeName)
+	if err != nil {
+		return nil, err
+	}
+	return typ.WithLength(param.Value), nil
+}
+
+func getParameterizedTypeSingleParam(typeName string, param *ParamName) (types.Type, error) {
+	intParam := types.IntegerParam{Name: param.Name}
+	switch types.TypeName(typeName) {
+	case types.TypeNameVarChar:
+		return &types.ParameterizedVarCharType{IntegerOption: intParam}, nil
+	case types.TypeNameFixedChar:
+		return &types.ParameterizedFixedCharType{IntegerOption: intParam}, nil
+	case types.TypeNameFixedBinary:
+		return &types.ParameterizedFixedBinaryType{IntegerOption: intParam}, nil
+	case types.TypeNamePrecisionTimestamp:
+		return &types.ParameterizedPrecisionTimestampType{IntegerOption: intParam}, nil
+	case types.TypeNamePrecisionTimestampTz:
+		return &types.ParameterizedPrecisionTimestampTzType{IntegerOption: intParam}, nil
+	default:
+		return nil, substraitgo.ErrNotImplemented
+	}
 }
 
 type decimalType struct {
@@ -232,21 +287,28 @@ func (d *decimalType) Optional() bool { return d.Nullability }
 
 func (d *decimalType) Type() (types.Type, error) {
 	var n types.Nullability
-	p, ok := d.Precision.Expr.(*IntegerLiteral)
-	if !ok {
-		return nil, substraitgo.ErrNotImplemented
+	pi, ok1 := d.Precision.Expr.(*IntegerLiteral)
+	si, ok2 := d.Scale.Expr.(*IntegerLiteral)
+	if ok1 && ok2 {
+		// concrete decimal param
+		return &types.DecimalType{
+			Nullability: n,
+			Precision:   pi.Value,
+			Scale:       si.Value,
+		}, nil
 	}
 
-	s, ok := d.Scale.Expr.(*IntegerLiteral)
-	if !ok {
-		return nil, substraitgo.ErrNotImplemented
+	ps, ok1 := d.Precision.Expr.(*ParamName)
+	ss, ok2 := d.Scale.Expr.(*ParamName)
+	if ok1 && ok2 {
+		// parameterized decimal param
+		return &types.ParameterizedDecimalType{
+			Nullability: n,
+			Precision:   types.IntegerParam{Name: ps.Name},
+			Scale:       types.IntegerParam{Name: ss.Name},
+		}, nil
 	}
-
-	return &types.DecimalType{
-		Nullability: n,
-		Precision:   p.Value,
-		Scale:       s.Value,
-	}, nil
+	return nil, substraitgo.ErrNotImplemented
 }
 
 type structType struct {
@@ -352,6 +414,43 @@ func (m *mapType) Type() (types.Type, error) {
 	}, nil
 }
 
+// parser token for any
+type anyType struct {
+	TypeName    typename `parser:"@(AnyType|Template)"`
+	Nullability bool     `parser:"@'?'?"`
+}
+
+func (anyType) Optional() bool { return false }
+
+func (t anyType) String() string {
+	opt := string(t.TypeName)
+	if t.Nullability {
+		opt += "?"
+	}
+	return opt
+}
+
+func (t anyType) ShortType() string {
+	if strings.HasPrefix(string(t.TypeName), "any") {
+		return "any"
+	}
+	return string(t.TypeName)
+}
+
+func (t anyType) Type() (types.Type, error) {
+	var n types.Nullability
+	if t.Nullability {
+		n = types.NullabilityNullable
+	} else {
+		n = types.NullabilityRequired
+	}
+	typeName := string(t.TypeName)
+	if strings.HasPrefix(typeName, "any") {
+		return &types.AnyType{Name: "any", Nullability: n}, nil
+	}
+	return &types.AnyType{Name: typeName, Nullability: n}, nil
+}
+
 var (
 	def = lexer.MustSimple([]lexer.SimpleRule{
 		{Name: "whitespace", Pattern: `[ \t]+`},
@@ -362,7 +461,7 @@ var (
 		{Name: "FPType", Pattern: `fp(32|64)`},
 		{Name: "Temporal", Pattern: `timestamp(_tz)?|date|time|interval_day|interval_year`},
 		{Name: "BinaryType", Pattern: `string|binary|uuid`},
-		{Name: "LengthType", Pattern: `fixedchar|varchar|fixedbinary`},
+		{Name: "LengthType", Pattern: `fixedchar|varchar|fixedbinary|precision_timestamp_tz|precision_timestamp`},
 		{Name: "Int", Pattern: `[-+]?\d+`},
 		{Name: "ParamType", Pattern: `(?i)(struct|list|decimal|map)`},
 		{Name: "Identifier", Pattern: `[a-zA-Z_$][a-zA-Z_$0-9]*`},
@@ -389,7 +488,7 @@ func (p *Parser) ParseBytes(expr []byte) (*TypeExpression, error) {
 func New() (*Parser, error) {
 	parser, err := participle.Build[TypeExpression](
 		participle.Union[Expression](&Type{}, &IntegerLiteral{}, &ParamName{}),
-		participle.Union[Def](&nonParamType{}, &mapType{}, &listType{}, &structType{}, &lengthType{}, &decimalType{}),
+		participle.Union[Def](&anyType{}, &nonParamType{}, &mapType{}, &listType{}, &structType{}, &lengthType{}, &decimalType{}),
 		participle.CaseInsensitive("Boolean", "ParamType", "IntType", "FPType", "Temporal", "BinaryType", "LengthType"),
 		participle.Lexer(def),
 		participle.UseLookahead(3),

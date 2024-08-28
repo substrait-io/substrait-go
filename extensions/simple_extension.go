@@ -3,11 +3,13 @@
 package extensions
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
 
 	substraitgo "github.com/substrait-io/substrait-go"
+	"github.com/substrait-io/substrait-go/types"
 	"github.com/substrait-io/substrait-go/types/parser"
 )
 
@@ -57,6 +59,7 @@ type TypeVariation struct {
 
 type Argument interface {
 	toTypeString() string
+	ArgType() (types.Type, error)
 }
 
 type EnumArg struct {
@@ -67,6 +70,10 @@ type EnumArg struct {
 
 func (EnumArg) toTypeString() string {
 	return "req"
+}
+
+func (EnumArg) ArgType() (types.Type, error) {
+	return nil, errors.New("unimplemented")
 }
 
 type ValueArg struct {
@@ -80,6 +87,10 @@ func (v ValueArg) toTypeString() string {
 	return v.Value.Expr.(*parser.Type).ShortType()
 }
 
+func (v ValueArg) ArgType() (types.Type, error) {
+	return v.Value.Expr.(*parser.Type).Type()
+}
+
 type TypeArg struct {
 	Name        string `yaml:",omitempty"`
 	Description string `yaml:",omitempty"`
@@ -87,6 +98,10 @@ type TypeArg struct {
 }
 
 func (TypeArg) toTypeString() string { return "type" }
+
+func (TypeArg) ArgType() (types.Type, error) {
+	return nil, errors.New("unimplemented")
+}
 
 type ArgumentList []Argument
 

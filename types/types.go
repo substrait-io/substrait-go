@@ -44,10 +44,12 @@ const (
 	TypeNameIntervalDay  TypeName = "interval_day"
 	TypeNameUUID         TypeName = "uuid"
 
-	TypeNameFixedBinary TypeName = "fixedbinary"
-	TypeNameFixedChar   TypeName = "fixedchar"
-	TypeNameVarChar     TypeName = "varchar"
-	TypeNameDecimal     TypeName = "decimal"
+	TypeNameFixedBinary          TypeName = "fixedbinary"
+	TypeNameFixedChar            TypeName = "fixedchar"
+	TypeNameVarChar              TypeName = "varchar"
+	TypeNameDecimal              TypeName = "decimal"
+	TypeNamePrecisionTimestamp   TypeName = "precision_timestamp"
+	TypeNamePrecisionTimestampTz TypeName = "precision_timestamp_tz"
 )
 
 var simpleTypeNameMap = map[TypeName]Type{
@@ -379,6 +381,11 @@ type (
 		ParameterizedType
 		WithLength(int32) FixedType
 	}
+
+	ParameterizedSingleIntegerType interface {
+		ParameterizedType
+		WithIntegerOption(param IntegerParam) ParameterizedSingleIntegerType
+	}
 )
 
 // TypeToProto properly constructs the appropriate protobuf message
@@ -523,6 +530,8 @@ var typeNames = map[reflect.Type]string{
 	reflect.TypeOf(&FixedBinary{}):                    "fixedbinary",
 	reflect.TypeOf(&emptyFixedChar):                   "char",
 	reflect.TypeOf(&VarChar{}):                        "varchar",
+	reflect.TypeOf(&PrecisionTimestampType{}):         "precision_timestamp",
+	reflect.TypeOf(&PrecisionTimestampTzType{}):       "precision_timestamp_tz",
 }
 
 var shortNames = map[reflect.Type]string{
@@ -604,25 +613,30 @@ func (s *PrimitiveType[T]) String() string {
 
 // create type aliases to the generic structs
 type (
-	BooleanType      = PrimitiveType[bool]
-	Int8Type         = PrimitiveType[int8]
-	Int16Type        = PrimitiveType[int16]
-	Int32Type        = PrimitiveType[int32]
-	Int64Type        = PrimitiveType[int64]
-	Float32Type      = PrimitiveType[float32]
-	Float64Type      = PrimitiveType[float64]
-	StringType       = PrimitiveType[string]
-	BinaryType       = PrimitiveType[[]byte]
-	TimestampType    = PrimitiveType[Timestamp]
-	DateType         = PrimitiveType[Date]
-	TimeType         = PrimitiveType[Time]
-	TimestampTzType  = PrimitiveType[TimestampTz]
-	IntervalYearType = PrimitiveType[IntervalYearToMonth]
-	IntervalDayType  = PrimitiveType[IntervalDayToSecond]
-	UUIDType         = PrimitiveType[UUID]
-	FixedCharType    = FixedLenType[FixedChar]
-	VarCharType      = FixedLenType[VarChar]
-	FixedBinaryType  = FixedLenType[FixedBinary]
+	BooleanType                           = PrimitiveType[bool]
+	Int8Type                              = PrimitiveType[int8]
+	Int16Type                             = PrimitiveType[int16]
+	Int32Type                             = PrimitiveType[int32]
+	Int64Type                             = PrimitiveType[int64]
+	Float32Type                           = PrimitiveType[float32]
+	Float64Type                           = PrimitiveType[float64]
+	StringType                            = PrimitiveType[string]
+	BinaryType                            = PrimitiveType[[]byte]
+	TimestampType                         = PrimitiveType[Timestamp]
+	DateType                              = PrimitiveType[Date]
+	TimeType                              = PrimitiveType[Time]
+	TimestampTzType                       = PrimitiveType[TimestampTz]
+	IntervalYearType                      = PrimitiveType[IntervalYearToMonth]
+	IntervalDayType                       = PrimitiveType[IntervalDayToSecond]
+	UUIDType                              = PrimitiveType[UUID]
+	FixedCharType                         = FixedLenType[FixedChar]
+	VarCharType                           = FixedLenType[VarChar]
+	FixedBinaryType                       = FixedLenType[FixedBinary]
+	ParameterizedVarCharType              = ParameterizedTypeSingleIntegerParam[VarCharType]
+	ParameterizedFixedCharType            = ParameterizedTypeSingleIntegerParam[FixedCharType]
+	ParameterizedFixedBinaryType          = ParameterizedTypeSingleIntegerParam[FixedBinaryType]
+	ParameterizedPrecisionTimestampType   = ParameterizedTypeSingleIntegerParam[PrecisionTimestampType]
+	ParameterizedPrecisionTimestampTzType = ParameterizedTypeSingleIntegerParam[PrecisionTimestampTzType]
 )
 
 // FixedLenType is any of the types which also need to track their specific
