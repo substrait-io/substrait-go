@@ -253,15 +253,15 @@ func getParameterizedTypeSingleParam(typeName string, param *ParamName) (types.T
 	intParam := types.IntegerParam{Name: param.Name}
 	switch types.TypeName(typeName) {
 	case types.TypeNameVarChar:
-		return &types.ParameterizedVarCharType{IntegerOption: intParam}, nil
+		return types.ParameterizedVarCharType{IntegerOption: intParam}, nil
 	case types.TypeNameFixedChar:
-		return &types.ParameterizedFixedCharType{IntegerOption: intParam}, nil
+		return types.ParameterizedFixedCharType{IntegerOption: intParam}, nil
 	case types.TypeNameFixedBinary:
-		return &types.ParameterizedFixedBinaryType{IntegerOption: intParam}, nil
+		return types.ParameterizedFixedBinaryType{IntegerOption: intParam}, nil
 	case types.TypeNamePrecisionTimestamp:
-		return &types.ParameterizedPrecisionTimestampType{IntegerOption: intParam}, nil
+		return types.ParameterizedPrecisionTimestampType{IntegerOption: intParam}, nil
 	case types.TypeNamePrecisionTimestampTz:
-		return &types.ParameterizedPrecisionTimestampTzType{IntegerOption: intParam}, nil
+		return types.ParameterizedPrecisionTimestampTzType{IntegerOption: intParam}, nil
 	default:
 		return nil, substraitgo.ErrNotImplemented
 	}
@@ -302,7 +302,7 @@ func (d *decimalType) Type() (types.Type, error) {
 	ss, ok2 := d.Scale.Expr.(*ParamName)
 	if ok1 && ok2 {
 		// parameterized decimal param
-		return &types.ParameterizedDecimalType{
+		return types.ParameterizedDecimalType{
 			Nullability: n,
 			Precision:   types.IntegerParam{Name: ps.Name},
 			Scale:       types.IntegerParam{Name: ss.Name},
@@ -446,9 +446,9 @@ func (t anyType) Type() (types.Type, error) {
 	}
 	typeName := string(t.TypeName)
 	if strings.HasPrefix(typeName, "any") {
-		return &types.AnyType{Name: "any", Nullability: n}, nil
+		return types.AnyType{Name: "any", Nullability: n}, nil
 	}
-	return &types.AnyType{Name: typeName, Nullability: n}, nil
+	return types.AnyType{Name: typeName, Nullability: n}, nil
 }
 
 var (

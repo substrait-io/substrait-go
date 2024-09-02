@@ -56,7 +56,7 @@ func TestParameterizedDecimalType(t *testing.T) {
 		t.Run(td.name, func(t *testing.T) {
 			precision := types.IntegerParam{Name: td.precision}
 			scale := types.IntegerParam{Name: td.scale}
-			pt := &types.ParameterizedDecimalType{Precision: precision, Scale: scale, Nullability: td.nullability}
+			pt := types.ParameterizedDecimalType{Precision: precision, Scale: scale, Nullability: td.nullability}
 			require.Equal(t, td.expectedString, pt.String())
 			require.Equal(t, td.expectedBaseString, pt.BaseString())
 			require.Equal(t, td.expectedShortString, pt.ShortString())

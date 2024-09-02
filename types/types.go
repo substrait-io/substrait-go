@@ -697,6 +697,7 @@ func (s *FixedLenType[T]) WithLength(length int32) FixedType {
 	return &out
 }
 
+// DecimalType is a decimal type with concrete precision and scale parameters, e.g. Decimal(10, 2).
 type DecimalType struct {
 	Nullability      Nullability
 	TypeVariationRef uint32
