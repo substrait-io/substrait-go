@@ -287,6 +287,11 @@ func (d *decimalType) Optional() bool { return d.Nullability }
 
 func (d *decimalType) Type() (types.Type, error) {
 	var n types.Nullability
+	if d.Nullability {
+		n = types.NullabilityNullable
+	} else {
+		n = types.NullabilityRequired
+	}
 	pi, ok1 := d.Precision.Expr.(*IntegerLiteral)
 	si, ok2 := d.Scale.Expr.(*IntegerLiteral)
 	if ok1 && ok2 {
@@ -420,7 +425,7 @@ type anyType struct {
 	Nullability bool     `parser:"@'?'?"`
 }
 
-func (anyType) Optional() bool { return false }
+func (t anyType) Optional() bool { return t.Nullability }
 
 func (t anyType) String() string {
 	opt := string(t.TypeName)

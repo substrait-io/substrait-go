@@ -27,7 +27,6 @@ func TestAnyType(t *testing.T) {
 			require.Equal(t, td.expectedString, arg.String())
 			require.Equal(t, td.nullability, arg.GetNullability())
 			require.Equal(t, td.argName, arg.ShortString())
-			require.Equal(t, "any", arg.ShortType())
 		})
 	}
 }

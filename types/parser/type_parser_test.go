@@ -24,9 +24,9 @@ func TestParser(t *testing.T) {
 		{"i16?", "i16?", "i16", &types.Int16Type{Nullability: types.NullabilityNullable}},
 		{"boolean", "boolean", "bool", &types.BooleanType{Nullability: types.NullabilityRequired}},
 		{"fixedchar<5>", "fixedchar<5>", "fchar", &types.FixedCharType{Length: 5}},
-		{"decimal<10,5>", "decimal<10, 5>", "dec", &types.DecimalType{Precision: 10, Scale: 5}},
-		{"list<decimal<10,5>>", "list<decimal<10, 5>>", "list", &types.ListType{Type: &types.DecimalType{Precision: 10, Scale: 5}, Nullability: types.NullabilityRequired}},
-		{"list?<decimal?<10,5>>", "list?<decimal?<10, 5>>", "list", &types.ListType{Type: &types.DecimalType{Precision: 10, Scale: 5}, Nullability: types.NullabilityNullable}},
+		{"decimal<10,5>", "decimal<10, 5>", "dec", &types.DecimalType{Precision: 10, Scale: 5, Nullability: types.NullabilityRequired}},
+		{"list<decimal<10,5>>", "list<decimal<10, 5>>", "list", &types.ListType{Type: &types.DecimalType{Precision: 10, Scale: 5, Nullability: types.NullabilityRequired}, Nullability: types.NullabilityRequired}},
+		{"list?<decimal?<10,5>>", "list?<decimal?<10, 5>>", "list", &types.ListType{Type: &types.DecimalType{Precision: 10, Scale: 5, Nullability: types.NullabilityNullable}, Nullability: types.NullabilityNullable}},
 		{"struct<i16?,i32>", "struct<i16?, i32>", "struct", &types.StructType{Types: []types.Type{&types.Int16Type{Nullability: types.NullabilityNullable}, &types.Int32Type{Nullability: types.NullabilityRequired}}, Nullability: types.NullabilityRequired}},
 		{"map<boolean?,struct?<i16?,i32?,i64?>>", "map<boolean?,struct?<i16?, i32?, i64?>>", "map", &types.MapType{Key: &types.BooleanType{Nullability: types.NullabilityNullable}, Value: &types.StructType{Types: []types.Type{&types.Int16Type{Nullability: types.NullabilityNullable}, &types.Int32Type{Nullability: types.NullabilityNullable}, &types.Int64Type{Nullability: types.NullabilityNullable}}, Nullability: types.NullabilityNullable}, Nullability: types.NullabilityRequired}},
 		{"map?<boolean?,struct?<i16?,i32?,i64?>>", "map?<boolean?,struct?<i16?, i32?, i64?>>", "map", &types.MapType{Key: &types.BooleanType{Nullability: types.NullabilityNullable}, Value: &types.StructType{Types: []types.Type{&types.Int16Type{Nullability: types.NullabilityNullable}, &types.Int32Type{Nullability: types.NullabilityNullable}, &types.Int64Type{Nullability: types.NullabilityNullable}}, Nullability: types.NullabilityNullable}, Nullability: types.NullabilityNullable}},
@@ -37,7 +37,9 @@ func TestParser(t *testing.T) {
 		{"fixedbinary<L1>", "fixedbinary<L1>", "fbin", types.ParameterizedFixedBinaryType{IntegerOption: types.IntegerParam{Name: "L1"}}},
 		{"precision_timestamp<L1>", "precision_timestamp<L1>", "prets", types.ParameterizedPrecisionTimestampType{IntegerOption: types.IntegerParam{Name: "L1"}}},
 		{"precision_timestamp_tz<L1>", "precision_timestamp_tz<L1>", "pretstz", types.ParameterizedPrecisionTimestampTzType{IntegerOption: types.IntegerParam{Name: "L1"}}},
-		{"decimal<P,S>", "decimal<P, S>", "dec", types.ParameterizedDecimalType{Precision: types.IntegerParam{Name: "P"}, Scale: types.IntegerParam{Name: "S"}}},
+		{"decimal<P,S>", "decimal<P, S>", "dec", types.ParameterizedDecimalType{Precision: types.IntegerParam{Name: "P"}, Scale: types.IntegerParam{Name: "S"}, Nullability: types.NullabilityRequired}},
+		{"any", "any", "any", types.AnyType{Nullability: types.NullabilityRequired}},
+		{"any1?", "any1?", "any", types.AnyType{Nullability: types.NullabilityNullable}},
 	}
 
 	p, err := parser.New()

@@ -2,8 +2,6 @@ package types
 
 import (
 	"fmt"
-
-	"github.com/substrait-io/substrait-go/proto"
 )
 
 // ParameterizedDecimalType is a decimal type with precision and scale parameters of string type
@@ -34,25 +32,13 @@ func (m ParameterizedDecimalType) Equals(rhs Type) bool {
 	return false
 }
 
-func (ParameterizedDecimalType) ToProtoFuncArg() *proto.FunctionArgument {
-	// parameterized type are never on wire so to proto is not supported
-	panic("not supported")
-}
-
 func (m ParameterizedDecimalType) ShortString() string {
 	t := DecimalType{}
 	return t.ShortString()
 }
 
 func (m ParameterizedDecimalType) String() string {
-	return fmt.Sprintf("%s%s%s", m.BaseString(), strNullable(m), m.ParameterString())
-}
-
-func (m ParameterizedDecimalType) ParameterString() string {
-	return fmt.Sprintf("<%s,%s>", m.Precision.String(), m.Scale.String())
-}
-
-func (m ParameterizedDecimalType) BaseString() string {
 	t := DecimalType{}
-	return t.BaseString()
+	parameterString := fmt.Sprintf("<%s,%s>", m.Precision.String(), m.Scale.String())
+	return fmt.Sprintf("%s%s%s", t.BaseString(), strNullable(m), parameterString)
 }

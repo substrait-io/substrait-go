@@ -31,9 +31,6 @@ func TestParameterizedVarCharType(t *testing.T) {
 		t.Run(td.name, func(t *testing.T) {
 			pt := td.typ.WithIntegerOption(td.integerOption).WithNullability(td.nullability)
 			require.Equal(t, td.expectedString, pt.String())
-			parameterizeType, ok := pt.(types.ParameterizedType)
-			require.True(t, ok)
-			require.Equal(t, td.expectedBaseString, parameterizeType.BaseString())
 			require.Equal(t, td.expectedShortString, pt.ShortString())
 			require.True(t, pt.Equals(pt))
 		})
@@ -58,7 +55,7 @@ func TestParameterizedDecimalType(t *testing.T) {
 			scale := types.IntegerParam{Name: td.scale}
 			pt := types.ParameterizedDecimalType{Precision: precision, Scale: scale, Nullability: td.nullability}
 			require.Equal(t, td.expectedString, pt.String())
-			require.Equal(t, td.expectedBaseString, pt.BaseString())
+			//require.Equal(t, td.expectedBaseString, pt.BaseString())
 			require.Equal(t, td.expectedShortString, pt.ShortString())
 			require.True(t, pt.Equals(pt))
 		})

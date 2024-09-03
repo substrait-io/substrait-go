@@ -2,8 +2,6 @@ package types
 
 import (
 	"fmt"
-
-	"github.com/substrait-io/substrait-go/proto"
 )
 
 // IntegerParam represents a single integer parameter for a parameterized type
@@ -14,10 +12,6 @@ type IntegerParam struct {
 
 func (m IntegerParam) Equals(o IntegerParam) bool {
 	return m == o
-}
-
-func (p IntegerParam) ToProto() *proto.ParameterizedType_IntegerParameter {
-	panic("not implemented")
 }
 
 func (m IntegerParam) String() string {
@@ -31,7 +25,7 @@ type ParameterizedTypeSingleIntegerParam[T VarCharType | FixedCharType | FixedBi
 	IntegerOption    IntegerParam
 }
 
-func (m ParameterizedTypeSingleIntegerParam[T]) WithIntegerOption(integerOption IntegerParam) ParameterizedSingleIntegerType {
+func (m ParameterizedTypeSingleIntegerParam[T]) WithIntegerOption(integerOption IntegerParam) Type {
 	m.IntegerOption = integerOption
 	return m
 }
@@ -52,11 +46,6 @@ func (m ParameterizedTypeSingleIntegerParam[T]) Equals(rhs Type) bool {
 		return o == m
 	}
 	return false
-}
-
-func (ParameterizedTypeSingleIntegerParam[T]) ToProtoFuncArg() *proto.FunctionArgument {
-	// parameterized type are never on wire so to proto is not supported
-	panic("not supported")
 }
 
 func (m ParameterizedTypeSingleIntegerParam[T]) ShortString() string {
@@ -82,14 +71,14 @@ func (m ParameterizedTypeSingleIntegerParam[T]) ShortString() string {
 }
 
 func (m ParameterizedTypeSingleIntegerParam[T]) String() string {
-	return fmt.Sprintf("%s%s%s", m.BaseString(), strNullable(m), m.ParameterString())
+	return fmt.Sprintf("%s%s%s", m.baseString(), strNullable(m), m.parameterString())
 }
 
-func (m ParameterizedTypeSingleIntegerParam[T]) ParameterString() string {
+func (m ParameterizedTypeSingleIntegerParam[T]) parameterString() string {
 	return fmt.Sprintf("<%s>", m.IntegerOption.String())
 }
 
-func (m ParameterizedTypeSingleIntegerParam[T]) BaseString() string {
+func (m ParameterizedTypeSingleIntegerParam[T]) baseString() string {
 	switch any(m).(type) {
 	case ParameterizedVarCharType:
 		t := VarCharType{}

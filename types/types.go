@@ -185,7 +185,7 @@ type (
 
 // TypeFromProto returns the appropriate Type object from a protobuf
 // type message.
-func TypeFromProto(t *proto.Type) Type {
+func TypeFromProto(t *proto.Type) FuncArgType {
 	switch t := t.Kind.(type) {
 	case *proto.Type_Bool:
 		return &BooleanType{
@@ -355,10 +355,14 @@ type (
 		fmt.Stringer
 	}
 
+	// FuncArgType this represents a type which can be a function argument
+	FuncArgType interface {
+		FuncArg
+		Type
+	}
 	// Type corresponds to the proto.Type message and represents
 	// a specific type.
 	Type interface {
-		FuncArg
 		isRootRef()
 		fmt.Stringer
 		ShortString() string
@@ -371,6 +375,7 @@ type (
 		WithNullability(Nullability) Type
 	}
 
+	// ParameterizedType this representa a concrete type with parameters
 	ParameterizedType interface {
 		Type
 		ParameterString() string
@@ -383,8 +388,8 @@ type (
 	}
 
 	ParameterizedSingleIntegerType interface {
-		ParameterizedType
-		WithIntegerOption(param IntegerParam) ParameterizedSingleIntegerType
+		Type
+		WithIntegerOption(param IntegerParam) Type
 	}
 )
 
