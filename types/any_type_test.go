@@ -24,9 +24,13 @@ func TestAnyType(t *testing.T) {
 				Name:        td.argName,
 				Nullability: td.nullability,
 			}
-			require.Equal(t, td.expectedString, arg.String())
-			require.Equal(t, td.nullability, arg.GetNullability())
-			require.Equal(t, td.argName, arg.ShortString())
+			anyType := arg.WithNullability(td.nullability)
+			require.Equal(t, td.expectedString, anyType.String())
+			require.Equal(t, td.nullability, anyType.GetNullability())
+			require.Equal(t, td.argName, anyType.ShortString())
+			// any type should be equal to any other type including itself
+			require.True(t, anyType.Equals(anyType))
+			require.True(t, anyType.Equals(&types.Int8Type{}))
 		})
 	}
 }

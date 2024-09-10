@@ -12,6 +12,7 @@ import (
 
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/proto"
+	"github.com/substrait-io/substrait-go/types/parameter_types"
 )
 
 type Version = proto.Version
@@ -271,26 +272,26 @@ func TypeFromProto(t *proto.Type) FuncArgType {
 		return &FixedBinaryType{
 			Nullability:      t.FixedBinary.Nullability,
 			TypeVariationRef: t.FixedBinary.TypeVariationReference,
-			Length:           t.FixedBinary.Length,
+			Length:           parameter_types.LeafIntParamConcreteType(t.FixedBinary.Length),
 		}
 	case *proto.Type_FixedChar_:
 		return &FixedCharType{
 			Nullability:      t.FixedChar.Nullability,
 			TypeVariationRef: t.FixedChar.TypeVariationReference,
-			Length:           t.FixedChar.Length,
+			Length:           parameter_types.LeafIntParamConcreteType(t.FixedChar.Length),
 		}
 	case *proto.Type_Varchar:
 		return &VarCharType{
 			Nullability:      t.Varchar.Nullability,
 			TypeVariationRef: t.Varchar.TypeVariationReference,
-			Length:           t.Varchar.Length,
+			Length:           parameter_types.LeafIntParamConcreteType(t.Varchar.Length),
 		}
 	case *proto.Type_Decimal_:
 		return &DecimalType{
 			Nullability:      t.Decimal.Nullability,
 			TypeVariationRef: t.Decimal.TypeVariationReference,
-			Scale:            t.Decimal.Scale,
-			Precision:        t.Decimal.Precision,
+			Scale:            parameter_types.LeafIntParamConcreteType(t.Decimal.Scale),
+			Precision:        parameter_types.LeafIntParamConcreteType(t.Decimal.Precision),
 		}
 	case *proto.Type_Struct_:
 		fields := make([]Type, len(t.Struct.Types))
@@ -375,21 +376,22 @@ type (
 		WithNullability(Nullability) Type
 	}
 
-	// ParameterizedType this representa a concrete type with parameters
-	ParameterizedType interface {
+	// ParameterizedConcreteType this represents a concrete type with parameters
+	ParameterizedConcreteType interface {
 		Type
 		ParameterString() string
 		BaseString() string
 	}
 
-	FixedType interface {
-		ParameterizedType
-		WithLength(int32) FixedType
+	// ParameterizedAbstractType this represents a type which has at least one abstract parameter
+	ParameterizedAbstractType interface {
+		Type
+		GetAbstractParameters() []parameter_types.AbstractParameterType
 	}
 
-	ParameterizedSingleIntegerType interface {
-		Type
-		WithIntegerOption(param IntegerParam) Type
+	FixedType interface {
+		ParameterizedConcreteType
+		WithLength(int32) FixedType
 	}
 )
 
@@ -480,19 +482,19 @@ func TypeToProto(t Type) *proto.Type {
 	case *FixedCharType:
 		return &proto.Type{Kind: &proto.Type_FixedChar_{
 			FixedChar: &proto.Type_FixedChar{
-				Length:                 t.Length,
+				Length:                 t.Length.ToProtoVal(),
 				Nullability:            t.Nullability,
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *VarCharType:
 		return &proto.Type{Kind: &proto.Type_Varchar{
 			Varchar: &proto.Type_VarChar{
-				Length:                 t.Length,
+				Length:                 t.Length.ToProtoVal(),
 				Nullability:            t.Nullability,
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *FixedBinaryType:
 		return &proto.Type{Kind: &proto.Type_FixedBinary_{
 			FixedBinary: &proto.Type_FixedBinary{
-				Length:                 t.Length,
+				Length:                 t.Length.ToProtoVal(),
 				Nullability:            t.Nullability,
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *DecimalType:
@@ -637,11 +639,11 @@ type (
 	FixedCharType                         = FixedLenType[FixedChar]
 	VarCharType                           = FixedLenType[VarChar]
 	FixedBinaryType                       = FixedLenType[FixedBinary]
-	ParameterizedVarCharType              = ParameterizedTypeSingleIntegerParam[VarCharType]
-	ParameterizedFixedCharType            = ParameterizedTypeSingleIntegerParam[FixedCharType]
-	ParameterizedFixedBinaryType          = ParameterizedTypeSingleIntegerParam[FixedBinaryType]
-	ParameterizedPrecisionTimestampType   = ParameterizedTypeSingleIntegerParam[PrecisionTimestampType]
-	ParameterizedPrecisionTimestampTzType = ParameterizedTypeSingleIntegerParam[PrecisionTimestampTzType]
+	ParameterizedVarCharType              = parameterizedTypeSingleIntegerParam[VarCharType]
+	ParameterizedFixedCharType            = parameterizedTypeSingleIntegerParam[FixedCharType]
+	ParameterizedFixedBinaryType          = parameterizedTypeSingleIntegerParam[FixedBinaryType]
+	ParameterizedPrecisionTimestampType   = parameterizedTypeSingleIntegerParam[PrecisionTimestampType]
+	ParameterizedPrecisionTimestampTzType = parameterizedTypeSingleIntegerParam[PrecisionTimestampTzType]
 )
 
 // FixedLenType is any of the types which also need to track their specific
@@ -649,7 +651,7 @@ type (
 type FixedLenType[T FixedChar | VarChar | FixedBinary] struct {
 	Nullability      Nullability
 	TypeVariationRef uint32
-	Length           int32
+	Length           parameter_types.LeafIntParamConcreteType
 }
 
 func (*FixedLenType[T]) isRootRef() {}
@@ -698,7 +700,7 @@ func (s *FixedLenType[T]) BaseString() string {
 
 func (s *FixedLenType[T]) WithLength(length int32) FixedType {
 	out := *s
-	out.Length = length
+	out.Length = parameter_types.LeafIntParamConcreteType(length)
 	return &out
 }
 
@@ -706,7 +708,7 @@ func (s *FixedLenType[T]) WithLength(length int32) FixedType {
 type DecimalType struct {
 	Nullability      Nullability
 	TypeVariationRef uint32
-	Scale, Precision int32
+	Scale, Precision parameter_types.LeafIntParamConcreteType
 }
 
 func (*DecimalType) isRootRef() {}
@@ -736,7 +738,7 @@ func (s *DecimalType) ToProtoFuncArg() *proto.FunctionArgument {
 func (s *DecimalType) ToProto() *proto.Type {
 	return &proto.Type{Kind: &proto.Type_Decimal_{
 		Decimal: &proto.Type_Decimal{
-			Scale: s.Scale, Precision: s.Precision,
+			Scale: s.Scale.ToProtoVal(), Precision: s.Precision.ToProtoVal(),
 			Nullability:            s.Nullability,
 			TypeVariationReference: s.TypeVariationRef}}}
 }
@@ -828,6 +830,21 @@ func (t *StructType) String() string {
 	return b.String()
 }
 
+func (t *StructType) ParameterString() string {
+	sb := strings.Builder{}
+	for i, typ := range t.Types {
+		if i != 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(typ.String())
+	}
+	return sb.String()
+}
+
+func (*StructType) BaseString() string {
+	return "struct"
+}
+
 type ListType struct {
 	Nullability      Nullability
 	TypeVariationRef uint32
@@ -879,6 +896,14 @@ func (t *ListType) String() string {
 	return "list" + strNullable(t) + "<" + t.Type.String() + ">"
 }
 
+func (s *ListType) ParameterString() string {
+	return s.Type.String()
+}
+
+func (*ListType) BaseString() string {
+	return "list"
+}
+
 type MapType struct {
 	Nullability      Nullability
 	TypeVariationRef uint32
@@ -927,7 +952,15 @@ func (t *MapType) ToProtoFuncArg() *proto.FunctionArgument {
 func (t *MapType) ShortString() string { return "map" }
 
 func (t *MapType) String() string {
-	return "map" + strNullable(t) + "<" + t.Key.String() + "," + t.Value.String() + ">"
+	return "map" + strNullable(t) + "<" + t.Key.String() + ", " + t.Value.String() + ">"
+}
+
+func (t *MapType) ParameterString() string {
+	return fmt.Sprintf("%s, %s", t.Key.String(), t.Value.String())
+}
+
+func (*MapType) BaseString() string {
+	return "map"
 }
 
 // TypeParam represents a type parameter for a user defined type

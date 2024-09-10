@@ -6,8 +6,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/types"
+	"github.com/substrait-io/substrait-go/types/parameter_types"
 	"github.com/substrait-io/substrait-go/types/parser"
 )
 
@@ -61,6 +63,45 @@ func TestEvaluateTypeExpression(t *testing.T) {
 				assert.Truef(t, tt.expected.Equals(result), "expected: %s\ngot: %s", tt.expected, result)
 			} else {
 				assert.EqualError(t, err, tt.err)
+			}
+		})
+	}
+}
+
+func TestHasSyncParams(t *testing.T) {
+
+	apt_P := parameter_types.LeafIntParamAbstractType("P")
+	apt_Q := parameter_types.LeafIntParamAbstractType("Q")
+	cpt_38 := parameter_types.LeafIntParamConcreteType(38)
+
+	fct_P := &types.ParameterizedFixedCharType{IntegerOption: apt_P}
+	fct_Q := &types.ParameterizedFixedCharType{IntegerOption: apt_Q}
+	decimal_PQ := &types.ParameterizedDecimalType{Precision: apt_P, Scale: apt_Q}
+	decimal_38_Q := &types.ParameterizedDecimalType{Precision: cpt_38, Scale: apt_Q}
+	list_decimal_38_Q := &types.ParameterizedListType{Type: decimal_38_Q}
+	map_fctQ_decimal38Q := &types.ParameterizedMapType{Key: fct_Q, Value: decimal_38_Q}
+	struct_fctQ_ListDecimal38Q := &types.ParameterizedStructType{Type: []types.Type{fct_Q, list_decimal_38_Q}}
+	for _, td := range []struct {
+		name                  string
+		params                []types.Type
+		expectedHasSyncParams bool
+	}{
+		{"No Abstract Type", []types.Type{&types.Int64Type{}}, false},
+		{"No Sync Param P, Q", []types.Type{fct_P, fct_Q}, false},
+		{"Sync Params P, P", []types.Type{fct_P, fct_P}, true},
+		{"Sync Params P, <P, Q>", []types.Type{fct_P, decimal_PQ}, true},
+		{"No Sync Params P, <38, Q>", []types.Type{fct_P, decimal_38_Q}, false},
+		{"Sync Params P, List<Decimal<P, Q>>", []types.Type{fct_P, list_decimal_38_Q}, false},
+		{"No Sync Params fct<P>, Map<fct<Q>, decimal<38,Q>>", []types.Type{fct_P, map_fctQ_decimal38Q}, false},
+		{"Sync Params fct<Q>, Map<fct<Q>, decimal<38,Q>>", []types.Type{fct_Q, map_fctQ_decimal38Q}, true},
+		{"No Sync Params fct<P>, struct<fct<Q>, list<38,Q>>", []types.Type{fct_P, struct_fctQ_ListDecimal38Q}, false},
+		{"Sync Params fct<Q>, struct<fct<Q>, list<38,Q>>", []types.Type{fct_Q, struct_fctQ_ListDecimal38Q}, true},
+	} {
+		t.Run(td.name, func(t *testing.T) {
+			if td.expectedHasSyncParams {
+				require.True(t, extensions.HasSyncParams(td.params))
+			} else {
+				require.False(t, extensions.HasSyncParams(td.params))
 			}
 		})
 	}

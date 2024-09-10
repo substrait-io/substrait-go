@@ -12,6 +12,7 @@ import (
 	"github.com/alecthomas/participle/v2/lexer"
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/types"
+	"github.com/substrait-io/substrait-go/types/parameter_types"
 )
 
 var defaultParser *Parser
@@ -175,12 +176,17 @@ func (l *listType) Type() (types.Type, error) {
 		if err != nil {
 			return nil, err
 		}
+		if abstractParam, ok1 := ret.(types.ParameterizedAbstractType); ok1 {
+			return &types.ParameterizedListType{
+				Nullability: n,
+				Type:        abstractParam,
+			}, nil
+		}
 		return &types.ListType{
 			Nullability: n,
 			Type:        ret,
 		}, nil
 	}
-
 	return nil, substraitgo.ErrNotImplemented
 }
 
@@ -250,7 +256,7 @@ func getFixedTypeFromConcreteParam(name string, param *IntegerLiteral) (types.Ty
 }
 
 func getParameterizedTypeSingleParam(typeName string, param *ParamName) (types.Type, error) {
-	intParam := types.IntegerParam{Name: param.Name}
+	intParam := parameter_types.LeafIntParamAbstractType(param.Name)
 	switch types.TypeName(typeName) {
 	case types.TypeNameVarChar:
 		return types.ParameterizedVarCharType{IntegerOption: intParam}, nil
@@ -280,7 +286,7 @@ func (d *decimalType) String() string {
 	if d.Nullability {
 		opt = "?"
 	}
-	return "decimal" + opt + "<" + d.Precision.Expr.String() + ", " + d.Scale.Expr.String() + ">"
+	return "decimal" + opt + "<" + d.Precision.Expr.String() + "," + d.Scale.Expr.String() + ">"
 }
 
 func (d *decimalType) Optional() bool { return d.Nullability }
@@ -292,28 +298,43 @@ func (d *decimalType) Type() (types.Type, error) {
 	} else {
 		n = types.NullabilityRequired
 	}
-	pi, ok1 := d.Precision.Expr.(*IntegerLiteral)
-	si, ok2 := d.Scale.Expr.(*IntegerLiteral)
-	if ok1 && ok2 {
+	pi, isPrecisionConcrete := d.Precision.Expr.(*IntegerLiteral)
+	si, isScaleConcrete := d.Scale.Expr.(*IntegerLiteral)
+	if isPrecisionConcrete && isScaleConcrete {
 		// concrete decimal param
 		return &types.DecimalType{
 			Nullability: n,
-			Precision:   pi.Value,
-			Scale:       si.Value,
+			Precision:   parameter_types.LeafIntParamConcreteType(pi.Value),
+			Scale:       parameter_types.LeafIntParamConcreteType(si.Value),
 		}, nil
 	}
 
-	ps, ok1 := d.Precision.Expr.(*ParamName)
-	ss, ok2 := d.Scale.Expr.(*ParamName)
-	if ok1 && ok2 {
-		// parameterized decimal param
-		return types.ParameterizedDecimalType{
+	// there is at least one abstract param, so it is parameterized type
+
+	ps, isPrecisionAbstract := d.Precision.Expr.(*ParamName)
+	ss, isScaleAbstract := d.Scale.Expr.(*ParamName)
+	if isPrecisionAbstract && isScaleAbstract {
+		// both abstract param
+		return &types.ParameterizedDecimalType{
 			Nullability: n,
-			Precision:   types.IntegerParam{Name: ps.Name},
-			Scale:       types.IntegerParam{Name: ss.Name},
+			Precision:   parameter_types.LeafIntParamAbstractType(ps.Name),
+			Scale:       parameter_types.LeafIntParamAbstractType(ss.Name),
 		}, nil
 	}
-	return nil, substraitgo.ErrNotImplemented
+
+	// one abstract and one concrete
+	if isPrecisionConcrete {
+		return &types.ParameterizedDecimalType{
+			Nullability: n,
+			Precision:   parameter_types.LeafIntParamConcreteType(pi.Value),
+			Scale:       parameter_types.LeafIntParamAbstractType(ss.Name),
+		}, nil
+	}
+	return &types.ParameterizedDecimalType{
+		Nullability: n,
+		Precision:   parameter_types.LeafIntParamAbstractType(ps.Name),
+		Scale:       parameter_types.LeafIntParamConcreteType(si.Value),
+	}, nil
 }
 
 type structType struct {
@@ -351,6 +372,7 @@ func (t *structType) Type() (types.Type, error) {
 	}
 	var err error
 	typeList := make([]types.Type, len(t.Types))
+	anyAbstractParamPresent := false
 	for i, typ := range t.Types {
 		tp, ok := typ.Expr.(*Type)
 		if !ok {
@@ -360,6 +382,15 @@ func (t *structType) Type() (types.Type, error) {
 		if typeList[i], err = tp.Type(); err != nil {
 			return nil, err
 		}
+		if _, ok1 := typeList[i].(types.ParameterizedAbstractType); ok1 {
+			anyAbstractParamPresent = true
+		}
+	}
+	if anyAbstractParamPresent {
+		return &types.ParameterizedStructType{
+			Nullability: n,
+			Type:        typeList,
+		}, nil
 	}
 	return &types.StructType{
 		Nullability: n,
@@ -380,7 +411,7 @@ func (m *mapType) String() string {
 	if m.Nullability {
 		opt = "?"
 	}
-	return "map" + opt + "<" + m.Key.Expr.String() + "," + m.Value.Expr.String() + ">"
+	return "map" + opt + "<" + m.Key.Expr.String() + ", " + m.Value.Expr.String() + ">"
 }
 
 func (m *mapType) Optional() bool { return m.Nullability }
@@ -412,6 +443,22 @@ func (m *mapType) Type() (types.Type, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	anyAbstractParamPresent := false
+	if _, ok1 := key.(types.ParameterizedAbstractType); ok1 {
+		anyAbstractParamPresent = true
+	}
+	if _, ok1 := value.(types.ParameterizedAbstractType); ok1 {
+		anyAbstractParamPresent = true
+	}
+	if anyAbstractParamPresent {
+		return &types.ParameterizedMapType{
+			Key:         key,
+			Value:       value,
+			Nullability: n,
+		}, nil
+	}
+
 	return &types.MapType{
 		Key:         key,
 		Value:       value,

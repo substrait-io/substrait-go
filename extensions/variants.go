@@ -8,6 +8,7 @@ import (
 
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/types"
+	"github.com/substrait-io/substrait-go/types/parameter_types"
 	"github.com/substrait-io/substrait-go/types/parser"
 )
 
@@ -375,3 +376,57 @@ func (s *WindowFunctionVariant) Intermediate() (types.Type, error) {
 func (s *WindowFunctionVariant) Ordered() bool          { return s.impl.Ordered }
 func (s *WindowFunctionVariant) MaxSet() int            { return s.impl.MaxSet }
 func (s *WindowFunctionVariant) WindowType() WindowType { return s.impl.WindowType }
+
+// HasSyncParams This API returns if params share a leaf param name
+func HasSyncParams(params []types.Type) bool {
+	// get list of parameters from Abstract parameter type
+	// if any of the parameter is common, it indicates parameters are same across parameters
+	existingParamMap := make(map[string]bool)
+	for _, p := range params {
+		pat, ok := p.(types.ParameterizedAbstractType)
+		if !ok {
+			// not a type which contains abstract parameters, so continue
+			continue
+		}
+		// get list of parameters for each abstract parameter type
+		// note, this can be more than one parameter because of nested abstract types
+		// e.g. Decimal<P, S> or List<Struct<Decimal<P, S>, VARCHAR<L1>>>
+		abstractParams := pat.GetAbstractParameters()
+		var leafParams []string
+		for _, abstractParam := range abstractParams {
+			leafParams = append(leafParams, getLeafAbstractParams(abstractParam)...)
+		}
+		// all leaf params for this parameters are found
+		// if map contains any of the leaf params, parameters are synced
+		for _, leafParam := range leafParams {
+			if _, ok := existingParamMap[leafParam]; ok {
+				return true
+			}
+		}
+		// add all params to map, kindly note we can't add these params
+		// in previous loop to avoid having same leaf abstract type in same param
+		// e.g. Decimal<P, P> has no sync param
+		for _, leafParam := range leafParams {
+			existingParamMap[leafParam] = true
+		}
+	}
+	return false
+}
+
+// from a parameter of abstract type, get the leaf parameters
+// an abstract parameter can be a leaf type or a parameterized type itself
+// if it is a leaf type, its param name is returned
+// if it is parameterized type, leaf type is found recursively
+func getLeafAbstractParams(abstractTypes parameter_types.AbstractParameterType) []string {
+	// if it is not a leaf type recurse
+	if pat, ok := abstractTypes.(types.ParameterizedAbstractType); ok {
+		var outLeafParams []string
+		for _, p := range pat.GetAbstractParameters() {
+			childLeafParams := getLeafAbstractParams(p)
+			outLeafParams = append(outLeafParams, childLeafParams...)
+		}
+		return outLeafParams
+	}
+	// for leaf type, return the param name
+	return []string{abstractTypes.GetAbstractParamName()}
+}
