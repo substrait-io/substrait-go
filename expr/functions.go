@@ -478,11 +478,13 @@ func (w *WindowFunction) Invocation() types.AggregationInvocation { return w.inv
 func (w *WindowFunction) Decomposable() extensions.DecomposeType {
 	return w.declaration.Decomposability()
 }
-func (w *WindowFunction) Ordered() bool                         { return w.declaration.Ordered() }
-func (w *WindowFunction) MaxSet() int                           { return w.declaration.MaxSet() }
-func (w *WindowFunction) IntermediateType() (types.Type, error) { return w.declaration.Intermediate() }
-func (w *WindowFunction) WindowType() extensions.WindowType     { return w.declaration.WindowType() }
-func (*WindowFunction) IsScalar() bool                          { return false }
+func (w *WindowFunction) Ordered() bool { return w.declaration.Ordered() }
+func (w *WindowFunction) MaxSet() int   { return w.declaration.MaxSet() }
+func (w *WindowFunction) IntermediateType() (types.FuncDefArgType, error) {
+	return w.declaration.Intermediate()
+}
+func (w *WindowFunction) WindowType() extensions.WindowType { return w.declaration.WindowType() }
+func (*WindowFunction) IsScalar() bool                      { return false }
 
 func (*WindowFunction) isRootRef() {}
 
@@ -773,7 +775,7 @@ func (a *AggregateFunction) Decomposable() extensions.DecomposeType {
 }
 func (a *AggregateFunction) Ordered() bool { return a.declaration.Ordered() }
 func (a *AggregateFunction) MaxSet() int   { return a.declaration.MaxSet() }
-func (a *AggregateFunction) IntermediateType() (types.Type, error) {
+func (a *AggregateFunction) IntermediateType() (types.FuncDefArgType, error) {
 	return a.declaration.Intermediate()
 }
 

@@ -12,7 +12,7 @@ import (
 	"github.com/alecthomas/participle/v2/lexer"
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/types"
-	"github.com/substrait-io/substrait-go/types/parameter_types"
+	"github.com/substrait-io/substrait-go/types/leaf_parameters"
 )
 
 var defaultParser *Parser
@@ -23,12 +23,12 @@ type TypeExpression struct {
 
 func (t TypeExpression) String() string { return t.Expr.String() }
 
-func (t TypeExpression) Type() (types.Type, error) {
+func (t TypeExpression) Type() (types.FuncDefArgType, error) {
 	typeDef, ok := t.Expr.(Def)
 	if !ok {
 		return nil, errors.New("type expression doesn't represent type")
 	}
-	return typeDef.Type()
+	return typeDef.ArgType()
 }
 
 func (t TypeExpression) MarshalYAML() (interface{}, error) {
@@ -95,15 +95,23 @@ func (t *Type) String() string {
 	return t.TypeDef.String()
 }
 
-func (t *Type) Type() (types.Type, error) {
-	return t.TypeDef.Type()
+func (t *Type) ArgType() (types.FuncDefArgType, error) {
+	return t.TypeDef.ArgType()
+}
+
+func (t *Type) RetType() (types.Type, error) {
+	return t.TypeDef.RetType()
 }
 
 type Def interface {
 	String() string
 	ShortType() string
-	Type() (types.Type, error)
+	// ArgType indicates argument type
+	ArgType() (types.FuncDefArgType, error)
 	Optional() bool
+	// TODO RetType indicates return type
+	// This should be replaced with TypeDerivation method. Currently it just returns concrete type
+	RetType() (types.Type, error)
 }
 
 type typename string
@@ -133,7 +141,7 @@ func (t *nonParamType) ShortType() string {
 	return types.GetShortTypeName(types.TypeName(t.TypeName))
 }
 
-func (t *nonParamType) Type() (types.Type, error) {
+func (t *nonParamType) RetType() (types.Type, error) {
 	var n types.Nullability
 	if t.Nullability {
 		n = types.NullabilityNullable
@@ -145,6 +153,21 @@ func (t *nonParamType) Type() (types.Type, error) {
 		return typ.WithNullability(n), nil
 	}
 	return nil, err
+}
+
+func (t *nonParamType) ArgType() (types.FuncDefArgType, error) {
+	var n types.Nullability
+	if t.Nullability {
+		n = types.NullabilityNullable
+	} else {
+		n = types.NullabilityRequired
+	}
+	typ, err := types.SimpleTypeNameToType(types.TypeName(t.TypeName))
+	if err != nil {
+		return nil, err
+	}
+	funcArgType := typ.(types.FuncDefArgType)
+	return funcArgType.SetNullability(n), nil
 }
 
 type listType struct {
@@ -164,7 +187,7 @@ func (l *listType) String() string {
 
 func (l *listType) Optional() bool { return false }
 
-func (l *listType) Type() (types.Type, error) {
+func (l *listType) RetType() (types.Type, error) {
 	var n types.Nullability
 	if l.Nullability {
 		n = types.NullabilityNullable
@@ -172,17 +195,32 @@ func (l *listType) Type() (types.Type, error) {
 		n = types.NullabilityRequired
 	}
 	if t, ok := l.ElemType.Expr.(*Type); ok {
-		ret, err := t.Type()
+		ret, err := t.RetType()
 		if err != nil {
 			return nil, err
 		}
-		if abstractParam, ok1 := ret.(types.ParameterizedAbstractType); ok1 {
-			return &types.ParameterizedListType{
-				Nullability: n,
-				Type:        abstractParam,
-			}, nil
-		}
 		return &types.ListType{
+			Nullability: n,
+			Type:        ret,
+		}, nil
+	}
+
+	return nil, substraitgo.ErrNotImplemented
+}
+
+func (l *listType) ArgType() (types.FuncDefArgType, error) {
+	var n types.Nullability
+	if l.Nullability {
+		n = types.NullabilityNullable
+	} else {
+		n = types.NullabilityRequired
+	}
+	if t, ok := l.ElemType.Expr.(*Type); ok {
+		ret, err := t.ArgType()
+		if err != nil {
+			return nil, err
+		}
+		return &types.ParameterizedListType{
 			Nullability: n,
 			Type:        ret,
 		}, nil
@@ -213,61 +251,51 @@ func (p *lengthType) String() string {
 
 func (p *lengthType) Optional() bool { return false }
 
-func (p *lengthType) Type() (types.Type, error) {
+func (p *lengthType) RetType() (types.Type, error) {
+	var n types.Nullability
+	lit, ok := p.NumericParam.Expr.(*IntegerLiteral)
+	if !ok {
+		return nil, substraitgo.ErrNotImplemented
+	}
+
+	typ, err := types.FixedTypeNameToType(types.TypeName(p.TypeName))
+	if err != nil {
+		return nil, err
+	}
+	return typ.WithLength(lit.Value).WithNullability(n), nil
+}
+
+func (p *lengthType) ArgType() (types.FuncDefArgType, error) {
 	var n types.Nullability
 
-	var typ types.Type
-	var err error
+	var leafParam leaf_parameters.LeafParameter
 	switch t := p.NumericParam.Expr.(type) {
 	case *IntegerLiteral:
-		typ, err = getFixedTypeFromConcreteParam(p.TypeName, t)
+		leafParam = leaf_parameters.NewConcreteIntParam(t.Value)
 	case *ParamName:
-		typ, err = getParameterizedTypeSingleParam(p.TypeName, t)
+		leafParam = leaf_parameters.NewVariableIntParam(t.Name)
 	default:
 		return nil, substraitgo.ErrNotImplemented
 	}
+	typ, err := getParameterizedTypeSingleParam(p.TypeName, leafParam, n)
 	if err != nil {
 		return nil, err
 	}
-	return typ.WithNullability(n), nil
+	return typ, nil
 }
 
-func getFixedTypeFromConcreteParam(name string, param *IntegerLiteral) (types.Type, error) {
-	typeName := types.TypeName(name)
-	switch typeName {
-	case types.TypeNamePrecisionTimestamp:
-		precision, err := types.ProtoToTimePrecision(param.Value)
-		if err != nil {
-			return nil, err
-		}
-		return types.NewPrecisionTimestampType(precision), nil
-	case types.TypeNamePrecisionTimestampTz:
-		precision, err := types.ProtoToTimePrecision(param.Value)
-		if err != nil {
-			return nil, err
-		}
-		return types.NewPrecisionTimestampTzType(precision), nil
-	}
-	typ, err := types.FixedTypeNameToType(typeName)
-	if err != nil {
-		return nil, err
-	}
-	return typ.WithLength(param.Value), nil
-}
-
-func getParameterizedTypeSingleParam(typeName string, param *ParamName) (types.Type, error) {
-	intParam := parameter_types.LeafIntParamAbstractType(param.Name)
+func getParameterizedTypeSingleParam(typeName string, leafParam leaf_parameters.LeafParameter, n types.Nullability) (types.FuncDefArgType, error) {
 	switch types.TypeName(typeName) {
 	case types.TypeNameVarChar:
-		return types.ParameterizedVarCharType{IntegerOption: intParam}, nil
+		return &types.ParameterizedVarCharType{IntegerOption: leafParam, Nullability: n}, nil
 	case types.TypeNameFixedChar:
-		return types.ParameterizedFixedCharType{IntegerOption: intParam}, nil
+		return &types.ParameterizedFixedCharType{IntegerOption: leafParam, Nullability: n}, nil
 	case types.TypeNameFixedBinary:
-		return types.ParameterizedFixedBinaryType{IntegerOption: intParam}, nil
+		return &types.ParameterizedFixedBinaryType{IntegerOption: leafParam, Nullability: n}, nil
 	case types.TypeNamePrecisionTimestamp:
-		return types.ParameterizedPrecisionTimestampType{IntegerOption: intParam}, nil
+		return &types.ParameterizedPrecisionTimestampType{IntegerOption: leafParam, Nullability: n}, nil
 	case types.TypeNamePrecisionTimestampTz:
-		return types.ParameterizedPrecisionTimestampTzType{IntegerOption: intParam}, nil
+		return &types.ParameterizedPrecisionTimestampTzType{IntegerOption: leafParam, Nullability: n}, nil
 	default:
 		return nil, substraitgo.ErrNotImplemented
 	}
@@ -291,49 +319,55 @@ func (d *decimalType) String() string {
 
 func (d *decimalType) Optional() bool { return d.Nullability }
 
-func (d *decimalType) Type() (types.Type, error) {
+func (d *decimalType) ArgType() (types.FuncDefArgType, error) {
 	var n types.Nullability
 	if d.Nullability {
 		n = types.NullabilityNullable
 	} else {
 		n = types.NullabilityRequired
 	}
-	pi, isPrecisionConcrete := d.Precision.Expr.(*IntegerLiteral)
-	si, isScaleConcrete := d.Scale.Expr.(*IntegerLiteral)
-	if isPrecisionConcrete && isScaleConcrete {
-		// concrete decimal param
-		return &types.DecimalType{
-			Nullability: n,
-			Precision:   parameter_types.LeafIntParamConcreteType(pi.Value),
-			Scale:       parameter_types.LeafIntParamConcreteType(si.Value),
-		}, nil
+	var precision leaf_parameters.LeafParameter
+	if pi, ok := d.Precision.Expr.(*IntegerLiteral); ok {
+		precision = leaf_parameters.NewConcreteIntParam(pi.Value)
+	} else {
+		ps := d.Precision.Expr.(*ParamName)
+		precision = leaf_parameters.NewVariableIntParam(ps.String())
 	}
 
-	// there is at least one abstract param, so it is parameterized type
-
-	ps, isPrecisionAbstract := d.Precision.Expr.(*ParamName)
-	ss, isScaleAbstract := d.Scale.Expr.(*ParamName)
-	if isPrecisionAbstract && isScaleAbstract {
-		// both abstract param
-		return &types.ParameterizedDecimalType{
-			Nullability: n,
-			Precision:   parameter_types.LeafIntParamAbstractType(ps.Name),
-			Scale:       parameter_types.LeafIntParamAbstractType(ss.Name),
-		}, nil
+	var scale leaf_parameters.LeafParameter
+	if si, ok := d.Scale.Expr.(*IntegerLiteral); ok {
+		scale = leaf_parameters.NewConcreteIntParam(si.Value)
+	} else {
+		ss := d.Scale.Expr.(*ParamName)
+		scale = leaf_parameters.NewVariableIntParam(ss.String())
 	}
 
-	// one abstract and one concrete
-	if isPrecisionConcrete {
-		return &types.ParameterizedDecimalType{
-			Nullability: n,
-			Precision:   parameter_types.LeafIntParamConcreteType(pi.Value),
-			Scale:       parameter_types.LeafIntParamAbstractType(ss.Name),
-		}, nil
-	}
 	return &types.ParameterizedDecimalType{
 		Nullability: n,
-		Precision:   parameter_types.LeafIntParamAbstractType(ps.Name),
-		Scale:       parameter_types.LeafIntParamConcreteType(si.Value),
+		Precision:   precision,
+		Scale:       scale,
+	}, nil
+}
+
+func (d *decimalType) RetType() (types.Type, error) {
+	var n types.Nullability
+	if d.Nullability {
+		n = types.NullabilityNullable
+	} else {
+		n = types.NullabilityRequired
+	}
+	p, ok := d.Precision.Expr.(*IntegerLiteral)
+	if !ok {
+		return nil, substraitgo.ErrNotImplemented
+	}
+	s, ok := d.Scale.Expr.(*IntegerLiteral)
+	if !ok {
+		return nil, substraitgo.ErrNotImplemented
+	}
+	return &types.DecimalType{
+		Nullability: n,
+		Precision:   p.Value,
+		Scale:       s.Value,
 	}, nil
 }
 
@@ -363,7 +397,7 @@ func (s *structType) String() string {
 
 func (t *structType) Optional() bool { return t.Nullability }
 
-func (t *structType) Type() (types.Type, error) {
+func (t *structType) RetType() (types.Type, error) {
 	var n types.Nullability
 	if t.Nullability {
 		n = types.NullabilityNullable
@@ -372,27 +406,42 @@ func (t *structType) Type() (types.Type, error) {
 	}
 	var err error
 	typeList := make([]types.Type, len(t.Types))
-	anyAbstractParamPresent := false
 	for i, typ := range t.Types {
 		tp, ok := typ.Expr.(*Type)
 		if !ok {
 			return nil, substraitgo.ErrNotImplemented
 		}
 
-		if typeList[i], err = tp.Type(); err != nil {
+		if typeList[i], err = tp.RetType(); err != nil {
 			return nil, err
 		}
-		if _, ok1 := typeList[i].(types.ParameterizedAbstractType); ok1 {
-			anyAbstractParamPresent = true
-		}
-	}
-	if anyAbstractParamPresent {
-		return &types.ParameterizedStructType{
-			Nullability: n,
-			Type:        typeList,
-		}, nil
 	}
 	return &types.StructType{
+		Nullability: n,
+		Types:       typeList,
+	}, nil
+}
+
+func (t *structType) ArgType() (types.FuncDefArgType, error) {
+	var n types.Nullability
+	if t.Nullability {
+		n = types.NullabilityNullable
+	} else {
+		n = types.NullabilityRequired
+	}
+	var err error
+	typeList := make([]types.FuncDefArgType, len(t.Types))
+	for i, typ := range t.Types {
+		tp, ok := typ.Expr.(*Type)
+		if !ok {
+			return nil, substraitgo.ErrNotImplemented
+		}
+
+		if typeList[i], err = tp.ArgType(); err != nil {
+			return nil, err
+		}
+	}
+	return &types.ParameterizedStructType{
 		Nullability: n,
 		Types:       typeList,
 	}, nil
@@ -416,7 +465,7 @@ func (m *mapType) String() string {
 
 func (m *mapType) Optional() bool { return m.Nullability }
 
-func (m *mapType) Type() (types.Type, error) {
+func (m *mapType) RetType() (types.Type, error) {
 	var n types.Nullability
 	if m.Nullability {
 		n = types.NullabilityNullable
@@ -434,32 +483,51 @@ func (m *mapType) Type() (types.Type, error) {
 		return nil, substraitgo.ErrNotImplemented
 	}
 
-	key, err := k.Type()
+	key, err := k.RetType()
 	if err != nil {
 		return nil, err
 	}
 
-	value, err := v.Type()
+	value, err := v.RetType()
 	if err != nil {
 		return nil, err
 	}
-
-	anyAbstractParamPresent := false
-	if _, ok1 := key.(types.ParameterizedAbstractType); ok1 {
-		anyAbstractParamPresent = true
-	}
-	if _, ok1 := value.(types.ParameterizedAbstractType); ok1 {
-		anyAbstractParamPresent = true
-	}
-	if anyAbstractParamPresent {
-		return &types.ParameterizedMapType{
-			Key:         key,
-			Value:       value,
-			Nullability: n,
-		}, nil
-	}
-
 	return &types.MapType{
+		Key:         key,
+		Value:       value,
+		Nullability: n,
+	}, nil
+}
+
+func (m *mapType) ArgType() (types.FuncDefArgType, error) {
+	var n types.Nullability
+	if m.Nullability {
+		n = types.NullabilityNullable
+	} else {
+		n = types.NullabilityRequired
+	}
+
+	k, ok := m.Key.Expr.(*Type)
+	if !ok {
+		return nil, substraitgo.ErrNotImplemented
+	}
+
+	v, ok := m.Value.Expr.(*Type)
+	if !ok {
+		return nil, substraitgo.ErrNotImplemented
+	}
+
+	key, err := k.ArgType()
+	if err != nil {
+		return nil, err
+	}
+
+	value, err := v.ArgType()
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.ParameterizedMapType{
 		Key:         key,
 		Value:       value,
 		Nullability: n,
@@ -489,7 +557,7 @@ func (t anyType) ShortType() string {
 	return string(t.TypeName)
 }
 
-func (t anyType) Type() (types.Type, error) {
+func (t anyType) ArgType() (types.FuncDefArgType, error) {
 	var n types.Nullability
 	if t.Nullability {
 		n = types.NullabilityNullable
@@ -501,6 +569,10 @@ func (t anyType) Type() (types.Type, error) {
 		return types.AnyType{Name: "any", Nullability: n}, nil
 	}
 	return types.AnyType{Name: typeName, Nullability: n}, nil
+}
+
+func (t anyType) RetType() (types.Type, error) {
+	panic("any type can't be in return type")
 }
 
 var (

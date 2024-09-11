@@ -12,7 +12,6 @@ import (
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/proto"
 	"github.com/substrait-io/substrait-go/types"
-	"github.com/substrait-io/substrait-go/types/parameter_types"
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/anypb"
 )
@@ -455,8 +454,8 @@ func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
 		lit.LiteralType = &proto.Expression_Literal_Decimal_{
 			Decimal: &proto.Expression_Literal_Decimal{
 				Value:     v,
-				Precision: literalType.Precision.ToProtoVal(),
-				Scale:     literalType.Scale.ToProtoVal(),
+				Precision: literalType.Precision,
+				Scale:     literalType.Scale,
 			},
 		}
 	case *types.PrecisionTimestampType:
@@ -528,7 +527,7 @@ func NewFixedCharLiteral(val types.FixedChar, nullable bool) *PrimitiveLiteral[t
 		Value: val,
 		Type: &types.FixedCharType{
 			Nullability: getNullability(nullable),
-			Length:      parameter_types.LeafIntParamConcreteType(len(val)),
+			Length:      int32(len(val)),
 		},
 	}
 }
@@ -615,7 +614,7 @@ func NewFixedBinaryLiteral(val types.FixedBinary, nullable bool) *ByteSliceLiter
 	return &ByteSliceLiteral[types.FixedBinary]{
 		Value: val,
 		Type: &types.FixedLenType[types.FixedBinary]{
-			Length:      parameter_types.LeafIntParamConcreteType(len(val)),
+			Length:      int32(len(val)),
 			Nullability: getNullability(nullable),
 		},
 	}
@@ -687,8 +686,8 @@ func NewLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {
 			Value: v.Value,
 			Type: &types.DecimalType{
 				Nullability: getNullability(nullable),
-				Precision:   parameter_types.LeafIntParamConcreteType(v.Precision),
-				Scale:       parameter_types.LeafIntParamConcreteType(v.Scale),
+				Precision:   v.Precision,
+				Scale:       v.Scale,
 			},
 		}, nil
 	case *types.UserDefinedLiteral:
@@ -710,7 +709,7 @@ func NewLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {
 			Value: v.Value,
 			Type: &types.VarCharType{
 				Nullability: getNullability(nullable),
-				Length:      parameter_types.LeafIntParamConcreteType(v.Length),
+				Length:      int32(v.Length),
 			},
 		}, nil
 	case *types.PrecisionTimestamp:
@@ -824,7 +823,7 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 		return &PrimitiveLiteral[types.FixedChar]{
 			Value: types.FixedChar(lit.FixedChar),
 			Type: &types.FixedCharType{
-				Length:           parameter_types.LeafIntParamConcreteType(len(lit.FixedChar)),
+				Length:           int32(len(lit.FixedChar)),
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
 			}}
@@ -832,7 +831,7 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 		return &ProtoLiteral{
 			Value: lit.VarChar.Value,
 			Type: &types.VarCharType{
-				Length:           parameter_types.LeafIntParamConcreteType(lit.VarChar.Length),
+				Length:           int32(lit.VarChar.Length),
 				Nullability:      nullability,
 				TypeVariationRef: l.TypeVariationReference,
 			},
@@ -841,7 +840,7 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 		return &ByteSliceLiteral[types.FixedBinary]{
 			Value: lit.FixedBinary,
 			Type: &types.FixedBinaryType{
-				Length:           parameter_types.LeafIntParamConcreteType(len(lit.FixedBinary)),
+				Length:           int32(len(lit.FixedBinary)),
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
 			}}
@@ -849,8 +848,8 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 		return &ProtoLiteral{
 			Value: lit.Decimal.Value,
 			Type: &types.DecimalType{
-				Scale:            parameter_types.LeafIntParamConcreteType(lit.Decimal.Scale),
-				Precision:        parameter_types.LeafIntParamConcreteType(lit.Decimal.Precision),
+				Scale:            lit.Decimal.Scale,
+				Precision:        lit.Decimal.Precision,
 				Nullability:      nullability,
 				TypeVariationRef: l.TypeVariationReference,
 			},

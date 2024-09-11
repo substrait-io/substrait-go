@@ -12,7 +12,6 @@ import (
 
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/proto"
-	"github.com/substrait-io/substrait-go/types/parameter_types"
 )
 
 type Version = proto.Version
@@ -186,7 +185,7 @@ type (
 
 // TypeFromProto returns the appropriate Type object from a protobuf
 // type message.
-func TypeFromProto(t *proto.Type) FuncArgType {
+func TypeFromProto(t *proto.Type) Type {
 	switch t := t.Kind.(type) {
 	case *proto.Type_Bool:
 		return &BooleanType{
@@ -272,26 +271,26 @@ func TypeFromProto(t *proto.Type) FuncArgType {
 		return &FixedBinaryType{
 			Nullability:      t.FixedBinary.Nullability,
 			TypeVariationRef: t.FixedBinary.TypeVariationReference,
-			Length:           parameter_types.LeafIntParamConcreteType(t.FixedBinary.Length),
+			Length:           t.FixedBinary.Length,
 		}
 	case *proto.Type_FixedChar_:
 		return &FixedCharType{
 			Nullability:      t.FixedChar.Nullability,
 			TypeVariationRef: t.FixedChar.TypeVariationReference,
-			Length:           parameter_types.LeafIntParamConcreteType(t.FixedChar.Length),
+			Length:           t.FixedChar.Length,
 		}
 	case *proto.Type_Varchar:
 		return &VarCharType{
 			Nullability:      t.Varchar.Nullability,
 			TypeVariationRef: t.Varchar.TypeVariationReference,
-			Length:           parameter_types.LeafIntParamConcreteType(t.Varchar.Length),
+			Length:           t.Varchar.Length,
 		}
 	case *proto.Type_Decimal_:
 		return &DecimalType{
 			Nullability:      t.Decimal.Nullability,
 			TypeVariationRef: t.Decimal.TypeVariationReference,
-			Scale:            parameter_types.LeafIntParamConcreteType(t.Decimal.Scale),
-			Precision:        parameter_types.LeafIntParamConcreteType(t.Decimal.Precision),
+			Scale:            t.Decimal.Scale,
+			Precision:        t.Decimal.Precision,
 		}
 	case *proto.Type_Struct_:
 		fields := make([]Type, len(t.Struct.Types))
@@ -356,14 +355,10 @@ type (
 		fmt.Stringer
 	}
 
-	// FuncArgType this represents a type which can be a function argument
-	FuncArgType interface {
-		FuncArg
-		Type
-	}
 	// Type corresponds to the proto.Type message and represents
-	// a specific type.
+	// a specific type. These are types which can be present in plan (are serializable)
 	Type interface {
+		FuncArg
 		isRootRef()
 		fmt.Stringer
 		ShortString() string
@@ -376,21 +371,24 @@ type (
 		WithNullability(Nullability) Type
 	}
 
-	// ParameterizedConcreteType this represents a concrete type with parameters
-	ParameterizedConcreteType interface {
+	// CompositeType this represents a concrete type having components
+	CompositeType interface {
 		Type
 		ParameterString() string
 		BaseString() string
 	}
 
-	// ParameterizedAbstractType this represents a type which has at least one abstract parameter
-	ParameterizedAbstractType interface {
-		Type
-		GetAbstractParameters() []parameter_types.AbstractParameterType
+	// FuncDefArgType this represents a type used in function argument
+	// These type can't be present in plan (not serializable)
+	FuncDefArgType interface {
+		fmt.Stringer
+		SetNullability(Nullability) FuncDefArgType
+		HasParameterizedParam() bool
+		GetParameterizedParams() []interface{}
 	}
 
 	FixedType interface {
-		ParameterizedConcreteType
+		CompositeType
 		WithLength(int32) FixedType
 	}
 )
@@ -482,19 +480,19 @@ func TypeToProto(t Type) *proto.Type {
 	case *FixedCharType:
 		return &proto.Type{Kind: &proto.Type_FixedChar_{
 			FixedChar: &proto.Type_FixedChar{
-				Length:                 t.Length.ToProtoVal(),
+				Length:                 t.Length,
 				Nullability:            t.Nullability,
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *VarCharType:
 		return &proto.Type{Kind: &proto.Type_Varchar{
 			Varchar: &proto.Type_VarChar{
-				Length:                 t.Length.ToProtoVal(),
+				Length:                 t.Length,
 				Nullability:            t.Nullability,
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *FixedBinaryType:
 		return &proto.Type{Kind: &proto.Type_FixedBinary_{
 			FixedBinary: &proto.Type_FixedBinary{
-				Length:                 t.Length.ToProtoVal(),
+				Length:                 t.Length,
 				Nullability:            t.Nullability,
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *DecimalType:
@@ -564,7 +562,11 @@ var shortNames = map[reflect.Type]string{
 }
 
 func strNullable(t Type) string {
-	if t.GetNullability() == NullabilityNullable {
+	return strFromNullability(t.GetNullability())
+}
+
+func strFromNullability(nullability Nullability) string {
+	if nullability == NullabilityNullable {
 		return "?"
 	}
 	return ""
@@ -618,6 +620,21 @@ func (s *PrimitiveType[T]) String() string {
 	return reflect.TypeOf(z).Elem().Name() + strNullable(s)
 }
 
+func (s *PrimitiveType[T]) HasParameterizedParam() bool {
+	// primitive type doesn't have abstract parameters
+	return false
+}
+
+func (s *PrimitiveType[T]) GetParameterizedParams() []interface{} {
+	// primitive type doesn't have any abstract parameters
+	return nil
+}
+
+func (s *PrimitiveType[T]) SetNullability(n Nullability) FuncDefArgType {
+	s.Nullability = n
+	return s
+}
+
 // create type aliases to the generic structs
 type (
 	BooleanType                           = PrimitiveType[bool]
@@ -651,7 +668,7 @@ type (
 type FixedLenType[T FixedChar | VarChar | FixedBinary] struct {
 	Nullability      Nullability
 	TypeVariationRef uint32
-	Length           parameter_types.LeafIntParamConcreteType
+	Length           int32
 }
 
 func (*FixedLenType[T]) isRootRef() {}
@@ -700,7 +717,7 @@ func (s *FixedLenType[T]) BaseString() string {
 
 func (s *FixedLenType[T]) WithLength(length int32) FixedType {
 	out := *s
-	out.Length = parameter_types.LeafIntParamConcreteType(length)
+	out.Length = length
 	return &out
 }
 
@@ -708,7 +725,7 @@ func (s *FixedLenType[T]) WithLength(length int32) FixedType {
 type DecimalType struct {
 	Nullability      Nullability
 	TypeVariationRef uint32
-	Scale, Precision parameter_types.LeafIntParamConcreteType
+	Scale, Precision int32
 }
 
 func (*DecimalType) isRootRef() {}
@@ -738,7 +755,7 @@ func (s *DecimalType) ToProtoFuncArg() *proto.FunctionArgument {
 func (s *DecimalType) ToProto() *proto.Type {
 	return &proto.Type{Kind: &proto.Type_Decimal_{
 		Decimal: &proto.Type_Decimal{
-			Scale: s.Scale.ToProtoVal(), Precision: s.Precision.ToProtoVal(),
+			Scale: s.Scale, Precision: s.Precision,
 			Nullability:            s.Nullability,
 			TypeVariationReference: s.TypeVariationRef}}}
 }

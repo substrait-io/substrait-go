@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package types
 
 import (
@@ -12,24 +14,21 @@ type AnyType struct {
 	Nullability      Nullability
 }
 
-func (AnyType) isRootRef() {}
-func (m AnyType) WithNullability(nullability Nullability) Type {
-	m.Nullability = nullability
-	return m
-}
-func (m AnyType) GetType() Type { return m }
-func (m AnyType) GetNullability() Nullability {
-	return m.Nullability
-}
-func (m AnyType) GetTypeVariationReference() uint32 {
-	return m.TypeVariationRef
-}
-func (AnyType) Equals(rhs Type) bool {
-	// equal to every other type
-	return true
+func (t AnyType) SetNullability(n Nullability) FuncDefArgType {
+	t.Nullability = n
+	return t
 }
 
-func (t AnyType) ShortString() string { return t.Name }
 func (t AnyType) String() string {
-	return fmt.Sprintf("%s%s", t.Name, strNullable(t))
+	return fmt.Sprintf("%s%s", t.Name, strFromNullability(t.Nullability))
+}
+
+func (s AnyType) HasParameterizedParam() bool {
+	// primitive type doesn't have abstract parameters
+	return false
+}
+
+func (s AnyType) GetParameterizedParams() []interface{} {
+	// any type doesn't have any abstract parameters
+	return nil
 }

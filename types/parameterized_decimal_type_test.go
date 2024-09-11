@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package types_test
 
 import (
@@ -5,55 +7,34 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/types"
-	"github.com/substrait-io/substrait-go/types/parameter_types"
+	"github.com/substrait-io/substrait-go/types/leaf_parameters"
 )
 
 func TestParameterizedDecimalType(t *testing.T) {
+	precision_P := leaf_parameters.NewVariableIntParam("P")
+	scale_S := leaf_parameters.NewVariableIntParam("S")
+	precision_38 := leaf_parameters.NewConcreteIntParam(38)
+	scale_5 := leaf_parameters.NewConcreteIntParam(5)
 	for _, td := range []struct {
-		name                string
-		precision           string
-		scale               string
-		nullability         types.Nullability
-		expectedString      string
-		expectedShortString string
+		name                           string
+		precision                      leaf_parameters.LeafParameter
+		scale                          leaf_parameters.LeafParameter
+		expectedNullableString         string
+		expectedNullableRequiredString string
+		expectedHasParameterizedParam  bool
+		expectedParameterizedParams    []interface{}
 	}{
-		{"nullable decimal", "P", "S", types.NullabilityNullable, "decimal?<P,S>", "dec"},
-		{"non nullable decimal", "P", "S", types.NullabilityRequired, "decimal<P,S>", "dec"},
+		{"both parameterized", precision_P, scale_S, "decimal?<P,S>", "decimal<P,S>", true, []interface{}{precision_P, scale_S}},
+		{"precision concrete", precision_38, scale_S, "decimal?<38,S>", "decimal<38,S>", true, []interface{}{scale_S}},
+		{"scale concrete", precision_P, scale_5, "decimal?<P,5>", "decimal<P,5>", true, []interface{}{precision_P}},
+		{"both concrete", precision_38, scale_5, "decimal?<38,5>", "decimal<38,5>", false, nil},
 	} {
 		t.Run(td.name, func(t *testing.T) {
-			precision := parameter_types.LeafIntParamAbstractType(td.precision)
-			scale := parameter_types.LeafIntParamAbstractType(td.scale)
-			pd := &types.ParameterizedDecimalType{Precision: precision, Scale: scale}
-			pdType := pd.WithNullability(td.nullability)
-			require.Equal(t, td.expectedString, pdType.String())
-			require.Equal(t, td.expectedShortString, pdType.ShortString())
-			require.True(t, pdType.Equals(pdType))
-
-			pdAbsParamType, ok := pdType.(parameter_types.AbstractParameterType)
-			require.True(t, ok)
-			require.Equal(t, td.expectedString, pdAbsParamType.GetAbstractParamName())
-			pdAbstractType, ok := pdType.(types.ParameterizedAbstractType)
-			require.True(t, ok)
-			require.Len(t, pdAbstractType.GetAbstractParameters(), 2)
+			pd := &types.ParameterizedDecimalType{Precision: td.precision, Scale: td.scale}
+			require.Equal(t, td.expectedNullableString, pd.SetNullability(types.NullabilityNullable).String())
+			require.Equal(t, td.expectedNullableRequiredString, pd.SetNullability(types.NullabilityRequired).String())
+			require.Equal(t, td.expectedHasParameterizedParam, pd.HasParameterizedParam())
+			require.Equal(t, td.expectedParameterizedParams, pd.GetParameterizedParams())
 		})
 	}
-}
-
-func TestParameterizedDecimalSingleAbstractParam(t *testing.T) {
-	precision := parameter_types.LeafIntParamConcreteType(38)
-	scale := parameter_types.LeafIntParamAbstractType("S")
-
-	pd := &types.ParameterizedDecimalType{Precision: precision, Scale: scale}
-	pdType := pd.WithNullability(types.NullabilityNullable)
-	require.Equal(t, "decimal?<38,S>", pdType.String())
-	require.Equal(t, "dec", pdType.ShortString())
-	require.True(t, pdType.Equals(pdType))
-
-	pdAbsParamType, ok := pdType.(parameter_types.AbstractParameterType)
-	require.True(t, ok)
-	require.Equal(t, "decimal?<38,S>", pdAbsParamType.GetAbstractParamName())
-	pdAbstractType, ok := pdType.(types.ParameterizedAbstractType)
-	require.True(t, ok)
-	// only one abstract param
-	require.Len(t, pdAbstractType.GetAbstractParameters(), 1)
 }

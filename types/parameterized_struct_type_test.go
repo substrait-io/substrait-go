@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package types_test
 
 import (
@@ -5,41 +7,35 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/types"
-	"github.com/substrait-io/substrait-go/types/parameter_types"
+	"github.com/substrait-io/substrait-go/types/leaf_parameters"
 )
 
 func TestParameterizedStructType(t *testing.T) {
 	decimalType := &types.ParameterizedDecimalType{
-		Precision:   parameter_types.LeafIntParamAbstractType("P"),
-		Scale:       parameter_types.LeafIntParamAbstractType("S"),
+		Precision:   leaf_parameters.NewVariableIntParam("P"),
+		Scale:       leaf_parameters.NewVariableIntParam("S"),
 		Nullability: types.NullabilityRequired,
 	}
 	int8Type := &types.Int8Type{Nullability: types.NullabilityNullable}
 	listType := &types.ParameterizedListType{Type: decimalType, Nullability: types.NullabilityNullable}
 	for _, td := range []struct {
-		name                    string
-		types                   []types.Type
-		nullability             types.Nullability
-		expectedString          string
-		expectedShortString     string
-		expectedNrAbstractParam int
+		name                           string
+		params                         []types.FuncDefArgType
+		expectedNullableString         string
+		expectedNullableRequiredString string
+		expectedHasParameterizedParam  bool
+		expectedParameterizedParams    []interface{}
 	}{
-		{"single abstract param", []types.Type{decimalType}, types.NullabilityNullable, "struct?<decimal<P,S>>", "struct", 1},
-		{"multiple abstract param", []types.Type{decimalType, int8Type, listType}, types.NullabilityRequired, "struct<decimal<P,S>, i8?, list?<decimal<P,S>>>", "struct", 2},
+		{"all parameterized param", []types.FuncDefArgType{decimalType, listType}, "struct?<decimal<P,S>, list?<decimal<P,S>>>", "struct<decimal<P,S>, list?<decimal<P,S>>>", true, []interface{}{decimalType, listType}},
+		{"mix parameterized concrete param", []types.FuncDefArgType{decimalType, int8Type, listType}, "struct?<decimal<P,S>, i8?, list?<decimal<P,S>>>", "struct<decimal<P,S>, i8?, list?<decimal<P,S>>>", true, []interface{}{decimalType, listType}},
+		{"all concrete param", []types.FuncDefArgType{int8Type, int8Type, int8Type}, "struct?<i8?, i8?, i8?>", "struct<i8?, i8?, i8?>", false, nil},
 	} {
 		t.Run(td.name, func(t *testing.T) {
-			ps := &types.ParameterizedStructType{Type: td.types}
-			psType := ps.WithNullability(td.nullability)
-			require.Equal(t, td.expectedString, psType.String())
-			require.Equal(t, td.expectedShortString, psType.ShortString())
-			require.True(t, psType.Equals(psType))
-
-			psAbsParamType, ok := psType.(parameter_types.AbstractParameterType)
-			require.True(t, ok)
-			require.Equal(t, td.expectedString, psAbsParamType.GetAbstractParamName())
-			psAbstractType, ok := psType.(types.ParameterizedAbstractType)
-			require.True(t, ok)
-			require.Len(t, psAbstractType.GetAbstractParameters(), td.expectedNrAbstractParam)
+			pd := &types.ParameterizedStructType{Types: td.params}
+			require.Equal(t, td.expectedNullableString, pd.SetNullability(types.NullabilityNullable).String())
+			require.Equal(t, td.expectedNullableRequiredString, pd.SetNullability(types.NullabilityRequired).String())
+			require.Equal(t, td.expectedHasParameterizedParam, pd.HasParameterizedParam())
+			require.Equal(t, td.expectedParameterizedParams, pd.GetParameterizedParams())
 		})
 	}
 }

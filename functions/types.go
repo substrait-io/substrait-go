@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package functions
 
 import (
@@ -6,7 +8,6 @@ import (
 
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/types"
-	"github.com/substrait-io/substrait-go/types/parameter_types"
 )
 
 var (
@@ -84,18 +85,18 @@ func getTypeWithParameters(typ types.Type, parameters []int32) (types.Type, erro
 		if len(parameters) != 2 {
 			return nil, substraitgo.ErrInvalidType
 		}
-		return &types.DecimalType{Precision: parameter_types.LeafIntParamConcreteType(parameters[0]), Scale: parameter_types.LeafIntParamConcreteType(parameters[1])}, nil
+		return &types.DecimalType{Precision: parameters[0], Scale: parameters[1]}, nil
 	case *types.FixedBinaryType, *types.FixedCharType, *types.VarCharType:
 		if len(parameters) != 1 {
 			return nil, substraitgo.ErrInvalidType
 		}
 		switch typ.(type) {
 		case *types.FixedBinaryType:
-			return &types.FixedBinaryType{Length: parameter_types.LeafIntParamConcreteType(parameters[0])}, nil
+			return &types.FixedBinaryType{Length: parameters[0]}, nil
 		case *types.FixedCharType:
-			return &types.FixedCharType{Length: parameter_types.LeafIntParamConcreteType(parameters[0])}, nil
+			return &types.FixedCharType{Length: parameters[0]}, nil
 		case *types.VarCharType:
-			return &types.VarCharType{Length: parameter_types.LeafIntParamConcreteType(parameters[0])}, nil
+			return &types.VarCharType{Length: parameters[0]}, nil
 		}
 	default:
 		if len(parameters) != 0 {
@@ -148,14 +149,14 @@ type typeInfo struct {
 
 func (ti *typeInfo) getLongName() string {
 	switch ti.typ.(type) {
-	case types.ParameterizedConcreteType:
-		return ti.typ.(types.ParameterizedConcreteType).BaseString()
+	case types.CompositeType:
+		return ti.typ.(types.CompositeType).BaseString()
 	}
 	return ti.typ.String()
 }
 
 func (ti *typeInfo) getLocalTypeString(input types.Type, enclosure typeEnclosure) string {
-	if paramType, ok := input.(types.ParameterizedConcreteType); ok {
+	if paramType, ok := input.(types.CompositeType); ok {
 		return ti.localName + enclosure.containerStart() + paramType.ParameterString() + enclosure.containerEnd()
 	}
 	return ti.localName

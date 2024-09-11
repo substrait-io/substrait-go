@@ -12,7 +12,6 @@ import (
 	"github.com/substrait-io/substrait-go/expr"
 	"github.com/substrait-io/substrait-go/proto"
 	"github.com/substrait-io/substrait-go/types"
-	"github.com/substrait-io/substrait-go/types/parameter_types"
 )
 
 func TestNewBool(t *testing.T) {
@@ -90,8 +89,8 @@ func createDecimalLiteral(value []byte, precision int32, scale int32, isNullable
 		Value: value[:16],
 		Type: &types.DecimalType{
 			Nullability: nullability,
-			Precision:   parameter_types.LeafIntParamConcreteType(precision),
-			Scale:       parameter_types.LeafIntParamConcreteType(scale),
+			Precision:   precision,
+			Scale:       scale,
 		},
 	}
 }
@@ -675,7 +674,7 @@ func createVarCharLiteral(value string) *expr.ProtoLiteral {
 		Value: value,
 		Type: &types.VarCharType{
 			Nullability: proto.Type_NULLABILITY_REQUIRED,
-			Length:      parameter_types.LeafIntParamConcreteType(len(value)),
+			Length:      int32(len(value)),
 		},
 	}
 }
