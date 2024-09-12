@@ -394,11 +394,26 @@ type (
 		// GetParameterizedParams returns all parameterized parameters
 		// it doesn't return concrete parameters
 		GetParameterizedParams() []interface{}
+
+		// MatchWithNullability This API return true if Type argument
+		// is compatible with this param otherwise it returns false.
+		// This method expects that nullability of argument is same as this type.
+		MatchWithNullability(ot Type) bool
+		// MatchWithoutNullability This API return true if Type argument
+		// is compatible with this param otherwise it returns false.
+		// This method ignores nullability for matching.
+		MatchWithoutNullability(ot Type) bool
 	}
 
 	FixedType interface {
 		CompositeType
 		WithLength(int32) FixedType
+		GetLength() int32
+	}
+
+	timestampPrecisionType interface {
+		CompositeType
+		GetPrecision() TimePrecision
 	}
 )
 
@@ -644,6 +659,20 @@ func (s *PrimitiveType[T]) SetNullability(n Nullability) FuncDefArgType {
 	return s
 }
 
+func (s *PrimitiveType[T]) MatchWithNullability(ot Type) bool {
+	if s.Nullability != ot.GetNullability() {
+		return false
+	}
+	return s.MatchWithoutNullability(ot)
+}
+
+func (s *PrimitiveType[T]) MatchWithoutNullability(ot Type) bool {
+	if _, ok := ot.(*PrimitiveType[T]); ok {
+		return true
+	}
+	return false
+}
+
 // create type aliases to the generic structs
 type (
 	BooleanType                           = PrimitiveType[bool]
@@ -728,6 +757,10 @@ func (s *FixedLenType[T]) WithLength(length int32) FixedType {
 	out := *s
 	out.Length = length
 	return &out
+}
+
+func (s *FixedLenType[T]) GetLength() int32 {
+	return s.Length
 }
 
 // DecimalType is a decimal type with concrete precision and scale parameters, e.g. Decimal(10, 2).

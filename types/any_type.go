@@ -32,3 +32,11 @@ func (s AnyType) GetParameterizedParams() []interface{} {
 	// any type doesn't have any abstract parameters
 	return nil
 }
+
+func (m AnyType) MatchWithNullability(ot Type) bool {
+	return m.Nullability == ot.GetNullability()
+}
+
+func (m AnyType) MatchWithoutNullability(ot Type) bool {
+	return true
+}

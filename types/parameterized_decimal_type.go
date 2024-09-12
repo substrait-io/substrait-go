@@ -47,3 +47,19 @@ func (m *ParameterizedDecimalType) GetParameterizedParams() []interface{} {
 	}
 	return params
 }
+
+func (m *ParameterizedDecimalType) MatchWithNullability(ot Type) bool {
+	if m.Nullability != ot.GetNullability() {
+		return false
+	}
+	return m.MatchWithoutNullability(ot)
+}
+
+func (m *ParameterizedDecimalType) MatchWithoutNullability(ot Type) bool {
+	if odt, ok := ot.(*DecimalType); ok {
+		concretePrecision := integer_parameters.NewConcreteIntParam(odt.Precision)
+		concreteScale := integer_parameters.NewConcreteIntParam(odt.Scale)
+		return m.Precision.IsCompatible(concretePrecision) && m.Scale.IsCompatible(concreteScale)
+	}
+	return false
+}

@@ -54,3 +54,25 @@ func (m *parameterizedTypeSingleIntegerParam[T]) GetParameterizedParams() []inte
 	}
 	return []interface{}{m.IntegerOption}
 }
+
+func (m *parameterizedTypeSingleIntegerParam[T]) MatchWithNullability(ot Type) bool {
+	if m.Nullability != ot.GetNullability() {
+		return false
+	}
+	return m.MatchWithoutNullability(ot)
+}
+
+func (m *parameterizedTypeSingleIntegerParam[T]) MatchWithoutNullability(ot Type) bool {
+	if reflect.TypeFor[T]() != reflect.TypeOf(ot) {
+		return false
+	}
+	if odt, ok := ot.(FixedType); ok {
+		concreteLength := integer_parameters.NewConcreteIntParam(odt.GetLength())
+		return m.IntegerOption.IsCompatible(concreteLength)
+	}
+	if odt, ok := ot.(timestampPrecisionType); ok {
+		concreteLength := integer_parameters.NewConcreteIntParam(odt.GetPrecision().ToProtoVal())
+		return m.IntegerOption.IsCompatible(concreteLength)
+	}
+	return false
+}
