@@ -374,7 +374,11 @@ type (
 	// CompositeType this represents a concrete type having components
 	CompositeType interface {
 		Type
+		// ParameterString this returns parameter string
+		// for e.g. parameter decimal<P, S>, ParameterString returns "P,S"
 		ParameterString() string
+		// BaseString this returns long name for parameter string
+		// for e.g. parameter decimal<P, S>, BaseString returns "decimal"
 		BaseString() string
 	}
 
@@ -382,8 +386,13 @@ type (
 	// These type can't be present in plan (not serializable)
 	FuncDefArgType interface {
 		fmt.Stringer
+		//SetNullability set nullability as given argument
 		SetNullability(Nullability) FuncDefArgType
+		// HasParameterizedParam returns true if the type has at least one parameterized parameters
+		// if all parameters are concrete then it returns false
 		HasParameterizedParam() bool
+		// GetParameterizedParams returns all parameterized parameters
+		// it doesn't return concrete parameters
 		GetParameterizedParams() []interface{}
 	}
 
@@ -656,11 +665,11 @@ type (
 	FixedCharType                         = FixedLenType[FixedChar]
 	VarCharType                           = FixedLenType[VarChar]
 	FixedBinaryType                       = FixedLenType[FixedBinary]
-	ParameterizedVarCharType              = parameterizedTypeSingleIntegerParam[VarCharType]
-	ParameterizedFixedCharType            = parameterizedTypeSingleIntegerParam[FixedCharType]
-	ParameterizedFixedBinaryType          = parameterizedTypeSingleIntegerParam[FixedBinaryType]
-	ParameterizedPrecisionTimestampType   = parameterizedTypeSingleIntegerParam[PrecisionTimestampType]
-	ParameterizedPrecisionTimestampTzType = parameterizedTypeSingleIntegerParam[PrecisionTimestampTzType]
+	ParameterizedVarCharType              = parameterizedTypeSingleIntegerParam[*VarCharType]
+	ParameterizedFixedCharType            = parameterizedTypeSingleIntegerParam[*FixedCharType]
+	ParameterizedFixedBinaryType          = parameterizedTypeSingleIntegerParam[*FixedBinaryType]
+	ParameterizedPrecisionTimestampType   = parameterizedTypeSingleIntegerParam[*PrecisionTimestampType]
+	ParameterizedPrecisionTimestampTzType = parameterizedTypeSingleIntegerParam[*PrecisionTimestampTzType]
 )
 
 // FixedLenType is any of the types which also need to track their specific

@@ -5,7 +5,7 @@ package types
 import (
 	"fmt"
 
-	"github.com/substrait-io/substrait-go/types/leaf_parameters"
+	"github.com/substrait-io/substrait-go/types/integer_parameters"
 )
 
 // ParameterizedDecimalType is a decimal type which to hold function arguments
@@ -13,8 +13,8 @@ import (
 type ParameterizedDecimalType struct {
 	Nullability      Nullability
 	TypeVariationRef uint32
-	Precision        leaf_parameters.LeafParameter
-	Scale            leaf_parameters.LeafParameter
+	Precision        integer_parameters.IntegerParameter
+	Scale            integer_parameters.IntegerParameter
 }
 
 func (m *ParameterizedDecimalType) SetNullability(n Nullability) FuncDefArgType {
@@ -29,8 +29,8 @@ func (m *ParameterizedDecimalType) String() string {
 }
 
 func (m *ParameterizedDecimalType) HasParameterizedParam() bool {
-	_, ok1 := m.Precision.(*leaf_parameters.VariableIntParam)
-	_, ok2 := m.Scale.(*leaf_parameters.VariableIntParam)
+	_, ok1 := m.Precision.(*integer_parameters.VariableIntParam)
+	_, ok2 := m.Scale.(*integer_parameters.VariableIntParam)
 	return ok1 || ok2
 }
 
@@ -39,10 +39,10 @@ func (m *ParameterizedDecimalType) GetParameterizedParams() []interface{} {
 		return nil
 	}
 	var params []interface{}
-	if p, ok := m.Precision.(*leaf_parameters.VariableIntParam); ok {
+	if p, ok := m.Precision.(*integer_parameters.VariableIntParam); ok {
 		params = append(params, p)
 	}
-	if p, ok := m.Scale.(*leaf_parameters.VariableIntParam); ok {
+	if p, ok := m.Scale.(*integer_parameters.VariableIntParam); ok {
 		params = append(params, p)
 	}
 	return params

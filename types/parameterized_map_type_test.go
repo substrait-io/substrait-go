@@ -7,13 +7,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/types"
-	"github.com/substrait-io/substrait-go/types/leaf_parameters"
+	"github.com/substrait-io/substrait-go/types/integer_parameters"
 )
 
 func TestParameterizedMapType(t *testing.T) {
 	decimalType := &types.ParameterizedDecimalType{
-		Precision:   leaf_parameters.NewVariableIntParam("P"),
-		Scale:       leaf_parameters.NewVariableIntParam("S"),
+		Precision:   integer_parameters.NewVariableIntParam("P"),
+		Scale:       integer_parameters.NewVariableIntParam("S"),
 		Nullability: types.NullabilityRequired,
 	}
 	int8Type := &types.Int8Type{Nullability: types.NullabilityNullable}

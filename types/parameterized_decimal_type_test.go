@@ -7,18 +7,18 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/types"
-	"github.com/substrait-io/substrait-go/types/leaf_parameters"
+	"github.com/substrait-io/substrait-go/types/integer_parameters"
 )
 
 func TestParameterizedDecimalType(t *testing.T) {
-	precision_P := leaf_parameters.NewVariableIntParam("P")
-	scale_S := leaf_parameters.NewVariableIntParam("S")
-	precision_38 := leaf_parameters.NewConcreteIntParam(38)
-	scale_5 := leaf_parameters.NewConcreteIntParam(5)
+	precision_P := integer_parameters.NewVariableIntParam("P")
+	scale_S := integer_parameters.NewVariableIntParam("S")
+	precision_38 := integer_parameters.NewConcreteIntParam(38)
+	scale_5 := integer_parameters.NewConcreteIntParam(5)
 	for _, td := range []struct {
 		name                           string
-		precision                      leaf_parameters.LeafParameter
-		scale                          leaf_parameters.LeafParameter
+		precision                      integer_parameters.IntegerParameter
+		scale                          integer_parameters.IntegerParameter
 		expectedNullableString         string
 		expectedNullableRequiredString string
 		expectedHasParameterizedParam  bool

@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/types"
-	"github.com/substrait-io/substrait-go/types/leaf_parameters"
+	"github.com/substrait-io/substrait-go/types/integer_parameters"
 	"github.com/substrait-io/substrait-go/types/parser"
 )
 
@@ -70,9 +70,9 @@ func TestEvaluateTypeExpression(t *testing.T) {
 
 func TestHasSyncParams(t *testing.T) {
 
-	apt_P := leaf_parameters.NewVariableIntParam("P")
-	apt_Q := leaf_parameters.NewVariableIntParam("Q")
-	cpt_38 := leaf_parameters.NewConcreteIntParam(38)
+	apt_P := integer_parameters.NewVariableIntParam("P")
+	apt_Q := integer_parameters.NewVariableIntParam("Q")
+	cpt_38 := integer_parameters.NewConcreteIntParam(38)
 
 	fct_P := &types.ParameterizedFixedCharType{IntegerOption: apt_P}
 	fct_Q := &types.ParameterizedFixedCharType{IntegerOption: apt_Q}

@@ -7,12 +7,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/types"
-	"github.com/substrait-io/substrait-go/types/leaf_parameters"
+	"github.com/substrait-io/substrait-go/types/integer_parameters"
 )
 
 func TestParameterizedSingleIntegerType(t *testing.T) {
-	abstractLeafParam_L1 := leaf_parameters.NewVariableIntParam("L1")
-	concreteLeafParam_38 := leaf_parameters.NewConcreteIntParam(38)
+	abstractLeafParam_L1 := integer_parameters.NewVariableIntParam("L1")
+	concreteLeafParam_38 := integer_parameters.NewConcreteIntParam(38)
 	for _, td := range []struct {
 		name                           string
 		typ                            types.FuncDefArgType

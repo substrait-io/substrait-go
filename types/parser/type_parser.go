@@ -12,7 +12,7 @@ import (
 	"github.com/alecthomas/participle/v2/lexer"
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/types"
-	"github.com/substrait-io/substrait-go/types/leaf_parameters"
+	"github.com/substrait-io/substrait-go/types/integer_parameters"
 )
 
 var defaultParser *Parser
@@ -268,12 +268,12 @@ func (p *lengthType) RetType() (types.Type, error) {
 func (p *lengthType) ArgType() (types.FuncDefArgType, error) {
 	var n types.Nullability
 
-	var leafParam leaf_parameters.LeafParameter
+	var leafParam integer_parameters.IntegerParameter
 	switch t := p.NumericParam.Expr.(type) {
 	case *IntegerLiteral:
-		leafParam = leaf_parameters.NewConcreteIntParam(t.Value)
+		leafParam = integer_parameters.NewConcreteIntParam(t.Value)
 	case *ParamName:
-		leafParam = leaf_parameters.NewVariableIntParam(t.Name)
+		leafParam = integer_parameters.NewVariableIntParam(t.Name)
 	default:
 		return nil, substraitgo.ErrNotImplemented
 	}
@@ -284,7 +284,7 @@ func (p *lengthType) ArgType() (types.FuncDefArgType, error) {
 	return typ, nil
 }
 
-func getParameterizedTypeSingleParam(typeName string, leafParam leaf_parameters.LeafParameter, n types.Nullability) (types.FuncDefArgType, error) {
+func getParameterizedTypeSingleParam(typeName string, leafParam integer_parameters.IntegerParameter, n types.Nullability) (types.FuncDefArgType, error) {
 	switch types.TypeName(typeName) {
 	case types.TypeNameVarChar:
 		return &types.ParameterizedVarCharType{IntegerOption: leafParam, Nullability: n}, nil
@@ -326,20 +326,20 @@ func (d *decimalType) ArgType() (types.FuncDefArgType, error) {
 	} else {
 		n = types.NullabilityRequired
 	}
-	var precision leaf_parameters.LeafParameter
+	var precision integer_parameters.IntegerParameter
 	if pi, ok := d.Precision.Expr.(*IntegerLiteral); ok {
-		precision = leaf_parameters.NewConcreteIntParam(pi.Value)
+		precision = integer_parameters.NewConcreteIntParam(pi.Value)
 	} else {
 		ps := d.Precision.Expr.(*ParamName)
-		precision = leaf_parameters.NewVariableIntParam(ps.String())
+		precision = integer_parameters.NewVariableIntParam(ps.String())
 	}
 
-	var scale leaf_parameters.LeafParameter
+	var scale integer_parameters.IntegerParameter
 	if si, ok := d.Scale.Expr.(*IntegerLiteral); ok {
-		scale = leaf_parameters.NewConcreteIntParam(si.Value)
+		scale = integer_parameters.NewConcreteIntParam(si.Value)
 	} else {
 		ss := d.Scale.Expr.(*ParamName)
-		scale = leaf_parameters.NewVariableIntParam(ss.String())
+		scale = integer_parameters.NewVariableIntParam(ss.String())
 	}
 
 	return &types.ParameterizedDecimalType{

@@ -4,15 +4,20 @@ package types
 
 import (
 	"fmt"
+	"reflect"
 
-	"github.com/substrait-io/substrait-go/types/leaf_parameters"
+	"github.com/substrait-io/substrait-go/types/integer_parameters"
 )
 
+type singleIntegerParamType interface {
+	BaseString() string
+}
+
 // parameterizedTypeSingleIntegerParam This is a generic type to represent parameterized type with a single integer parameter
-type parameterizedTypeSingleIntegerParam[T VarCharType | FixedCharType | FixedBinaryType | PrecisionTimestampType | PrecisionTimestampTzType] struct {
+type parameterizedTypeSingleIntegerParam[T singleIntegerParamType] struct {
 	Nullability      Nullability
 	TypeVariationRef uint32
-	IntegerOption    leaf_parameters.LeafParameter
+	IntegerOption    integer_parameters.IntegerParameter
 }
 
 func (m *parameterizedTypeSingleIntegerParam[T]) SetNullability(n Nullability) FuncDefArgType {
@@ -29,29 +34,17 @@ func (m *parameterizedTypeSingleIntegerParam[T]) parameterString() string {
 }
 
 func (m *parameterizedTypeSingleIntegerParam[T]) baseString() string {
-	switch any(m).(type) {
-	case *ParameterizedVarCharType:
-		t := VarCharType{}
-		return t.BaseString()
-	case *ParameterizedFixedCharType:
-		t := FixedCharType{}
-		return t.BaseString()
-	case *ParameterizedFixedBinaryType:
-		t := FixedBinaryType{}
-		return t.BaseString()
-	case *ParameterizedPrecisionTimestampType:
-		t := PrecisionTimestampType{}
-		return t.BaseString()
-	case *ParameterizedPrecisionTimestampTzType:
-		t := PrecisionTimestampTzType{}
-		return t.BaseString()
-	default:
-		panic("unknown type")
+	var t T
+	tType := reflect.TypeOf(t)
+	if tType.Kind() == reflect.Ptr {
+		tType = tType.Elem()
 	}
+	newInstance := reflect.New(tType).Interface().(T)
+	return newInstance.BaseString()
 }
 
 func (m *parameterizedTypeSingleIntegerParam[T]) HasParameterizedParam() bool {
-	_, ok1 := m.IntegerOption.(*leaf_parameters.VariableIntParam)
+	_, ok1 := m.IntegerOption.(*integer_parameters.VariableIntParam)
 	return ok1
 }
 

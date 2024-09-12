@@ -8,7 +8,7 @@ import (
 
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/types"
-	"github.com/substrait-io/substrait-go/types/leaf_parameters"
+	"github.com/substrait-io/substrait-go/types/integer_parameters"
 	"github.com/substrait-io/substrait-go/types/parser"
 )
 
@@ -379,23 +379,20 @@ func (s *WindowFunctionVariant) WindowType() WindowType { return s.impl.WindowTy
 
 // HasSyncParams This API returns if params share a leaf param name
 func HasSyncParams(params []types.FuncDefArgType) bool {
-	// get list of parameters from Abstract parameter type
-	// if any of the parameter is common, it indicates parameters are same across parameters
+	// if any of the leaf parameters are same, it indicates parameters are same across parameters
 	existingParamMap := make(map[string]bool)
 	for _, p := range params {
 		if !p.HasParameterizedParam() {
 			// not a type which contains abstract parameters, so continue
 			continue
 		}
-		// get list of parameters for each abstract parameter type
-		// note, this can be more than one parameter because of nested abstract types
-		// e.g. Decimal<P, S> or List<Struct<Decimal<P, S>, VARCHAR<L1>>>
+		// get list of parameterized parameters
+		// parameterized param can be a Leaf or another type. If another type we recurse to find leaf
 		abstractParams := p.GetParameterizedParams()
 		var leafParams []string
 		for _, abstractParam := range abstractParams {
-			leafParams = append(leafParams, getLeafAbstractParams(abstractParam)...)
+			leafParams = append(leafParams, getLeafParameterizedParams(abstractParam)...)
 		}
-		// all leaf params for this parameters are found
 		// if map contains any of the leaf params, parameters are synced
 		for _, leafParam := range leafParams {
 			if _, ok := existingParamMap[leafParam]; ok {
@@ -412,23 +409,23 @@ func HasSyncParams(params []types.FuncDefArgType) bool {
 	return false
 }
 
-// from a parameter of abstract type, get the leaf parameters
-// an abstract parameter can be a leaf type or a parameterized type itself
+// from a parameterized type, get the leaf parameters
+// an parameterized param can be a leaf type (e.g. P) or a parameterized type (e.g. VARCHAR<L1>) itself
 // if it is a leaf type, its param name is returned
 // if it is parameterized type, leaf type is found recursively
-func getLeafAbstractParams(abstractTypes interface{}) []string {
-	if leaf, ok := abstractTypes.(leaf_parameters.LeafParameter); ok {
+func getLeafParameterizedParams(abstractTypes interface{}) []string {
+	if leaf, ok := abstractTypes.(integer_parameters.IntegerParameter); ok {
 		return []string{leaf.String()}
 	}
 	// if it is not a leaf type recurse
 	if pat, ok := abstractTypes.(types.FuncDefArgType); ok {
 		var outLeafParams []string
 		for _, p := range pat.GetParameterizedParams() {
-			childLeafParams := getLeafAbstractParams(p)
+			childLeafParams := getLeafParameterizedParams(p)
 			outLeafParams = append(outLeafParams, childLeafParams...)
 		}
 		return outLeafParams
 	}
-	// for leaf type, return the param name
+	// invalid type
 	panic("invalid non-leaf, non-parameterized type param")
 }

@@ -57,7 +57,7 @@ type TypeVariation struct {
 
 type Argument interface {
 	toTypeString() string
-	marker() // unexported marker method
+	argumentMarker() // unexported marker method
 }
 
 type EnumArg struct {
@@ -70,7 +70,7 @@ func (EnumArg) toTypeString() string {
 	return "req"
 }
 
-func (v EnumArg) marker() {}
+func (v EnumArg) argumentMarker() {}
 
 type ValueArg struct {
 	Name        string `yaml:",omitempty"`
@@ -83,7 +83,7 @@ func (v ValueArg) toTypeString() string {
 	return v.Value.Expr.(*parser.Type).ShortType()
 }
 
-func (v ValueArg) marker() {}
+func (v ValueArg) argumentMarker() {}
 
 type TypeArg struct {
 	Name        string `yaml:",omitempty"`
@@ -93,7 +93,7 @@ type TypeArg struct {
 
 func (TypeArg) toTypeString() string { return "type" }
 
-func (v TypeArg) marker() {}
+func (v TypeArg) argumentMarker() {}
 
 type ArgumentList []Argument
 

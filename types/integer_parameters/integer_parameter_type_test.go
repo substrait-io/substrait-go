@@ -1,26 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package leaf_parameters_test
+package integer_parameters_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/types/leaf_parameters"
+	"github.com/substrait-io/substrait-go/types/integer_parameters"
 )
 
 func TestConcreteParameterType(t *testing.T) {
-	concreteType1 := leaf_parameters.ConcreteIntParam(1)
+	concreteType1 := integer_parameters.ConcreteIntParam(1)
 	require.Equal(t, "1", concreteType1.String())
 }
 
 func TestLeafParameterType(t *testing.T) {
-	var concreteType1, concreteType2, abstractType1 leaf_parameters.LeafParameter
+	var concreteType1, concreteType2, abstractType1 integer_parameters.IntegerParameter
 
-	concreteType1 = leaf_parameters.NewConcreteIntParam(1)
-	concreteType2 = leaf_parameters.NewConcreteIntParam(2)
+	concreteType1 = integer_parameters.NewConcreteIntParam(1)
+	concreteType2 = integer_parameters.NewConcreteIntParam(2)
 
-	abstractType1 = leaf_parameters.NewVariableIntParam("P")
+	abstractType1 = integer_parameters.NewVariableIntParam("P")
 
 	// verify string val
 	require.Equal(t, "1", concreteType1.String())

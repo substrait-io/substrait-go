@@ -9,18 +9,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/types"
-	"github.com/substrait-io/substrait-go/types/leaf_parameters"
+	"github.com/substrait-io/substrait-go/types/integer_parameters"
 	"github.com/substrait-io/substrait-go/types/parser"
 )
 
 func TestParser(t *testing.T) {
-	parameterLeaf_L1 := leaf_parameters.NewVariableIntParam("L1")
-	parameterLeaf_P := leaf_parameters.NewVariableIntParam("P")
-	parameterLeaf_S := leaf_parameters.NewVariableIntParam("S")
-	concreteLeaf_5 := leaf_parameters.NewConcreteIntParam(5)
-	concreteLeaf_38 := leaf_parameters.NewConcreteIntParam(38)
-	concreteLeaf_10 := leaf_parameters.NewConcreteIntParam(10)
-	concreteLeaf_EMinus5 := leaf_parameters.NewConcreteIntParam(int32(types.PrecisionEMinus5Seconds))
+	parameterLeaf_L1 := integer_parameters.NewVariableIntParam("L1")
+	parameterLeaf_P := integer_parameters.NewVariableIntParam("P")
+	parameterLeaf_S := integer_parameters.NewVariableIntParam("S")
+	concreteLeaf_5 := integer_parameters.NewConcreteIntParam(5)
+	concreteLeaf_38 := integer_parameters.NewConcreteIntParam(38)
+	concreteLeaf_10 := integer_parameters.NewConcreteIntParam(10)
+	concreteLeaf_EMinus5 := integer_parameters.NewConcreteIntParam(int32(types.PrecisionEMinus5Seconds))
 	tests := []struct {
 		expr        string
 		expected    string
