@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package functions
 
 import (
@@ -147,14 +149,14 @@ type typeInfo struct {
 
 func (ti *typeInfo) getLongName() string {
 	switch ti.typ.(type) {
-	case types.ParameterizedType:
-		return ti.typ.(types.ParameterizedType).BaseString()
+	case types.CompositeType:
+		return ti.typ.(types.CompositeType).BaseString()
 	}
 	return ti.typ.String()
 }
 
 func (ti *typeInfo) getLocalTypeString(input types.Type, enclosure typeEnclosure) string {
-	if paramType, ok := input.(types.ParameterizedType); ok {
+	if paramType, ok := input.(types.CompositeType); ok {
 		return ti.localName + enclosure.containerStart() + paramType.ParameterString() + enclosure.containerEnd()
 	}
 	return ti.localName

@@ -44,10 +44,12 @@ const (
 	TypeNameIntervalDay  TypeName = "interval_day"
 	TypeNameUUID         TypeName = "uuid"
 
-	TypeNameFixedBinary TypeName = "fixedbinary"
-	TypeNameFixedChar   TypeName = "fixedchar"
-	TypeNameVarChar     TypeName = "varchar"
-	TypeNameDecimal     TypeName = "decimal"
+	TypeNameFixedBinary          TypeName = "fixedbinary"
+	TypeNameFixedChar            TypeName = "fixedchar"
+	TypeNameVarChar              TypeName = "varchar"
+	TypeNameDecimal              TypeName = "decimal"
+	TypeNamePrecisionTimestamp   TypeName = "precision_timestamp"
+	TypeNamePrecisionTimestampTz TypeName = "precision_timestamp_tz"
 )
 
 var simpleTypeNameMap = map[TypeName]Type{
@@ -354,7 +356,7 @@ type (
 	}
 
 	// Type corresponds to the proto.Type message and represents
-	// a specific type.
+	// a specific type. These are types which can be present in plan (are serializable)
 	Type interface {
 		FuncArg
 		isRootRef()
@@ -369,14 +371,33 @@ type (
 		WithNullability(Nullability) Type
 	}
 
-	ParameterizedType interface {
+	// CompositeType this represents a concrete type having components
+	CompositeType interface {
 		Type
+		// ParameterString this returns parameter string
+		// for e.g. parameter decimal<P, S>, ParameterString returns "P,S"
 		ParameterString() string
+		// BaseString this returns long name for parameter string
+		// for e.g. parameter decimal<P, S>, BaseString returns "decimal"
 		BaseString() string
 	}
 
+	// FuncDefArgType this represents a type used in function argument
+	// These type can't be present in plan (not serializable)
+	FuncDefArgType interface {
+		fmt.Stringer
+		//SetNullability set nullability as given argument
+		SetNullability(Nullability) FuncDefArgType
+		// HasParameterizedParam returns true if the type has at least one parameterized parameters
+		// if all parameters are concrete then it returns false
+		HasParameterizedParam() bool
+		// GetParameterizedParams returns all parameterized parameters
+		// it doesn't return concrete parameters
+		GetParameterizedParams() []interface{}
+	}
+
 	FixedType interface {
-		ParameterizedType
+		CompositeType
 		WithLength(int32) FixedType
 	}
 )
@@ -523,6 +544,8 @@ var typeNames = map[reflect.Type]string{
 	reflect.TypeOf(&FixedBinary{}):                    "fixedbinary",
 	reflect.TypeOf(&emptyFixedChar):                   "char",
 	reflect.TypeOf(&VarChar{}):                        "varchar",
+	reflect.TypeOf(&PrecisionTimestampType{}):         "precision_timestamp",
+	reflect.TypeOf(&PrecisionTimestampTzType{}):       "precision_timestamp_tz",
 }
 
 var shortNames = map[reflect.Type]string{
@@ -548,7 +571,11 @@ var shortNames = map[reflect.Type]string{
 }
 
 func strNullable(t Type) string {
-	if t.GetNullability() == NullabilityNullable {
+	return strFromNullability(t.GetNullability())
+}
+
+func strFromNullability(nullability Nullability) string {
+	if nullability == NullabilityNullable {
 		return "?"
 	}
 	return ""
@@ -602,27 +629,47 @@ func (s *PrimitiveType[T]) String() string {
 	return reflect.TypeOf(z).Elem().Name() + strNullable(s)
 }
 
+func (s *PrimitiveType[T]) HasParameterizedParam() bool {
+	// primitive type doesn't have abstract parameters
+	return false
+}
+
+func (s *PrimitiveType[T]) GetParameterizedParams() []interface{} {
+	// primitive type doesn't have any abstract parameters
+	return nil
+}
+
+func (s *PrimitiveType[T]) SetNullability(n Nullability) FuncDefArgType {
+	s.Nullability = n
+	return s
+}
+
 // create type aliases to the generic structs
 type (
-	BooleanType      = PrimitiveType[bool]
-	Int8Type         = PrimitiveType[int8]
-	Int16Type        = PrimitiveType[int16]
-	Int32Type        = PrimitiveType[int32]
-	Int64Type        = PrimitiveType[int64]
-	Float32Type      = PrimitiveType[float32]
-	Float64Type      = PrimitiveType[float64]
-	StringType       = PrimitiveType[string]
-	BinaryType       = PrimitiveType[[]byte]
-	TimestampType    = PrimitiveType[Timestamp]
-	DateType         = PrimitiveType[Date]
-	TimeType         = PrimitiveType[Time]
-	TimestampTzType  = PrimitiveType[TimestampTz]
-	IntervalYearType = PrimitiveType[IntervalYearToMonth]
-	IntervalDayType  = PrimitiveType[IntervalDayToSecond]
-	UUIDType         = PrimitiveType[UUID]
-	FixedCharType    = FixedLenType[FixedChar]
-	VarCharType      = FixedLenType[VarChar]
-	FixedBinaryType  = FixedLenType[FixedBinary]
+	BooleanType                           = PrimitiveType[bool]
+	Int8Type                              = PrimitiveType[int8]
+	Int16Type                             = PrimitiveType[int16]
+	Int32Type                             = PrimitiveType[int32]
+	Int64Type                             = PrimitiveType[int64]
+	Float32Type                           = PrimitiveType[float32]
+	Float64Type                           = PrimitiveType[float64]
+	StringType                            = PrimitiveType[string]
+	BinaryType                            = PrimitiveType[[]byte]
+	TimestampType                         = PrimitiveType[Timestamp]
+	DateType                              = PrimitiveType[Date]
+	TimeType                              = PrimitiveType[Time]
+	TimestampTzType                       = PrimitiveType[TimestampTz]
+	IntervalYearType                      = PrimitiveType[IntervalYearToMonth]
+	IntervalDayType                       = PrimitiveType[IntervalDayToSecond]
+	UUIDType                              = PrimitiveType[UUID]
+	FixedCharType                         = FixedLenType[FixedChar]
+	VarCharType                           = FixedLenType[VarChar]
+	FixedBinaryType                       = FixedLenType[FixedBinary]
+	ParameterizedVarCharType              = parameterizedTypeSingleIntegerParam[*VarCharType]
+	ParameterizedFixedCharType            = parameterizedTypeSingleIntegerParam[*FixedCharType]
+	ParameterizedFixedBinaryType          = parameterizedTypeSingleIntegerParam[*FixedBinaryType]
+	ParameterizedPrecisionTimestampType   = parameterizedTypeSingleIntegerParam[*PrecisionTimestampType]
+	ParameterizedPrecisionTimestampTzType = parameterizedTypeSingleIntegerParam[*PrecisionTimestampTzType]
 )
 
 // FixedLenType is any of the types which also need to track their specific
@@ -683,6 +730,7 @@ func (s *FixedLenType[T]) WithLength(length int32) FixedType {
 	return &out
 }
 
+// DecimalType is a decimal type with concrete precision and scale parameters, e.g. Decimal(10, 2).
 type DecimalType struct {
 	Nullability      Nullability
 	TypeVariationRef uint32
@@ -808,6 +856,21 @@ func (t *StructType) String() string {
 	return b.String()
 }
 
+func (t *StructType) ParameterString() string {
+	sb := strings.Builder{}
+	for i, typ := range t.Types {
+		if i != 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(typ.String())
+	}
+	return sb.String()
+}
+
+func (*StructType) BaseString() string {
+	return "struct"
+}
+
 type ListType struct {
 	Nullability      Nullability
 	TypeVariationRef uint32
@@ -859,6 +922,14 @@ func (t *ListType) String() string {
 	return "list" + strNullable(t) + "<" + t.Type.String() + ">"
 }
 
+func (s *ListType) ParameterString() string {
+	return s.Type.String()
+}
+
+func (*ListType) BaseString() string {
+	return "list"
+}
+
 type MapType struct {
 	Nullability      Nullability
 	TypeVariationRef uint32
@@ -907,7 +978,15 @@ func (t *MapType) ToProtoFuncArg() *proto.FunctionArgument {
 func (t *MapType) ShortString() string { return "map" }
 
 func (t *MapType) String() string {
-	return "map" + strNullable(t) + "<" + t.Key.String() + "," + t.Value.String() + ">"
+	return "map" + strNullable(t) + "<" + t.Key.String() + ", " + t.Value.String() + ">"
+}
+
+func (t *MapType) ParameterString() string {
+	return fmt.Sprintf("%s, %s", t.Key.String(), t.Value.String())
+}
+
+func (*MapType) BaseString() string {
+	return "map"
 }
 
 // TypeParam represents a type parameter for a user defined type

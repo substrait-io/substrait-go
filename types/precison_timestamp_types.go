@@ -1,7 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package types
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/substrait-io/substrait-go/proto"
 )
@@ -97,6 +100,14 @@ func (m *PrecisionTimestampType) String() string {
 		m.Precision.ToProtoVal())
 }
 
+func (m *PrecisionTimestampType) ParameterString() string {
+	return fmt.Sprintf("%d", m.Precision.ToProtoVal())
+}
+
+func (m *PrecisionTimestampType) BaseString() string {
+	return typeNames[reflect.TypeOf(m)]
+}
+
 // PrecisionTimestampTzType this is used to represent a type of Precision timestamp with TimeZone
 type PrecisionTimestampTzType struct {
 	PrecisionTimestampType
@@ -145,3 +156,7 @@ func (m *PrecisionTimestampTzType) Equals(rhs Type) bool {
 	return false
 }
 func (*PrecisionTimestampTzType) ShortString() string { return "pretstz" }
+
+func (m *PrecisionTimestampTzType) BaseString() string {
+	return typeNames[reflect.TypeOf(m)]
+}

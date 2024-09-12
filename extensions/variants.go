@@ -8,6 +8,7 @@ import (
 
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/types"
+	"github.com/substrait-io/substrait-go/types/integer_parameters"
 	"github.com/substrait-io/substrait-go/types/parser"
 )
 
@@ -65,7 +66,7 @@ func EvaluateTypeExpression(nullHandling NullabilityHandling, expr parser.TypeEx
 	var outType types.Type
 	if t, ok := expr.Expr.(*parser.Type); ok {
 		var err error
-		outType, err = t.Type()
+		outType, err = t.RetType()
 		if err != nil {
 			return nil, err
 		}
@@ -259,9 +260,9 @@ func (s *AggregateFunctionVariant) ID() ID {
 	return ID{URI: s.uri, Name: s.CompoundName()}
 }
 func (s *AggregateFunctionVariant) Decomposability() DecomposeType { return s.impl.Decomposable }
-func (s *AggregateFunctionVariant) Intermediate() (types.Type, error) {
+func (s *AggregateFunctionVariant) Intermediate() (types.FuncDefArgType, error) {
 	if t, ok := s.impl.Intermediate.Expr.(*parser.Type); ok {
-		return t.Type()
+		return t.ArgType()
 	}
 	return nil, fmt.Errorf("%w: bad intermediate type expression", substraitgo.ErrInvalidType)
 }
@@ -366,12 +367,65 @@ func (s *WindowFunctionVariant) ID() ID {
 	return ID{URI: s.uri, Name: s.CompoundName()}
 }
 func (s *WindowFunctionVariant) Decomposability() DecomposeType { return s.impl.Decomposable }
-func (s *WindowFunctionVariant) Intermediate() (types.Type, error) {
+func (s *WindowFunctionVariant) Intermediate() (types.FuncDefArgType, error) {
 	if t, ok := s.impl.Intermediate.Expr.(*parser.Type); ok {
-		return t.Type()
+		return t.ArgType()
 	}
 	return nil, fmt.Errorf("%w: bad intermediate type expression", substraitgo.ErrInvalidType)
 }
 func (s *WindowFunctionVariant) Ordered() bool          { return s.impl.Ordered }
 func (s *WindowFunctionVariant) MaxSet() int            { return s.impl.MaxSet }
 func (s *WindowFunctionVariant) WindowType() WindowType { return s.impl.WindowType }
+
+// HasSyncParams This API returns if params share a leaf param name
+func HasSyncParams(params []types.FuncDefArgType) bool {
+	// if any of the leaf parameters are same, it indicates parameters are same across parameters
+	existingParamMap := make(map[string]bool)
+	for _, p := range params {
+		if !p.HasParameterizedParam() {
+			// not a type which contains abstract parameters, so continue
+			continue
+		}
+		// get list of parameterized parameters
+		// parameterized param can be a Leaf or another type. If another type we recurse to find leaf
+		abstractParams := p.GetParameterizedParams()
+		var leafParams []string
+		for _, abstractParam := range abstractParams {
+			leafParams = append(leafParams, getLeafParameterizedParams(abstractParam)...)
+		}
+		// if map contains any of the leaf params, parameters are synced
+		for _, leafParam := range leafParams {
+			if _, ok := existingParamMap[leafParam]; ok {
+				return true
+			}
+		}
+		// add all params to map, kindly note we can't add these params
+		// in previous loop to avoid having same leaf abstract type in same param
+		// e.g. Decimal<P, P> has no sync param
+		for _, leafParam := range leafParams {
+			existingParamMap[leafParam] = true
+		}
+	}
+	return false
+}
+
+// from a parameterized type, get the leaf parameters
+// an parameterized param can be a leaf type (e.g. P) or a parameterized type (e.g. VARCHAR<L1>) itself
+// if it is a leaf type, its param name is returned
+// if it is parameterized type, leaf type is found recursively
+func getLeafParameterizedParams(abstractTypes interface{}) []string {
+	if leaf, ok := abstractTypes.(integer_parameters.IntegerParameter); ok {
+		return []string{leaf.String()}
+	}
+	// if it is not a leaf type recurse
+	if pat, ok := abstractTypes.(types.FuncDefArgType); ok {
+		var outLeafParams []string
+		for _, p := range pat.GetParameterizedParams() {
+			childLeafParams := getLeafParameterizedParams(p)
+			outLeafParams = append(outLeafParams, childLeafParams...)
+		}
+		return outLeafParams
+	}
+	// invalid type
+	panic("invalid non-leaf, non-parameterized type param")
+}
