@@ -7,7 +7,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/extensions"
+	"github.com/substrait-io/substrait-go/types"
 )
 
 var gFunctionRegistry FunctionRegistry
@@ -247,10 +249,10 @@ scalar_functions:
 	}
 }
 
-func getLocalFunctionRegistry(t *testing.T, dialectYaml string) LocalFunctionRegistry {
+func getLocalFunctionRegistry(t *testing.T, dialectYaml string, substraitFuncRegistry FunctionRegistry) LocalFunctionRegistry {
 	dialect, err := LoadDialect(t.Name(), strings.NewReader(dialectYaml))
 	assert.NoError(t, err)
-	localRegistry, err := dialect.LocalizeFunctionRegistry(gFunctionRegistry)
+	localRegistry, err := dialect.LocalizeFunctionRegistry(substraitFuncRegistry)
 	assert.NoError(t, err)
 	return localRegistry
 }
@@ -332,7 +334,7 @@ scalar_functions:
   - str
   variadic: 1
 `
-	localRegistry := getLocalFunctionRegistry(t, dialectYaml)
+	localRegistry := getLocalFunctionRegistry(t, dialectYaml, gFunctionRegistry)
 	tests := []struct {
 		numArgs          int
 		localName        string
@@ -424,7 +426,7 @@ aggregate_functions:
   - fp32
   - fp64
 `
-	localRegistry := getLocalFunctionRegistry(t, dialectYaml)
+	localRegistry := getLocalFunctionRegistry(t, dialectYaml, gFunctionRegistry)
 
 	tests := []struct {
 		numArgs          int
@@ -493,7 +495,7 @@ window_functions:
   supported_kernels:
   - ""
 `
-	localRegistry := getLocalFunctionRegistry(t, dialectYaml)
+	localRegistry := getLocalFunctionRegistry(t, dialectYaml, gFunctionRegistry)
 	tests := []struct {
 		numArgs          int
 		localName        string
@@ -563,4 +565,579 @@ func checkCompoundNames(t *testing.T, compoundNames []string, expectedNames []st
 	for _, name := range expectedNames {
 		assert.Contains(t, compoundNames, name)
 	}
+}
+
+// test match functionality fails if it has sync param
+func TestScalarFunctionsSyncParamsError(t *testing.T) {
+	const uri = "http://localhost/sample.yaml"
+	const defYaml = `---
+scalar_functions:
+  -
+    name: "func_testsync"
+    description: "Add two values."
+    impls:
+      - args:
+          - name: x
+            value: decimal<P,S>
+          - name: y
+            value: decimal<P,S>
+        return: i32
+`
+
+	dialectYaml := `
+name: test
+type: sql
+dependencies:
+  arithmetic: 
+    http://localhost/sample.yaml
+supported_types:
+  dec:
+    sql_type_name: INTEGER
+scalar_functions:
+- name: arithmetic.func_testsync
+  supported_kernels:
+  - dec_dec
+`
+	// get substrait function registry
+	var c extensions.Collection
+	require.NoError(t, c.Load(uri, strings.NewReader(defYaml)))
+	funcRegistry := NewFunctionRegistry(&c)
+	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
+
+	int32Nullable := &types.Int32Type{Nullability: types.NullabilityNullable}
+
+	fv := localRegistry.GetScalarFunctions(LocalFunctionName("func_testsync"), 2)
+
+	argTypes := []types.Type{int32Nullable, int32Nullable}
+	require.Len(t, fv, 1)
+	_, err := fv[0].Match(argTypes)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "function has sync param")
+
+	// test MatchAt
+	for pos, typ := range argTypes {
+		_, err = fv[0].MatchAt(typ, pos)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "function has sync param")
+	}
+}
+
+// test match functionality with MIRROR nullability
+func TestScalarFunctionsMirrorNullabilityMatch(t *testing.T) {
+	const uri = "http://localhost/sample.yaml"
+	const defYaml = `---
+scalar_functions:
+  -
+    name: "func_mirror"
+    description: "Add two values."
+    impls:
+      - args:
+          - name: x
+            value: i32
+          - name: y
+            value: i32
+        return: i32
+`
+
+	dialectYaml := `
+name: test
+type: sql
+dependencies:
+  arithmetic: 
+    http://localhost/sample.yaml
+supported_types:
+  i32:
+    sql_type_name: INTEGER
+scalar_functions:
+- name: arithmetic.func_mirror
+  supported_kernels:
+  - i32_i32
+`
+	// get substrait function registry
+	var c extensions.Collection
+	require.NoError(t, c.Load(uri, strings.NewReader(defYaml)))
+	funcRegistry := NewFunctionRegistry(&c)
+	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
+
+	int32Nullable := &types.Int32Type{Nullability: types.NullabilityNullable}
+	int32Required := &types.Int32Type{Nullability: types.NullabilityRequired}
+
+	tests := []struct {
+		name     string
+		argTypes []types.Type
+	}{
+		{"All Arguments Nullable", []types.Type{int32Nullable, int32Nullable}},
+		{"All Arguments Required", []types.Type{int32Required, int32Required}},
+		{"Arguments Nullable Required Mix", []types.Type{int32Nullable, int32Required}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fv := localRegistry.GetScalarFunctions(LocalFunctionName("func_mirror"), 2)
+
+			require.Len(t, fv, 1)
+			match, err := fv[0].Match(tt.argTypes)
+			require.NoError(t, err)
+			require.True(t, match)
+
+			// test MatchAt
+			for pos, typ := range tt.argTypes {
+				match, err = fv[0].MatchAt(typ, pos)
+				require.NoError(t, err)
+				require.True(t, match)
+			}
+
+		})
+	}
+}
+
+// test match functionality DeclaredOutput nullability
+func TestScalarFunctionsDeclaredOutputNullabilityMatch(t *testing.T) {
+	const uri = "http://localhost/sample.yaml"
+	const defYaml = `---
+scalar_functions:
+  -
+    name: "func_declared_output"
+    description: "Subtract two values."
+    impls:
+      - args:
+          - name: x
+            value: i32
+          - name: y
+            value: i32
+        return: i32
+        nullability: DECLARED_OUTPUT
+`
+
+	dialectYaml := `
+name: test
+type: sql
+dependencies:
+  arithmetic: 
+    http://localhost/sample.yaml
+supported_types:
+  i32:
+    sql_type_name: INTEGER
+scalar_functions:
+- name: arithmetic.func_declared_output
+  supported_kernels:
+  - i32_i32
+`
+	// get substrait function registry
+	var c extensions.Collection
+	require.NoError(t, c.Load(uri, strings.NewReader(defYaml)))
+	funcRegistry := NewFunctionRegistry(&c)
+	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
+
+	int32Nullable := &types.Int32Type{Nullability: types.NullabilityNullable}
+	int32Required := &types.Int32Type{Nullability: types.NullabilityRequired}
+
+	tests := []struct {
+		name     string
+		argTypes []types.Type
+	}{
+		{"All Arguments Nullable", []types.Type{int32Nullable, int32Nullable}},
+		{"All Arguments Required", []types.Type{int32Required, int32Required}},
+		{"Arguments Nullable Required Mix", []types.Type{int32Nullable, int32Required}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fv := localRegistry.GetScalarFunctions(LocalFunctionName("func_declared_output"), 2)
+
+			require.Len(t, fv, 1)
+			match, err := fv[0].Match(tt.argTypes)
+			require.NoError(t, err)
+			require.True(t, match)
+
+			for pos, typ := range tt.argTypes {
+				match, err = fv[0].MatchAt(typ, pos)
+				require.NoError(t, err)
+				require.True(t, match)
+			}
+
+		})
+	}
+}
+
+// test match functionality with DISCRETE nullability
+func TestScalarFunctionsDiscreteNullabilityMatch(t *testing.T) {
+	const uri = "http://localhost/sample.yaml"
+	const defYaml = `---
+scalar_functions:
+  -
+    name: "func_discrete_required"
+    description: "multiply two values."
+    impls:
+      - args:
+          - name: x
+            value: i32
+          - name: y
+            value: i32
+        return: i32
+        nullability: DISCRETE
+  -
+    name: "func_discrete_nullable"
+    description: "multiply two values."
+    impls:
+      - args:
+          - name: x
+            value: i32?
+          - name: y
+            value: i32?
+        return: i32
+        nullability: DISCRETE
+`
+
+	dialectYaml := `
+name: test
+type: sql
+dependencies:
+  arithmetic: 
+    http://localhost/sample.yaml
+supported_types:
+  i32:
+    sql_type_name: INTEGER
+scalar_functions:
+- name: arithmetic.func_discrete_required
+  supported_kernels:
+  - i32_i32
+- name: arithmetic.func_discrete_nullable
+  supported_kernels:
+  - i32_i32
+`
+	// get substrait function registry
+	var c extensions.Collection
+	require.NoError(t, c.Load(uri, strings.NewReader(defYaml)))
+	funcRegistry := NewFunctionRegistry(&c)
+	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
+
+	int32Nullable := &types.Int32Type{Nullability: types.NullabilityNullable}
+	int32Required := &types.Int32Type{Nullability: types.NullabilityRequired}
+
+	tests := []struct {
+		name        string
+		localName   string
+		argTypes    []types.Type
+		shouldMatch bool
+	}{
+		{"param nullable, arg nullable, should match", "func_discrete_nullable", []types.Type{int32Nullable, int32Nullable}, true},
+		{"param required, arg required, should match", "func_discrete_required", []types.Type{int32Required, int32Required}, true},
+		{"param nullable, arg required, shouldn't match", "func_discrete_nullable", []types.Type{int32Required, int32Required}, false},
+		{"param required, arg nullable, should match", "func_discrete_required", []types.Type{int32Nullable, int32Nullable}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fv := localRegistry.GetScalarFunctions(LocalFunctionName(tt.localName), 2)
+
+			require.Len(t, fv, 1)
+			match, err := fv[0].Match(tt.argTypes)
+			require.NoError(t, err)
+			require.Equal(t, tt.shouldMatch, match)
+
+			for pos, typ := range tt.argTypes {
+				match, err = fv[0].MatchAt(typ, pos)
+				require.NoError(t, err)
+				require.Equal(t, tt.shouldMatch, match)
+			}
+
+		})
+	}
+}
+
+// test match functionality returns true for function with variadic argument
+func TestScalarFunctionsVariadicMatch(t *testing.T) {
+	const uri = "http://localhost/sample.yaml"
+	const defYaml = `---
+scalar_functions:
+  -
+    name: "func_testvariadic"
+    description: "Add two values."
+    impls:
+      - args:
+          - name: x
+            value: i32
+          - name: y
+            value: i32
+        variadic:
+          min: 1
+          max: 2
+        return: i32
+`
+
+	dialectYaml := `
+name: test
+type: sql
+dependencies:
+  arithmetic: 
+    http://localhost/sample.yaml
+supported_types:
+  i32:
+    sql_type_name: INTEGER
+scalar_functions:
+- name: arithmetic.func_testvariadic
+  supported_kernels:
+  - i32_i32
+`
+	// get substrait function registry
+	var c extensions.Collection
+	require.NoError(t, c.Load(uri, strings.NewReader(defYaml)))
+	funcRegistry := NewFunctionRegistry(&c)
+	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
+
+	int32Nullable := &types.Int32Type{Nullability: types.NullabilityNullable}
+
+	fv := localRegistry.GetScalarFunctions(LocalFunctionName("func_testvariadic"), 2)
+
+	argTypes := []types.Type{int32Nullable, int32Nullable}
+	require.Len(t, fv, 1)
+	match, err := fv[0].Match(argTypes)
+	require.NoError(t, err)
+	assert.True(t, match)
+
+	// test MatchAt
+	for pos, typ := range argTypes {
+		match, err = fv[0].MatchAt(typ, pos)
+		require.NoError(t, err)
+		assert.True(t, match)
+	}
+}
+
+// this tests that match functionality returns true for function with variadic argument
+// when argument count is greater than variadic min count
+func TestScalarFuncVariadicArgMatch(t *testing.T) {
+	const uri = "http://localhost/sample.yaml"
+	const defYaml = `---
+scalar_functions:
+  -
+    name: "func_testvariadic"
+    description: "Add two values."
+    impls:
+      - args:
+          - name: x
+            value: i64
+          - name: y
+            value: i32
+        variadic:
+          min: 1
+          max: 3
+          parameterConsistency: INCONSISTENT
+        return: i32
+`
+
+	dialectYaml := `
+name: test
+type: sql
+dependencies:
+  arithmetic: 
+    http://localhost/sample.yaml
+supported_types:
+  i32:
+    sql_type_name: INTEGER
+  i64:
+    sql_type_name: INTEGER
+scalar_functions:
+- name: arithmetic.func_testvariadic
+  supported_kernels:
+  - i64_i32
+`
+	// get substrait function registry
+	var c extensions.Collection
+	require.NoError(t, c.Load(uri, strings.NewReader(defYaml)))
+	funcRegistry := NewFunctionRegistry(&c)
+	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
+
+	int32Nullable := &types.Int32Type{Nullability: types.NullabilityNullable}
+	int64Nullable := &types.Int64Type{Nullability: types.NullabilityNullable}
+
+	fv := localRegistry.GetScalarFunctions(LocalFunctionName("func_testvariadic"), 2)
+
+	// pass third argument as variadic, it should match against last argument type
+	argTypes := []types.Type{int64Nullable, int32Nullable, int32Nullable}
+	require.Len(t, fv, 1)
+	match, err := fv[0].Match(argTypes)
+	require.NoError(t, err)
+	assert.True(t, match)
+
+	// test MatchAt
+	for pos, typ := range argTypes {
+		match, err = fv[0].MatchAt(typ, pos)
+		require.NoError(t, err)
+		assert.True(t, match)
+	}
+}
+
+// this tests that match functionality returns true for function with variadic argument
+// when argument count is greater than variadic min count
+func TestScalarFuncVariadicArgMisMatch(t *testing.T) {
+	const uri = "http://localhost/sample.yaml"
+	const defYaml = `---
+scalar_functions:
+  -
+    name: "func_testvariadic"
+    description: "Add two values."
+    impls:
+      - args:
+          - name: x
+            value: i64
+          - name: y
+            value: i32
+        variadic:
+          min: 1
+          max: 3
+          parameterConsistency: INCONSISTENT
+        return: i32
+`
+
+	dialectYaml := `
+name: test
+type: sql
+dependencies:
+  arithmetic: 
+    http://localhost/sample.yaml
+supported_types:
+  i32:
+    sql_type_name: INTEGER
+  i64:
+    sql_type_name: INTEGER
+scalar_functions:
+- name: arithmetic.func_testvariadic
+  supported_kernels:
+  - i64_i32
+`
+	// get substrait function registry
+	var c extensions.Collection
+	require.NoError(t, c.Load(uri, strings.NewReader(defYaml)))
+	funcRegistry := NewFunctionRegistry(&c)
+	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
+
+	int32Nullable := &types.Int32Type{Nullability: types.NullabilityNullable}
+	int64Nullable := &types.Int64Type{Nullability: types.NullabilityNullable}
+
+	fv := localRegistry.GetScalarFunctions(LocalFunctionName("func_testvariadic"), 2)
+
+	// pass third argument as variadic but different from 2nd argument, it should match against last argument type
+	argTypes := []types.Type{int64Nullable, int32Nullable, int64Nullable}
+	require.Len(t, fv, 1)
+	match, err := fv[0].Match(argTypes)
+	require.NoError(t, err)
+	assert.False(t, match)
+
+	// last argument shouldn't match
+	match, err = fv[0].MatchAt(argTypes[2], 2)
+	require.NoError(t, err)
+	assert.False(t, match)
+}
+
+// test match functionality returns true for function with variadic argument
+// if argument count is lesser than variadic min count
+func TestScalarFuncVariadicMismatch(t *testing.T) {
+	const uri = "http://localhost/sample.yaml"
+	const defYaml = `---
+scalar_functions:
+  -
+    name: "func_testvariadic"
+    description: "Add two values."
+    impls:
+      - args:
+          - name: x
+            value: decimal<P,S>
+          - name: y
+            value: decimal<P,S>
+        variadic:
+          min: 3
+        return: i32
+`
+
+	dialectYaml := `
+name: test
+type: sql
+dependencies:
+  arithmetic: 
+    http://localhost/sample.yaml
+supported_types:
+  dec:
+    sql_type_name: INTEGER
+scalar_functions:
+- name: arithmetic.func_testvariadic
+  supported_kernels:
+  - dec_dec
+`
+	// get substrait function registry
+	var c extensions.Collection
+	require.NoError(t, c.Load(uri, strings.NewReader(defYaml)))
+	funcRegistry := NewFunctionRegistry(&c)
+	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
+
+	int32Nullable := &types.Int32Type{Nullability: types.NullabilityNullable}
+
+	fv := localRegistry.GetScalarFunctions(LocalFunctionName("func_testvariadic"), 2)
+
+	argTypes := []types.Type{int32Nullable, int32Nullable}
+	require.Len(t, fv, 1)
+	match, err := fv[0].Match(argTypes)
+	require.NoError(t, err)
+	assert.False(t, match)
+
+	// test MatchAt
+	for pos, typ := range argTypes {
+		match, err = fv[0].MatchAt(typ, pos)
+		require.NoError(t, err)
+		assert.False(t, match)
+	}
+}
+
+// test match functionality returns false if consistency check for argument fails
+// when function implementation has "CONSISTENCY" property for parameter consistency
+func TestScalarFuncVariadicConsistencyCheckMisMatch(t *testing.T) {
+	const uri = "http://localhost/sample.yaml"
+	const defYaml = `---
+scalar_functions:
+  -
+    name: "func_testvariadic"
+    description: "Add two values."
+    impls:
+      - args:
+          - name: x
+            value: decimal<P1,S1>
+          - name: y
+            value: decimal<P2,S2>
+        variadic:
+          min: 1
+          max: 2
+          parameterConsistency: CONSISTENT
+        return: i32
+`
+
+	dialectYaml := `
+name: test
+type: sql
+dependencies:
+  arithmetic: 
+    http://localhost/sample.yaml
+supported_types:
+  dec:
+    sql_type_name: INTEGER
+scalar_functions:
+- name: arithmetic.func_testvariadic
+  supported_kernels:
+  - dec_dec
+`
+	// get substrait function registry
+	var c extensions.Collection
+	require.NoError(t, c.Load(uri, strings.NewReader(defYaml)))
+	funcRegistry := NewFunctionRegistry(&c)
+	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
+
+	dec38_2 := &types.DecimalType{Precision: 38, Scale: 2, Nullability: types.NullabilityNullable}
+	dec38_5 := &types.DecimalType{Precision: 38, Scale: 5, Nullability: types.NullabilityNullable}
+
+	fv := localRegistry.GetScalarFunctions(LocalFunctionName("func_testvariadic"), 2)
+
+	// one type is int32 and other int64, since concrete type is not consistent so match should fail
+	argTypes := []types.Type{dec38_2, dec38_5}
+	require.Len(t, fv, 1)
+	match, err := fv[0].Match(argTypes)
+	require.NoError(t, err)
+	// match should fail because of concrete type are different
+	// even though function argument allows decimal(P, S)
+	assert.False(t, match)
 }

@@ -188,7 +188,7 @@ const (
 type VariadicBehavior struct {
 	Min                  int                  `yaml:",omitempty"`
 	Max                  int                  `yaml:",omitempty"`
-	ParameterConsistency ParameterConsistency `yaml:"parameterConsistency,omitempty"`
+	ParameterConsistency ParameterConsistency `yaml:"parameterConsistency,omitempty" default:"CONSISTENT"`
 }
 
 func (v *VariadicBehavior) IsValidArgumentCount(count int) bool {
@@ -205,7 +205,7 @@ type ScalarFunctionImpl struct {
 	Variadic         *VariadicBehavior     `yaml:",omitempty"`
 	SessionDependent bool                  `yaml:"sessionDependent,omitempty"`
 	Deterministic    bool                  `yaml:",omitempty"`
-	Nullability      NullabilityHandling   `yaml:",omitempty"`
+	Nullability      NullabilityHandling   `yaml:",omitempty" default:"MIRROR"`
 	Return           parser.TypeExpression `yaml:",omitempty"`
 	Implementation   map[string]string     `yaml:",omitempty"`
 }

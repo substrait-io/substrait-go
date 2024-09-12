@@ -9,6 +9,7 @@ import (
 	"path"
 	"sort"
 
+	"github.com/creasty/defaults"
 	"github.com/goccy/go-yaml"
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/proto/extensions"
@@ -179,14 +180,23 @@ func (c *Collection) Load(uri string, r io.Reader) error {
 	simpleNames := make(map[string]string)
 
 	for _, f := range file.ScalarFunctions {
+		if err := defaults.Set(&f); err != nil {
+			return fmt.Errorf("failure setting defaults for scalar functions: %w", err)
+		}
 		addToMaps[*ScalarFunctionVariant](id, &f, c.scalarMap, simpleNames)
 	}
 
 	for _, f := range file.AggregateFunctions {
+		if err := defaults.Set(&f); err != nil {
+			return fmt.Errorf("failure setting defaults for aggregate functions: %w", err)
+		}
 		addToMaps[*AggregateFunctionVariant](id, &f, c.aggregateMap, simpleNames)
 	}
 
 	for _, f := range file.WindowFunctions {
+		if err := defaults.Set(&f); err != nil {
+			return fmt.Errorf("failure setting defaults for window functions: %w", err)
+		}
 		addToMaps[*WindowFunctionVariant](id, &f, c.windowMap, simpleNames)
 	}
 

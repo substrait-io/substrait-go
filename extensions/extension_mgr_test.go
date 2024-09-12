@@ -328,6 +328,8 @@ func TestCollection_GetAllScalarFunctions(t *testing.T) {
 				sf, ok := c.GetScalarFunc(extensions.ID{URI: tt.uri, Name: tt.signature})
 				assert.True(t, ok)
 				assert.Contains(t, scalarFunctions, sf)
+				// verify that default nullability is set to MIRROR
+				assert.Equal(t, extensions.MirrorNullability, sf.Nullability())
 			}
 			if tt.isAggregate {
 				af, ok := c.GetAggregateFunc(extensions.ID{URI: tt.uri, Name: tt.signature})
