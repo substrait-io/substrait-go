@@ -43,3 +43,20 @@ func (m *ParameterizedMapType) GetParameterizedParams() []interface{} {
 	}
 	return abstractParams
 }
+
+func (m *ParameterizedMapType) MatchWithNullability(ot Type) bool {
+	if m.Nullability != ot.GetNullability() {
+		return false
+	}
+	if omt, ok := ot.(*MapType); ok {
+		return m.Key.MatchWithNullability(omt.Key) && m.Value.MatchWithNullability(omt.Value)
+	}
+	return false
+}
+
+func (m *ParameterizedMapType) MatchWithoutNullability(ot Type) bool {
+	if omt, ok := ot.(*MapType); ok {
+		return m.Key.MatchWithoutNullability(omt.Key) && m.Value.MatchWithoutNullability(omt.Value)
+	}
+	return false
+}

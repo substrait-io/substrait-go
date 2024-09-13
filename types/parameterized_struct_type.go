@@ -54,3 +54,36 @@ func (m *ParameterizedStructType) GetParameterizedParams() []interface{} {
 	}
 	return abstractParams
 }
+
+func (m *ParameterizedStructType) MatchWithNullability(ot Type) bool {
+	if m.Nullability != ot.GetNullability() {
+		return false
+	}
+	if omt, ok := ot.(*StructType); ok {
+		if len(m.Types) != len(omt.Types) {
+			return false
+		}
+		for i, typ := range m.Types {
+			if !typ.MatchWithNullability(omt.Types[i]) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func (m *ParameterizedStructType) MatchWithoutNullability(ot Type) bool {
+	if omt, ok := ot.(*StructType); ok {
+		if len(m.Types) != len(omt.Types) {
+			return false
+		}
+		for i, typ := range m.Types {
+			if !typ.MatchWithoutNullability(omt.Types[i]) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}

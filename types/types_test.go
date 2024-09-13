@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	. "github.com/substrait-io/substrait-go/types"
+	"github.com/substrait-io/substrait-go/types/integer_parameters"
 )
 
 func TestTypeToString(t *testing.T) {
@@ -189,4 +190,236 @@ func TestFixedLenType_WithLength(t *testing.T) {
 			assert.Equal(t, tt.typeStr, typ.BaseString())
 		})
 	}
+}
+
+func TestMatchForBasicTypeResultMatch(t *testing.T) {
+	for _, td := range []struct {
+		name          string
+		paramType     FuncDefArgType
+		argOfSameType Type
+	}{
+		{"anyType", &AnyType{}, IntervalCompoundType{}.WithPrecision(PrecisionMilliSeconds)},
+		{"binaryType", &BinaryType{}, &BinaryType{}},
+		{"boolType", &BooleanType{}, &BooleanType{}},
+		{"int8Type", &Int8Type{}, &Int8Type{}},
+		{"int16Type", &Int16Type{}, &Int16Type{}},
+		{"int32Type", &Int32Type{}, &Int32Type{}},
+		{"int64Type", &Int64Type{}, &Int64Type{}},
+		{"float32Type", &Float32Type{}, &Float32Type{}},
+		{"float64Type", &Float64Type{}, &Float64Type{}},
+		{"stringType", &StringType{}, &StringType{}},
+		{"timestampType", &TimestampType{}, &TimestampType{}},
+		{"dateType", &DateType{}, &DateType{}},
+		{"timeType", &TimeType{}, &TimeType{}},
+		{"timestampTzType", &TimestampTzType{}, &TimestampTzType{}},
+		{"intervalYearType", &IntervalYearType{}, &IntervalYearType{}},
+		{"intervalDayType", &IntervalDayType{}, &IntervalDayType{}},
+		{"uuidType", &UUIDType{}, &UUIDType{}},
+	} {
+		t.Run(td.name, func(t *testing.T) {
+			// MatchWithNullability should match exact nullability and not match with different nullability
+			assert.True(t, td.paramType.SetNullability(NullabilityNullable).MatchWithNullability(td.argOfSameType.WithNullability(NullabilityNullable)))
+			assert.True(t, td.paramType.SetNullability(NullabilityRequired).MatchWithNullability(td.argOfSameType.WithNullability(NullabilityRequired)))
+			assert.False(t, td.paramType.SetNullability(NullabilityRequired).MatchWithNullability(td.argOfSameType.WithNullability(NullabilityNullable)))
+			assert.False(t, td.paramType.SetNullability(NullabilityRequired).MatchWithNullability(td.argOfSameType.WithNullability(NullabilityNullable)))
+
+			// MatchWithoutNullability should match no matter what the nullability is
+			assert.True(t, td.paramType.SetNullability(NullabilityNullable).MatchWithoutNullability(td.argOfSameType.WithNullability(NullabilityNullable)))
+			assert.True(t, td.paramType.SetNullability(NullabilityRequired).MatchWithoutNullability(td.argOfSameType.WithNullability(NullabilityRequired)))
+			assert.True(t, td.paramType.SetNullability(NullabilityRequired).MatchWithoutNullability(td.argOfSameType.WithNullability(NullabilityNullable)))
+			assert.True(t, td.paramType.SetNullability(NullabilityRequired).MatchWithoutNullability(td.argOfSameType.WithNullability(NullabilityNullable)))
+		})
+	}
+}
+
+func TestMatchForBasicTypeResultMisMatch(t *testing.T) {
+	for _, td := range []struct {
+		name           string
+		paramType      FuncDefArgType
+		argOfOtherType Type
+	}{
+		{"binaryType", &BinaryType{}, &BooleanType{}},
+		{"boolType", &BooleanType{}, &BinaryType{}},
+		{"int8Type", &Int8Type{}, &BinaryType{}},
+		{"int16Type", &Int16Type{}, &BinaryType{}},
+		{"int32Type", &Int32Type{}, &BinaryType{}},
+		{"int64Type", &Int64Type{}, &BinaryType{}},
+		{"float32Type", &Float32Type{}, &BinaryType{}},
+		{"float64Type", &Float64Type{}, &BinaryType{}},
+		{"stringType", &StringType{}, &BinaryType{}},
+		{"timestampType", &TimestampType{}, &BinaryType{}},
+		{"dateType", &DateType{}, &BinaryType{}},
+		{"timeType", &TimeType{}, &BinaryType{}},
+		{"timestampTzType", &TimestampTzType{}, &BinaryType{}},
+		{"intervalYearType", &IntervalYearType{}, &BinaryType{}},
+		{"intervalDayType", &IntervalDayType{}, &BinaryType{}},
+		{"uuidType", &UUIDType{}, &BinaryType{}},
+	} {
+		t.Run(td.name, func(t *testing.T) {
+			assert.False(t, td.paramType.MatchWithNullability(td.argOfOtherType))
+			assert.False(t, td.paramType.MatchWithoutNullability(td.argOfOtherType))
+		})
+	}
+}
+
+func TestMatchParameterizeConcreteTypeResultMatch(t *testing.T) {
+	decimal382Concrete := &DecimalType{Precision: 38, Scale: 2}
+	fixedCharLen5 := &FixedCharType{Length: 5}
+	varCharLen5 := &VarCharType{Length: 5}
+	fixedBinaryLen5 := &FixedBinaryType{Length: 5}
+
+	concreteInt38 := integer_parameters.NewConcreteIntParam(38)
+	concreteInt2 := integer_parameters.NewConcreteIntParam(2)
+	concreteInt5 := integer_parameters.NewConcreteIntParam(5)
+	for _, td := range []struct {
+		name          string
+		paramType     FuncDefArgType
+		argOfSameType Type
+	}{
+		{"decimalConcreteToDecimalConcrete", &ParameterizedDecimalType{Precision: concreteInt38, Scale: concreteInt2}, decimal382Concrete},
+		{"fixedCharType", &ParameterizedFixedCharType{IntegerOption: concreteInt5}, fixedCharLen5},
+		{"varCharType", &ParameterizedVarCharType{IntegerOption: concreteInt5}, varCharLen5},
+		{"fixedBinaryType", &ParameterizedFixedBinaryType{IntegerOption: concreteInt5}, fixedBinaryLen5},
+		{"listType", &ParameterizedListType{Type: &ParameterizedDecimalType{Precision: concreteInt38, Scale: concreteInt2}}, &ListType{Type: &DecimalType{Precision: 38, Scale: 2}}},
+		{"listTypeWithOtherListType", &ParameterizedListType{Type: &ParameterizedDecimalType{Precision: concreteInt38, Scale: concreteInt2}}, &ListType{Type: &DecimalType{Precision: 38, Scale: 2}}},
+		{"mapTypeKeyTypeDiffers", &ParameterizedMapType{Key: &Int32Type{}, Value: &BooleanType{}}, &MapType{Key: &Int32Type{}, Value: &BooleanType{}}},
+		{"mapTypeValueTypeDiffers", &ParameterizedMapType{Key: &Int32Type{}, Value: &BooleanType{}}, &MapType{Key: &Int32Type{}, Value: &BooleanType{}}},
+		{"structType", &ParameterizedStructType{Types: []FuncDefArgType{&BooleanType{}, &BooleanType{}}}, &StructType{Types: []Type{&BooleanType{}, &BooleanType{}}}},
+	} {
+		t.Run(td.name, func(t *testing.T) {
+			// MatchWithNullability should match exact nullability and not match with different nullability
+			assert.True(t, td.paramType.SetNullability(NullabilityNullable).MatchWithNullability(td.argOfSameType.WithNullability(NullabilityNullable)))
+			assert.True(t, td.paramType.SetNullability(NullabilityRequired).MatchWithNullability(td.argOfSameType.WithNullability(NullabilityRequired)))
+			assert.False(t, td.paramType.SetNullability(NullabilityRequired).MatchWithNullability(td.argOfSameType.WithNullability(NullabilityNullable)))
+			assert.False(t, td.paramType.SetNullability(NullabilityRequired).MatchWithNullability(td.argOfSameType.WithNullability(NullabilityNullable)))
+
+			// MatchWithoutNullability should match no matter what the nullability is
+			assert.True(t, td.paramType.SetNullability(NullabilityNullable).MatchWithoutNullability(td.argOfSameType.WithNullability(NullabilityNullable)))
+			assert.True(t, td.paramType.SetNullability(NullabilityRequired).MatchWithoutNullability(td.argOfSameType.WithNullability(NullabilityRequired)))
+			assert.True(t, td.paramType.SetNullability(NullabilityRequired).MatchWithoutNullability(td.argOfSameType.WithNullability(NullabilityNullable)))
+			assert.True(t, td.paramType.SetNullability(NullabilityRequired).MatchWithoutNullability(td.argOfSameType.WithNullability(NullabilityNullable)))
+		})
+	}
+}
+
+func TestMatchParameterizeConcreteTypeResultMismatch(t *testing.T) {
+	decimal380Concrete := &DecimalType{Precision: 38, Scale: 0}
+	fixedCharLen6 := &FixedCharType{Length: 6}
+	varCharLen6 := &VarCharType{Length: 6}
+	fixedBinaryLen6 := &FixedBinaryType{Length: 6}
+
+	concreteInt38 := integer_parameters.NewConcreteIntParam(38)
+	concreteInt2 := integer_parameters.NewConcreteIntParam(2)
+	concreteInt5 := integer_parameters.NewConcreteIntParam(5)
+	for _, td := range []struct {
+		name           string
+		paramType      FuncDefArgType
+		argOfOtherType Type
+	}{
+		{"decimalConcreteToDecimalConcrete", &ParameterizedDecimalType{Precision: concreteInt38, Scale: concreteInt2}, decimal380Concrete},
+		{"fixedCharType", &ParameterizedFixedCharType{IntegerOption: concreteInt5}, fixedCharLen6},
+		{"varCharType", &ParameterizedVarCharType{IntegerOption: concreteInt5}, varCharLen6},
+		{"fixedBinaryType", &ParameterizedFixedBinaryType{IntegerOption: concreteInt5}, fixedBinaryLen6},
+		{"listType", &ParameterizedListType{Type: &ParameterizedDecimalType{Precision: concreteInt38, Scale: concreteInt2}}, &DecimalType{Precision: 38, Scale: 0}},
+		{"listTypeWithOtherListType", &ParameterizedListType{Type: &ParameterizedDecimalType{Precision: concreteInt38, Scale: concreteInt2}}, &ListType{Type: &BooleanType{}}},
+		{"mapTypeKeyTypeDiffers", &ParameterizedMapType{Key: &Int32Type{}, Value: &BooleanType{}}, &MapType{Key: &Int64Type{}, Value: &BooleanType{}}},
+		{"mapTypeValueTypeDiffers", &ParameterizedMapType{Key: &Int32Type{}, Value: &BooleanType{}}, &MapType{Key: &Int32Type{}, Value: &DecimalType{Precision: 38, Scale: 2}}},
+		{"structType Mismatch DifferInType", &ParameterizedStructType{Types: []FuncDefArgType{&BooleanType{}, &BooleanType{}}}, &MapType{Key: &Int64Type{}, Value: &BooleanType{}}},
+		{"structType Mismatch DifferInEmbedTypeLen", &ParameterizedStructType{Types: []FuncDefArgType{&BooleanType{}, &BooleanType{}}}, &StructType{Types: []Type{&BooleanType{}}}},
+		{"structType Mismatch InFirstEmbedType", &ParameterizedStructType{Types: []FuncDefArgType{&BooleanType{}, &BooleanType{}}}, &StructType{Types: []Type{&DecimalType{Precision: 38, Scale: 2}, &BooleanType{}}}},
+		{"structType Mismatch InLastEmbedType", &ParameterizedStructType{Types: []FuncDefArgType{&BooleanType{}, &BooleanType{}}}, &StructType{Types: []Type{&BooleanType{}, &DecimalType{Precision: 38, Scale: 2}}}},
+	} {
+		t.Run(td.name, func(t *testing.T) {
+			assert.False(t, td.paramType.MatchWithNullability(td.argOfOtherType))
+			assert.False(t, td.paramType.MatchWithoutNullability(td.argOfOtherType))
+		})
+	}
+}
+
+func TestMatchParameterizedNonNestedTypeResultMatch(t *testing.T) {
+	intParamLen := integer_parameters.NewVariableIntParam("L1")
+	argFixedCharLen := &FixedCharType{Length: 5}
+	paramFixedChar := &ParameterizedFixedCharType{IntegerOption: intParamLen}
+	argVarChar := &VarCharType{Length: 5}
+	paramVarChar := &ParameterizedVarCharType{IntegerOption: intParamLen}
+	argFixedBinaryLen := &FixedBinaryType{Length: 5}
+	paramFixedBinary := &ParameterizedFixedBinaryType{IntegerOption: intParamLen}
+	argPrecisionTimeStamp := &PrecisionTimestampType{Precision: PrecisionEMinus5Seconds}
+	paramPrecisionTimeStamp := &ParameterizedPrecisionTimestampType{IntegerOption: intParamLen}
+	argPrecisionTimeStampTzType := &PrecisionTimestampTzType{PrecisionTimestampType: PrecisionTimestampType{Precision: PrecisionMicroSeconds}}
+	paramPrecisionTimeStampTz := &ParameterizedPrecisionTimestampTzType{IntegerOption: intParamLen}
+	argDecimalType := &DecimalType{Precision: 38, Scale: 2}
+	paramDecimalType := &ParameterizedDecimalType{Precision: integer_parameters.NewVariableIntParam("P"), Scale: integer_parameters.NewVariableIntParam("S")}
+
+	for _, td := range []struct {
+		name      string
+		paramType FuncDefArgType
+		argType   Type
+	}{
+		{"fixedChar", paramFixedChar, argFixedCharLen},
+		{"varChar", paramVarChar, argVarChar},
+		{"fixBinary", paramFixedBinary, argFixedBinaryLen},
+		{"precisionTimestamp", paramPrecisionTimeStamp, argPrecisionTimeStamp},
+		{"precisionTimestampTz", paramPrecisionTimeStampTz, argPrecisionTimeStampTzType},
+		{"decimalType", paramDecimalType, argDecimalType},
+	} {
+		t.Run(td.name, func(t *testing.T) {
+			// MatchWithNullability should match exact nullability and not match with different nullability
+			assert.True(t, td.paramType.SetNullability(NullabilityNullable).MatchWithNullability(td.argType.WithNullability(NullabilityNullable)))
+			assert.True(t, td.paramType.SetNullability(NullabilityRequired).MatchWithNullability(td.argType.WithNullability(NullabilityRequired)))
+			assert.False(t, td.paramType.SetNullability(NullabilityRequired).MatchWithNullability(td.argType.WithNullability(NullabilityNullable)))
+			assert.False(t, td.paramType.SetNullability(NullabilityRequired).MatchWithNullability(td.argType.WithNullability(NullabilityNullable)))
+
+			// MatchWithoutNullability should match no matter what the nullability is
+			assert.True(t, td.paramType.SetNullability(NullabilityNullable).MatchWithoutNullability(td.argType.WithNullability(NullabilityNullable)))
+			assert.True(t, td.paramType.SetNullability(NullabilityRequired).MatchWithoutNullability(td.argType.WithNullability(NullabilityRequired)))
+			assert.True(t, td.paramType.SetNullability(NullabilityRequired).MatchWithoutNullability(td.argType.WithNullability(NullabilityNullable)))
+			assert.True(t, td.paramType.SetNullability(NullabilityRequired).MatchWithoutNullability(td.argType.WithNullability(NullabilityNullable)))
+		})
+	}
+}
+
+func TestMatchParameterizedNestedTypeResultMatch(t *testing.T) {
+	variableIntP := integer_parameters.NewVariableIntParam("P")
+	variableIntS := integer_parameters.NewVariableIntParam("S")
+
+	argDecimalType := &DecimalType{Precision: 38, Scale: 2, Nullability: NullabilityNullable}
+	paramDecimalType := markNullable(&ParameterizedDecimalType{Precision: variableIntP, Scale: variableIntS})
+	listTypeAsNestedArg := &ListType{Type: argDecimalType, Nullability: NullabilityNullable}
+	listTypeAsNestedParam := &ParameterizedListType{Type: paramDecimalType, Nullability: NullabilityNullable}
+
+	argListType := &ListType{Type: argDecimalType}
+	paramListType := &ParameterizedListType{Type: paramDecimalType}
+	argMapType := &MapType{Key: argDecimalType, Value: listTypeAsNestedArg}
+	paramMapType := &ParameterizedMapType{Key: paramDecimalType, Value: listTypeAsNestedParam}
+	argStructType := &StructType{Types: []Type{argDecimalType, listTypeAsNestedArg}}
+	paramStructType := &ParameterizedStructType{Types: []FuncDefArgType{paramDecimalType, listTypeAsNestedParam}}
+
+	for _, td := range []struct {
+		name      string
+		paramType FuncDefArgType
+		argType   Type
+	}{
+		{"list Type", paramListType, argListType},
+		{"map Type", paramMapType, argMapType},
+		{"struct Type", paramStructType, argStructType},
+	} {
+		t.Run(td.name, func(t *testing.T) {
+			// MatchWithNullability should match exact nullability and not match with different nullability
+			assert.True(t, td.paramType.SetNullability(NullabilityNullable).MatchWithNullability(td.argType.WithNullability(NullabilityNullable)))
+			assert.True(t, td.paramType.SetNullability(NullabilityRequired).MatchWithNullability(td.argType.WithNullability(NullabilityRequired)))
+			assert.False(t, td.paramType.SetNullability(NullabilityRequired).MatchWithNullability(td.argType.WithNullability(NullabilityNullable)))
+			assert.False(t, td.paramType.SetNullability(NullabilityRequired).MatchWithNullability(td.argType.WithNullability(NullabilityNullable)))
+
+			// MatchWithoutNullability should match no matter what the nullability is
+			assert.True(t, td.paramType.SetNullability(NullabilityNullable).MatchWithoutNullability(td.argType.WithNullability(NullabilityNullable)))
+			assert.True(t, td.paramType.SetNullability(NullabilityRequired).MatchWithoutNullability(td.argType.WithNullability(NullabilityRequired)))
+			assert.True(t, td.paramType.SetNullability(NullabilityRequired).MatchWithoutNullability(td.argType.WithNullability(NullabilityNullable)))
+			assert.True(t, td.paramType.SetNullability(NullabilityRequired).MatchWithoutNullability(td.argType.WithNullability(NullabilityNullable)))
+		})
+	}
+}
+
+func markNullable(t FuncDefArgType) FuncDefArgType {
+	return t.SetNullability(NullabilityNullable)
 }

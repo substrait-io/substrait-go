@@ -108,6 +108,10 @@ func (m *PrecisionTimestampType) BaseString() string {
 	return typeNames[reflect.TypeOf(m)]
 }
 
+func (m *PrecisionTimestampType) GetPrecision() TimePrecision {
+	return m.Precision
+}
+
 // PrecisionTimestampTzType this is used to represent a type of Precision timestamp with TimeZone
 type PrecisionTimestampTzType struct {
 	PrecisionTimestampType

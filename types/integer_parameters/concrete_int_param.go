@@ -16,7 +16,7 @@ func NewConcreteIntParam(v int32) IntegerParameter {
 
 func (m *ConcreteIntParam) IsCompatible(o IntegerParameter) bool {
 	if t, ok := o.(*ConcreteIntParam); ok {
-		return t == m
+		return *t == *m
 	}
 	return false
 }
