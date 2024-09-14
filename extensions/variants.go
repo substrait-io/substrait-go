@@ -21,6 +21,19 @@ type FunctionVariant interface {
 	URI() string
 	ResolveType(argTypes []types.Type) (types.Type, error)
 	Variadic() *VariadicBehavior
+	// Match this function matches input arguments against this functions parameter list
+	// returns (true, nil) if all input argument can type replace the function definition argument
+	// returns (false, err) for invalid input argument. For e.g. if input argument nullability is not correctly
+	// set this function will return error
+	// returns (false, nil) valid input arguments and argument list type replace parameter list
+	Match(argumentTypes []types.Type) (bool, error)
+	// MatchAt this function matches input argument at position against definition of this
+	// functions argument at same position
+	// returns (true, nil) if input argument can type replace the function definition argument
+	// returns (false, err) for invalid input argument. For e.g. if input arg position is negative or
+	// argument nullability is not correctly set this function will return error
+	// returns (false, nil) valid input argument type and argument can't type replace parameter at argPos
+	MatchAt(typ types.Type, pos int) (bool, error)
 }
 
 func EvaluateTypeExpression(nullHandling NullabilityHandling, expr parser.TypeExpression, paramTypeList ArgumentList, actualTypes []types.Type) (types.Type, error) {
@@ -82,6 +95,109 @@ func EvaluateTypeExpression(nullHandling NullabilityHandling, expr parser.TypeEx
 	}
 
 	return outType, nil
+}
+
+func matchArguments(nullability NullabilityHandling, paramTypeList ArgumentList, variadicBehavior *VariadicBehavior, actualTypes []types.Type) (bool, error) {
+	if variadicBehavior == nil && len(actualTypes) != len(paramTypeList) {
+		return false, nil
+	} else if variadicBehavior != nil && !validateVariadicBehaviorForMatch(variadicBehavior, actualTypes) {
+		return false, nil
+	}
+	funcDefArgList, err := getFuncDefFromArgList(paramTypeList)
+	if err != nil {
+		return false, nil
+	}
+	// loop over actualTypes and not params since actualTypes can be more than params
+	// considering variadic type
+	for argPos := range actualTypes {
+		match, err1 := matchArgumentAtCommon(actualTypes[argPos], argPos, nullability, funcDefArgList, variadicBehavior)
+		if err1 != nil {
+			return false, err1
+		}
+		if !match {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func matchArgumentAt(actualType types.Type, argPos int, nullability NullabilityHandling, paramTypeList ArgumentList, variadicBehavior *VariadicBehavior) (bool, error) {
+	if argPos < 0 {
+		return false, fmt.Errorf("non-zero argument position")
+	}
+	funcDefArgList, err := getFuncDefFromArgList(paramTypeList)
+	if err != nil {
+		return false, nil
+	}
+	return matchArgumentAtCommon(actualType, argPos, nullability, funcDefArgList, variadicBehavior)
+}
+
+func matchArgumentAtCommon(actualType types.Type, argPos int, nullability NullabilityHandling, funcDefArgList []types.FuncDefArgType, variadicBehavior *VariadicBehavior) (bool, error) {
+	// check if argument out of range
+	if variadicBehavior == nil && argPos >= len(funcDefArgList) {
+		return false, nil
+	} else if variadicBehavior != nil && !variadicBehavior.IsValidArgumentCount(argPos+1) {
+		// this argument position can't be more than the max allowed by the variadic behavior
+		return false, nil
+	}
+
+	if HasSyncParams(funcDefArgList) {
+		return false, fmt.Errorf("%w: function has sync params", substraitgo.ErrNotImplemented)
+	}
+	// if argPos is >= len(funcDefArgList) than last funcDefArg type should be considered for type match
+	// already checked for parameter in range above (considering variadic) so no need to check again for variadic
+	var funcDefArg types.FuncDefArgType
+	if argPos < len(funcDefArgList) {
+		funcDefArg = funcDefArgList[argPos]
+	} else {
+		funcDefArg = funcDefArgList[len(funcDefArgList)-1]
+	}
+	switch nullability {
+	case DiscreteNullability:
+		return funcDefArg.MatchWithNullability(actualType), nil
+	case MirrorNullability, DeclaredOutputNullability:
+		return funcDefArg.MatchWithoutNullability(actualType), nil
+	}
+	// unreachable case
+	return false, fmt.Errorf("invalid nullability type: %s", nullability)
+}
+
+func validateVariadicBehaviorForMatch(variadicBehavior *VariadicBehavior, actualTypes []types.Type) bool {
+	if !variadicBehavior.IsValidArgumentCount(len(actualTypes)) {
+		return false
+	}
+	// verify consistency of variadic behavior
+	if variadicBehavior.ParameterConsistency == ConsistentParams {
+		// all concrete types must be equal for all variable arguments
+		firstVariadicArgIdx := variadicBehavior.Min - 1
+		for i := firstVariadicArgIdx; i < len(actualTypes)-1; i++ {
+			if !actualTypes[i].Equals(actualTypes[i+1]) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func getFuncDefFromArgList(paramTypeList ArgumentList) ([]types.FuncDefArgType, error) {
+	var out []types.FuncDefArgType
+	for argPos, param := range paramTypeList {
+		switch paramType := param.(type) {
+		case ValueArg:
+			funcDefArgType, err := paramType.Value.Expr.(*parser.Type).ArgType()
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, funcDefArgType)
+		case EnumArg:
+			return nil, fmt.Errorf("%w: invalid argument at position %d for match operation", substraitgo.ErrInvalidType, argPos)
+		case TypeArg:
+			return nil, fmt.Errorf("%w: invalid argument at position %d for match operation", substraitgo.ErrInvalidType, argPos)
+		default:
+			return nil, fmt.Errorf("%w: invalid argument at position %d for match operation", substraitgo.ErrInvalidType, argPos)
+		}
+	}
+	return out, nil
 }
 
 func parseFuncName(compoundName string) (name string, args ArgumentList) {
@@ -158,6 +274,14 @@ func (s *ScalarFunctionVariant) CompoundName() string {
 }
 func (s *ScalarFunctionVariant) ID() ID {
 	return ID{URI: s.uri, Name: s.CompoundName()}
+}
+
+func (s *ScalarFunctionVariant) Match(argumentTypes []types.Type) (bool, error) {
+	return matchArguments(s.Nullability(), s.impl.Args, s.impl.Variadic, argumentTypes)
+}
+
+func (s *ScalarFunctionVariant) MatchAt(typ types.Type, pos int) (bool, error) {
+	return matchArgumentAt(typ, pos, s.Nullability(), s.impl.Args, s.impl.Variadic)
 }
 
 // NewAggFuncVariant constructs a variant with the provided name and uri
@@ -268,6 +392,12 @@ func (s *AggregateFunctionVariant) Intermediate() (types.FuncDefArgType, error) 
 }
 func (s *AggregateFunctionVariant) Ordered() bool { return s.impl.Ordered }
 func (s *AggregateFunctionVariant) MaxSet() int   { return s.impl.MaxSet }
+func (s *AggregateFunctionVariant) Match(argumentTypes []types.Type) (bool, error) {
+	return matchArguments(s.Nullability(), s.impl.Args, s.impl.Variadic, argumentTypes)
+}
+func (s *AggregateFunctionVariant) MatchAt(typ types.Type, pos int) (bool, error) {
+	return matchArgumentAt(typ, pos, s.Nullability(), s.impl.Args, s.impl.Variadic)
+}
 
 type WindowFunctionVariant struct {
 	name        string
@@ -376,6 +506,12 @@ func (s *WindowFunctionVariant) Intermediate() (types.FuncDefArgType, error) {
 func (s *WindowFunctionVariant) Ordered() bool          { return s.impl.Ordered }
 func (s *WindowFunctionVariant) MaxSet() int            { return s.impl.MaxSet }
 func (s *WindowFunctionVariant) WindowType() WindowType { return s.impl.WindowType }
+func (s *WindowFunctionVariant) Match(argumentTypes []types.Type) (bool, error) {
+	return matchArguments(s.Nullability(), s.impl.Args, s.impl.Variadic, argumentTypes)
+}
+func (s *WindowFunctionVariant) MatchAt(typ types.Type, pos int) (bool, error) {
+	return matchArgumentAt(typ, pos, s.Nullability(), s.impl.Args, s.impl.Variadic)
+}
 
 // HasSyncParams This API returns if params share a leaf param name
 func HasSyncParams(params []types.FuncDefArgType) bool {
