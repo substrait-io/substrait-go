@@ -121,7 +121,12 @@ func (d *dialectImpl) LocalizeTypeRegistry(registry TypeRegistry) (LocalTypeRegi
 		if err != nil {
 			return nil, fmt.Errorf("%w: unknown type %v", substraitgo.ErrInvalidDialect, name)
 		}
-		typeInfos = append(typeInfos, typeInfo{typ: typ, shortName: name, localName: info.SqlTypeName, supportedAsColumn: info.SupportedAsColumn})
+		typeInfos = append(typeInfos, typeInfo{
+			typ:               typ,
+			shortName:         name,
+			localName:         info.SqlTypeName,
+			supportedAsColumn: info.isSupportedAsColumn(),
+		})
 	}
 	return NewLocalTypeRegistry(typeInfos), nil
 }
@@ -187,7 +192,14 @@ type dialectFile struct {
 
 type dialectTypeInfo struct {
 	SqlTypeName       string `yaml:"sql_type_name"`
-	SupportedAsColumn bool   `yaml:"supported_as_column"`
+	SupportedAsColumn *bool  `yaml:"supported_as_column"`
+}
+
+func (ti *dialectTypeInfo) isSupportedAsColumn() bool {
+	if ti.SupportedAsColumn == nil {
+		return true
+	}
+	return *ti.SupportedAsColumn
 }
 
 func (d *dialectFile) getUriAndFunctionName(df *dialectFunction) (string, string) {
