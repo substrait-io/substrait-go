@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/creasty/defaults"
 	"github.com/goccy/go-yaml"
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/extensions"
@@ -32,7 +33,7 @@ type dialectImpl struct {
 	name string
 	file dialectFile
 
-	toLocalTypeMap map[string]dialectTypeInfo // substrait short type name to dialectTypeInfo
+	toLocalTypeMap map[string]*dialectTypeInfo // substrait short type name to dialectTypeInfo
 
 	localScalarFunctions    map[extensions.ID]*dialectFunctionInfo
 	localAggregateFunctions map[extensions.ID]*dialectFunctionInfo
@@ -150,6 +151,12 @@ func (d *dialectImpl) Load(reader io.Reader) error {
 	if err != nil {
 		return err
 	}
+	for _, ti := range d.file.SupportedTypes {
+		if err := defaults.Set(ti); err != nil {
+			return err
+		}
+	}
+
 	d.toLocalTypeMap = d.file.SupportedTypes
 	d.localScalarFunctions = d.buildFunctionInfoMap(d.file.ScalarFunctions)
 	d.localAggregateFunctions = d.buildFunctionInfoMap(d.file.AggregateFunctions)
@@ -181,25 +188,22 @@ func (d *dialectImpl) buildFunctionInfoMap(functions []dialectFunction) map[exte
 }
 
 type dialectFile struct {
-	Name               string                     `yaml:"name"`
-	Type               string                     `yaml:"type"`
-	SupportedTypes     map[string]dialectTypeInfo `yaml:"supported_types,omitempty"`
-	ScalarFunctions    []dialectFunction          `yaml:"scalar_functions,omitempty"`
-	AggregateFunctions []dialectFunction          `yaml:"aggregate_functions,omitempty"`
-	WindowFunctions    []dialectFunction          `yaml:"window_functions,omitempty"`
-	Dependencies       map[string]string          `yaml:"dependencies,omitempty"`
+	Name               string                      `yaml:"name"`
+	Type               string                      `yaml:"type"`
+	SupportedTypes     map[string]*dialectTypeInfo `yaml:"supported_types,omitempty"`
+	ScalarFunctions    []dialectFunction           `yaml:"scalar_functions,omitempty"`
+	AggregateFunctions []dialectFunction           `yaml:"aggregate_functions,omitempty"`
+	WindowFunctions    []dialectFunction           `yaml:"window_functions,omitempty"`
+	Dependencies       map[string]string           `yaml:"dependencies,omitempty"`
 }
 
 type dialectTypeInfo struct {
 	SqlTypeName       string `yaml:"sql_type_name"`
-	SupportedAsColumn *bool  `yaml:"supported_as_column"`
+	SupportedAsColumn *bool  `yaml:"supported_as_column" default:"true"`
 }
 
 func (ti *dialectTypeInfo) isSupportedAsColumn() bool {
-	if ti.SupportedAsColumn == nil {
-		return true
-	}
-	return *ti.SupportedAsColumn
+	return ti.SupportedAsColumn != nil && *ti.SupportedAsColumn
 }
 
 func (d *dialectFile) getUriAndFunctionName(df *dialectFunction) (string, string) {
