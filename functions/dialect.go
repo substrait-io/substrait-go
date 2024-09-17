@@ -33,7 +33,7 @@ type dialectImpl struct {
 	name string
 	file dialectFile
 
-	toLocalTypeMap map[string]*dialectTypeInfo // substrait short type name to dialectTypeInfo
+	toLocalTypeMap map[string]dialectTypeInfo // substrait short type name to dialectTypeInfo
 
 	localScalarFunctions    map[extensions.ID]*dialectFunctionInfo
 	localAggregateFunctions map[extensions.ID]*dialectFunctionInfo
@@ -151,10 +151,8 @@ func (d *dialectImpl) Load(reader io.Reader) error {
 	if err != nil {
 		return err
 	}
-	for _, ti := range d.file.SupportedTypes {
-		if err := defaults.Set(ti); err != nil {
-			return err
-		}
+	if err := defaults.Set(&d.file); err != nil {
+		return err
 	}
 
 	d.toLocalTypeMap = d.file.SupportedTypes
@@ -188,13 +186,13 @@ func (d *dialectImpl) buildFunctionInfoMap(functions []dialectFunction) map[exte
 }
 
 type dialectFile struct {
-	Name               string                      `yaml:"name"`
-	Type               string                      `yaml:"type"`
-	SupportedTypes     map[string]*dialectTypeInfo `yaml:"supported_types,omitempty"`
-	ScalarFunctions    []dialectFunction           `yaml:"scalar_functions,omitempty"`
-	AggregateFunctions []dialectFunction           `yaml:"aggregate_functions,omitempty"`
-	WindowFunctions    []dialectFunction           `yaml:"window_functions,omitempty"`
-	Dependencies       map[string]string           `yaml:"dependencies,omitempty"`
+	Name               string                     `yaml:"name"`
+	Type               string                     `yaml:"type"`
+	SupportedTypes     map[string]dialectTypeInfo `yaml:"supported_types,omitempty"`
+	ScalarFunctions    []dialectFunction          `yaml:"scalar_functions,omitempty"`
+	AggregateFunctions []dialectFunction          `yaml:"aggregate_functions,omitempty"`
+	WindowFunctions    []dialectFunction          `yaml:"window_functions,omitempty"`
+	Dependencies       map[string]string          `yaml:"dependencies,omitempty"`
 }
 
 type dialectTypeInfo struct {
