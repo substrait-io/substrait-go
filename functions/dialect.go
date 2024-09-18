@@ -122,12 +122,7 @@ func (d *dialectImpl) LocalizeTypeRegistry(registry TypeRegistry) (LocalTypeRegi
 		if err != nil {
 			return nil, fmt.Errorf("%w: unknown type %v", substraitgo.ErrInvalidDialect, name)
 		}
-		typeInfos = append(typeInfos, typeInfo{
-			typ:               typ,
-			shortName:         name,
-			localName:         info.SqlTypeName,
-			supportedAsColumn: info.isSupportedAsColumn(),
-		})
+		typeInfos = append(typeInfos, typeInfo{typ: typ, shortName: name, localName: info.SqlTypeName, supportedAsColumn: info.SupportedAsColumn})
 	}
 	return NewLocalTypeRegistry(typeInfos), nil
 }
@@ -151,10 +146,6 @@ func (d *dialectImpl) Load(reader io.Reader) error {
 	if err != nil {
 		return err
 	}
-	if err := defaults.Set(&d.file); err != nil {
-		return err
-	}
-
 	d.toLocalTypeMap = d.file.SupportedTypes
 	d.localScalarFunctions = d.buildFunctionInfoMap(d.file.ScalarFunctions)
 	d.localAggregateFunctions = d.buildFunctionInfoMap(d.file.AggregateFunctions)
@@ -197,11 +188,20 @@ type dialectFile struct {
 
 type dialectTypeInfo struct {
 	SqlTypeName       string `yaml:"sql_type_name"`
-	SupportedAsColumn *bool  `yaml:"supported_as_column" default:"true"`
+	SupportedAsColumn bool   `yaml:"supported_as_column" default:"true"`
 }
 
-func (ti *dialectTypeInfo) isSupportedAsColumn() bool {
-	return ti.SupportedAsColumn != nil && *ti.SupportedAsColumn
+func (ti *dialectTypeInfo) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type alias dialectTypeInfo
+	aux := &alias{}
+	if err := defaults.Set(aux); err != nil {
+		return err
+	}
+	if err := unmarshal(aux); err != nil {
+		return err
+	}
+	*ti = dialectTypeInfo(*aux)
+	return nil
 }
 
 func (d *dialectFile) getUriAndFunctionName(df *dialectFunction) (string, string) {
