@@ -34,6 +34,10 @@ type FunctionVariant interface {
 	// argument nullability is not correctly set this function will return error
 	// returns (false, nil) valid input argument type and argument can't type replace parameter at argPos
 	MatchAt(typ types.Type, pos int) (bool, error)
+	// MinArgumentCount returns minimum number of arguments required for this function
+	MinArgumentCount() int
+	// MaxArgumentCount returns minimum number of arguments accepted by this function
+	MaxArgumentCount() int
 }
 
 func validateType(arg Argument, actual types.Type, idx int, nullHandling NullabilityHandling) (bool, error) {
@@ -249,6 +253,20 @@ func parseFuncName(compoundName string) (name string, args ArgumentList) {
 	return name, args
 }
 
+func minArgumentCount(paramTypeList ArgumentList, variadicBehavior *VariadicBehavior) int {
+	if variadicBehavior == nil {
+		return len(paramTypeList)
+	}
+	return variadicBehavior.Min
+}
+
+func maxArgumentCount(paramTypeList ArgumentList, variadicBehavior *VariadicBehavior) int {
+	if variadicBehavior == nil {
+		return len(paramTypeList)
+	}
+	return variadicBehavior.Max
+}
+
 // NewScalarFuncVariant constructs a variant with the provided name and uri
 // and uses the defaults for everything else.
 //
@@ -313,6 +331,14 @@ func (s *ScalarFunctionVariant) Match(argumentTypes []types.Type) (bool, error) 
 
 func (s *ScalarFunctionVariant) MatchAt(typ types.Type, pos int) (bool, error) {
 	return matchArgumentAt(typ, pos, s.Nullability(), s.impl.Args, s.impl.Variadic)
+}
+
+func (s *ScalarFunctionVariant) MinArgumentCount() int {
+	return minArgumentCount(s.impl.Args, s.impl.Variadic)
+}
+
+func (s *ScalarFunctionVariant) MaxArgumentCount() int {
+	return maxArgumentCount(s.impl.Args, s.impl.Variadic)
 }
 
 // NewAggFuncVariant constructs a variant with the provided name and uri
@@ -429,6 +455,13 @@ func (s *AggregateFunctionVariant) Match(argumentTypes []types.Type) (bool, erro
 func (s *AggregateFunctionVariant) MatchAt(typ types.Type, pos int) (bool, error) {
 	return matchArgumentAt(typ, pos, s.Nullability(), s.impl.Args, s.impl.Variadic)
 }
+func (s *AggregateFunctionVariant) MinArgumentCount() int {
+	return minArgumentCount(s.impl.Args, s.impl.Variadic)
+}
+
+func (s *AggregateFunctionVariant) MaxArgumentCount() int {
+	return maxArgumentCount(s.impl.Args, s.impl.Variadic)
+}
 
 type WindowFunctionVariant struct {
 	name        string
@@ -542,6 +575,14 @@ func (s *WindowFunctionVariant) Match(argumentTypes []types.Type) (bool, error) 
 }
 func (s *WindowFunctionVariant) MatchAt(typ types.Type, pos int) (bool, error) {
 	return matchArgumentAt(typ, pos, s.Nullability(), s.impl.Args, s.impl.Variadic)
+}
+
+func (s *WindowFunctionVariant) MinArgumentCount() int {
+	return minArgumentCount(s.impl.Args, s.impl.Variadic)
+}
+
+func (s *WindowFunctionVariant) MaxArgumentCount() int {
+	return maxArgumentCount(s.impl.Args, s.impl.Variadic)
 }
 
 // HasSyncParams This API returns if params share a leaf param name

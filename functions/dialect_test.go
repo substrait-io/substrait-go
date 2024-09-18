@@ -678,6 +678,9 @@ scalar_functions:
 			match, err := fv[0].Match(tt.argTypes)
 			require.NoError(t, err)
 			require.True(t, match)
+			// non-variadic function, min/max argument count should be 2
+			require.Equal(t, 2, fv[0].MinArgumentCount())
+			require.Equal(t, 2, fv[0].MaxArgumentCount())
 
 			// test MatchAt
 			for pos, typ := range tt.argTypes {
@@ -953,6 +956,8 @@ scalar_functions:
 	// pass third argument as variadic, it should match against last argument type
 	argTypes := []types.Type{int64Nullable, int32Nullable, int32Nullable}
 	require.Len(t, fv, 1)
+	require.Equal(t, 1, fv[0].MinArgumentCount())
+	require.Equal(t, 3, fv[0].MaxArgumentCount())
 	match, err := fv[0].Match(argTypes)
 	require.NoError(t, err)
 	assert.True(t, match)
