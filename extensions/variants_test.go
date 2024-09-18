@@ -57,7 +57,54 @@ func TestEvaluateTypeExpression(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := extensions.EvaluateTypeExpression(tt.nulls, tt.ret, tt.extArgs, tt.args)
+			result, err := extensions.EvaluateTypeExpression(tt.nulls, tt.ret, tt.extArgs, nil, tt.args)
+			if tt.err == "" {
+				assert.NoError(t, err)
+				assert.Truef(t, tt.expected.Equals(result), "expected: %s\ngot: %s", tt.expected, result)
+			} else {
+				assert.EqualError(t, err, tt.err)
+			}
+		})
+	}
+}
+
+func TestVariantWithVariadic(t *testing.T) {
+	var (
+		p, _          = parser.New()
+		i64Null, _    = p.ParseString("i64?")
+		i64NonNull, _ = p.ParseString("i64")
+		// strNull, _    = p.ParseString("string?")
+	)
+
+	tests := []struct {
+		name     string
+		nulls    extensions.NullabilityHandling
+		ret      parser.TypeExpression
+		extArgs  extensions.ArgumentList
+		args     []types.Type
+		expected types.Type
+		variadic extensions.VariadicBehavior
+		err      string
+	}{
+		{"basic", "", *i64NonNull, extensions.ArgumentList{
+			extensions.ValueArg{Value: i64Null}},
+			[]types.Type{&types.Int64Type{Nullability: types.NullabilityNullable},
+				&types.Int64Type{Nullability: types.NullabilityNullable}},
+			&types.Int64Type{Nullability: types.NullabilityNullable},
+			extensions.VariadicBehavior{
+				Min: 0, ParameterConsistency: extensions.ConsistentParams}, ""},
+		{"bad arg count", "", *i64NonNull, extensions.ArgumentList{
+			extensions.ValueArg{Value: i64Null}},
+			[]types.Type{&types.Int64Type{Nullability: types.NullabilityNullable},
+				&types.Int64Type{Nullability: types.NullabilityNullable}},
+			nil, extensions.VariadicBehavior{
+				Min: 2, ParameterConsistency: extensions.ConsistentParams},
+			"invalid expression: mismatch in number of arguments provided, invalid number of variadic params. got 2 total"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := extensions.EvaluateTypeExpression(tt.nulls, tt.ret, tt.extArgs, &tt.variadic, tt.args)
 			if tt.err == "" {
 				assert.NoError(t, err)
 				assert.Truef(t, tt.expected.Equals(result), "expected: %s\ngot: %s", tt.expected, result)
