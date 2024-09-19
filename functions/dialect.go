@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/creasty/defaults"
 	"github.com/goccy/go-yaml"
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/extensions"
@@ -187,7 +188,20 @@ type dialectFile struct {
 
 type dialectTypeInfo struct {
 	SqlTypeName       string `yaml:"sql_type_name"`
-	SupportedAsColumn bool   `yaml:"supported_as_column"`
+	SupportedAsColumn bool   `yaml:"supported_as_column" default:"true"`
+}
+
+func (ti *dialectTypeInfo) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type alias dialectTypeInfo
+	aux := &alias{}
+	if err := defaults.Set(aux); err != nil {
+		return err
+	}
+	if err := unmarshal(aux); err != nil {
+		return err
+	}
+	*ti = dialectTypeInfo(*aux)
+	return nil
 }
 
 func (d *dialectFile) getUriAndFunctionName(df *dialectFunction) (string, string) {

@@ -99,8 +99,6 @@ supported_types:
     supported_as_column: true
   i64:
     sql_type_name: int64
-    supported_as_column: true
-    supported_as_column: true
   date:
     sql_type_name: DATE
     supported_as_column: true
@@ -112,16 +110,12 @@ supported_types:
     supported_as_column: true
   dec:
     sql_type_name: NUMERIC
-    supported_as_column: true
   vchar:
     sql_type_name: VARCHAR
-    supported_as_column: true
   fchar:
     sql_type_name: CHAR
-    supported_as_column: true
   fbin:
     sql_type_name: BINARY
-    supported_as_column: true
 scalar_functions:
 - name: arithmetic.add
   local_name: +
@@ -182,7 +176,8 @@ scalar_functions:
 			assert.NoError(t, err)
 			assert.Equal(t, tt.localName, localType)
 
-			assert.Equal(t, tt.asColumn, localTypeRegistry.IsTypeSupportedInTables(tt.want))
+			assert.Equal(t, tt.asColumn, localTypeRegistry.IsTypeSupportedInTables(tt.want),
+				"IsTypeSupportedInTables(%s) failed", tt.name)
 		})
 	}
 
