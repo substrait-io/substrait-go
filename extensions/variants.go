@@ -257,14 +257,14 @@ func minArgumentCount(paramTypeList ArgumentList, variadicBehavior *VariadicBeha
 	if variadicBehavior == nil {
 		return len(paramTypeList)
 	}
-	return variadicBehavior.Min
+	return len(paramTypeList) + variadicBehavior.Min
 }
 
 func maxArgumentCount(paramTypeList ArgumentList, variadicBehavior *VariadicBehavior) int {
 	if variadicBehavior == nil {
 		return len(paramTypeList)
 	}
-	return variadicBehavior.Max
+	return len(paramTypeList) + variadicBehavior.Max
 }
 
 // NewScalarFuncVariant constructs a variant with the provided name and uri
