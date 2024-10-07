@@ -67,7 +67,6 @@ var simpleTypeNameMap = map[TypeName]Type{
 	TypeNameTimestamp:    &TimestampType{},
 	TypeNameTimestampTz:  &TimestampTzType{},
 	TypeNameIntervalYear: &IntervalYearType{},
-	TypeNameIntervalDay:  &IntervalDayType{},
 	TypeNameUUID:         &UUIDType{},
 }
 
@@ -75,6 +74,7 @@ var fixedTypeNameMap = map[TypeName]FixedType{
 	TypeNameFixedBinary: &FixedBinaryType{},
 	TypeNameFixedChar:   &FixedCharType{},
 	TypeNameVarChar:     &VarCharType{},
+	TypeNameIntervalDay: &IntervalDayType{},
 }
 
 var shortTypeNames = map[TypeName]string{
@@ -689,21 +689,22 @@ type (
 	TimeType                              = PrimitiveType[Time]
 	TimestampTzType                       = PrimitiveType[TimestampTz]
 	IntervalYearType                      = PrimitiveType[IntervalYearToMonth]
-	IntervalDayType                       = PrimitiveType[IntervalDayToSecond]
 	UUIDType                              = PrimitiveType[UUID]
 	FixedCharType                         = FixedLenType[FixedChar]
 	VarCharType                           = FixedLenType[VarChar]
 	FixedBinaryType                       = FixedLenType[FixedBinary]
+	IntervalDayType                       = FixedLenType[IntervalDayToSecond]
 	ParameterizedVarCharType              = parameterizedTypeSingleIntegerParam[*VarCharType]
 	ParameterizedFixedCharType            = parameterizedTypeSingleIntegerParam[*FixedCharType]
 	ParameterizedFixedBinaryType          = parameterizedTypeSingleIntegerParam[*FixedBinaryType]
 	ParameterizedPrecisionTimestampType   = parameterizedTypeSingleIntegerParam[*PrecisionTimestampType]
 	ParameterizedPrecisionTimestampTzType = parameterizedTypeSingleIntegerParam[*PrecisionTimestampTzType]
+	ParameterizedIntervalDayType          = parameterizedTypeSingleIntegerParam[*IntervalDayType]
 )
 
 // FixedLenType is any of the types which also need to track their specific
 // length as they have a fixed length.
-type FixedLenType[T FixedChar | VarChar | FixedBinary] struct {
+type FixedLenType[T FixedChar | VarChar | FixedBinary | IntervalDayToSecond] struct {
 	Nullability      Nullability
 	TypeVariationRef uint32
 	Length           int32

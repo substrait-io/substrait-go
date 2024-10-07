@@ -250,13 +250,13 @@ func TestDefaultCollection(t *testing.T) {
 		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_logarithmic.yaml",
 			"ln", "ln:fp32", 1, map[string]extensions.Option{
 				"rounding":        {Values: []string{"TIE_TO_EVEN", "TIE_AWAY_FROM_ZERO", "TRUNCATE", "CEILING", "FLOOR"}},
-				"on_domain_error": {Values: []string{"NAN", "ERROR"}},
+				"on_domain_error": {Values: []string{"NAN", "NULL", "ERROR"}},
 				"on_log_zero":     {Values: []string{"NAN", "ERROR", "MINUS_INFINITY"}},
 			}, nil},
 		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_rounding.yaml",
 			"ceil", "ceil:fp64", 1, nil, nil},
 		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_set.yaml",
-			"index_in", "index_in:t_list", 2, map[string]extensions.Option{
+			"index_in", "index_in:any_list", 2, map[string]extensions.Option{
 				"nan_equality": {Values: []string{"NAN_IS_NAN", "NAN_IS_NOT_NAN"}},
 			}, nil},
 		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_string.yaml",

@@ -3,14 +3,15 @@
 package extensions
 
 import (
-	"embed"
 	"fmt"
 	"io"
+	"io/fs"
 	"path"
 	"sort"
 
 	"github.com/creasty/defaults"
 	"github.com/goccy/go-yaml"
+	substrait "github.com/substrait-io/substrait"
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/proto/extensions"
 )
@@ -20,31 +21,46 @@ type AdvancedExtension = extensions.AdvancedExtension
 const SubstraitDefaultURIPrefix = "https://github.com/substrait-io/substrait/blob/main/extensions/"
 
 // DefaultCollection is loaded with the default Substrait extension
-// definitions with the exception of decimal arithmetic. Decimal arithmetic
-// functions are missing as the complex return type expressions are not
-// yet implemented.
+// definitions.
+// Parser needs to enhanced until than below function files are not processed
+// 1. functions_arithmetic_decimal.yaml (need to parse complex return type)
+// 2. functions_geometry.yaml (need to parse geometry type)
+// 3. type_variations.yaml
+// 4. unknown.yaml
 var DefaultCollection Collection
 
-//go:embed definitions/*
-var definitions embed.FS
-
 func init() {
-	entries, err := definitions.ReadDir("definitions")
+	substraitFS := substrait.GetSubstraitFS()
+	entries, err := substraitFS.ReadDir("extensions")
 	if err != nil {
 		return
 	}
 
 	for _, ent := range entries {
-		f, err := definitions.Open(path.Join("definitions/", ent.Name()))
+		f, err := substraitFS.Open(path.Join("extensions/", ent.Name()))
 		if err != nil {
 			panic(err)
 		}
-		err = DefaultCollection.Load(SubstraitDefaultURIPrefix+ent.Name(), f)
+		fileStat, err := f.Stat()
 		if err != nil {
 			panic(err)
 		}
-		if err := f.Close(); err != nil {
-			panic(err)
+		fileName := path.Base(fileStat.Name())
+		// Catch and ignore load error for a file
+		// Currently extension grammar is not fully parseable
+		// There is a parser fix planned, once that is done,
+		// we can panic instead of ignoring failed extension file load
+		defer func(f fs.File, fileName string) {
+			if r := recover(); r != nil {
+				fmt.Printf("Ignoring extension file:%s, Recovered from panic: %v\n", fileName, r)
+			}
+			if err1 := f.Close(); err1 != nil {
+				panic(err1)
+			}
+		}(f, fileName)
+		err1 := DefaultCollection.Load(SubstraitDefaultURIPrefix+ent.Name(), f)
+		if err1 != nil {
+			fmt.Printf("Ignoring extension file:%s err:%v, Skipping it \n", fileName, err1)
 		}
 	}
 }

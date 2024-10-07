@@ -2,7 +2,9 @@
 
 module github.com/substrait-io/substrait-go
 
-go 1.22
+go 1.22.0
+
+toolchain go1.22.3
 
 require (
 	github.com/alecthomas/participle/v2 v2.0.0
@@ -12,6 +14,7 @@ require (
 	github.com/google/go-cmp v0.5.9
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.8.2
+	github.com/substrait-io/substrait v0.57.1
 	golang.org/x/exp v0.0.0-20230206171751-46f607a40771
 	google.golang.org/protobuf v1.33.0
 	gopkg.in/yaml.v3 v3.0.1

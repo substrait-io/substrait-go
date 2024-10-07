@@ -52,6 +52,7 @@ func TestParser(t *testing.T) {
 		{"list<decimal<P,S>>", "list<decimal<P,S>>", "list", &types.ParameterizedListType{Type: &types.ParameterizedDecimalType{Precision: parameterLeaf_P, Scale: parameterLeaf_S, Nullability: types.NullabilityRequired}, Nullability: types.NullabilityRequired}},
 		{"struct<list?<decimal<P,S>>, i16>", "struct<list?<decimal<P,S>>, i16>", "struct", &types.ParameterizedStructType{Types: []types.FuncDefArgType{&types.ParameterizedListType{Type: &types.ParameterizedDecimalType{Precision: parameterLeaf_P, Scale: parameterLeaf_S, Nullability: types.NullabilityRequired}, Nullability: types.NullabilityNullable}, &types.Int16Type{Nullability: types.NullabilityRequired}}, Nullability: types.NullabilityRequired}},
 		{"map<decimal<P,S>, i16>", "map<decimal<P,S>, i16>", "map", &types.ParameterizedMapType{Key: &types.ParameterizedDecimalType{Precision: parameterLeaf_P, Scale: parameterLeaf_S, Nullability: types.NullabilityRequired}, Value: &types.Int16Type{Nullability: types.NullabilityRequired}, Nullability: types.NullabilityRequired}},
+		{"precision_timestamp_tz?<L1>", "precision_timestamp_tz?<L1>", "pretstz", &types.ParameterizedPrecisionTimestampTzType{IntegerOption: parameterLeaf_L1}},
 	}
 
 	p, err := parser.New()
@@ -67,6 +68,34 @@ func TestParser(t *testing.T) {
 				typ, err := d.Expr.(*parser.Type).ArgType()
 				assert.NoError(t, err)
 				assert.Equal(t, reflect.TypeOf(td.expectedTyp), reflect.TypeOf(typ))
+			}
+		})
+	}
+}
+
+func TestParserRetType(t *testing.T) {
+	tests := []struct {
+		expr        string
+		expected    string
+		shortName   string
+		expectedTyp types.Type
+	}{
+		{"interval_day?<1>", "interval_day?<1>", "iday", &types.IntervalDayType{}},
+	}
+
+	p, err := parser.New()
+	require.NoError(t, err)
+
+	for _, td := range tests {
+		t.Run(td.expr, func(t *testing.T) {
+			d, err := p.ParseString(td.expr)
+			assert.NoError(t, err)
+			assert.Equal(t, td.expected, d.Expr.String())
+			if td.shortName != "" {
+				assert.Equal(t, td.shortName, d.Expr.(*parser.Type).ShortType())
+				retType, err := d.Expr.(*parser.Type).RetType()
+				assert.NoError(t, err)
+				assert.Equal(t, reflect.TypeOf(td.expectedTyp), reflect.TypeOf(retType))
 			}
 		})
 	}
