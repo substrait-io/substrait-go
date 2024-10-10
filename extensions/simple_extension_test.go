@@ -41,6 +41,36 @@ types:
 	assert.Nil(t, f.Types[3].Structure)
 }
 
+func TestUnmarshalCustomScalarFunction(t *testing.T) {
+	const customDef = `
+scalar_functions:
+  - name: "scalar1"
+    impls:
+      - args:
+          - name: arg1
+            value: u!customtype1
+        return: i64
+  - name: "scalar2"
+    impls:
+      - args:
+          - name: arg1
+            value: i64
+        return: u!customtype2?
+`
+
+	var f extensions.SimpleExtensionFile
+	require.NoError(t, yaml.Unmarshal([]byte(customDef), &f))
+
+	assert.Len(t, f.ScalarFunctions, 2)
+	assert.Equal(t, "scalar1", f.ScalarFunctions[0].Name)
+	assert.IsType(t, extensions.ValueArg{}, f.ScalarFunctions[0].Impls[0].Args[0])
+	arg1 := f.ScalarFunctions[0].Impls[0].Args[0].(extensions.ValueArg)
+	assert.Equal(t, "u!customtype1", arg1.Value.String())
+	assert.Equal(t, "scalar2", f.ScalarFunctions[1].Name)
+	assert.IsType(t, extensions.ValueArg{}, f.ScalarFunctions[1].Impls[0].Args[0])
+	assert.Equal(t, "u!customtype2?", f.ScalarFunctions[1].Impls[0].Return.String())
+}
+
 func TestUnmarshalSimpleExtensionScalarFunction(t *testing.T) {
 	const addDef = `
 scalar_functions:

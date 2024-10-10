@@ -122,7 +122,7 @@ func (t *typename) Capture(values []string) error {
 }
 
 type nonParamType struct {
-	TypeName    typename `parser:"@(IntType | Boolean | FPType | Temporal | BinaryType)"`
+	TypeName    typename `parser:"@(IntType | Boolean | FPType | Temporal | BinaryType | UserDefinedType)"`
 	Nullability bool     `parser:"@'?'?"`
 	// Variation   int      `parser:"'[' @\d+ ']'?"`
 }
@@ -588,6 +588,7 @@ var (
 		{Name: "LengthType", Pattern: `fixedchar|varchar|fixedbinary|precision_timestamp_tz|precision_timestamp`},
 		{Name: "Int", Pattern: `[-+]?\d+`},
 		{Name: "ParamType", Pattern: `(?i)(struct|list|decimal|map)`},
+		{Name: "UserDefinedType", Pattern: `u![a-zA-Z_][a-zA-Z0-9_]*`},
 		{Name: "Identifier", Pattern: `[a-zA-Z_$][a-zA-Z_$0-9]*`},
 		{Name: "Ident", Pattern: `([a-zA-Z_]\w*)|[><,?]`},
 	})
