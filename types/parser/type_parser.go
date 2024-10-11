@@ -229,13 +229,14 @@ func (l *listType) ArgType() (types.FuncDefArgType, error) {
 }
 
 type lengthType struct {
-	TypeName     string         `parser:"@LengthType '<'"`
+	TypeName     string         `parser:"@LengthType"`
+	Nullability  bool           `parser:"@'?'? '<'"`
 	NumericParam TypeExpression `parser:"@@ '>'"`
 }
 
 func (p *lengthType) ShortType() string {
 	switch p.TypeName {
-	case "fixedchar", "varchar", "fixedbinary":
+	case "fixedchar", "varchar", "fixedbinary", "interval_day":
 		return types.GetShortTypeName(types.TypeName(p.TypeName))
 	case "precision_timestamp":
 		return "prets"
@@ -246,13 +247,22 @@ func (p *lengthType) ShortType() string {
 }
 
 func (p *lengthType) String() string {
-	return p.TypeName + "<" + p.NumericParam.Expr.String() + ">"
+	var opt string
+	if p.Nullability {
+		opt = "?"
+	}
+	return p.TypeName + opt + "<" + p.NumericParam.Expr.String() + ">"
 }
 
 func (p *lengthType) Optional() bool { return false }
 
 func (p *lengthType) RetType() (types.Type, error) {
 	var n types.Nullability
+	if p.Nullability {
+		n = types.NullabilityNullable
+	} else {
+		n = types.NullabilityRequired
+	}
 	lit, ok := p.NumericParam.Expr.(*IntegerLiteral)
 	if !ok {
 		return nil, substraitgo.ErrNotImplemented
@@ -583,9 +593,9 @@ var (
 		{Name: "Boolean", Pattern: `(?i)boolean`},
 		{Name: "IntType", Pattern: `i(8|16|32|64)`},
 		{Name: "FPType", Pattern: `fp(32|64)`},
-		{Name: "Temporal", Pattern: `timestamp(_tz)?|date|time|interval_day|interval_year`},
+		{Name: "Temporal", Pattern: `timestamp(_tz)?|date|time|interval_year`},
 		{Name: "BinaryType", Pattern: `string|binary|uuid`},
-		{Name: "LengthType", Pattern: `fixedchar|varchar|fixedbinary|precision_timestamp_tz|precision_timestamp`},
+		{Name: "LengthType", Pattern: `fixedchar|varchar|fixedbinary|precision_timestamp_tz|precision_timestamp|interval_day`},
 		{Name: "Int", Pattern: `[-+]?\d+`},
 		{Name: "ParamType", Pattern: `(?i)(struct|list|decimal|map)`},
 		{Name: "Identifier", Pattern: `[a-zA-Z_$][a-zA-Z_$0-9]*`},
