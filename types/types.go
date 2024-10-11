@@ -43,6 +43,7 @@ const (
 	TypeNameIntervalYear TypeName = "interval_year"
 	TypeNameIntervalDay  TypeName = "interval_day"
 	TypeNameUUID         TypeName = "uuid"
+	TypeNameUDT          TypeName = "u!"
 
 	TypeNameFixedBinary          TypeName = "fixedbinary"
 	TypeNameFixedChar            TypeName = "fixedchar"
@@ -68,6 +69,7 @@ var simpleTypeNameMap = map[TypeName]Type{
 	TypeNameTimestampTz:  &TimestampTzType{},
 	TypeNameIntervalYear: &IntervalYearType{},
 	TypeNameUUID:         &UUIDType{},
+	TypeNameUDT:          &UserDefinedType{},
 }
 
 var fixedTypeNameMap = map[TypeName]FixedType{

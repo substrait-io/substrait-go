@@ -148,7 +148,11 @@ func (t *nonParamType) RetType() (types.Type, error) {
 	} else {
 		n = types.NullabilityRequired
 	}
-	typ, err := types.SimpleTypeNameToType(types.TypeName(t.TypeName))
+	typName := t.TypeName
+	if strings.HasPrefix(string(typName), "u!") {
+		typName = "u!"
+	}
+	typ, err := types.SimpleTypeNameToType(types.TypeName(typName))
 	if err == nil {
 		return typ.WithNullability(n), nil
 	}

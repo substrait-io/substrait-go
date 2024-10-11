@@ -3,6 +3,9 @@
 package extensions_test
 
 import (
+	"github.com/substrait-io/substrait-go/proto"
+	"github.com/substrait-io/substrait-go/types"
+	"github.com/substrait-io/substrait-go/types/parser"
 	"strings"
 	"testing"
 
@@ -60,15 +63,31 @@ scalar_functions:
 
 	var f extensions.SimpleExtensionFile
 	require.NoError(t, yaml.Unmarshal([]byte(customDef), &f))
-
 	assert.Len(t, f.ScalarFunctions, 2)
+
 	assert.Equal(t, "scalar1", f.ScalarFunctions[0].Name)
 	assert.IsType(t, extensions.ValueArg{}, f.ScalarFunctions[0].Impls[0].Args[0])
 	arg1 := f.ScalarFunctions[0].Impls[0].Args[0].(extensions.ValueArg)
 	assert.Equal(t, "u!customtype1", arg1.Value.String())
+	if def, ok := arg1.Value.Expr.(*parser.Type); assert.True(t, ok, "expected *parser.Type") {
+		if retDef, _ := def.TypeDef.(parser.Def); assert.True(t, ok, "expected parser.Def") {
+			typ, _ := retDef.RetType()
+			assert.IsType(t, &types.UserDefinedType{}, typ)
+			assert.Equal(t, proto.Type_NULLABILITY_REQUIRED, typ.GetNullability(), "expected Type_NULLABILITY_REQUIRED")
+		}
+	}
+
 	assert.Equal(t, "scalar2", f.ScalarFunctions[1].Name)
 	assert.IsType(t, extensions.ValueArg{}, f.ScalarFunctions[1].Impls[0].Args[0])
-	assert.Equal(t, "u!customtype2?", f.ScalarFunctions[1].Impls[0].Return.String())
+	ret := f.ScalarFunctions[1].Impls[0].Return
+	assert.Equal(t, "u!customtype2?", ret.String())
+	if def, ok := ret.Expr.(*parser.Type); assert.True(t, ok, "expected *parser.Type") {
+		if retDef, _ := def.TypeDef.(parser.Def); assert.True(t, ok, "expected parser.Def") {
+			typ, _ := retDef.RetType()
+			assert.IsType(t, &types.UserDefinedType{}, typ)
+			assert.Equal(t, proto.Type_NULLABILITY_NULLABLE, typ.GetNullability(), "expected NULLABILITY_NULLABLE")
+		}
+	}
 }
 
 func TestUnmarshalSimpleExtensionScalarFunction(t *testing.T) {
