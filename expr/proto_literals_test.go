@@ -36,6 +36,7 @@ func TestToProtoLiteral(t *testing.T) {
 }
 
 func TestLiteralFromProtoLiteral(t *testing.T) {
+	intDayToSecVal := &proto.Expression_Literal_IntervalDayToSecond{Days: 1, Seconds: 2, PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{Precision: 5}}
 	for _, tc := range []struct {
 		name             string
 		constructedProto *proto.Expression_Literal
@@ -48,6 +49,10 @@ func TestLiteralFromProtoLiteral(t *testing.T) {
 		{"TimeStampTzType",
 			&proto.Expression_Literal{LiteralType: &proto.Expression_Literal_PrecisionTimestampTz{PrecisionTimestampTz: &proto.Expression_Literal_PrecisionTimestamp{Precision: 9, Value: 12345678}}, Nullable: true},
 			&ProtoLiteral{Value: int64(12345678), Type: types.NewPrecisionTimestampTzType(types.PrecisionNanoSeconds).WithNullability(types.NullabilityNullable)},
+		},
+		{"IntervalDayType",
+			&proto.Expression_Literal{LiteralType: &proto.Expression_Literal_IntervalDayToSecond_{IntervalDayToSecond: intDayToSecVal}, Nullable: true},
+			&ProtoLiteral{Value: intDayToSecVal, Type: &types.IntervalDayType{Length: types.PrecisionEMinus5Seconds.ToProtoVal(), Nullability: types.NullabilityNullable}},
 		},
 		{"IntervalYearToMonthType",
 			&proto.Expression_Literal{LiteralType: &proto.Expression_Literal_IntervalYearToMonth_{IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: 1234, Months: 5}}, Nullable: true},

@@ -253,9 +253,18 @@ func TypeFromProto(t *proto.Type) Type {
 			TypeVariationRef: t.IntervalYear.TypeVariationReference,
 		}
 	case *proto.Type_IntervalDay_:
+		var precision = PrecisionMicroSeconds
+		if t.IntervalDay.Precision != nil {
+			var err error
+			precision, err = ProtoToTimePrecision(*t.IntervalDay.Precision)
+			if err != nil {
+				panic(fmt.Sprintf("Invalid precision %v", err))
+			}
+		}
 		return &IntervalDayType{
 			Nullability:      t.IntervalDay.Nullability,
 			TypeVariationRef: t.IntervalDay.TypeVariationReference,
+			Length:           precision.ToProtoVal(),
 		}
 	case *proto.Type_TimestampTz:
 		return &TimestampTzType{
@@ -492,8 +501,10 @@ func TypeToProto(t Type) *proto.Type {
 				Nullability:            t.Nullability,
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *IntervalDayType:
+		precision := t.Length
 		return &proto.Type{Kind: &proto.Type_IntervalDay_{
 			IntervalDay: &proto.Type_IntervalDay{
+				Precision:              &precision,
 				Nullability:            t.Nullability,
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *UUIDType:

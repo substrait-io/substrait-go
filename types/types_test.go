@@ -82,6 +82,8 @@ func TestTypeRoundtrip(t *testing.T) {
 				&FixedCharType{Nullability: n, Length: 25},
 				&VarCharType{Nullability: n, Length: 35},
 				&FixedBinaryType{Nullability: n, Length: 45},
+				&IntervalDayType{Nullability: n, Length: 5},
+				&IntervalDayType{Nullability: n},
 				&DecimalType{Nullability: n, Precision: 34, Scale: 3},
 				&MapType{Nullability: n, Key: &Int8Type{}, Value: &Int16Type{Nullability: n}},
 				&ListType{Nullability: n, Type: &TimeType{Nullability: n}},

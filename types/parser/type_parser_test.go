@@ -80,7 +80,7 @@ func TestParserRetType(t *testing.T) {
 		shortName   string
 		expectedTyp types.Type
 	}{
-		{"interval_day?<1>", "interval_day?<1>", "iday", &types.IntervalDayType{}},
+		{"interval_day?<1>", "interval_day?<1>", "iday", &types.IntervalDayType{Length: 1, Nullability: types.NullabilityNullable}},
 	}
 
 	p, err := parser.New()
@@ -96,6 +96,7 @@ func TestParserRetType(t *testing.T) {
 				retType, err := d.Expr.(*parser.Type).RetType()
 				assert.NoError(t, err)
 				assert.Equal(t, reflect.TypeOf(td.expectedTyp), reflect.TypeOf(retType))
+				assert.True(t, td.expectedTyp.Equals(retType))
 			}
 		})
 	}
