@@ -76,6 +76,8 @@ type Builder interface {
 	AggregateColumns(input Rel, measures []AggRelMeasure, groupByCols ...int32) (*AggregateRel, error)
 	AggregateExprsRemap(input Rel, remap []int32, measures []AggRelMeasure, groups ...[]expr.Expression) (*AggregateRel, error)
 	AggregateExprs(input Rel, measures []AggRelMeasure, groups ...[]expr.Expression) (*AggregateRel, error)
+	CreateTableAsSelectRemap(input Rel, remap []int32, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error)
+	CreateTableAsSelect(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error)
 	CrossRemap(left, right Rel, remap []int32) (*CrossRel, error)
 	Cross(left, right Rel) (*CrossRel, error)
 	FetchRemap(input Rel, offset, count uint64, remap []int32) (*FetchRel, error)
@@ -280,6 +282,32 @@ func (b *builder) AggregateExprsRemap(input Rel, remap []int32, measures []AggRe
 
 func (b *builder) AggregateExprs(input Rel, measures []AggRelMeasure, groups ...[]expr.Expression) (*AggregateRel, error) {
 	return b.AggregateExprsRemap(input, nil, measures, groups...)
+}
+
+func (b *builder) CreateTableAsSelectRemap(input Rel, remap []int32, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {
+	if input == nil {
+		return nil, errNilInputRel
+	}
+
+	noutput := int32(len(input.Remap(input.RecordType()).Types))
+	for _, idx := range remap {
+		if idx < 0 || idx >= noutput {
+			return nil, errOutputMappingOutOfRange
+		}
+	}
+
+	return &NamedTableWriteRel{
+		RelCommon:   RelCommon{mapping: remap},
+		names:       tableName,
+		tableSchema: schema,
+		op:          WriteOpCTAS,
+		input:       input,
+		outputMode:  OutputModeModifiedRecords,
+	}, nil
+}
+
+func (b *builder) CreateTableAsSelect(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {
+	return b.CreateTableAsSelectRemap(input, nil, tableName, schema)
 }
 
 func (b *builder) CrossRemap(left, right Rel, remap []int32) (*CrossRel, error) {
