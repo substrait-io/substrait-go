@@ -52,7 +52,7 @@ func TestLiteralFromProtoLiteral(t *testing.T) {
 		},
 		{"IntervalDayType",
 			&proto.Expression_Literal{LiteralType: &proto.Expression_Literal_IntervalDayToSecond_{IntervalDayToSecond: intDayToSecVal}, Nullable: true},
-			&ProtoLiteral{Value: intDayToSecVal, Type: &types.IntervalDayType{Length: types.PrecisionEMinus5Seconds.ToProtoVal(), Nullability: types.NullabilityNullable}},
+			&ProtoLiteral{Value: intDayToSecVal, Type: &types.IntervalDayType{Precision: types.PrecisionEMinus5Seconds, Nullability: types.NullabilityNullable}},
 		},
 		{"IntervalYearToMonthType",
 			&proto.Expression_Literal{LiteralType: &proto.Expression_Literal_IntervalYearToMonth_{IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: 1234, Months: 5}}, Nullable: true},

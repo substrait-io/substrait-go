@@ -74,7 +74,6 @@ var fixedTypeNameMap = map[TypeName]FixedType{
 	TypeNameFixedBinary: &FixedBinaryType{},
 	TypeNameFixedChar:   &FixedCharType{},
 	TypeNameVarChar:     &VarCharType{},
-	TypeNameIntervalDay: &IntervalDayType{},
 }
 
 var shortTypeNames = map[TypeName]string{
@@ -123,6 +122,7 @@ func GetTypeNameToTypeMap() map[string]Type {
 		typeMap[string(k)] = v
 	}
 	typeMap[string(TypeNameDecimal)] = &DecimalType{}
+	typeMap[string(TypeNameIntervalDay)] = &IntervalDayType{}
 	return typeMap
 }
 
@@ -264,7 +264,7 @@ func TypeFromProto(t *proto.Type) Type {
 		return &IntervalDayType{
 			Nullability:      t.IntervalDay.Nullability,
 			TypeVariationRef: t.IntervalDay.TypeVariationReference,
-			Length:           precision.ToProtoVal(),
+			Precision:        precision,
 		}
 	case *proto.Type_TimestampTz:
 		return &TimestampTzType{
@@ -501,7 +501,7 @@ func TypeToProto(t Type) *proto.Type {
 				Nullability:            t.Nullability,
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *IntervalDayType:
-		precision := t.Length
+		precision := t.Precision.ToProtoVal()
 		return &proto.Type{Kind: &proto.Type_IntervalDay_{
 			IntervalDay: &proto.Type_IntervalDay{
 				Precision:              &precision,
@@ -704,7 +704,6 @@ type (
 	FixedCharType                         = FixedLenType[FixedChar]
 	VarCharType                           = FixedLenType[VarChar]
 	FixedBinaryType                       = FixedLenType[FixedBinary]
-	IntervalDayType                       = FixedLenType[IntervalDayToSecond]
 	ParameterizedVarCharType              = parameterizedTypeSingleIntegerParam[*VarCharType]
 	ParameterizedFixedCharType            = parameterizedTypeSingleIntegerParam[*FixedCharType]
 	ParameterizedFixedBinaryType          = parameterizedTypeSingleIntegerParam[*FixedBinaryType]
@@ -715,7 +714,7 @@ type (
 
 // FixedLenType is any of the types which also need to track their specific
 // length as they have a fixed length.
-type FixedLenType[T FixedChar | VarChar | FixedBinary | IntervalDayToSecond] struct {
+type FixedLenType[T FixedChar | VarChar | FixedBinary] struct {
 	Nullability      Nullability
 	TypeVariationRef uint32
 	Length           int32

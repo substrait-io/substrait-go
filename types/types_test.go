@@ -31,7 +31,7 @@ func TestTypeToString(t *testing.T) {
 		{&TimeType{}, "time", "time"},
 		{&TimestampTzType{}, "timestamp_tz", "tstz"},
 		{&IntervalYearType{}, "interval_year", "iyear"},
-		{&IntervalDayType{Length: 5}, "interval_day<5>", "iday"},
+		{&IntervalDayType{Precision: 5}, "interval_day<5>", "iday"},
 		{&UUIDType{Nullability: NullabilityNullable}, "uuid?", "uuid"},
 		{&FixedBinaryType{Length: 10}, "fixedbinary<10>", "fbin"},
 		{&FixedCharType{Length: 5}, "char<5>", "fchar"},
@@ -77,13 +77,13 @@ func TestTypeRoundtrip(t *testing.T) {
 				&TimestampType{Nullability: n},
 				&TimestampTzType{Nullability: n},
 				&IntervalYearType{Nullability: n},
-				&IntervalDayType{Nullability: n},
 				&UUIDType{Nullability: n},
 				&FixedCharType{Nullability: n, Length: 25},
 				&VarCharType{Nullability: n, Length: 35},
 				&FixedBinaryType{Nullability: n, Length: 45},
-				&IntervalDayType{Nullability: n, Length: 5},
-				&IntervalDayType{Nullability: n},
+				&IntervalDayType{Nullability: n, Precision: 5},
+				&IntervalDayType{Nullability: n, Precision: 0},
+
 				&DecimalType{Nullability: n, Precision: 34, Scale: 3},
 				&MapType{Nullability: n, Key: &Int8Type{}, Value: &Int16Type{Nullability: n}},
 				&ListType{Nullability: n, Type: &TimeType{Nullability: n}},
@@ -95,7 +95,8 @@ func TestTypeRoundtrip(t *testing.T) {
 			for _, tt := range tests {
 				t.Run(tt.String(), func(t *testing.T) {
 					converted := TypeToProto(tt)
-					assert.True(t, tt.Equals(TypeFromProto(converted)))
+					convertedType := TypeFromProto(converted)
+					assert.True(t, tt.Equals(convertedType))
 				})
 			}
 		})
@@ -267,7 +268,7 @@ func TestMatchParameterizeConcreteTypeResultMatch(t *testing.T) {
 	fixedCharLen5 := &FixedCharType{Length: 5}
 	varCharLen5 := &VarCharType{Length: 5}
 	fixedBinaryLen5 := &FixedBinaryType{Length: 5}
-	intervalDayLen5 := &IntervalDayType{Length: 5}
+	intervalDayLen5 := &IntervalDayType{Precision: 5}
 
 	concreteInt38 := integer_parameters.NewConcreteIntParam(38)
 	concreteInt2 := integer_parameters.NewConcreteIntParam(2)
@@ -309,7 +310,7 @@ func TestMatchParameterizeConcreteTypeResultMismatch(t *testing.T) {
 	fixedCharLen6 := &FixedCharType{Length: 6}
 	varCharLen6 := &VarCharType{Length: 6}
 	fixedBinaryLen6 := &FixedBinaryType{Length: 6}
-	intervalDayLen6 := &IntervalDayType{Length: 6}
+	intervalDayLen6 := &IntervalDayType{Precision: 6}
 
 	concreteInt38 := integer_parameters.NewConcreteIntParam(38)
 	concreteInt2 := integer_parameters.NewConcreteIntParam(2)
@@ -354,7 +355,7 @@ func TestMatchParameterizedNonNestedTypeResultMatch(t *testing.T) {
 	paramPrecisionTimeStampTz := &ParameterizedPrecisionTimestampTzType{IntegerOption: intParamLen}
 	argDecimalType := &DecimalType{Precision: 38, Scale: 2}
 	paramDecimalType := &ParameterizedDecimalType{Precision: integer_parameters.NewVariableIntParam("P"), Scale: integer_parameters.NewVariableIntParam("S")}
-	argIntervalDayType := &IntervalDayType{Length: 5}
+	argIntervalDayType := &IntervalDayType{Precision: 5}
 	paramIntervalDayType := &ParameterizedIntervalDayType{IntegerOption: intParamLen}
 
 	for _, td := range []struct {

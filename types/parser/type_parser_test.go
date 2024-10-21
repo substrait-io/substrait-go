@@ -53,6 +53,7 @@ func TestParser(t *testing.T) {
 		{"struct<list?<decimal<P,S>>, i16>", "struct<list?<decimal<P,S>>, i16>", "struct", &types.ParameterizedStructType{Types: []types.FuncDefArgType{&types.ParameterizedListType{Type: &types.ParameterizedDecimalType{Precision: parameterLeaf_P, Scale: parameterLeaf_S, Nullability: types.NullabilityRequired}, Nullability: types.NullabilityNullable}, &types.Int16Type{Nullability: types.NullabilityRequired}}, Nullability: types.NullabilityRequired}},
 		{"map<decimal<P,S>, i16>", "map<decimal<P,S>, i16>", "map", &types.ParameterizedMapType{Key: &types.ParameterizedDecimalType{Precision: parameterLeaf_P, Scale: parameterLeaf_S, Nullability: types.NullabilityRequired}, Value: &types.Int16Type{Nullability: types.NullabilityRequired}, Nullability: types.NullabilityRequired}},
 		{"precision_timestamp_tz?<L1>", "precision_timestamp_tz?<L1>", "pretstz", &types.ParameterizedPrecisionTimestampTzType{IntegerOption: parameterLeaf_L1}},
+		{"interval_day<5>", "interval_day<5>", "iday", &types.ParameterizedIntervalDayType{IntegerOption: concreteLeaf_5}},
 	}
 
 	p, err := parser.New()
@@ -80,7 +81,7 @@ func TestParserRetType(t *testing.T) {
 		shortName   string
 		expectedTyp types.Type
 	}{
-		{"interval_day?<1>", "interval_day?<1>", "iday", &types.IntervalDayType{Length: 1, Nullability: types.NullabilityNullable}},
+		{"interval_day?<1>", "interval_day?<1>", "iday", &types.IntervalDayType{Precision: 1, Nullability: types.NullabilityNullable}},
 	}
 
 	p, err := parser.New()

@@ -268,6 +268,14 @@ func (p *lengthType) RetType() (types.Type, error) {
 		return nil, substraitgo.ErrNotImplemented
 	}
 
+	if types.TypeName(p.TypeName) == types.TypeNameIntervalDay {
+		precision, err := types.ProtoToTimePrecision(lit.Value)
+		if err != nil {
+			return nil, err
+		}
+		return (&types.IntervalDayType{Precision: precision}).WithNullability(n), nil
+	}
+
 	typ, err := types.FixedTypeNameToType(types.TypeName(p.TypeName))
 	if err != nil {
 		return nil, err
@@ -306,6 +314,8 @@ func getParameterizedTypeSingleParam(typeName string, leafParam integer_paramete
 		return &types.ParameterizedPrecisionTimestampType{IntegerOption: leafParam, Nullability: n}, nil
 	case types.TypeNamePrecisionTimestampTz:
 		return &types.ParameterizedPrecisionTimestampTzType{IntegerOption: leafParam, Nullability: n}, nil
+	case types.TypeNameIntervalDay:
+		return &types.ParameterizedIntervalDayType{IntegerOption: leafParam, Nullability: n}, nil
 	default:
 		return nil, substraitgo.ErrNotImplemented
 	}

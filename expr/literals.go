@@ -820,13 +820,11 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 			if err != nil {
 				return nil
 			}
-		default:
-			return nil
 		}
 		return &ProtoLiteral{
 			Value: lit.IntervalDayToSecond,
 			Type: &types.IntervalDayType{
-				Length:           precision.ToProtoVal(),
+				Precision:        precision,
 				Nullability:      nullability,
 				TypeVariationRef: l.TypeVariationReference,
 			},
