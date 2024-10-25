@@ -69,21 +69,19 @@ scalar_functions:
 	assert.IsType(t, extensions.ValueArg{}, f.ScalarFunctions[0].Impls[0].Args[0])
 	arg1 := f.ScalarFunctions[0].Impls[0].Args[0].(extensions.ValueArg)
 	assert.Equal(t, "u!customtype1", arg1.Value.String())
-	if def, ok := arg1.Value.Expr.(*parser.Type); assert.True(t, ok, "expected *parser.Type") {
-		typ, _ := def.TypeDef.RetType()
-		assert.IsType(t, &types.UserDefinedType{}, typ)
-		assert.Equal(t, proto.Type_NULLABILITY_REQUIRED, typ.GetNullability(), "expected Type_NULLABILITY_REQUIRED")
-	}
+	typ, err := arg1.Value.Expr.(*parser.Type).TypeDef.RetType()
+	assert.NoError(t, err)
+	assert.IsType(t, &types.UserDefinedType{}, typ)
+	assert.Equal(t, proto.Type_NULLABILITY_REQUIRED, typ.GetNullability(), "expected NULLABILITY_REQUIRED")
 
 	assert.Equal(t, "scalar2", f.ScalarFunctions[1].Name)
 	assert.IsType(t, extensions.ValueArg{}, f.ScalarFunctions[1].Impls[0].Args[0])
 	ret := f.ScalarFunctions[1].Impls[0].Return
 	assert.Equal(t, "u!customtype2?", ret.String())
-	if def, ok := ret.Expr.(*parser.Type); assert.True(t, ok, "expected *parser.Type") {
-		typ, _ := def.TypeDef.RetType()
-		assert.IsType(t, &types.UserDefinedType{}, typ)
-		assert.Equal(t, proto.Type_NULLABILITY_NULLABLE, typ.GetNullability(), "expected NULLABILITY_NULLABLE")
-	}
+	typ, err = ret.Expr.(*parser.Type).TypeDef.RetType()
+	assert.NoError(t, err)
+	assert.IsType(t, &types.UserDefinedType{}, typ)
+	assert.Equal(t, proto.Type_NULLABILITY_NULLABLE, typ.GetNullability(), "expected NULLABILITY_NULLABLE")
 }
 
 func TestUnmarshalSimpleExtensionScalarFunction(t *testing.T) {
