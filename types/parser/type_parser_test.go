@@ -3,6 +3,7 @@
 package parser_test
 
 import (
+	"github.com/substrait-io/substrait-go/proto"
 	"reflect"
 	"testing"
 
@@ -97,6 +98,33 @@ func TestParserRetType(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, reflect.TypeOf(td.expectedTyp), reflect.TypeOf(retType))
 			}
+		})
+	}
+}
+
+func TestParseUDT(t *testing.T) {
+	tests := []struct {
+		expr                string
+		expected            string
+		expectedTyp         types.Type
+		expectedNullability proto.Type_Nullability
+	}{
+		{"u!customtype1", "u!customtype1", &types.UserDefinedType{}, proto.Type_NULLABILITY_REQUIRED},
+		{"u!customtype2?", "u!customtype2?", &types.UserDefinedType{}, proto.Type_NULLABILITY_NULLABLE},
+	}
+
+	p, err := parser.New()
+	require.NoError(t, err)
+
+	for _, td := range tests {
+		t.Run(td.expr, func(t *testing.T) {
+			d, err := p.ParseString(td.expr)
+			assert.NoError(t, err)
+			assert.Equal(t, td.expected, d.Expr.String())
+			retType, err := d.Expr.(*parser.Type).RetType()
+			assert.NoError(t, err)
+			assert.Equal(t, td.expectedNullability, retType.GetNullability())
+			assert.Equal(t, reflect.TypeOf(td.expectedTyp), reflect.TypeOf(retType))
 		})
 	}
 }
