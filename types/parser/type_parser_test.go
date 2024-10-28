@@ -102,15 +102,67 @@ func TestParserRetType(t *testing.T) {
 	}
 }
 
+func TestParserListType(t *testing.T) {
+	tests := []struct {
+		expr        string
+		expected    string
+		expectedTyp types.Type
+	}{
+		{
+			expr:     "list<i32>",
+			expected: "list<i32>",
+			expectedTyp: &types.ListType{
+				Nullability: types.NullabilityRequired,
+				Type:        &types.Int32Type{Nullability: types.NullabilityRequired},
+			},
+		},
+		{
+			expr:     "list?<i16?>",
+			expected: "list?<i16?>",
+			expectedTyp: &types.ListType{
+				Nullability: types.NullabilityNullable,
+				Type:        &types.Int16Type{Nullability: types.NullabilityNullable},
+			},
+		},
+		{
+			expr:     "list<i16>",
+			expected: "list<i16>",
+			expectedTyp: &types.ListType{
+				Nullability: types.NullabilityRequired,
+				Type:        &types.Int16Type{Nullability: types.NullabilityRequired},
+			},
+		},
+	}
+
+	p, err := parser.New()
+	require.NoError(t, err)
+
+	for _, td := range tests {
+		t.Run(td.expr, func(t *testing.T) {
+			d, err := p.ParseString(td.expr)
+			assert.NoError(t, err)
+			assert.Equal(t, td.expected, d.Expr.String())
+
+			if tExpr, ok := d.Expr.(*parser.Type); ok {
+				retType, err := tExpr.RetType()
+				assert.NoError(t, err)
+				assert.Equal(t, reflect.TypeOf(td.expectedTyp), reflect.TypeOf(retType))
+				assert.Equal(t, td.expectedTyp, retType)
+			}
+		})
+	}
+}
+
 func TestParseUDT(t *testing.T) {
 	tests := []struct {
 		expr                string
 		expected            string
 		expectedTyp         types.Type
 		expectedNullability proto.Type_Nullability
+		expectedOptional    bool
 	}{
-		{"u!customtype1", "u!customtype1", &types.UserDefinedType{}, proto.Type_NULLABILITY_REQUIRED},
-		{"u!customtype2?", "u!customtype2?", &types.UserDefinedType{}, proto.Type_NULLABILITY_NULLABLE},
+		{"u!customtype1", "u!customtype1", &types.UserDefinedType{}, proto.Type_NULLABILITY_REQUIRED, false},
+		{"u!customtype2?", "u!customtype2?", &types.UserDefinedType{}, proto.Type_NULLABILITY_NULLABLE, true},
 	}
 
 	p, err := parser.New()
@@ -124,6 +176,7 @@ func TestParseUDT(t *testing.T) {
 			retType, err := d.Expr.(*parser.Type).RetType()
 			assert.NoError(t, err)
 			assert.Equal(t, td.expectedNullability, retType.GetNullability())
+			assert.Equal(t, td.expectedOptional, d.Expr.(*parser.Type).Optional())
 			assert.Equal(t, reflect.TypeOf(td.expectedTyp), reflect.TypeOf(retType))
 		})
 	}
