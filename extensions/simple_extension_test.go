@@ -3,9 +3,6 @@
 package extensions_test
 
 import (
-	"github.com/substrait-io/substrait-go/proto"
-	"github.com/substrait-io/substrait-go/types"
-	"github.com/substrait-io/substrait-go/types/parser"
 	"strings"
 	"testing"
 
@@ -13,6 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/extensions"
+	"github.com/substrait-io/substrait-go/proto"
+	"github.com/substrait-io/substrait-go/types"
+	"github.com/substrait-io/substrait-go/types/parser"
 )
 
 func TestUnmarshalSimpleExtension(t *testing.T) {

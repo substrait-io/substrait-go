@@ -3,12 +3,12 @@
 package parser_test
 
 import (
-	"github.com/substrait-io/substrait-go/proto"
 	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/substrait-io/substrait-go/proto"
 	"github.com/substrait-io/substrait-go/types"
 	"github.com/substrait-io/substrait-go/types/integer_parameters"
 	"github.com/substrait-io/substrait-go/types/parser"
