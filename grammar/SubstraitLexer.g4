@@ -3,7 +3,7 @@ lexer grammar SubstraitLexer;
 // Whitespace and comment handling
 LineComment   : '//' ~[\r\n]* -> channel(HIDDEN) ;
 BlockComment  : ( '/*' ( ~'*' | '*'+ ~[*/] ) '*'* '*/' ) -> channel(HIDDEN) ;
-Whitespace    : [ \t\r\n]+ -> channel(HIDDEN) ;
+Whitespace    : [ \t\r]+ -> channel(HIDDEN) ;
 
 // Substrait is case-insensitive, ANTLR is not. So, in order to define our
 // keywords in a somewhat readable way, we have to define these shortcuts.
@@ -75,7 +75,6 @@ NStruct  : N S T R U C T;
 List     : L I S T;
 Map      : M A P;
 UserDefined: U '!';
-Geometry: G E O M E T R Y;
 
 // short names for types
 Bool: B O O L;
