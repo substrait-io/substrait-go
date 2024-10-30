@@ -10,6 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/extensions"
+	"github.com/substrait-io/substrait-go/proto"
+	"github.com/substrait-io/substrait-go/types"
+	"github.com/substrait-io/substrait-go/types/parser"
 )
 
 func TestUnmarshalSimpleExtension(t *testing.T) {
@@ -39,6 +42,46 @@ types:
 	assert.Equal(t, map[string]any{"months": "i32"}, f.Types[2].Structure)
 	assert.Equal(t, "baz", f.Types[3].Name)
 	assert.Nil(t, f.Types[3].Structure)
+}
+
+func TestUnmarshalCustomScalarFunction(t *testing.T) {
+	const customDef = `
+scalar_functions:
+  - name: "scalar1"
+    impls:
+      - args:
+          - name: arg1
+            value: u!customtype1
+        return: i64
+  - name: "scalar2"
+    impls:
+      - args:
+          - name: arg1
+            value: i64
+        return: u!customtype2?
+`
+
+	var f extensions.SimpleExtensionFile
+	require.NoError(t, yaml.Unmarshal([]byte(customDef), &f))
+	assert.Len(t, f.ScalarFunctions, 2)
+
+	assert.Equal(t, "scalar1", f.ScalarFunctions[0].Name)
+	assert.IsType(t, extensions.ValueArg{}, f.ScalarFunctions[0].Impls[0].Args[0])
+	arg1 := f.ScalarFunctions[0].Impls[0].Args[0].(extensions.ValueArg)
+	assert.Equal(t, "u!customtype1", arg1.Value.String())
+	typ, err := arg1.Value.Expr.(*parser.Type).TypeDef.RetType()
+	assert.NoError(t, err)
+	assert.IsType(t, &types.UserDefinedType{}, typ)
+	assert.Equal(t, proto.Type_NULLABILITY_REQUIRED, typ.GetNullability(), "expected NULLABILITY_REQUIRED")
+
+	assert.Equal(t, "scalar2", f.ScalarFunctions[1].Name)
+	assert.IsType(t, extensions.ValueArg{}, f.ScalarFunctions[1].Impls[0].Args[0])
+	ret := f.ScalarFunctions[1].Impls[0].Return
+	assert.Equal(t, "u!customtype2?", ret.String())
+	typ, err = ret.Expr.(*parser.Type).TypeDef.RetType()
+	assert.NoError(t, err)
+	assert.IsType(t, &types.UserDefinedType{}, typ)
+	assert.Equal(t, proto.Type_NULLABILITY_NULLABLE, typ.GetNullability(), "expected NULLABILITY_NULLABLE")
 }
 
 func TestUnmarshalSimpleExtensionScalarFunction(t *testing.T) {

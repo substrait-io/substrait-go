@@ -122,7 +122,7 @@ func (t *typename) Capture(values []string) error {
 }
 
 type nonParamType struct {
-	TypeName    typename `parser:"@(IntType | Boolean | FPType | Temporal | BinaryType)"`
+	TypeName    typename `parser:"@(IntType | Boolean | FPType | Temporal | BinaryType | UserDefinedType)"`
 	Nullability bool     `parser:"@'?'?"`
 	// Variation   int      `parser:"'[' @\d+ ']'?"`
 }
@@ -148,7 +148,11 @@ func (t *nonParamType) RetType() (types.Type, error) {
 	} else {
 		n = types.NullabilityRequired
 	}
-	typ, err := types.SimpleTypeNameToType(types.TypeName(t.TypeName))
+	typName := t.TypeName
+	if strings.HasPrefix(string(typName), "u!") {
+		typName = "u!"
+	}
+	typ, err := types.SimpleTypeNameToType(types.TypeName(typName))
 	if err == nil {
 		return typ.WithNullability(n), nil
 	}
@@ -598,6 +602,7 @@ var (
 		{Name: "LengthType", Pattern: `fixedchar|varchar|fixedbinary|precision_timestamp_tz|precision_timestamp|interval_day`},
 		{Name: "Int", Pattern: `[-+]?\d+`},
 		{Name: "ParamType", Pattern: `(?i)(struct|list|decimal|map)`},
+		{Name: "UserDefinedType", Pattern: `u![a-zA-Z_][a-zA-Z0-9_]*`},
 		{Name: "Identifier", Pattern: `[a-zA-Z_$][a-zA-Z_$0-9]*`},
 		{Name: "Ident", Pattern: `([a-zA-Z_]\w*)|[><,?]`},
 	})
