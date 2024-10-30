@@ -74,7 +74,6 @@ Struct   : S T R U C T;
 NStruct  : N S T R U C T;
 List     : L I S T;
 Map      : M A P;
-ANY      : A N Y;
 UserDefined: U '!';
 Geometry: G E O M E T R Y;
 
@@ -93,27 +92,70 @@ FChar: F C H A R;
 VChar: V C H A R;
 FBin: F B I N;
 
-DOUBLE_COLON: '::';
+AnyVar: A N Y [0-9]?;
 
-IDENTIFIER
-  : [a-zA-Z_] [a-zA-Z0-9_]*
-  ;
+DoubleColon: '::';
+
+//IDENTIFIER
+//  : [a-zA-Z_] [a-zA-Z0-9_]*
+//  ;
+
+// MATH
+Plus            : '+';
+Minus           : '-';
+Asterisk        : '*';
+ForwardSlash    : '/';
+Percent         : '%';
+
+// COMPARE
+Eq       : '=';
+Ne       : '!=';
+Gte      : '>=';
+Lte      : '<=';
+Gt       : '>';
+Lt       : '<';
+Bang     : '!';
 
 // ORGANIZE
-O_ANGLE_BRACKET: '<';
-C_ANGLE_BRACKET: '>';
-OPAREN: '(';
-CPAREN: ')';
-OBRACKET: '[';
-CBRACKET: ']';
-COMMA: ',';
-EQ: '=';
-COLON: ':';
-QMARK: '?';
-HASH: '#';
-DOT: '.';
+OAngleBracket: Lt;
+CAngleBracket: Gt;
+OParen: '(';
+CParen: ')';
+OBracket: '[';
+CBracket: ']';
+Comma: ',';
+Colon: ':';
+QMark: '?';
+Hash: '#';
+Dot: '.';
 
-//STRING
-//    : '\'' ('\\' . | '\'\'' | ~['\\])* '\''
-//    ;
 
+// OPERATIONS
+And      : A N D;
+Or       : O R;
+Assign   : ':=';
+
+
+
+fragment Int
+  : '1'..'9' Digit*
+  | '0'
+  ;
+
+fragment Digit
+  : '0'..'9'
+  ;
+
+Number
+  : '-'? Int
+  ;
+
+Identifier
+  : ('a'..'z' | 'A'..'Z' | '_' | '$') ('a'..'z' | 'A'..'Z' | '_' | '$' | Digit)*
+  ;
+
+Newline
+  : ( '\r' '\n'?
+    | '\n'
+    )
+  ;
