@@ -40,3 +40,15 @@ func (m AnyType) MatchWithNullability(ot Type) bool {
 func (m AnyType) MatchWithoutNullability(ot Type) bool {
 	return true
 }
+
+func (m AnyType) GetNullability() Nullability {
+	return m.Nullability
+}
+
+func (m AnyType) ShortString() string {
+	return "any"
+}
+
+func (m AnyType) ReturnType() (Type, error) {
+	return nil, nil
+}
