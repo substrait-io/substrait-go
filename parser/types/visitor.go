@@ -78,18 +78,31 @@ func (v *MyVisitor) VisitTypeDef(ctx *baseparser.TypeDefContext) interface{} {
 	if ctx.ParameterizedType() != nil {
 		return v.Visit(ctx.ParameterizedType())
 	}
-	nullability := types.NullabilityRequired
-	if ctx.GetIsnull() != nil {
-		nullability = types.NullabilityNullable
-	}
-
 	if ctx.ScalarType() != nil {
+		nullability := types.NullabilityRequired
+		if ctx.GetIsnull() != nil {
+			nullability = types.NullabilityNullable
+		}
+
 		scalarTypeExpr := v.Visit(ctx.ScalarType())
 		scalarType := scalarTypeExpr.(types.Type)
 		return scalarType.WithNullability(nullability)
 	}
 
-	return types.AnyType{Name: ctx.AnyVar().GetText(), Nullability: nullability}
+	return v.Visit(ctx.AnyType())
+}
+
+func (v *MyVisitor) VisitAnyType(ctx *baseparser.AnyTypeContext) interface{} {
+	nullability := types.NullabilityRequired
+	if ctx.GetIsnull() != nil {
+		nullability = types.NullabilityNullable
+	}
+
+	name := "any"
+	if ctx.AnyVar() != nil {
+		name = ctx.AnyVar().GetText()
+	}
+	return types.AnyType{Name: name, Nullability: nullability}
 }
 
 func (v *MyVisitor) VisitBoolean(*baseparser.BooleanContext) interface{} {

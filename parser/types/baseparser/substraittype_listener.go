@@ -103,6 +103,9 @@ type SubstraitTypeListener interface {
 	// EnterNumericExpression is called when entering the numericExpression production.
 	EnterNumericExpression(c *NumericExpressionContext)
 
+	// EnterAnyType is called when entering the anyType production.
+	EnterAnyType(c *AnyTypeContext)
+
 	// EnterTypeDef is called when entering the typeDef production.
 	EnterTypeDef(c *TypeDefContext)
 
@@ -231,6 +234,9 @@ type SubstraitTypeListener interface {
 
 	// ExitNumericExpression is called when exiting the numericExpression production.
 	ExitNumericExpression(c *NumericExpressionContext)
+
+	// ExitAnyType is called when exiting the anyType production.
+	ExitAnyType(c *AnyTypeContext)
 
 	// ExitTypeDef is called when exiting the typeDef production.
 	ExitTypeDef(c *TypeDefContext)

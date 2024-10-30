@@ -212,6 +212,12 @@ func (s *BaseSubstraitTypeListener) EnterNumericExpression(ctx *NumericExpressio
 // ExitNumericExpression is called when production numericExpression is exited.
 func (s *BaseSubstraitTypeListener) ExitNumericExpression(ctx *NumericExpressionContext) {}
 
+// EnterAnyType is called when production anyType is entered.
+func (s *BaseSubstraitTypeListener) EnterAnyType(ctx *AnyTypeContext) {}
+
+// ExitAnyType is called when production anyType is exited.
+func (s *BaseSubstraitTypeListener) ExitAnyType(ctx *AnyTypeContext) {}
+
 // EnterTypeDef is called when production typeDef is entered.
 func (s *BaseSubstraitTypeListener) EnterTypeDef(ctx *TypeDefContext) {}
 

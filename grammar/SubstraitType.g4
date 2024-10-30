@@ -45,11 +45,15 @@ numericParameter
   | expr                #numericExpression
   ;
 
+anyType
+    : Any isnull=QMark?
+    | AnyVar isnull=QMark?
+    ;
 
 typeDef
   : scalarType isnull=QMark?
   | parameterizedType
-  | AnyVar isnull=QMark?
+  | anyType
   ;
 
 expr
