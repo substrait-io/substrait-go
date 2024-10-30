@@ -63,3 +63,20 @@ func (m *ParameterizedDecimalType) MatchWithoutNullability(ot Type) bool {
 	}
 	return false
 }
+
+func (m *ParameterizedDecimalType) GetNullability() Nullability {
+	return m.Nullability
+}
+
+func (m *ParameterizedDecimalType) ShortString() string {
+	return "dec"
+}
+
+func (m *ParameterizedDecimalType) ReturnType() (Type, error) {
+	precision, perr := m.Precision.(*integer_parameters.ConcreteIntParam)
+	scale, serr := m.Scale.(*integer_parameters.ConcreteIntParam)
+	if !perr || !serr {
+		return nil, fmt.Errorf("precision and scale must be concrete integer parameters")
+	}
+	return &DecimalType{Nullability: m.Nullability, Precision: int32(*precision), Scale: int32(*scale)}, nil
+}

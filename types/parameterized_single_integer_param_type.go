@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"reflect"
 
+	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/types/integer_parameters"
 )
 
 type singleIntegerParamType interface {
 	BaseString() string
+	ShortString() string
+	GetReturnType(length int32, nullability Nullability) Type
 }
 
 // parameterizedTypeSingleIntegerParam This is a generic type to represent parameterized type with a single integer parameter
@@ -75,4 +78,27 @@ func (m *parameterizedTypeSingleIntegerParam[T]) MatchWithoutNullability(ot Type
 		return m.IntegerOption.IsCompatible(concreteLength)
 	}
 	return false
+}
+
+func (m *parameterizedTypeSingleIntegerParam[T]) GetNullability() Nullability {
+	return m.Nullability
+}
+
+func (m *parameterizedTypeSingleIntegerParam[T]) ShortString() string {
+	var t T
+	tType := reflect.TypeOf(t)
+	if tType.Kind() == reflect.Ptr {
+		tType = tType.Elem()
+	}
+	newInstance := reflect.New(tType).Interface().(T)
+	return newInstance.ShortString()
+}
+
+func (m *parameterizedTypeSingleIntegerParam[T]) ReturnType() (Type, error) {
+	concreteIntParam, ok := m.IntegerOption.(*integer_parameters.ConcreteIntParam)
+	if !ok {
+		return nil, substraitgo.ErrNotImplemented
+	}
+	var t T
+	return t.GetReturnType(int32(*concreteIntParam), m.Nullability), nil
 }

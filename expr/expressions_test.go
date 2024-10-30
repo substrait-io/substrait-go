@@ -15,9 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/expr"
 	ext "github.com/substrait-io/substrait-go/extensions"
+	types2 "github.com/substrait-io/substrait-go/parser/types"
 	"github.com/substrait-io/substrait-go/proto"
 	"github.com/substrait-io/substrait-go/types"
-	"github.com/substrait-io/substrait-go/types/parser"
 	"google.golang.org/protobuf/encoding/protojson"
 	pb "google.golang.org/protobuf/proto"
 	"gopkg.in/yaml.v3"
@@ -341,8 +341,7 @@ func TestRoundTripUsingTestData(t *testing.T) {
 	require.NoError(t, dec.Decode(&tmp))
 
 	var (
-		typeParser, _ = parser.New()
-		protoSchema   proto.NamedStruct
+		protoSchema proto.NamedStruct
 	)
 
 	raw, err := json.Marshal(tmp["baseSchema"])
@@ -370,7 +369,7 @@ func TestRoundTripUsingTestData(t *testing.T) {
 			assert.True(t, e.Equals(e))
 
 			if typTest, ok := test["type"].(string); ok {
-				exp, err := typeParser.ParseString(typTest)
+				exp, err := types2.ParseFuncDefArgType(typTest)
 				require.NoError(t, err)
 
 				assert.Equal(t, exp.String(), e.GetType().String())

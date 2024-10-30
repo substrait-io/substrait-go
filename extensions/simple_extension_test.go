@@ -113,10 +113,10 @@ scalar_functions:
 
 	x := f.ScalarFunctions[0].Impls[0].Args[0].(extensions.ValueArg)
 	assert.Equal(t, "x", x.Name)
-	assert.Equal(t, "i8", x.Value.String())
+	assert.Equal(t, "i8", x.Value.ValueType.String())
 	y := f.ScalarFunctions[0].Impls[0].Args[1].(extensions.ValueArg)
 	assert.Equal(t, "y", y.Name)
-	assert.Equal(t, "i8", y.Value.String())
+	assert.Equal(t, "i8", y.Value.ValueType.String())
 
 	assert.Equal(t, map[string]extensions.Option{
 		"overflow": {Values: []string{"SILENT", "SATURATE", "ERROR"}},
