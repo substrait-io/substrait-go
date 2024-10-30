@@ -135,6 +135,10 @@ func (v *BaseSubstraitTypeVisitor) VisitNumericExpression(ctx *NumericExpression
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSubstraitTypeVisitor) VisitAnyType(ctx *AnyTypeContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSubstraitTypeVisitor) VisitTypeDef(ctx *TypeDefContext) interface{} {
 	return v.VisitChildren(ctx)
 }

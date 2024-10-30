@@ -12,7 +12,6 @@ import (
 	"github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/proto"
 	"github.com/substrait-io/substrait-go/types"
-	"github.com/substrait-io/substrait-go/types/parser"
 )
 
 func TestUnmarshalSimpleExtension(t *testing.T) {
@@ -68,8 +67,8 @@ scalar_functions:
 	assert.Equal(t, "scalar1", f.ScalarFunctions[0].Name)
 	assert.IsType(t, extensions.ValueArg{}, f.ScalarFunctions[0].Impls[0].Args[0])
 	arg1 := f.ScalarFunctions[0].Impls[0].Args[0].(extensions.ValueArg)
-	assert.Equal(t, "u!customtype1", arg1.Value.String())
-	typ, err := arg1.Value.Expr.(*parser.Type).TypeDef.RetType()
+	assert.Equal(t, "u!customtype1", arg1.Value.ValueType.String())
+	typ, err := arg1.Value.ValueType.ReturnType()
 	assert.NoError(t, err)
 	assert.IsType(t, &types.UserDefinedType{}, typ)
 	assert.Equal(t, proto.Type_NULLABILITY_REQUIRED, typ.GetNullability(), "expected NULLABILITY_REQUIRED")
@@ -77,8 +76,8 @@ scalar_functions:
 	assert.Equal(t, "scalar2", f.ScalarFunctions[1].Name)
 	assert.IsType(t, extensions.ValueArg{}, f.ScalarFunctions[1].Impls[0].Args[0])
 	ret := f.ScalarFunctions[1].Impls[0].Return
-	assert.Equal(t, "u!customtype2?", ret.String())
-	typ, err = ret.Expr.(*parser.Type).TypeDef.RetType()
+	assert.Equal(t, "u!customtype2?", ret.ValueType.String())
+	typ, err = ret.ValueType.ReturnType()
 	assert.NoError(t, err)
 	assert.IsType(t, &types.UserDefinedType{}, typ)
 	assert.Equal(t, proto.Type_NULLABILITY_NULLABLE, typ.GetNullability(), "expected NULLABILITY_NULLABLE")

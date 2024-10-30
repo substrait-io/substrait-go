@@ -91,13 +91,10 @@ FChar: F C H A R;
 VChar: V C H A R;
 FBin: F B I N;
 
-AnyVar: A N Y [0-9]?;
+Any: A N Y;
+AnyVar: A N Y [0-9];
 
 DoubleColon: '::';
-
-//IDENTIFIER
-//  : [a-zA-Z_] [a-zA-Z0-9_]*
-//  ;
 
 // MATH
 Plus            : '+';

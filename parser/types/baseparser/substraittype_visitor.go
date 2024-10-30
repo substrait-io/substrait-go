@@ -103,6 +103,9 @@ type SubstraitTypeVisitor interface {
 	// Visit a parse tree produced by SubstraitTypeParser#numericExpression.
 	VisitNumericExpression(ctx *NumericExpressionContext) interface{}
 
+	// Visit a parse tree produced by SubstraitTypeParser#anyType.
+	VisitAnyType(ctx *AnyTypeContext) interface{}
+
 	// Visit a parse tree produced by SubstraitTypeParser#typeDef.
 	VisitTypeDef(ctx *TypeDefContext) interface{}
 
