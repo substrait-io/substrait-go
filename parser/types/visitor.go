@@ -144,10 +144,6 @@ func (v *MyVisitor) VisitTime(*baseparser.TimeContext) interface{} {
 	return &types.TimeType{}
 }
 
-func (v *MyVisitor) VisitIntervalDay(*baseparser.IntervalDayContext) interface{} {
-	return &types.IntervalDayType{}
-}
-
 func (v *MyVisitor) VisitIntervalYear(*baseparser.IntervalYearContext) interface{} {
 	return &types.IntervalYearType{}
 }
@@ -221,6 +217,16 @@ func (v *MyVisitor) VisitPrecisionTimestampTZ(ctx *baseparser.PrecisionTimestamp
 
 	length := v.Visit(ctx.GetPrecision()).(integer_parameters.IntegerParameter)
 	return &types.ParameterizedPrecisionTimestampTzType{IntegerOption: length, Nullability: nullability}
+}
+
+func (v *MyVisitor) VisitPrecisionIntervalDay(ctx *baseparser.PrecisionIntervalDayContext) interface{} {
+	nullability := types.NullabilityRequired
+	if ctx.GetIsnull() != nil {
+		nullability = types.NullabilityNullable
+	}
+
+	length := v.Visit(ctx.GetPrecision()).(integer_parameters.IntegerParameter)
+	return &types.ParameterizedIntervalDayType{IntegerOption: length, Nullability: nullability}
 }
 
 func (v *MyVisitor) VisitStruct(ctx *baseparser.StructContext) interface{} {

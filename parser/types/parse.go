@@ -4,9 +4,38 @@ import (
 	"fmt"
 
 	"github.com/antlr4-go/antlr/v4"
+	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/parser/types/baseparser"
 	"github.com/substrait-io/substrait-go/types"
 )
+
+type TypeExpression struct {
+	ValueType types.FuncDefArgType
+}
+
+func (t *TypeExpression) MarshalYAML() (interface{}, error) {
+	return t.ValueType.String(), nil
+}
+
+func (t *TypeExpression) UnmarshalYAML(fn func(interface{}) error) error {
+	type Alias any
+	var alias Alias
+	if err := fn(&alias); err != nil {
+		return err
+	}
+
+	switch v := alias.(type) {
+	case string:
+		exp, err := ParseFuncDefArgType(v)
+		if err != nil {
+			return err
+		}
+		t.ValueType = exp
+		return nil
+	}
+
+	return substraitgo.ErrNotImplemented
+}
 
 type simpleErrorListener struct {
 	errorCount int
@@ -95,5 +124,9 @@ func ParseFuncDefArgType(input string) (types.FuncDefArgType, error) {
 		return nil, fmt.Errorf(errorListener.GetError())
 	}
 	ret := visitor.Visit(context)
-	return ret.(types.FuncDefArgType), nil
+	retType, ok := ret.(types.FuncDefArgType)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse %s as FuncDefArgType", input)
+	}
+	return retType, nil
 }
