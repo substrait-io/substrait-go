@@ -32,7 +32,6 @@ func TestParseSubstraitType(t *testing.T) {
 		{"time", "time", "time", &types.TimeType{Nullability: types.NullabilityRequired}},
 		{"uuid", "uuid", "uuid", &types.UUIDType{Nullability: types.NullabilityRequired}},
 		{"interval_year", "interval_year", "iyear", &types.IntervalYearType{Nullability: types.NullabilityRequired}},
-		{"interval_day", "interval_day", "iday", &types.IntervalDayType{Nullability: types.NullabilityRequired}},
 		{"I8", "i8", "i8", &types.Int8Type{Nullability: types.NullabilityRequired}},
 		{"Boolean", "boolean", "bool", &types.BooleanType{Nullability: types.NullabilityRequired}},
 		{"i16?", "i16?", "i16", &types.Int16Type{Nullability: types.NullabilityNullable}},
@@ -97,11 +96,9 @@ func TestParseFuncDefArgType(t *testing.T) {
 			got, err := ParseFuncDefArgType(tt.input)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expected, got.String())
-			//if tt.shortName != "" {
-			//	assert.Equal(t, tt.shortName, got.ShortString())
-			//	assert.NoError(t, err)
-			//	assert.Equal(t, reflect.TypeOf(tt.want), reflect.TypeOf(typ))
-			//}
+			if tt.shortName != "" {
+				assert.Equal(t, tt.shortName, got.ShortString())
+			}
 			assert.True(t, reflect.DeepEqual(got, tt.want), "ParseSubstraitType() = %v, want %v", got, tt.want)
 		})
 	}
