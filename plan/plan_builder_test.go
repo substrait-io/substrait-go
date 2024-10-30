@@ -1348,17 +1348,17 @@ func TestSetRelations(t *testing.T) {
 											}
 										},
 										"virtualTable": {
-											"values": [
+											"expressions": [
 												{
 													"fields": [
-														{ "string": "foo", "nullable": false },
-														{ "fp32": 1.5, "nullable": false }
+														{"literal": { "string": "foo", "nullable": false }},
+														{"literal": { "fp32": 1.5, "nullable": false }}
 													]
 												},
 												{
 													"fields": [
-														{ "string": "bar", "nullable": false },
-														{ "fp32": 3.5, "nullable": false }
+														{"literal": { "string": "bar", "nullable": false }},
+														{"literal": { "fp32": 3.5, "nullable": false }}
 													]
 												}
 											]
@@ -1429,7 +1429,7 @@ func TestEmptyVirtualTable(t *testing.T) {
 								}
 							},
 							"virtualTable": {
-								"values": [
+								"expressions": [
 									{},
 									{},
 									{},
