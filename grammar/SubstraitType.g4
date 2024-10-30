@@ -20,7 +20,6 @@ scalarType
   | Timestamp_TZ            #timestampTz
   | Date                    #date
   | Time                    #time
-  | Interval_Day            #intervalDay
   | Interval_Year           #intervalYear
   | UUID                    #uuid
   | UserDefined Identifier  #userDefined
@@ -31,6 +30,7 @@ parameterizedType
   | VarChar isnull=QMark? Lt length=numericParameter Gt                                     #varChar
   | FixedBinary isnull=QMark? Lt length=numericParameter Gt                                 #fixedBinary
   | Decimal isnull=QMark? Lt precision=numericParameter Comma scale=numericParameter Gt     #decimal
+  | Interval_Day isnull=QMark? Lt precision=numericParameter Gt                             #precisionIntervalDay
   | Precision_Timestamp isnull=QMark? Lt precision=numericParameter Gt                      #precisionTimestamp
   | Precision_Timestamp_TZ isnull=QMark? Lt precision=numericParameter Gt                   #precisionTimestampTZ
   | Struct isnull=QMark? Lt expr (Comma expr)* Gt                                           #struct
@@ -54,7 +54,7 @@ typeDef
 
 expr
   : OParen expr CParen                                                                      #ParenExpression
-  | Identifier Eq expr Newline+ (Identifier Eq expr Newline+)* finaLType=typeDef Newline*   #MultilineDefinition
+  | Identifier Eq expr Newline+ (Identifier Eq expr Newline+)* finalType=typeDef Newline*   #MultilineDefinition
   | typeDef                                                                                 #TypeLiteral
   | number=Number                                                                           #LiteralNumber
   | identifier=Identifier isnull=QMark?                                                     #TypeParam
