@@ -122,12 +122,6 @@ func (s *BaseSubstraitTypeListener) EnterUuid(ctx *UuidContext) {}
 // ExitUuid is called when production uuid is exited.
 func (s *BaseSubstraitTypeListener) ExitUuid(ctx *UuidContext) {}
 
-// EnterUserDefined is called when production userDefined is entered.
-func (s *BaseSubstraitTypeListener) EnterUserDefined(ctx *UserDefinedContext) {}
-
-// ExitUserDefined is called when production userDefined is exited.
-func (s *BaseSubstraitTypeListener) ExitUserDefined(ctx *UserDefinedContext) {}
-
 // EnterFixedChar is called when production fixedChar is entered.
 func (s *BaseSubstraitTypeListener) EnterFixedChar(ctx *FixedCharContext) {}
 
@@ -193,6 +187,12 @@ func (s *BaseSubstraitTypeListener) EnterMap(ctx *MapContext) {}
 
 // ExitMap is called when production map is exited.
 func (s *BaseSubstraitTypeListener) ExitMap(ctx *MapContext) {}
+
+// EnterUserDefined is called when production userDefined is entered.
+func (s *BaseSubstraitTypeListener) EnterUserDefined(ctx *UserDefinedContext) {}
+
+// ExitUserDefined is called when production userDefined is exited.
+func (s *BaseSubstraitTypeListener) ExitUserDefined(ctx *UserDefinedContext) {}
 
 // EnterNumericLiteral is called when production numericLiteral is entered.
 func (s *BaseSubstraitTypeListener) EnterNumericLiteral(ctx *NumericLiteralContext) {}

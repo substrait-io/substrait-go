@@ -90,6 +90,10 @@ func TestParseFuncDefArgType(t *testing.T) {
 		{"struct<list?<decimal<P,S>>, i16>", "struct<list?<decimal<P,S>>, i16>", "struct", &types.ParameterizedStructType{Types: []types.FuncDefArgType{&types.ParameterizedListType{Type: &types.ParameterizedDecimalType{Precision: &variableIntP, Scale: &variableIntS, Nullability: types.NullabilityRequired}, Nullability: types.NullabilityNullable}, &types.Int16Type{Nullability: types.NullabilityRequired}}, Nullability: types.NullabilityRequired}},
 		{"map<decimal<P,S>, i16>", "map<decimal<P,S>, i16>", "map", &types.ParameterizedMapType{Key: &types.ParameterizedDecimalType{Precision: &variableIntP, Scale: &variableIntS, Nullability: types.NullabilityRequired}, Value: &types.Int16Type{Nullability: types.NullabilityRequired}, Nullability: types.NullabilityRequired}},
 		{"precision_timestamp_tz?<L1>", "precision_timestamp_tz?<L1>", "pretstz", &types.ParameterizedPrecisionTimestampTzType{IntegerOption: &variableIntL1, Nullability: types.NullabilityNullable}},
+		{"u!test", "u!test", "u!test", &types.ParameterizedUserDefinedType{Name: "test", Nullability: types.NullabilityRequired}},
+		{"u!test<10>", "u!test<10>", "u!test", &types.ParameterizedUserDefinedType{Name: "test", Nullability: types.NullabilityRequired, TypeParameters: []types.UDTParameter{&types.IntegerUDTParam{Integer: 10}}}},
+		{"u!test<L1>", "u!test<L1>", "u!test", &types.ParameterizedUserDefinedType{Name: "test", Nullability: types.NullabilityRequired, TypeParameters: []types.UDTParameter{&types.StringUDTParam{StringVal: "L1"}}}},
+		{"u!test<decimal<P,S>>", "u!test<decimal<P,S>>", "u!test", &types.ParameterizedUserDefinedType{Name: "test", Nullability: types.NullabilityRequired, TypeParameters: []types.UDTParameter{&types.DataTypeUDTParam{Type: &types.ParameterizedDecimalType{Precision: &variableIntP, Scale: &variableIntS, Nullability: types.NullabilityRequired}}}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {

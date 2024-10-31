@@ -22,7 +22,6 @@ scalarType
   | Time                    #time
   | Interval_Year           #intervalYear
   | UUID                    #uuid
-  | UserDefined Identifier  #userDefined
   ;
 
 parameterizedType
@@ -37,6 +36,7 @@ parameterizedType
   | NStruct isnull=QMark? Lt Identifier expr (Comma Identifier expr)* Gt                    #nStruct
   | List isnull=QMark? Lt expr Gt                                                           #list
   | Map isnull=QMark? Lt key=expr Comma value=expr Gt                                       #map
+  | UserDefined Identifier isnull=QMark? (Lt expr (Comma expr)* Gt)?                        #userDefined
   ;
 
 numericParameter
