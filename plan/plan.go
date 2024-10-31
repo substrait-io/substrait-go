@@ -316,9 +316,19 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 				advExtension: readType.NamedTable.AdvancedExtension,
 			}
 		case *proto.ReadRel_VirtualTable_:
-			values := make([]expr.StructLiteralValue, len(readType.VirtualTable.Values))
-			for i, v := range readType.VirtualTable.Values {
-				values[i] = expr.StructLiteralFromProto(v)
+			if len(readType.VirtualTable.Values) > 0 && len(readType.VirtualTable.Expressions) > 0 {
+				return nil, fmt.Errorf("VirtualTable Value can't have both liternal and expression")
+			}
+			var values []expr.VirtualTableExpressionValue
+			for _, v := range readType.VirtualTable.Values {
+				values = append(values, expr.VirtualTableExprFromLiteralProto(v))
+			}
+			for _, v := range readType.VirtualTable.Expressions {
+				row, err := expr.VirtualTableExpressionFromProto(v, reg)
+				if err != nil {
+					return nil, err
+				}
+				values = append(values, row)
 			}
 
 			out = &VirtualTableReadRel{
