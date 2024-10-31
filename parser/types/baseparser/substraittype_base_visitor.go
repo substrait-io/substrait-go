@@ -75,10 +75,6 @@ func (v *BaseSubstraitTypeVisitor) VisitUuid(ctx *UuidContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSubstraitTypeVisitor) VisitUserDefined(ctx *UserDefinedContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
 func (v *BaseSubstraitTypeVisitor) VisitFixedChar(ctx *FixedCharContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -120,6 +116,10 @@ func (v *BaseSubstraitTypeVisitor) VisitList(ctx *ListContext) interface{} {
 }
 
 func (v *BaseSubstraitTypeVisitor) VisitMap(ctx *MapContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSubstraitTypeVisitor) VisitUserDefined(ctx *UserDefinedContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

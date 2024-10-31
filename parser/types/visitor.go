@@ -1,6 +1,7 @@
 package types
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -165,9 +166,29 @@ func (v *MyVisitor) VisitUuid(*baseparser.UuidContext) interface{} {
 	return &types.UUIDType{}
 }
 
-func (v *MyVisitor) VisitUserDefined(*baseparser.UserDefinedContext) interface{} {
-	// TODO handle user defined type name & parameters
-	return &types.UserDefinedType{}
+func (v *MyVisitor) VisitUserDefined(ctx *baseparser.UserDefinedContext) interface{} {
+	nullability := types.NullabilityRequired
+	if ctx.GetIsnull() != nil {
+		nullability = types.NullabilityNullable
+	}
+
+	var params []types.UDTParameter
+	for _, expr := range ctx.AllExpr() {
+		paramExpr := v.Visit(expr)
+		switch param := paramExpr.(type) {
+		case types.FuncDefArgType:
+			params = append(params, &types.DataTypeUDTParam{Type: param})
+		case int64:
+			params = append(params, &types.IntegerUDTParam{Integer: int32(param)})
+		case types.StringParameter:
+			params = append(params, &types.StringUDTParam{StringVal: string(param)})
+		default:
+			// TODO handle other user defined type parameters
+			panic("User defined type parameter is not a FuncDefArgType/int/string " + fmt.Sprintf("%T", param))
+		}
+	}
+	name := ctx.Identifier().GetText()
+	return &types.ParameterizedUserDefinedType{Name: name, Nullability: nullability, TypeParameters: params}
 }
 
 func (v *MyVisitor) VisitFixedChar(ctx *baseparser.FixedCharContext) interface{} {

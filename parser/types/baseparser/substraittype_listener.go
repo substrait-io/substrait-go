@@ -58,9 +58,6 @@ type SubstraitTypeListener interface {
 	// EnterUuid is called when entering the uuid production.
 	EnterUuid(c *UuidContext)
 
-	// EnterUserDefined is called when entering the userDefined production.
-	EnterUserDefined(c *UserDefinedContext)
-
 	// EnterFixedChar is called when entering the fixedChar production.
 	EnterFixedChar(c *FixedCharContext)
 
@@ -93,6 +90,9 @@ type SubstraitTypeListener interface {
 
 	// EnterMap is called when entering the map production.
 	EnterMap(c *MapContext)
+
+	// EnterUserDefined is called when entering the userDefined production.
+	EnterUserDefined(c *UserDefinedContext)
 
 	// EnterNumericLiteral is called when entering the numericLiteral production.
 	EnterNumericLiteral(c *NumericLiteralContext)
@@ -190,9 +190,6 @@ type SubstraitTypeListener interface {
 	// ExitUuid is called when exiting the uuid production.
 	ExitUuid(c *UuidContext)
 
-	// ExitUserDefined is called when exiting the userDefined production.
-	ExitUserDefined(c *UserDefinedContext)
-
 	// ExitFixedChar is called when exiting the fixedChar production.
 	ExitFixedChar(c *FixedCharContext)
 
@@ -225,6 +222,9 @@ type SubstraitTypeListener interface {
 
 	// ExitMap is called when exiting the map production.
 	ExitMap(c *MapContext)
+
+	// ExitUserDefined is called when exiting the userDefined production.
+	ExitUserDefined(c *UserDefinedContext)
 
 	// ExitNumericLiteral is called when exiting the numericLiteral production.
 	ExitNumericLiteral(c *NumericLiteralContext)

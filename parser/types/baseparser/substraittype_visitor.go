@@ -58,9 +58,6 @@ type SubstraitTypeVisitor interface {
 	// Visit a parse tree produced by SubstraitTypeParser#uuid.
 	VisitUuid(ctx *UuidContext) interface{}
 
-	// Visit a parse tree produced by SubstraitTypeParser#userDefined.
-	VisitUserDefined(ctx *UserDefinedContext) interface{}
-
 	// Visit a parse tree produced by SubstraitTypeParser#fixedChar.
 	VisitFixedChar(ctx *FixedCharContext) interface{}
 
@@ -93,6 +90,9 @@ type SubstraitTypeVisitor interface {
 
 	// Visit a parse tree produced by SubstraitTypeParser#map.
 	VisitMap(ctx *MapContext) interface{}
+
+	// Visit a parse tree produced by SubstraitTypeParser#userDefined.
+	VisitUserDefined(ctx *UserDefinedContext) interface{}
 
 	// Visit a parse tree produced by SubstraitTypeParser#numericLiteral.
 	VisitNumericLiteral(ctx *NumericLiteralContext) interface{}
