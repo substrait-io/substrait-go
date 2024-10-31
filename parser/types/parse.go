@@ -26,7 +26,7 @@ func (t *TypeExpression) UnmarshalYAML(fn func(interface{}) error) error {
 
 	switch v := alias.(type) {
 	case string:
-		exp, err := ParseFuncDefArgType(v)
+		exp, err := ParseType(v)
 		if err != nil {
 			return err
 		}
@@ -85,7 +85,7 @@ func transformPanicToError(err *error, input, ctxStr string) {
 	}
 }
 
-func ParseSubstraitType(input string) (types.Type, error) {
+func ParseType(input string) (types.FuncDefArgType, error) {
 	var err error
 	defer transformPanicToError(&err, input, "ParseExpr")
 	is := antlr.NewInputStream(input)
@@ -96,32 +96,11 @@ func ParseSubstraitType(input string) (types.Type, error) {
 	p.AddErrorListener(errorListener)
 	p.GetInterpreter().SetPredictionMode(antlr.PredictionModeSLL)
 
-	visitor := &MyVisitor{}
-	context := p.TypeStatement()
-	if errorListener.ErrorCount() > 0 {
-		fmt.Printf("ParseTree: %v", antlr.TreesStringTree(context, []string{}, p))
-		return nil, fmt.Errorf(errorListener.GetError())
-	}
-	ret := visitor.Visit(context)
-	return ret.(types.Type), nil
-}
-
-func ParseFuncDefArgType(input string) (types.FuncDefArgType, error) {
-	var err error
-	defer transformPanicToError(&err, input, "ParseExpr")
-	is := antlr.NewInputStream(input)
-	lexer := baseparser.NewSubstraitTypeLexer(is)
-	stream := antlr.NewCommonTokenStream(lexer, 0)
-	p := baseparser.NewSubstraitTypeParser(stream)
-	errorListener := newErrorListener()
-	p.AddErrorListener(errorListener)
-	p.GetInterpreter().SetPredictionMode(antlr.PredictionModeSLL)
-
-	visitor := &MyVisitor{}
+	visitor := &TypeVisitor{}
 	context := p.StartRule()
 	if errorListener.ErrorCount() > 0 {
 		fmt.Printf("ParseTree: %v", antlr.TreesStringTree(context, []string{}, p))
-		return nil, fmt.Errorf(errorListener.GetError())
+		return nil, fmt.Errorf("error parsing input '%s': %s", input, errorListener.GetError())
 	}
 	ret := visitor.Visit(context)
 	retType, ok := ret.(types.FuncDefArgType)
