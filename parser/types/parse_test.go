@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/goccy/go-yaml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/types"
@@ -125,12 +126,39 @@ func TestParseErrors(t *testing.T) {
 	}{
 		{"i"},
 		{"i1"},
+		{"decimal<38>"},
+		{"decimal(38,10)"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			_, err := ParseType(tt.input)
 			assert.Error(t, err)
+		})
+	}
+}
+
+func TestTypeExpression_UnmarshalYAML(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected types.FuncDefArgType
+		hasError bool
+	}{
+		{"i16", &types.Int16Type{Nullability: types.NullabilityRequired}, false},
+		{"i16?", &types.Int16Type{Nullability: types.NullabilityNullable}, false},
+		{"invalid", nil, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			var te TypeExpression
+			err := yaml.Unmarshal([]byte(tt.input), &te)
+			if tt.hasError {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, te.ValueType)
 		})
 	}
 }

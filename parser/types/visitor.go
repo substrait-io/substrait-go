@@ -297,7 +297,7 @@ func (v *TypeVisitor) VisitMap(ctx *baseparser.MapContext) interface{} {
 	return &types.ParameterizedMapType{Key: keyType, Value: valueType, Nullability: nullability}
 }
 
-func (v *TypeVisitor) VisitTypeParam(ctx *baseparser.TypeParamContext) interface{} {
+func (v *TypeVisitor) VisitParameterName(ctx *baseparser.ParameterNameContext) interface{} {
 	return types.StringParameter(ctx.Identifier().GetText())
 }
 
