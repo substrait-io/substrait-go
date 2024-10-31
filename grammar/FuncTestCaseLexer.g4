@@ -35,6 +35,10 @@ SILENT: 'SILENT';
 TIE_TO_EVEN: 'TIE_TO_EVEN';
 NAN: 'NAN';
 
+fragment INTEGER
+  : '0'
+  | [1-9] [0-9]*
+  ;
 
 INTEGER_LITERAL
     : [+-]? INTEGER

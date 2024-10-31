@@ -10,7 +10,7 @@ import (
 	"github.com/substrait-io/substrait-go/types/integer_parameters"
 )
 
-func TestParseSubstraitType(t *testing.T) {
+func TestParseSimpleTypes(t *testing.T) {
 	tests := []struct {
 		input     string
 		expected  string
@@ -32,9 +32,22 @@ func TestParseSubstraitType(t *testing.T) {
 		{"time", "time", "time", &types.TimeType{Nullability: types.NullabilityRequired}},
 		{"uuid", "uuid", "uuid", &types.UUIDType{Nullability: types.NullabilityRequired}},
 		{"interval_year", "interval_year", "iyear", &types.IntervalYearType{Nullability: types.NullabilityRequired}},
+
+		{"Boolean", "boolean?", "bool", &types.BooleanType{Nullability: types.NullabilityRequired}},
 		{"I8", "i8", "i8", &types.Int8Type{Nullability: types.NullabilityRequired}},
-		{"Boolean", "boolean", "bool", &types.BooleanType{Nullability: types.NullabilityRequired}},
-		{"i16?", "i16?", "i16", &types.Int16Type{Nullability: types.NullabilityNullable}},
+		{"I16", "i16", "i16", &types.Int16Type{Nullability: types.NullabilityRequired}},
+		{"I32", "i32", "i32", &types.Int32Type{Nullability: types.NullabilityRequired}},
+		{"I64", "i64", "i64", &types.Int64Type{Nullability: types.NullabilityRequired}},
+		{"FP32", "fp32", "fp32", &types.Float32Type{Nullability: types.NullabilityRequired}},
+		{"FP64", "fp64", "fp64", &types.Float64Type{Nullability: types.NullabilityRequired}},
+		{"STRING", "string", "str", &types.StringType{Nullability: types.NullabilityRequired}},
+		{"BINARY", "binary", "bin", &types.BinaryType{Nullability: types.NullabilityRequired}},
+		{"TIMESTAMP", "timestamp", "ts", &types.TimestampType{Nullability: types.NullabilityRequired}},
+		{"TIMESTAMP_TZ", "timestamp_tz", "tstz", &types.TimestampTzType{Nullability: types.NullabilityRequired}},
+		{"DATE", "date", "date", &types.DateType{Nullability: types.NullabilityRequired}},
+		{"TIME", "time", "time", &types.TimeType{Nullability: types.NullabilityRequired}},
+		{"UUID", "uuid", "uuid", &types.UUIDType{Nullability: types.NullabilityRequired}},
+		{"interval_year", "interval_year", "iyear", &types.IntervalYearType{Nullability: types.NullabilityRequired}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
@@ -60,12 +73,10 @@ func TestParseFuncDefArgType(t *testing.T) {
 		shortName string
 		want      types.FuncDefArgType
 	}{
-		{"I8", "i8", "i8", &types.Int8Type{Nullability: types.NullabilityRequired}},
-		{"Boolean", "boolean", "bool", &types.BooleanType{Nullability: types.NullabilityRequired}},
-		{"i8", "i8", "i8", &types.Int8Type{Nullability: types.NullabilityRequired}},
-		{"string", "string", "str", &types.StringType{Nullability: types.NullabilityRequired}},
+		{"i8?", "i8?", "i8", &types.Int8Type{Nullability: types.NullabilityNullable}},
 		{"i16?", "i16?", "i16", &types.Int16Type{Nullability: types.NullabilityNullable}},
-		{"boolean", "boolean", "bool", &types.BooleanType{Nullability: types.NullabilityRequired}},
+		{"string?", "string?", "str", &types.StringType{Nullability: types.NullabilityNullable}},
+		{"boolean?", "boolean?", "bool", &types.BooleanType{Nullability: types.NullabilityNullable}},
 
 		{"fixedchar<5>", "char<5>", "fchar", &types.ParameterizedFixedCharType{IntegerOption: &concreteInt5, Nullability: types.NullabilityRequired}},
 		{"decimal<10,5>", "decimal<10,5>", "dec", &types.ParameterizedDecimalType{Precision: &concreteInt10, Scale: &concreteInt5, Nullability: types.NullabilityRequired}},
@@ -104,6 +115,22 @@ func TestParseFuncDefArgType(t *testing.T) {
 				assert.Equal(t, tt.shortName, got.ShortString())
 			}
 			assert.True(t, reflect.DeepEqual(got, tt.want), "ParseSubstraitType() = %v, want %v", got, tt.want)
+		})
+	}
+}
+
+func TestParseErrors(t *testing.T) {
+	tests := []struct {
+		input string
+	}{
+		{"i"},
+		{"i1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			_, err := ParseType(tt.input)
+			assert.Error(t, err)
 		})
 	}
 }

@@ -32,12 +32,16 @@ var SubstraitTypeParserStaticData struct {
 func substraittypeParserInit() {
 	staticData := &SubstraitTypeParserStaticData
 	staticData.LiteralNames = []string{
-		"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
-		"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
-		"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "'::'",
-		"'+'", "'-'", "'*'", "'/'", "'%'", "'='", "'!='", "'>='", "'<='", "'>'",
-		"'<'", "'!'", "", "", "'('", "')'", "'['", "']'", "','", "':'", "'?'",
-		"'#'", "'.'", "", "", "':='",
+		"", "", "", "", "'IF'", "'THEN'", "'ELSE'", "'BOOLEAN'", "'I8'", "'I16'",
+		"'I32'", "'I64'", "'FP32'", "'FP64'", "'STRING'", "'BINARY'", "'TIMESTAMP'",
+		"'TIMESTAMP_TZ'", "'DATE'", "'TIME'", "'INTERVAL_YEAR'", "'INTERVAL_DAY'",
+		"'UUID'", "'DECIMAL'", "'PRECISION_TIMESTAMP'", "'PRECISION_TIMESTAMP_TZ'",
+		"'FIXEDCHAR'", "'VARCHAR'", "'FIXEDBINARY'", "'STRUCT'", "'NSTRUCT'",
+		"'LIST'", "'MAP'", "'U!'", "'BOOL'", "'STR'", "'VBIN'", "'TS'", "'TSTZ'",
+		"'IYEAR'", "'IDAY'", "'DEC'", "'PTS'", "'PTSTZ'", "'FCHAR'", "'VCHAR'",
+		"'FBIN'", "'ANY'", "", "'::'", "'+'", "'-'", "'*'", "'/'", "'%'", "'='",
+		"'!='", "'>='", "'<='", "'>'", "'<'", "'!'", "", "", "'('", "')'", "'['",
+		"']'", "','", "':'", "'?'", "'#'", "'.'", "'AND'", "'OR'", "':='",
 	}
 	staticData.SymbolicNames = []string{
 		"", "LineComment", "BlockComment", "Whitespace", "If", "Then", "Else",
