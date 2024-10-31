@@ -4839,8 +4839,7 @@ func (s *ParenExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interfac
 
 type ParameterNameContext struct {
 	ExprContext
-	identifier antlr.Token
-	isnull     antlr.Token
+	isnull antlr.Token
 }
 
 func NewParameterNameContext(parser antlr.Parser, ctx antlr.ParserRuleContext) *ParameterNameContext {
@@ -4853,11 +4852,7 @@ func NewParameterNameContext(parser antlr.Parser, ctx antlr.ParserRuleContext) *
 	return p
 }
 
-func (s *ParameterNameContext) GetIdentifier() antlr.Token { return s.identifier }
-
 func (s *ParameterNameContext) GetIsnull() antlr.Token { return s.isnull }
-
-func (s *ParameterNameContext) SetIdentifier(v antlr.Token) { s.identifier = v }
 
 func (s *ParameterNameContext) SetIsnull(v antlr.Token) { s.isnull = v }
 
@@ -5058,7 +5053,6 @@ func (s *NotExprContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
 
 type LiteralNumberContext struct {
 	ExprContext
-	number antlr.Token
 }
 
 func NewLiteralNumberContext(parser antlr.Parser, ctx antlr.ParserRuleContext) *LiteralNumberContext {
@@ -5070,10 +5064,6 @@ func NewLiteralNumberContext(parser antlr.Parser, ctx antlr.ParserRuleContext) *
 
 	return p
 }
-
-func (s *LiteralNumberContext) GetNumber() antlr.Token { return s.number }
-
-func (s *LiteralNumberContext) SetNumber(v antlr.Token) { s.number = v }
 
 func (s *LiteralNumberContext) GetRuleContext() antlr.RuleContext {
 	return s
@@ -5318,10 +5308,7 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 		_prevctx = localctx
 		{
 			p.SetState(224)
-
-			var _m = p.Match(SubstraitTypeParserNumber)
-
-			localctx.(*LiteralNumberContext).number = _m
+			p.Match(SubstraitTypeParserNumber)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -5334,10 +5321,7 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 		_prevctx = localctx
 		{
 			p.SetState(225)
-
-			var _m = p.Match(SubstraitTypeParserIdentifier)
-
-			localctx.(*ParameterNameContext).identifier = _m
+			p.Match(SubstraitTypeParserIdentifier)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
