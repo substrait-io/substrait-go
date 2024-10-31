@@ -21,12 +21,8 @@ type AdvancedExtension = extensions.AdvancedExtension
 const SubstraitDefaultURIPrefix = "https://github.com/substrait-io/substrait/blob/main/extensions/"
 
 // DefaultCollection is loaded with the default Substrait extension
-// definitions.
-// Parser needs to enhanced until than below function files are not processed
-// 1. functions_arithmetic_decimal.yaml (need to parse complex return type)
-// 2. functions_geometry.yaml (need to parse geometry type)
-// 3. type_variations.yaml
-// 4. unknown.yaml
+// definitions. Not all files are currently parsable.
+// Parser needs to enhanced to support all files
 var DefaultCollection Collection
 
 func init() {
