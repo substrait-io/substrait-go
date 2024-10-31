@@ -4773,64 +4773,6 @@ func (s *BinaryExprContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
 	}
 }
 
-type TypeParamContext struct {
-	ExprContext
-	identifier antlr.Token
-	isnull     antlr.Token
-}
-
-func NewTypeParamContext(parser antlr.Parser, ctx antlr.ParserRuleContext) *TypeParamContext {
-	var p = new(TypeParamContext)
-
-	InitEmptyExprContext(&p.ExprContext)
-	p.parser = parser
-	p.CopyAll(ctx.(*ExprContext))
-
-	return p
-}
-
-func (s *TypeParamContext) GetIdentifier() antlr.Token { return s.identifier }
-
-func (s *TypeParamContext) GetIsnull() antlr.Token { return s.isnull }
-
-func (s *TypeParamContext) SetIdentifier(v antlr.Token) { s.identifier = v }
-
-func (s *TypeParamContext) SetIsnull(v antlr.Token) { s.isnull = v }
-
-func (s *TypeParamContext) GetRuleContext() antlr.RuleContext {
-	return s
-}
-
-func (s *TypeParamContext) Identifier() antlr.TerminalNode {
-	return s.GetToken(SubstraitTypeParserIdentifier, 0)
-}
-
-func (s *TypeParamContext) QMark() antlr.TerminalNode {
-	return s.GetToken(SubstraitTypeParserQMark, 0)
-}
-
-func (s *TypeParamContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SubstraitTypeListener); ok {
-		listenerT.EnterTypeParam(s)
-	}
-}
-
-func (s *TypeParamContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SubstraitTypeListener); ok {
-		listenerT.ExitTypeParam(s)
-	}
-}
-
-func (s *TypeParamContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SubstraitTypeVisitor:
-		return t.VisitTypeParam(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
 type ParenExpressionContext struct {
 	ExprContext
 }
@@ -4889,6 +4831,64 @@ func (s *ParenExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interfac
 	switch t := visitor.(type) {
 	case SubstraitTypeVisitor:
 		return t.VisitParenExpression(s)
+
+	default:
+		return t.VisitChildren(s)
+	}
+}
+
+type ParameterNameContext struct {
+	ExprContext
+	identifier antlr.Token
+	isnull     antlr.Token
+}
+
+func NewParameterNameContext(parser antlr.Parser, ctx antlr.ParserRuleContext) *ParameterNameContext {
+	var p = new(ParameterNameContext)
+
+	InitEmptyExprContext(&p.ExprContext)
+	p.parser = parser
+	p.CopyAll(ctx.(*ExprContext))
+
+	return p
+}
+
+func (s *ParameterNameContext) GetIdentifier() antlr.Token { return s.identifier }
+
+func (s *ParameterNameContext) GetIsnull() antlr.Token { return s.isnull }
+
+func (s *ParameterNameContext) SetIdentifier(v antlr.Token) { s.identifier = v }
+
+func (s *ParameterNameContext) SetIsnull(v antlr.Token) { s.isnull = v }
+
+func (s *ParameterNameContext) GetRuleContext() antlr.RuleContext {
+	return s
+}
+
+func (s *ParameterNameContext) Identifier() antlr.TerminalNode {
+	return s.GetToken(SubstraitTypeParserIdentifier, 0)
+}
+
+func (s *ParameterNameContext) QMark() antlr.TerminalNode {
+	return s.GetToken(SubstraitTypeParserQMark, 0)
+}
+
+func (s *ParameterNameContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SubstraitTypeListener); ok {
+		listenerT.EnterParameterName(s)
+	}
+}
+
+func (s *ParameterNameContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SubstraitTypeListener); ok {
+		listenerT.ExitParameterName(s)
+	}
+}
+
+func (s *ParameterNameContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+	switch t := visitor.(type) {
+	case SubstraitTypeVisitor:
+		return t.VisitParameterName(s)
 
 	default:
 		return t.VisitChildren(s)
@@ -5329,7 +5329,7 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 		}
 
 	case 5:
-		localctx = NewTypeParamContext(p, localctx)
+		localctx = NewParameterNameContext(p, localctx)
 		p.SetParserRuleContext(localctx)
 		_prevctx = localctx
 		{
@@ -5337,7 +5337,7 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 
 			var _m = p.Match(SubstraitTypeParserIdentifier)
 
-			localctx.(*TypeParamContext).identifier = _m
+			localctx.(*ParameterNameContext).identifier = _m
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -5352,7 +5352,7 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 
 				var _m = p.Match(SubstraitTypeParserQMark)
 
-				localctx.(*TypeParamContext).isnull = _m
+				localctx.(*ParameterNameContext).isnull = _m
 				if p.HasError() {
 					// Recognition error - abort rule
 					goto errorExit

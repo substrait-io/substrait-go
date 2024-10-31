@@ -254,17 +254,17 @@ func (s *BaseSubstraitTypeListener) EnterBinaryExpr(ctx *BinaryExprContext) {}
 // ExitBinaryExpr is called when production BinaryExpr is exited.
 func (s *BaseSubstraitTypeListener) ExitBinaryExpr(ctx *BinaryExprContext) {}
 
-// EnterTypeParam is called when production TypeParam is entered.
-func (s *BaseSubstraitTypeListener) EnterTypeParam(ctx *TypeParamContext) {}
-
-// ExitTypeParam is called when production TypeParam is exited.
-func (s *BaseSubstraitTypeListener) ExitTypeParam(ctx *TypeParamContext) {}
-
 // EnterParenExpression is called when production ParenExpression is entered.
 func (s *BaseSubstraitTypeListener) EnterParenExpression(ctx *ParenExpressionContext) {}
 
 // ExitParenExpression is called when production ParenExpression is exited.
 func (s *BaseSubstraitTypeListener) ExitParenExpression(ctx *ParenExpressionContext) {}
+
+// EnterParameterName is called when production ParameterName is entered.
+func (s *BaseSubstraitTypeListener) EnterParameterName(ctx *ParameterNameContext) {}
+
+// ExitParameterName is called when production ParameterName is exited.
+func (s *BaseSubstraitTypeListener) ExitParameterName(ctx *ParameterNameContext) {}
 
 // EnterFunctionCall is called when production FunctionCall is entered.
 func (s *BaseSubstraitTypeListener) EnterFunctionCall(ctx *FunctionCallContext) {}

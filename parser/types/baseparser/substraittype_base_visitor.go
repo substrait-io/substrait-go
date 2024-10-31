@@ -163,11 +163,11 @@ func (v *BaseSubstraitTypeVisitor) VisitBinaryExpr(ctx *BinaryExprContext) inter
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSubstraitTypeVisitor) VisitTypeParam(ctx *TypeParamContext) interface{} {
+func (v *BaseSubstraitTypeVisitor) VisitParenExpression(ctx *ParenExpressionContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSubstraitTypeVisitor) VisitParenExpression(ctx *ParenExpressionContext) interface{} {
+func (v *BaseSubstraitTypeVisitor) VisitParameterName(ctx *ParameterNameContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

@@ -124,11 +124,11 @@ type SubstraitTypeListener interface {
 	// EnterBinaryExpr is called when entering the BinaryExpr production.
 	EnterBinaryExpr(c *BinaryExprContext)
 
-	// EnterTypeParam is called when entering the TypeParam production.
-	EnterTypeParam(c *TypeParamContext)
-
 	// EnterParenExpression is called when entering the ParenExpression production.
 	EnterParenExpression(c *ParenExpressionContext)
+
+	// EnterParameterName is called when entering the ParameterName production.
+	EnterParameterName(c *ParameterNameContext)
 
 	// EnterFunctionCall is called when entering the FunctionCall production.
 	EnterFunctionCall(c *FunctionCallContext)
@@ -256,11 +256,11 @@ type SubstraitTypeListener interface {
 	// ExitBinaryExpr is called when exiting the BinaryExpr production.
 	ExitBinaryExpr(c *BinaryExprContext)
 
-	// ExitTypeParam is called when exiting the TypeParam production.
-	ExitTypeParam(c *TypeParamContext)
-
 	// ExitParenExpression is called when exiting the ParenExpression production.
 	ExitParenExpression(c *ParenExpressionContext)
+
+	// ExitParameterName is called when exiting the ParameterName production.
+	ExitParameterName(c *ParameterNameContext)
 
 	// ExitFunctionCall is called when exiting the FunctionCall production.
 	ExitFunctionCall(c *FunctionCallContext)

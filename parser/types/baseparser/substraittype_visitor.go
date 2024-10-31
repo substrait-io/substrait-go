@@ -124,11 +124,11 @@ type SubstraitTypeVisitor interface {
 	// Visit a parse tree produced by SubstraitTypeParser#BinaryExpr.
 	VisitBinaryExpr(ctx *BinaryExprContext) interface{}
 
-	// Visit a parse tree produced by SubstraitTypeParser#TypeParam.
-	VisitTypeParam(ctx *TypeParamContext) interface{}
-
 	// Visit a parse tree produced by SubstraitTypeParser#ParenExpression.
 	VisitParenExpression(ctx *ParenExpressionContext) interface{}
+
+	// Visit a parse tree produced by SubstraitTypeParser#ParameterName.
+	VisitParameterName(ctx *ParameterNameContext) interface{}
 
 	// Visit a parse tree produced by SubstraitTypeParser#FunctionCall.
 	VisitFunctionCall(ctx *FunctionCallContext) interface{}
