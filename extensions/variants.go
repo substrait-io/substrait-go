@@ -10,7 +10,6 @@ import (
 	types2 "github.com/substrait-io/substrait-go/parser/types"
 	"github.com/substrait-io/substrait-go/types"
 	"github.com/substrait-io/substrait-go/types/integer_parameters"
-	"github.com/substrait-io/substrait-go/types/parser"
 )
 
 type FunctionVariant interface {
@@ -229,7 +228,7 @@ func parseFuncName(compoundName string) (name string, args ArgumentList) {
 	}
 	splitArgs := strings.Split(argsStr, "_")
 	for _, argStr := range splitArgs {
-		parsed, err := types2.ParseFuncDefArgType(argStr)
+		parsed, err := types2.ParseType(argStr)
 		if err != nil {
 			panic(err)
 		}
@@ -361,10 +360,6 @@ type AggVariantOptions struct {
 	IntermediateOutputType string
 }
 
-var (
-	defParser, _ = parser.New()
-)
-
 func NewAggFuncVariantOpts(id ID, opts AggVariantOptions) *AggregateFunctionVariant {
 	var aggIntermediate types2.TypeExpression
 	if opts.Decomposable == "" {
@@ -376,7 +371,7 @@ func NewAggFuncVariantOpts(id ID, opts AggVariantOptions) *AggregateFunctionVari
 				substraitgo.ErrInvalidExpr, id))
 		}
 
-		intermediate, err := types2.ParseFuncDefArgType(opts.IntermediateOutputType)
+		intermediate, err := types2.ParseType(opts.IntermediateOutputType)
 		if err != nil {
 			panic(err)
 		}
@@ -500,7 +495,7 @@ func NewWindowFuncVariantOpts(id ID, opts WindowVariantOpts) *WindowFunctionVari
 				substraitgo.ErrInvalidExpr, id))
 		}
 
-		intermediate, err := types2.ParseFuncDefArgType(opts.IntermediateOutputType)
+		intermediate, err := types2.ParseType(opts.IntermediateOutputType)
 		if err != nil {
 			panic(err)
 		}

@@ -15,9 +15,9 @@ import (
 
 func TestEvaluateTypeExpression(t *testing.T) {
 	var (
-		i64Null, _    = types2.ParseFuncDefArgType("i64?")
-		i64NonNull, _ = types2.ParseFuncDefArgType("i64")
-		strNull, _    = types2.ParseFuncDefArgType("string?")
+		i64Null, _    = types2.ParseType("i64?")
+		i64NonNull, _ = types2.ParseType("i64")
+		strNull, _    = types2.ParseType("string?")
 	)
 
 	tests := []struct {
@@ -69,8 +69,8 @@ func TestEvaluateTypeExpression(t *testing.T) {
 
 func TestVariantWithVariadic(t *testing.T) {
 	var (
-		i64Null, _    = types2.ParseFuncDefArgType("i64?")
-		i64NonNull, _ = types2.ParseFuncDefArgType("i64")
+		i64Null, _    = types2.ParseType("i64?")
+		i64NonNull, _ = types2.ParseType("i64")
 	)
 
 	tests := []struct {

@@ -38,7 +38,7 @@ func TestParseSubstraitType(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			got, err := ParseSubstraitType(tt.input)
+			got, err := ParseType(tt.input)
 			assert.NoError(t, err)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ParseSubstraitType() = %v, want %v", got, tt.want)
@@ -97,7 +97,7 @@ func TestParseFuncDefArgType(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			got, err := ParseFuncDefArgType(tt.input)
+			got, err := ParseType(tt.input)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expected, got.String())
 			if tt.shortName != "" {
