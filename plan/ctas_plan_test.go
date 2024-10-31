@@ -3,6 +3,8 @@ package plan_test
 import (
 	"embed"
 	"fmt"
+	"testing"
+
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/expr"
 	"github.com/substrait-io/substrait-go/extensions"
@@ -10,8 +12,6 @@ import (
 	"github.com/substrait-io/substrait-go/plan"
 	substraitproto "github.com/substrait-io/substrait-go/proto"
 	"github.com/substrait-io/substrait-go/types"
-	"strings"
-	"testing"
 )
 
 // Embed test JSON files for expected output comparison.
@@ -83,8 +83,8 @@ func makeNamedTableReadRel(b plan.Builder, tableNames []string, tableSchema type
 // makeConditionExprForLike constructs a LIKE condition expression for the specified column and value.
 func makeConditionExprForLike(t *testing.T, b plan.Builder, scan plan.Rel, colId int, valueLiteral expr.Literal) expr.Expression {
 	id := extensions.ID{
-		"https://github.com/substrait-io/substrait/blob/main/extensions/functions_string.yaml",
-		"contains:str_str",
+		URI:  "https://github.com/substrait-io/substrait/blob/main/extensions/functions_string.yaml",
+		Name: "contains:str_str",
 	}
 	b.GetFunctionRef(id.URI, id.Name)
 	colIdRef, err := b.RootFieldRef(scan, int32(colId))
@@ -112,30 +112,26 @@ func makeProjectRel(t *testing.T, b plan.Builder, input plan.Rel, columnIds []in
 	return project
 }
 
-// getProjectionForTest builds the SELECT portion of the CTAS statement based on the provided test name.
-func getProjectionForTest(t *testing.T, b plan.Builder, testName string) plan.Rel {
-	// Select name, salary from employees
-	if strings.EqualFold(testName, "ctas_basic") {
-		namedScanRel := makeNamedTableReadRel(b, []string{"employees"}, employeeSchema, []int{1, 3})
-		return makeProjectRel(t, b, namedScanRel, []int{0, 1})
-	}
+// getProjectionForTest1 returns project rel for "Select name, salary from employees"
+func getProjectionForTest1(t *testing.T, b plan.Builder) plan.Rel {
+	namedScanRel := makeNamedTableReadRel(b, []string{"employees"}, employeeSchema, []int{1, 3})
+	return makeProjectRel(t, b, namedScanRel, []int{0, 1})
+}
 
-	// Select * from employees where role LIKE 'Engineer'
-	if strings.EqualFold(testName, "ctas_with_filter") {
-		// scanRel outputs role, employee_id, name, department_id, salary
-		namedScanRel := makeNamedTableReadRel(b, []string{"employees"}, employeeSchema, []int{4, 0, 1, 2, 3})
+// getProjectionForTest2 returns project rel for "Select * from employees where role LIKE 'Engineer'"
+func getProjectionForTest2(t *testing.T, b plan.Builder) plan.Rel {
+	// scanRel outputs role, employee_id, name, department_id, salary
+	namedScanRel := makeNamedTableReadRel(b, []string{"employees"}, employeeSchema, []int{4, 0, 1, 2, 3})
 
-		// column 0 from the output of namedScanRel is role
-		// Build the filter with condition `role LIKE 'Engineer'`
-		l, err := literal.NewString("Engineer")
-		require.NoError(t, err)
-		roleLikeEngineer := makeConditionExprForLike(t, b, namedScanRel, 0, l)
-		filterRel := makeFilterRel(t, b, namedScanRel, roleLikeEngineer)
+	// column 0 from the output of namedScanRel is role
+	// Build the filter with condition `role LIKE 'Engineer'`
+	l, err := literal.NewString("Engineer")
+	require.NoError(t, err)
+	roleLikeEngineer := makeConditionExprForLike(t, b, namedScanRel, 0, l)
+	filterRel := makeFilterRel(t, b, namedScanRel, roleLikeEngineer)
 
-		// projectRel output employee_id, name, department_id, salary, role
-		return makeProjectRel(t, b, filterRel, []int{1, 2, 3, 4, 0})
-	}
-	return nil
+	// projectRel output employee_id, name, department_id, salary, role
+	return makeProjectRel(t, b, filterRel, []int{1, 2, 3, 4, 0})
 }
 
 // TestCreateTableAsSelectRoundTrip verifies that generated plans match the expected JSON.
@@ -144,9 +140,10 @@ func TestCreateTableAsSelectRoundTrip(t *testing.T) {
 		name            string
 		ctasTableName   []string
 		ctasTableSchema types.NamedStruct
+		getProjection   func(t *testing.T, b plan.Builder) plan.Rel
 	}{
-		{"ctas_basic", []string{"main", "employee_salaries"}, employeeSalariesSchema},
-		{"ctas_with_filter", []string{"main", "filtered_employees"}, employeeSchemaNullable},
+		{"ctas_basic", []string{"main", "employee_salaries"}, employeeSalariesSchema, getProjectionForTest1},
+		{"ctas_with_filter", []string{"main", "filtered_employees"}, employeeSchemaNullable, getProjectionForTest2},
 	} {
 		t.Run(td.name, func(t *testing.T) {
 			// Load the expected JSON. This will be our baseline for comparison.
@@ -155,8 +152,7 @@ func TestCreateTableAsSelectRoundTrip(t *testing.T) {
 
 			// build plan for CTAS
 			b := plan.NewBuilderDefault()
-			selectRel := getProjectionForTest(t, b, td.name)
-			ctasRel, err := b.CreateTableAsSelect(selectRel, td.ctasTableName, td.ctasTableSchema)
+			ctasRel, err := b.CreateTableAsSelect(td.getProjection(t, b), td.ctasTableName, td.ctasTableSchema)
 			require.NoError(t, err)
 			ctasPlan, err := b.Plan(ctasRel, td.ctasTableSchema.Names)
 			require.NoError(t, err)

@@ -1608,7 +1608,7 @@ const (
 	OutputModeModifiedRecords = proto.WriteRel_OUTPUT_MODE_MODIFIED_RECORDS
 )
 
-// NamedTableWriteRel is a relational operator that writes data to a table.The list of strings
+// NamedTableWriteRel is a relational operator that writes data to a table. The list of strings
 // that make up the names are to represent namespacing (e.g. mydb.mytable).
 // This assumes a shared catalog between systems exchanging a message.
 // op as WriteOpCTAS is a special case of write operation where the output is written to a new table.

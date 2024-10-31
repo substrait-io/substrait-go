@@ -289,9 +289,9 @@ func (b *builder) CreateTableAsSelectRemap(input Rel, remap []int32, tableName [
 		return nil, errNilInputRel
 	}
 
-	noutput := int32(len(input.Remap(input.RecordType()).Types))
+	nOutput := int32(len(input.Remap(input.RecordType()).Types))
 	for _, idx := range remap {
-		if idx < 0 || idx >= noutput {
+		if idx < 0 || idx >= nOutput {
 			return nil, errOutputMappingOutOfRange
 		}
 	}
