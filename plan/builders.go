@@ -80,8 +80,8 @@ type Builder interface {
 	CreateTableAsSelect(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error)
 	CrossRemap(left, right Rel, remap []int32) (*CrossRel, error)
 	Cross(left, right Rel) (*CrossRel, error)
-	FetchRemap(input Rel, offset, count uint64, remap []int32) (*FetchRel, error)
-	Fetch(input Rel, offset, count uint64) (*FetchRel, error)
+	FetchRemap(input Rel, offset, count int64, remap []int32) (*FetchRel, error)
+	Fetch(input Rel, offset, count int64) (*FetchRel, error)
 	FilterRemap(input Rel, condition expr.Expression, remap []int32) (*FilterRel, error)
 	Filter(input Rel, condition expr.Expression) (*FilterRel, error)
 	JoinAndFilterRemap(left, right Rel, condition, postJoinFilter expr.Expression, joinType JoinType, remap []int32) (*JoinRel, error)
@@ -332,7 +332,7 @@ func (b *builder) Cross(left, right Rel) (*CrossRel, error) {
 	return b.CrossRemap(left, right, nil)
 }
 
-func (b *builder) FetchRemap(input Rel, offset, count uint64, remap []int32) (*FetchRel, error) {
+func (b *builder) FetchRemap(input Rel, offset, count int64, remap []int32) (*FetchRel, error) {
 	if input == nil {
 		return nil, errNilInputRel
 	}
@@ -347,11 +347,11 @@ func (b *builder) FetchRemap(input Rel, offset, count uint64, remap []int32) (*F
 	return &FetchRel{
 		RelCommon: RelCommon{mapping: remap},
 		input:     input,
-		offset:    int64(offset), count: int64(count),
+		offset:    offset, count: count,
 	}, nil
 }
 
-func (b *builder) Fetch(input Rel, offset, count uint64) (*FetchRel, error) {
+func (b *builder) Fetch(input Rel, offset, count int64) (*FetchRel, error) {
 	return b.FetchRemap(input, offset, count, nil)
 }
 
