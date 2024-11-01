@@ -403,7 +403,7 @@ func TestFetchRel(t *testing.T) {
 								}
 							},
 							"offset": 100,
-							"count": 50
+							"count": -1
 						}
 					},
 					"names": ["a"]
@@ -422,7 +422,7 @@ func TestFetchRel(t *testing.T) {
 		},
 	})
 
-	fetch, err := b.Fetch(scan, 100, 50)
+	fetch, err := b.Fetch(scan, 100, -1)
 	require.NoError(t, err)
 
 	p, err := b.Plan(fetch, []string{"a"})
