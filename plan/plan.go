@@ -348,8 +348,9 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			cond:         cond,
 			advExtension: rel.Filter.AdvancedExtension,
 		}
-		out.fromProtoCommon(rel.Filter.Common)
-
+		if rel.Filter.Common != nil {
+			out.fromProtoCommon(rel.Filter.Common)
+		}
 		return out, nil
 	case *proto.Rel_Fetch:
 		input, err := RelFromProto(rel.Fetch.Input, reg)
@@ -497,7 +498,9 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			exprs:        exprs,
 			advExtension: rel.Project.AdvancedExtension,
 		}
-		out.fromProtoCommon(rel.Project.Common)
+		if rel.Project.Common != nil {
+			out.fromProtoCommon(rel.Project.Common)
+		}
 		return out, nil
 	case *proto.Rel_Set:
 		inputs := make([]Rel, len(rel.Set.Inputs))
@@ -703,6 +706,34 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			}
 		}
 
+		return out, nil
+	case *proto.Rel_Write:
+		input, err := RelFromProto(rel.Write.Input, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error getting input to WriteRel: %w", err)
+		}
+		tableSchema := types.NewNamedStructFromProto(rel.Write.TableSchema)
+		out := &NamedTableWriteRel{
+			tableSchema: tableSchema,
+			op:          rel.Write.Op,
+			input:       input,
+			outputMode:  rel.Write.Output,
+		}
+		if rel.Write.Common != nil {
+			out.fromProtoCommon(rel.Write.Common)
+		}
+		switch rel.Write.Op {
+		case proto.WriteRel_WRITE_OP_CTAS:
+			switch writeType := rel.Write.WriteType.(type) {
+			case *proto.WriteRel_NamedTable:
+				out.names = writeType.NamedTable.Names
+				out.advExtension = writeType.NamedTable.AdvancedExtension
+			case *proto.WriteRel_ExtensionTable:
+				return nil, fmt.Errorf("%w: ExtensionTable not supported for WriteRel", substraitgo.ErrInvalidRel)
+			}
+		default:
+			return nil, fmt.Errorf("%w: WriteRel not supported for optype %v", substraitgo.ErrInvalidRel, rel.Write.Op)
+		}
 		return out, nil
 	case nil:
 		return nil, fmt.Errorf("%w: got nil", substraitgo.ErrInvalidRel)

@@ -41,6 +41,7 @@ func TestRelations_Copy(t *testing.T) {
 	setRel := &SetRel{inputs: []Rel{createVirtualTableReadRel(1), createVirtualTableReadRel(2), createVirtualTableReadRel(3)}, op: SetOpUnionAll}
 	sortRel := &SortRel{input: createVirtualTableReadRel(1), sorts: []expr.SortField{{Expr: createPrimitiveFloat(1.0), Kind: types.SortAscNullsFirst}}}
 	virtualTableReadRel := &VirtualTableReadRel{values: []expr.StructLiteralValue{[]expr.Literal{&expr.PrimitiveLiteral[int64]{Value: 1}}}}
+	namedTableWriteRel := &NamedTableWriteRel{input: namedTableReadRel}
 
 	type relationTestCase struct {
 		name            string
@@ -294,6 +295,33 @@ func TestRelations_Copy(t *testing.T) {
 			relation:        virtualTableReadRel,
 			newInputs:       []Rel{},
 			expectedSameRel: true,
+		},
+		{
+			name:        "NamedTableWriteRel Copy with new inputs",
+			relation:    namedTableWriteRel,
+			newInputs:   []Rel{createVirtualTableReadRel(6)},
+			expectedRel: &NamedTableWriteRel{input: createVirtualTableReadRel(6)},
+		},
+		{
+			name:            "NamedTableWriteRel Copy with same inputs and noOpRewrite",
+			relation:        namedTableWriteRel,
+			newInputs:       namedTableWriteRel.GetInputs(),
+			rewriteFunc:     noOpRewrite,
+			expectedSameRel: true,
+		},
+		{
+			name:        "NamedTableWriteRel Copy with new inputs and noOpRewrite",
+			relation:    namedTableWriteRel,
+			newInputs:   []Rel{createVirtualTableReadRel(6)},
+			rewriteFunc: noOpRewrite,
+			expectedRel: &NamedTableWriteRel{input: createVirtualTableReadRel(6)},
+		},
+		{
+			name:        "NamedTableWriteRel Copy with new inputs and rewriteFunc",
+			relation:    namedTableWriteRel,
+			newInputs:   []Rel{createVirtualTableReadRel(6)},
+			rewriteFunc: func(e expr.Expression) (expr.Expression, error) { return createPrimitiveFloat(9.0), nil },
+			expectedRel: &NamedTableWriteRel{input: createVirtualTableReadRel(6)},
 		},
 	}
 

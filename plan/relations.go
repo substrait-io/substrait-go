@@ -101,6 +101,10 @@ func (b *baseReadRel) BestEffortFilter() expr.Expression                   { ret
 func (b *baseReadRel) Projection() *expr.MaskExpression                    { return b.projection }
 func (b *baseReadRel) GetAdvancedExtension() *extensions.AdvancedExtension { return b.advExtension }
 
+func (b *baseReadRel) SetProjection(p *expr.MaskExpression) {
+	b.projection = p
+}
+
 func (b *baseReadRel) toReadRelProto() *proto.ReadRel {
 	out := &proto.ReadRel{
 		Common:            b.RelCommon.toProto(),
@@ -1586,6 +1590,113 @@ func (mr *MergeJoinRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newIn
 	return &merge, nil
 }
 
+type WriteOp = proto.WriteRel_WriteOp
+
+const (
+	WriteOpUnspecified = proto.WriteRel_WRITE_OP_UNSPECIFIED
+	WriteOpInsert      = proto.WriteRel_WRITE_OP_INSERT
+	WriteOpDelete      = proto.WriteRel_WRITE_OP_DELETE
+	WriteOpUpdate      = proto.WriteRel_WRITE_OP_UPDATE
+	WriteOpCTAS        = proto.WriteRel_WRITE_OP_CTAS
+)
+
+type OutputMode = proto.WriteRel_OutputMode
+
+const (
+	OutputModeUnspecified     = proto.WriteRel_OUTPUT_MODE_UNSPECIFIED
+	OutputModeNoOutput        = proto.WriteRel_OUTPUT_MODE_NO_OUTPUT
+	OutputModeModifiedRecords = proto.WriteRel_OUTPUT_MODE_MODIFIED_RECORDS
+)
+
+// NamedTableWriteRel is a relational operator that writes data to a table. The list of strings
+// that make up the names are to represent namespacing (e.g. mydb.mytable).
+// This assumes a shared catalog between systems exchanging a message.
+// op as WriteOpCTAS is a special case of write operation where the output is written to a new table.
+type NamedTableWriteRel struct {
+	RelCommon
+
+	names        []string
+	advExtension *extensions.AdvancedExtension
+
+	tableSchema types.NamedStruct
+	op          WriteOp
+	input       Rel
+	outputMode  OutputMode
+}
+
+func (wr *NamedTableWriteRel) RecordType() types.StructType {
+	switch wr.outputMode {
+	case OutputModeNoOutput:
+		return types.StructType{}
+	case OutputModeModifiedRecords:
+		return wr.tableSchema.Struct
+	case OutputModeUnspecified:
+		panic("output mode not specified")
+	}
+	return types.StructType{}
+}
+
+func (n *NamedTableWriteRel) Names() []string { return n.names }
+func (n *NamedTableWriteRel) NamedTableAdvancedExtension() *extensions.AdvancedExtension {
+	return n.advExtension
+}
+
+func (wr *NamedTableWriteRel) TableSchema() types.NamedStruct {
+	return wr.tableSchema
+}
+func (wr *NamedTableWriteRel) Op() WriteOp { return wr.op }
+func (wr *NamedTableWriteRel) Input() Rel  { return wr.input }
+func (wr *NamedTableWriteRel) OutputMode() OutputMode {
+	return wr.outputMode
+}
+
+func (wr *NamedTableWriteRel) ToProto() *proto.Rel {
+	return &proto.Rel{
+		RelType: &proto.Rel_Write{
+			Write: &proto.WriteRel{
+				Common: wr.toProto(),
+				WriteType: &proto.WriteRel_NamedTable{
+					NamedTable: &proto.NamedObjectWrite{
+						Names:             wr.names,
+						AdvancedExtension: wr.advExtension,
+					},
+				},
+				TableSchema: wr.tableSchema.ToProto(),
+				Op:          wr.op,
+				Input:       wr.input.ToProto(),
+			},
+		},
+	}
+}
+
+func (wr *NamedTableWriteRel) ToProtoPlanRel() *proto.PlanRel {
+	return &proto.PlanRel{
+		RelType: &proto.PlanRel_Rel{
+			Rel: wr.ToProto(),
+		},
+	}
+}
+
+func (wr *NamedTableWriteRel) GetInputs() []Rel {
+	return []Rel{wr.input}
+}
+
+func (wr *NamedTableWriteRel) Copy(newInputs ...Rel) (Rel, error) {
+	if len(newInputs) != 1 {
+		return nil, substraitgo.ErrInvalidInputCount
+	}
+	write := *wr
+	write.input = newInputs[0]
+	return &write, nil
+}
+
+func (wr *NamedTableWriteRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (Rel, error) {
+	if slices.Equal(newInputs, wr.GetInputs()) {
+		return wr, nil
+	}
+	return wr.Copy(newInputs...)
+}
+
 var (
 	_ Rel = (*NamedTableReadRel)(nil)
 	_ Rel = (*VirtualTableReadRel)(nil)
@@ -1604,6 +1715,7 @@ var (
 	_ Rel = (*ExtensionMultiRel)(nil)
 	_ Rel = (*HashJoinRel)(nil)
 	_ Rel = (*MergeJoinRel)(nil)
+	_ Rel = (*NamedTableWriteRel)(nil)
 
 	_ MultiRel = (*SetRel)(nil)
 	_ MultiRel = (*ExtensionMultiRel)(nil)
@@ -1619,4 +1731,5 @@ var (
 	_ SingleInputRel = (*FilterRel)(nil)
 	_ SingleInputRel = (*SortRel)(nil)
 	_ SingleInputRel = (*ExtensionSingleRel)(nil)
+	_ SingleInputRel = (*NamedTableWriteRel)(nil)
 )

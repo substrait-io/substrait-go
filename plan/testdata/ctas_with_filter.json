@@ -1,0 +1,254 @@
+{
+  "extensionUris": [
+    {
+      "extensionUriAnchor": 1,
+      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_string.yaml"
+    }
+  ],
+  "extensions": [
+    {
+      "extensionFunction": {
+        "extensionUriReference": 1,
+        "functionAnchor": 1,
+        "name": "contains:str_str"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "root": {
+        "input": {
+          "write": {
+            "common": {"direct": {}},
+            "namedTable": {
+              "names": [
+                "main",
+                "filtered_employees"
+              ]
+            },
+            "tableSchema": {
+              "names": [
+                "employee_id",
+                "name",
+                "department_id",
+                "salary",
+                "role"
+              ],
+              "struct": {
+                "types": [
+                  {
+                    "i32": {
+                      "nullability": "NULLABILITY_NULLABLE"
+                    }
+                  },
+                  {
+                    "string": {
+                      "nullability": "NULLABILITY_NULLABLE"
+                    }
+                  },
+                  {
+                    "i32": {
+                      "nullability": "NULLABILITY_NULLABLE"
+                    }
+                  },
+                  {
+                    "decimal": {
+                      "scale": 2,
+                      "precision": 10,
+                      "nullability": "NULLABILITY_NULLABLE"
+                    }
+                  },
+                  {
+                    "string": {
+                      "nullability": "NULLABILITY_NULLABLE"
+                    }
+                  }
+                ]
+              }
+            },
+            "op": "WRITE_OP_CTAS",
+            "input": {
+              "project": {
+                "common": {"direct": {}},
+                "input": {
+                  "filter": {
+                    "common": {"direct": {}},
+                    "input": {
+                      "read": {
+                        "common": {"direct": {}},
+                        "baseSchema": {
+                          "names": [
+                            "employee_id",
+                            "name",
+                            "department_id",
+                            "salary",
+                            "role"
+                          ],
+                          "struct": {
+                            "types": [
+                              {
+                                "i32": {
+                                  "nullability": "NULLABILITY_REQUIRED"
+                                }
+                              },
+                              {
+                                "string": {
+                                  "nullability": "NULLABILITY_NULLABLE"
+                                }
+                              },
+                              {
+                                "i32": {
+                                  "nullability": "NULLABILITY_NULLABLE"
+                                }
+                              },
+                              {
+                                "decimal": {
+                                  "scale": 2,
+                                  "precision": 10,
+                                  "nullability": "NULLABILITY_NULLABLE"
+                                }
+                              },
+                              {
+                                "string": {
+                                  "nullability": "NULLABILITY_NULLABLE"
+                                }
+                              }
+                            ],
+                            "nullability": "NULLABILITY_REQUIRED"
+                          }
+                        },
+                        "projection": {
+                          "select": {
+                            "structItems": [
+                              {
+                                "field": 4
+                              },
+                              {
+                                "field": 0
+                              },
+                              {
+                                "field": 1
+                              },
+                              {
+                                "field": 2
+                              },
+                              {
+                                "field": 3
+                              }
+                            ]
+                          },
+                          "maintainSingularStruct": true
+                        },
+                        "namedTable": {
+                          "names": [
+                            "employees"
+                          ]
+                        }
+                      }
+                    },
+                    "condition": {
+                      "scalarFunction": {
+                        "functionReference": 1,
+                        "outputType": {
+                          "bool": {
+                            "nullability": "NULLABILITY_REQUIRED"
+                          }
+                        },
+                        "arguments": [
+                          {
+                            "value": {
+                              "selection": {
+                                "directReference": {
+                                  "structField": {
+                                    "field": 0
+                                  }
+                                },
+                                "rootReference": {}
+                              }
+                            }
+                          },
+                          {
+                            "value": {
+                              "literal": {
+                                "string": "Engineer"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                "expressions": [
+                  {
+                    "selection": {
+                      "directReference": {
+                        "structField": {
+                          "field": 1
+                        }
+                      },
+                      "rootReference": {}
+                    }
+                  },
+                  {
+                    "selection": {
+                      "directReference": {
+                        "structField": {
+                          "field": 2
+                        }
+                      },
+                      "rootReference": {}
+                    }
+                  },
+                  {
+                    "selection": {
+                      "directReference": {
+                        "structField": {
+                          "field": 3
+                        }
+                      },
+                      "rootReference": {}
+                    }
+                  },
+                  {
+                    "selection": {
+                      "directReference": {
+                        "structField": {
+                          "field": 4
+                        }
+                      },
+                      "rootReference": {}
+                    }
+                  },
+                  {
+                    "selection": {
+                      "directReference": {
+                        "structField": {
+                          "field": 0
+                        }
+                      },
+                      "rootReference": {}
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "names": [
+          "employee_id",
+          "name",
+          "department_id",
+          "salary",
+          "role"
+        ]
+      }
+    }
+  ],
+  "version": {
+    "majorNumber": 0,
+    "minorNumber": 29,
+    "patchNumber": 0,
+    "producer": "substrait-go"
+  }
+}
