@@ -1,0 +1,4 @@
+# .codecov.yml
+coverage:
+  ignore:
+    - "parser/types/baseparser/*.go"
