@@ -80,7 +80,9 @@ type Builder interface {
 	CreateTableAsSelect(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error)
 	CrossRemap(left, right Rel, remap []int32) (*CrossRel, error)
 	Cross(left, right Rel) (*CrossRel, error)
+	// FetchRemap constructs a fetch relation providing an offset (skipping some number of rows) and a count (restricting output to a maximum number of rows).  If count is FETCH_COUNT_ALL_RECORDS (-1) all records will be returned.  Similar to Fetch but allows for reordering and restricting the returned columns.
 	FetchRemap(input Rel, offset, count int64, remap []int32) (*FetchRel, error)
+	// Fetch constructs a fetch relation providing an offset (skipping some number of rows) and a count (restricting output to a maximum number of rows).  If count is FETCH_COUNT_ALL_RECORDS (-1) all records will be returned.
 	Fetch(input Rel, offset, count int64) (*FetchRel, error)
 	FilterRemap(input Rel, condition expr.Expression, remap []int32) (*FilterRel, error)
 	Filter(input Rel, condition expr.Expression) (*FilterRel, error)
@@ -107,6 +109,8 @@ type Builder interface {
 	// and so on.
 	PlanWithTypes(root Rel, rootNames []string, expectedTypeURLs []string, others ...Rel) (*Plan, error)
 }
+
+const FETCH_COUNT_ALL_RECORDS = -1
 
 func NewBuilderDefault() Builder {
 	return NewBuilder(&extensions.DefaultCollection)
