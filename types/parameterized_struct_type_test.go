@@ -5,6 +5,7 @@ package types_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/types"
 	"github.com/substrait-io/substrait-go/types/integer_parameters"
@@ -25,10 +26,11 @@ func TestParameterizedStructType(t *testing.T) {
 		expectedNullableRequiredString string
 		expectedHasParameterizedParam  bool
 		expectedParameterizedParams    []interface{}
+		expectedReturnType             types.Type
 	}{
-		{"all parameterized param", []types.FuncDefArgType{decimalType, listType}, "struct?<decimal<P,S>, list?<decimal<P,S>>>", "struct<decimal<P,S>, list?<decimal<P,S>>>", true, []interface{}{decimalType, listType}},
-		{"mix parameterized concrete param", []types.FuncDefArgType{decimalType, int8Type, listType}, "struct?<decimal<P,S>, i8?, list?<decimal<P,S>>>", "struct<decimal<P,S>, i8?, list?<decimal<P,S>>>", true, []interface{}{decimalType, listType}},
-		{"all concrete param", []types.FuncDefArgType{int8Type, int8Type, int8Type}, "struct?<i8?, i8?, i8?>", "struct<i8?, i8?, i8?>", false, nil},
+		{"all parameterized param", []types.FuncDefArgType{decimalType, listType}, "struct?<decimal<P,S>, list?<decimal<P,S>>>", "struct<decimal<P,S>, list?<decimal<P,S>>>", true, []interface{}{decimalType, listType}, nil},
+		{"mix parameterized concrete param", []types.FuncDefArgType{decimalType, int8Type, listType}, "struct?<decimal<P,S>, i8?, list?<decimal<P,S>>>", "struct<decimal<P,S>, i8?, list?<decimal<P,S>>>", true, []interface{}{decimalType, listType}, nil},
+		{"all concrete param", []types.FuncDefArgType{int8Type, int8Type, int8Type}, "struct?<i8?, i8?, i8?>", "struct<i8?, i8?, i8?>", false, nil, &types.StructType{Nullability: types.NullabilityRequired, Types: []types.Type{int8Type, int8Type, int8Type}}},
 	} {
 		t.Run(td.name, func(t *testing.T) {
 			pd := &types.ParameterizedStructType{Types: td.params}
@@ -36,6 +38,14 @@ func TestParameterizedStructType(t *testing.T) {
 			require.Equal(t, td.expectedNullableRequiredString, pd.SetNullability(types.NullabilityRequired).String())
 			require.Equal(t, td.expectedHasParameterizedParam, pd.HasParameterizedParam())
 			require.Equal(t, td.expectedParameterizedParams, pd.GetParameterizedParams())
+			retType, err := pd.ReturnType()
+			if td.expectedReturnType == nil {
+				assert.Error(t, err)
+				require.True(t, pd.HasParameterizedParam())
+			} else {
+				require.Nil(t, err)
+				require.Equal(t, td.expectedReturnType, retType)
+			}
 		})
 	}
 }

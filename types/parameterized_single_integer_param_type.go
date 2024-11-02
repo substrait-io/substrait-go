@@ -85,13 +85,17 @@ func (m *parameterizedTypeSingleIntegerParam[T]) GetNullability() Nullability {
 }
 
 func (m *parameterizedTypeSingleIntegerParam[T]) ShortString() string {
+	newInstance := m.getNewInstance()
+	return newInstance.ShortString()
+}
+
+func (m *parameterizedTypeSingleIntegerParam[T]) getNewInstance() T {
 	var t T
 	tType := reflect.TypeOf(t)
 	if tType.Kind() == reflect.Ptr {
 		tType = tType.Elem()
 	}
-	newInstance := reflect.New(tType).Interface().(T)
-	return newInstance.ShortString()
+	return reflect.New(tType).Interface().(T)
 }
 
 func (m *parameterizedTypeSingleIntegerParam[T]) ReturnType() (Type, error) {
@@ -99,6 +103,6 @@ func (m *parameterizedTypeSingleIntegerParam[T]) ReturnType() (Type, error) {
 	if !ok {
 		return nil, substraitgo.ErrNotImplemented
 	}
-	var t T
+	t := m.getNewInstance()
 	return t.GetReturnType(int32(*concreteIntParam), m.Nullability), nil
 }

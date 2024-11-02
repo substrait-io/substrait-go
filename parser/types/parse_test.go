@@ -87,11 +87,18 @@ func TestParseFuncDefArgType(t *testing.T) {
 		{"map<boolean?,struct?<i16?,i32?,i64?>>", "map<boolean?, struct?<i16?, i32?, i64?>>", "map", &types.ParameterizedMapType{Key: &types.BooleanType{Nullability: types.NullabilityNullable}, Value: &types.ParameterizedStructType{Types: []types.FuncDefArgType{&types.Int16Type{Nullability: types.NullabilityNullable}, &types.Int32Type{Nullability: types.NullabilityNullable}, &types.Int64Type{Nullability: types.NullabilityNullable}}, Nullability: types.NullabilityNullable}, Nullability: types.NullabilityRequired}},
 		{"map?<boolean?,struct?<i16?,i32?,i64?>>", "map?<boolean?, struct?<i16?, i32?, i64?>>", "map", &types.ParameterizedMapType{Key: &types.BooleanType{Nullability: types.NullabilityNullable}, Value: &types.ParameterizedStructType{Types: []types.FuncDefArgType{&types.Int16Type{Nullability: types.NullabilityNullable}, &types.Int32Type{Nullability: types.NullabilityNullable}, &types.Int64Type{Nullability: types.NullabilityNullable}}, Nullability: types.NullabilityNullable}, Nullability: types.NullabilityNullable}},
 		{"precision_timestamp<5>", "precision_timestamp<5>", "prets", &types.ParameterizedPrecisionTimestampType{IntegerOption: &concreteInt5, Nullability: types.NullabilityRequired}},
+		{"precision_timestamp?<5>", "precision_timestamp?<5>", "prets", &types.ParameterizedPrecisionTimestampType{IntegerOption: &concreteInt5, Nullability: types.NullabilityNullable}},
 		{"precision_timestamp_tz<5>", "precision_timestamp_tz<5>", "pretstz", &types.ParameterizedPrecisionTimestampTzType{IntegerOption: &concreteInt5, Nullability: types.NullabilityRequired}},
+		{"precision_timestamp_tz?<5>", "precision_timestamp_tz?<5>", "pretstz", &types.ParameterizedPrecisionTimestampTzType{IntegerOption: &concreteInt5, Nullability: types.NullabilityNullable}},
+		{"interval_day<5>", "interval_day<5>", "iday", &types.ParameterizedIntervalDayType{IntegerOption: &concreteInt5, Nullability: types.NullabilityRequired}},
+		{"interval_day?<5>", "interval_day?<5>", "iday", &types.ParameterizedIntervalDayType{IntegerOption: &concreteInt5, Nullability: types.NullabilityNullable}},
 
 		{"varchar<L1>", "varchar<L1>", "vchar", &types.ParameterizedVarCharType{IntegerOption: &variableIntL1, Nullability: types.NullabilityRequired}},
+		{"varchar?<L1>", "varchar?<L1>", "vchar", &types.ParameterizedVarCharType{IntegerOption: &variableIntL1, Nullability: types.NullabilityNullable}},
 		{"fixedchar<L1>", "char<L1>", "fchar", &types.ParameterizedFixedCharType{IntegerOption: &variableIntL1, Nullability: types.NullabilityRequired}},
+		{"fixedchar?<L1>", "char?<L1>", "fchar", &types.ParameterizedFixedCharType{IntegerOption: &variableIntL1, Nullability: types.NullabilityNullable}},
 		{"fixedbinary<L1>", "fixedbinary<L1>", "fbin", &types.ParameterizedFixedBinaryType{IntegerOption: &variableIntL1, Nullability: types.NullabilityRequired}},
+		{"fixedbinary?<L1>", "fixedbinary?<L1>", "fbin", &types.ParameterizedFixedBinaryType{IntegerOption: &variableIntL1, Nullability: types.NullabilityNullable}},
 		{"precision_timestamp<L1>", "precision_timestamp<L1>", "prets", &types.ParameterizedPrecisionTimestampType{IntegerOption: &variableIntL1, Nullability: types.NullabilityRequired}},
 		{"precision_timestamp_tz<L1>", "precision_timestamp_tz<L1>", "pretstz", &types.ParameterizedPrecisionTimestampTzType{IntegerOption: &variableIntL1, Nullability: types.NullabilityRequired}},
 		{"decimal<P,S>", "decimal<P,S>", "dec", &types.ParameterizedDecimalType{Precision: &variableIntP, Scale: &variableIntS, Nullability: types.NullabilityRequired}},
@@ -103,7 +110,9 @@ func TestParseFuncDefArgType(t *testing.T) {
 		{"map<decimal<P,S>, i16>", "map<decimal<P,S>, i16>", "map", &types.ParameterizedMapType{Key: &types.ParameterizedDecimalType{Precision: &variableIntP, Scale: &variableIntS, Nullability: types.NullabilityRequired}, Value: &types.Int16Type{Nullability: types.NullabilityRequired}, Nullability: types.NullabilityRequired}},
 		{"precision_timestamp_tz?<L1>", "precision_timestamp_tz?<L1>", "pretstz", &types.ParameterizedPrecisionTimestampTzType{IntegerOption: &variableIntL1, Nullability: types.NullabilityNullable}},
 		{"u!test", "u!test", "u!test", &types.ParameterizedUserDefinedType{Name: "test", Nullability: types.NullabilityRequired}},
+		{"u!test?", "u!test?", "u!test", &types.ParameterizedUserDefinedType{Name: "test", Nullability: types.NullabilityNullable}},
 		{"u!test<10>", "u!test<10>", "u!test", &types.ParameterizedUserDefinedType{Name: "test", Nullability: types.NullabilityRequired, TypeParameters: []types.UDTParameter{&types.IntegerUDTParam{Integer: 10}}}},
+		{"u!test?<10>", "u!test?<10>", "u!test", &types.ParameterizedUserDefinedType{Name: "test", Nullability: types.NullabilityNullable, TypeParameters: []types.UDTParameter{&types.IntegerUDTParam{Integer: 10}}}},
 		{"u!test<L1>", "u!test<L1>", "u!test", &types.ParameterizedUserDefinedType{Name: "test", Nullability: types.NullabilityRequired, TypeParameters: []types.UDTParameter{&types.StringUDTParam{StringVal: "L1"}}}},
 		{"u!test<decimal<P,S>>", "u!test<decimal<P,S>>", "u!test", &types.ParameterizedUserDefinedType{Name: "test", Nullability: types.NullabilityRequired, TypeParameters: []types.UDTParameter{&types.DataTypeUDTParam{Type: &types.ParameterizedDecimalType{Precision: &variableIntP, Scale: &variableIntS, Nullability: types.NullabilityRequired}}}}},
 	}
@@ -128,6 +137,7 @@ func TestParseErrors(t *testing.T) {
 		{"i1"},
 		{"decimal<38>"},
 		{"decimal(38,10)"},
+		{"map<i16, 42i>"},
 	}
 
 	for _, tt := range tests {

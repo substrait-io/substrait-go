@@ -288,6 +288,10 @@ func TestMatchParameterizeConcreteTypeResultMatch(t *testing.T) {
 		{"mapTypeKeyTypeDiffers", &ParameterizedMapType{Key: &Int32Type{}, Value: &BooleanType{}}, &MapType{Key: &Int32Type{}, Value: &BooleanType{}}},
 		{"mapTypeValueTypeDiffers", &ParameterizedMapType{Key: &Int32Type{}, Value: &BooleanType{}}, &MapType{Key: &Int32Type{}, Value: &BooleanType{}}},
 		{"structType", &ParameterizedStructType{Types: []FuncDefArgType{&BooleanType{}, &BooleanType{}}}, &StructType{Types: []Type{&BooleanType{}, &BooleanType{}}}},
+		{"userDefinedType", &ParameterizedUserDefinedType{TypeParameters: []UDTParameter{&DataTypeUDTParam{&Int32Type{}}}, Name: "udt"}, &UserDefinedType{TypeParameters: []TypeParam{&DataTypeParameter{Type: &Int32Type{}}}}},
+		{"userDefinedType2", &ParameterizedUserDefinedType{TypeParameters: []UDTParameter{&DataTypeUDTParam{&Int32Type{}}, &DataTypeUDTParam{&Int32Type{}}}, Name: "udt"}, &UserDefinedType{TypeParameters: []TypeParam{&DataTypeParameter{Type: &Int32Type{}}, &DataTypeParameter{Type: &Int32Type{}}}}},
+		{"userDefinedType3", &ParameterizedUserDefinedType{TypeParameters: []UDTParameter{&StringUDTParam{StringVal: "L1"}}, Name: "udt"}, &UserDefinedType{TypeParameters: []TypeParam{StringParameter("L1")}}},
+		{"userDefinedType4", &ParameterizedUserDefinedType{TypeParameters: []UDTParameter{&IntegerUDTParam{Integer: 10}}, Name: "udt"}, &UserDefinedType{TypeParameters: []TypeParam{IntegerParameter(10)}}},
 	} {
 		t.Run(td.name, func(t *testing.T) {
 			// MatchWithNullability should match exact nullability and not match with different nullability
@@ -333,6 +337,15 @@ func TestMatchParameterizeConcreteTypeResultMismatch(t *testing.T) {
 		{"structType Mismatch DifferInEmbedTypeLen", &ParameterizedStructType{Types: []FuncDefArgType{&BooleanType{}, &BooleanType{}}}, &StructType{Types: []Type{&BooleanType{}}}},
 		{"structType Mismatch InFirstEmbedType", &ParameterizedStructType{Types: []FuncDefArgType{&BooleanType{}, &BooleanType{}}}, &StructType{Types: []Type{&DecimalType{Precision: 38, Scale: 2}, &BooleanType{}}}},
 		{"structType Mismatch InLastEmbedType", &ParameterizedStructType{Types: []FuncDefArgType{&BooleanType{}, &BooleanType{}}}, &StructType{Types: []Type{&BooleanType{}, &DecimalType{Precision: 38, Scale: 2}}}},
+		{"userDefinedType", &ParameterizedUserDefinedType{TypeParameters: []UDTParameter{&DataTypeUDTParam{&Int32Type{}}}, Name: "udt"}, &BooleanType{}},
+		{"userDefinedType", &ParameterizedUserDefinedType{TypeParameters: []UDTParameter{&DataTypeUDTParam{&Int32Type{}}, &DataTypeUDTParam{&Int32Type{}}}, Name: "udt"}, &StructType{Types: []Type{&BooleanType{}, &Int32Type{}}}},
+		{"userDefinedType", &ParameterizedUserDefinedType{TypeParameters: []UDTParameter{&DataTypeUDTParam{&Int32Type{}}}, Name: "udt"}, &UserDefinedType{TypeParameters: []TypeParam{&DataTypeParameter{Type: &Int64Type{}}}}},
+		{"userDefinedType", &ParameterizedUserDefinedType{TypeParameters: []UDTParameter{&DataTypeUDTParam{&Int32Type{}}}, Name: "udt"}, &UserDefinedType{TypeParameters: []TypeParam{IntegerParameter(10)}}},
+		{"userDefinedType", &ParameterizedUserDefinedType{TypeParameters: []UDTParameter{&DataTypeUDTParam{&Int32Type{}}, &DataTypeUDTParam{&Int32Type{}}}, Name: "udt"}, &UserDefinedType{TypeParameters: []TypeParam{&DataTypeParameter{Type: &Int64Type{}}}}},
+		{"userDefinedType", &ParameterizedUserDefinedType{TypeParameters: []UDTParameter{&DataTypeUDTParam{&Int32Type{}}, &DataTypeUDTParam{&Int32Type{}}}, Name: "udt"}, &UserDefinedType{TypeParameters: []TypeParam{IntegerParameter(10)}}},
+		{"userDefinedType", &ParameterizedUserDefinedType{TypeParameters: []UDTParameter{&IntegerUDTParam{Integer: 10}}, Name: "udt"}, &UserDefinedType{TypeParameters: []TypeParam{&DataTypeParameter{Type: &Int64Type{}}}}},
+		{"userDefinedType", &ParameterizedUserDefinedType{TypeParameters: []UDTParameter{&IntegerUDTParam{Integer: 10}}, Name: "udt"}, &UserDefinedType{TypeParameters: []TypeParam{IntegerParameter(11)}}},
+		{"userDefinedType", &ParameterizedUserDefinedType{TypeParameters: []UDTParameter{&StringUDTParam{StringVal: "L1"}}, Name: "udt"}, &UserDefinedType{TypeParameters: []TypeParam{IntegerParameter(11)}}},
 	} {
 		t.Run(td.name, func(t *testing.T) {
 			assert.False(t, td.paramType.MatchWithNullability(td.argOfOtherType))

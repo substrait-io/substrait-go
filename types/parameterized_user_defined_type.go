@@ -64,8 +64,8 @@ func (i *IntegerUDTParam) toTypeParam() (TypeParam, error) {
 }
 
 func (i *IntegerUDTParam) MatchWithoutNullability(param TypeParam) bool {
-	if intParam, ok := param.(*IntegerParameter); ok {
-		return i.Integer == int32(*intParam)
+	if intParam, ok := param.(IntegerParameter); ok {
+		return i.Integer == int32(intParam)
 	}
 	return false
 }
@@ -89,8 +89,8 @@ func (s *StringUDTParam) toTypeParam() (TypeParam, error) {
 }
 
 func (s *StringUDTParam) MatchWithoutNullability(param TypeParam) bool {
-	if strParam, ok := param.(*StringParameter); ok {
-		return s.StringVal == string(*strParam)
+	if strParam, ok := param.(StringParameter); ok {
+		return s.StringVal == string(strParam)
 	}
 	return false
 }
@@ -169,12 +169,12 @@ func (m *ParameterizedUserDefinedType) MatchWithNullability(ot Type) bool {
 }
 
 func (m *ParameterizedUserDefinedType) MatchWithoutNullability(ot Type) bool {
-	if omt, ok := ot.(*UserDefinedType); ok {
-		if len(m.TypeParameters) != len(omt.TypeParameters) {
+	if udt, ok := ot.(*UserDefinedType); ok {
+		if len(m.TypeParameters) != len(udt.TypeParameters) {
 			return false
 		}
 		for i, param := range m.TypeParameters {
-			if !param.MatchWithoutNullability(omt.TypeParameters[i]) {
+			if !param.MatchWithoutNullability(udt.TypeParameters[i]) {
 				return false
 			}
 		}
