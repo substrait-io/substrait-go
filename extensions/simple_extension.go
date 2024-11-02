@@ -9,7 +9,6 @@ import (
 
 	substraitgo "github.com/substrait-io/substrait-go"
 	types2 "github.com/substrait-io/substrait-go/parser/types"
-	"github.com/substrait-io/substrait-go/types/parser"
 )
 
 type ParamType string
@@ -51,7 +50,7 @@ const (
 
 type TypeVariation struct {
 	Name        string
-	Parent      parser.TypeExpression
+	Parent      types2.TypeExpression
 	Description string
 	Functions   TypeVariationFunctions
 }
