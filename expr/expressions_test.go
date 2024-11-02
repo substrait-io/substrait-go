@@ -17,7 +17,7 @@ import (
 	ext "github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/proto"
 	"github.com/substrait-io/substrait-go/types"
-	types2 "github.com/substrait-io/substrait-go/types/parser"
+	"github.com/substrait-io/substrait-go/types/parser"
 	"google.golang.org/protobuf/encoding/protojson"
 	pb "google.golang.org/protobuf/proto"
 	"gopkg.in/yaml.v3"
@@ -369,7 +369,7 @@ func TestRoundTripUsingTestData(t *testing.T) {
 			assert.True(t, e.Equals(e))
 
 			if typTest, ok := test["type"].(string); ok {
-				exp, err := types2.ParseType(typTest)
+				exp, err := parser.ParseType(typTest)
 				require.NoError(t, err)
 
 				assert.Equal(t, exp.String(), e.GetType().String())

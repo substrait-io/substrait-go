@@ -9,7 +9,7 @@ import (
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/types"
 	"github.com/substrait-io/substrait-go/types/integer_parameters"
-	types2 "github.com/substrait-io/substrait-go/types/parser"
+	"github.com/substrait-io/substrait-go/types/parser"
 )
 
 type FunctionVariant interface {
@@ -228,11 +228,11 @@ func parseFuncName(compoundName string) (name string, args ArgumentList) {
 	}
 	splitArgs := strings.Split(argsStr, "_")
 	for _, argStr := range splitArgs {
-		parsed, err := types2.ParseType(argStr)
+		parsed, err := parser.ParseType(argStr)
 		if err != nil {
 			panic(err)
 		}
-		exp := ValueArg{Name: name, Value: &types2.TypeExpression{ValueType: parsed}}
+		exp := ValueArg{Name: name, Value: &parser.TypeExpression{ValueType: parsed}}
 		args = append(args, exp)
 	}
 
@@ -361,7 +361,7 @@ type AggVariantOptions struct {
 }
 
 func NewAggFuncVariantOpts(id ID, opts AggVariantOptions) *AggregateFunctionVariant {
-	var aggIntermediate types2.TypeExpression
+	var aggIntermediate parser.TypeExpression
 	if opts.Decomposable == "" {
 		opts.Decomposable = DecomposeNone
 	}
@@ -371,7 +371,7 @@ func NewAggFuncVariantOpts(id ID, opts AggVariantOptions) *AggregateFunctionVari
 				substraitgo.ErrInvalidExpr, id))
 		}
 
-		intermediate, err := types2.ParseType(opts.IntermediateOutputType)
+		intermediate, err := parser.ParseType(opts.IntermediateOutputType)
 		if err != nil {
 			panic(err)
 		}
@@ -482,7 +482,7 @@ type WindowVariantOpts struct {
 }
 
 func NewWindowFuncVariantOpts(id ID, opts WindowVariantOpts) *WindowFunctionVariant {
-	var aggIntermediate types2.TypeExpression
+	var aggIntermediate parser.TypeExpression
 	if opts.Decomposable == "" {
 		opts.Decomposable = DecomposeNone
 	}
@@ -495,7 +495,7 @@ func NewWindowFuncVariantOpts(id ID, opts WindowVariantOpts) *WindowFunctionVari
 				substraitgo.ErrInvalidExpr, id))
 		}
 
-		intermediate, err := types2.ParseType(opts.IntermediateOutputType)
+		intermediate, err := parser.ParseType(opts.IntermediateOutputType)
 		if err != nil {
 			panic(err)
 		}

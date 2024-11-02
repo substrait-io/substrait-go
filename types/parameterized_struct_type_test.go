@@ -38,6 +38,7 @@ func TestParameterizedStructType(t *testing.T) {
 			require.Equal(t, td.expectedNullableRequiredString, pd.SetNullability(types.NullabilityRequired).String())
 			require.Equal(t, td.expectedHasParameterizedParam, pd.HasParameterizedParam())
 			require.Equal(t, td.expectedParameterizedParams, pd.GetParameterizedParams())
+			assert.Equal(t, "struct", pd.ShortString())
 			retType, err := pd.ReturnType()
 			if td.expectedReturnType == nil {
 				assert.Error(t, err)

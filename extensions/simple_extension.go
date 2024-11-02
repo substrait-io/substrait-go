@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	substraitgo "github.com/substrait-io/substrait-go"
-	types2 "github.com/substrait-io/substrait-go/types/parser"
+	"github.com/substrait-io/substrait-go/types/parser"
 )
 
 type ParamType string
@@ -50,7 +50,7 @@ const (
 
 type TypeVariation struct {
 	Name        string
-	Parent      types2.TypeExpression
+	Parent      parser.TypeExpression
 	Description string
 	Functions   TypeVariationFunctions
 }
@@ -75,7 +75,7 @@ func (v EnumArg) argumentMarker() {}
 type ValueArg struct {
 	Name        string `yaml:",omitempty"`
 	Description string `yaml:",omitempty"`
-	Value       *types2.TypeExpression
+	Value       *parser.TypeExpression
 	Constant    bool `yaml:",omitempty"`
 }
 
@@ -135,7 +135,7 @@ func (a *ArgumentList) UnmarshalYAML(fn func(interface{}) error) error {
 			arg := ValueArg{
 				Name:        name,
 				Description: desc,
-				Value:       new(types2.TypeExpression),
+				Value:       new(parser.TypeExpression),
 				Constant:    constant,
 			}
 			err := arg.Value.UnmarshalYAML(func(v any) error {
@@ -205,7 +205,7 @@ type ScalarFunctionImpl struct {
 	SessionDependent bool                   `yaml:"sessionDependent,omitempty"`
 	Deterministic    bool                   `yaml:",omitempty"`
 	Nullability      NullabilityHandling    `yaml:",omitempty" default:"MIRROR"`
-	Return           *types2.TypeExpression `yaml:",omitempty"`
+	Return           *parser.TypeExpression `yaml:",omitempty"`
 	Implementation   map[string]string      `yaml:",omitempty"`
 }
 
@@ -262,7 +262,7 @@ const (
 
 type AggregateFunctionImpl struct {
 	ScalarFunctionImpl `yaml:",inline"`
-	Intermediate       types2.TypeExpression
+	Intermediate       parser.TypeExpression
 	Ordered            bool
 	MaxSet             int
 	Decomposable       DecomposeType
