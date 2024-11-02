@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	substraitgo "github.com/substrait-io/substrait-go"
-	types2 "github.com/substrait-io/substrait-go/parser/types"
 	"github.com/substrait-io/substrait-go/types"
 	"github.com/substrait-io/substrait-go/types/integer_parameters"
+	types2 "github.com/substrait-io/substrait-go/types/parser"
 )
 
 type FunctionVariant interface {

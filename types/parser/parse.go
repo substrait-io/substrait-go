@@ -1,12 +1,12 @@
-package types
+package parser
 
 import (
 	"fmt"
 
 	"github.com/antlr4-go/antlr/v4"
 	substraitgo "github.com/substrait-io/substrait-go"
-	"github.com/substrait-io/substrait-go/parser/types/baseparser"
 	"github.com/substrait-io/substrait-go/types"
+	baseparser2 "github.com/substrait-io/substrait-go/types/parser/baseparser"
 )
 
 type TypeExpression struct {
@@ -89,9 +89,9 @@ func ParseType(input string) (types.FuncDefArgType, error) {
 	var err error
 	defer transformPanicToError(&err, input, "ParseExpr")
 	is := antlr.NewInputStream(input)
-	lexer := baseparser.NewSubstraitTypeLexer(is)
+	lexer := baseparser2.NewSubstraitTypeLexer(is)
 	stream := antlr.NewCommonTokenStream(lexer, 0)
-	p := baseparser.NewSubstraitTypeParser(stream)
+	p := baseparser2.NewSubstraitTypeParser(stream)
 	errorListener := newErrorListener()
 	p.AddErrorListener(errorListener)
 	p.GetInterpreter().SetPredictionMode(antlr.PredictionModeSLL)

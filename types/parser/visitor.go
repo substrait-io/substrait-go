@@ -1,20 +1,20 @@
-package types
+package parser
 
 import (
 	"fmt"
 	"strconv"
 
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/substrait-io/substrait-go/parser/types/baseparser"
 	"github.com/substrait-io/substrait-go/types"
 	"github.com/substrait-io/substrait-go/types/integer_parameters"
+	baseparser2 "github.com/substrait-io/substrait-go/types/parser/baseparser"
 )
 
 type TypeVisitor struct {
-	baseparser.SubstraitTypeVisitor
+	baseparser2.SubstraitTypeVisitor
 }
 
-var _ baseparser.SubstraitTypeVisitor = &TypeVisitor{}
+var _ baseparser2.SubstraitTypeVisitor = &TypeVisitor{}
 
 func (v *TypeVisitor) Visit(tree antlr.ParseTree) interface{} {
 	if tree == nil {
@@ -23,27 +23,27 @@ func (v *TypeVisitor) Visit(tree antlr.ParseTree) interface{} {
 	return tree.Accept(v)
 }
 
-func (v *TypeVisitor) VisitStartRule(ctx *baseparser.StartRuleContext) interface{} {
+func (v *TypeVisitor) VisitStartRule(ctx *baseparser2.StartRuleContext) interface{} {
 	return v.Visit(ctx.Expr())
 }
 
-func (v *TypeVisitor) VisitTypeStatement(ctx *baseparser.TypeStatementContext) interface{} {
+func (v *TypeVisitor) VisitTypeStatement(ctx *baseparser2.TypeStatementContext) interface{} {
 	return v.Visit(ctx.TypeDef())
 }
 
-func (v *TypeVisitor) VisitParenExpression(ctx *baseparser.ParenExpressionContext) interface{} {
+func (v *TypeVisitor) VisitParenExpression(ctx *baseparser2.ParenExpressionContext) interface{} {
 	return v.Visit(ctx.Expr())
 }
 
-func (v *TypeVisitor) VisitMultilineDefinition(*baseparser.MultilineDefinitionContext) interface{} {
+func (v *TypeVisitor) VisitMultilineDefinition(*baseparser2.MultilineDefinitionContext) interface{} {
 	panic("implement MultilineDefinition")
 }
 
-func (v *TypeVisitor) VisitTypeLiteral(ctx *baseparser.TypeLiteralContext) interface{} {
+func (v *TypeVisitor) VisitTypeLiteral(ctx *baseparser2.TypeLiteralContext) interface{} {
 	return v.Visit(ctx.TypeDef())
 }
 
-func (v *TypeVisitor) VisitLiteralNumber(ctx *baseparser.LiteralNumberContext) interface{} {
+func (v *TypeVisitor) VisitLiteralNumber(ctx *baseparser2.LiteralNumberContext) interface{} {
 	num, err := strconv.ParseInt(ctx.Number().GetText(), 10, 0)
 	if err != nil {
 		panic(err)
@@ -51,27 +51,27 @@ func (v *TypeVisitor) VisitLiteralNumber(ctx *baseparser.LiteralNumberContext) i
 	return num
 }
 
-func (v *TypeVisitor) VisitFunctionCall(*baseparser.FunctionCallContext) interface{} {
+func (v *TypeVisitor) VisitFunctionCall(*baseparser2.FunctionCallContext) interface{} {
 	panic("implement FunctionCall")
 }
 
-func (v *TypeVisitor) VisitBinaryExpr(*baseparser.BinaryExprContext) interface{} {
+func (v *TypeVisitor) VisitBinaryExpr(*baseparser2.BinaryExprContext) interface{} {
 	panic("implement BinaryExpr")
 }
 
-func (v *TypeVisitor) VisitIfExpr(*baseparser.IfExprContext) interface{} {
+func (v *TypeVisitor) VisitIfExpr(*baseparser2.IfExprContext) interface{} {
 	panic("implement IfExpr")
 }
 
-func (v *TypeVisitor) VisitNotExpr(*baseparser.NotExprContext) interface{} {
+func (v *TypeVisitor) VisitNotExpr(*baseparser2.NotExprContext) interface{} {
 	panic("implement NotExpr")
 }
 
-func (v *TypeVisitor) VisitTernary(*baseparser.TernaryContext) interface{} {
+func (v *TypeVisitor) VisitTernary(*baseparser2.TernaryContext) interface{} {
 	panic("implement Ternary expr")
 }
 
-func (v *TypeVisitor) VisitTypeDef(ctx *baseparser.TypeDefContext) interface{} {
+func (v *TypeVisitor) VisitTypeDef(ctx *baseparser2.TypeDefContext) interface{} {
 	if ctx.ParameterizedType() != nil {
 		return v.Visit(ctx.ParameterizedType())
 	}
@@ -89,7 +89,7 @@ func (v *TypeVisitor) VisitTypeDef(ctx *baseparser.TypeDefContext) interface{} {
 	return v.Visit(ctx.AnyType())
 }
 
-func (v *TypeVisitor) VisitAnyType(ctx *baseparser.AnyTypeContext) interface{} {
+func (v *TypeVisitor) VisitAnyType(ctx *baseparser2.AnyTypeContext) interface{} {
 	nullability := types.NullabilityRequired
 	if ctx.GetIsnull() != nil {
 		nullability = types.NullabilityNullable
@@ -102,67 +102,67 @@ func (v *TypeVisitor) VisitAnyType(ctx *baseparser.AnyTypeContext) interface{} {
 	return types.AnyType{Name: name, Nullability: nullability}
 }
 
-func (v *TypeVisitor) VisitBoolean(*baseparser.BooleanContext) interface{} {
+func (v *TypeVisitor) VisitBoolean(*baseparser2.BooleanContext) interface{} {
 	return &types.BooleanType{}
 }
 
-func (v *TypeVisitor) VisitI8(*baseparser.I8Context) interface{} {
+func (v *TypeVisitor) VisitI8(*baseparser2.I8Context) interface{} {
 	return &types.Int8Type{}
 }
 
-func (v *TypeVisitor) VisitI16(*baseparser.I16Context) interface{} {
+func (v *TypeVisitor) VisitI16(*baseparser2.I16Context) interface{} {
 	return &types.Int16Type{}
 }
 
-func (v *TypeVisitor) VisitI32(*baseparser.I32Context) interface{} {
+func (v *TypeVisitor) VisitI32(*baseparser2.I32Context) interface{} {
 	return &types.Int32Type{}
 }
 
-func (v *TypeVisitor) VisitI64(*baseparser.I64Context) interface{} {
+func (v *TypeVisitor) VisitI64(*baseparser2.I64Context) interface{} {
 	return &types.Int64Type{}
 }
 
-func (v *TypeVisitor) VisitFp32(*baseparser.Fp32Context) interface{} {
+func (v *TypeVisitor) VisitFp32(*baseparser2.Fp32Context) interface{} {
 	return &types.Float32Type{}
 }
 
-func (v *TypeVisitor) VisitFp64(*baseparser.Fp64Context) interface{} {
+func (v *TypeVisitor) VisitFp64(*baseparser2.Fp64Context) interface{} {
 	return &types.Float64Type{}
 }
 
-func (v *TypeVisitor) VisitString(*baseparser.StringContext) interface{} {
+func (v *TypeVisitor) VisitString(*baseparser2.StringContext) interface{} {
 	return &types.StringType{}
 }
 
-func (v *TypeVisitor) VisitBinary(*baseparser.BinaryContext) interface{} {
+func (v *TypeVisitor) VisitBinary(*baseparser2.BinaryContext) interface{} {
 	return &types.BinaryType{}
 }
 
-func (v *TypeVisitor) VisitTimestamp(*baseparser.TimestampContext) interface{} {
+func (v *TypeVisitor) VisitTimestamp(*baseparser2.TimestampContext) interface{} {
 	return &types.TimestampType{}
 }
 
-func (v *TypeVisitor) VisitTimestampTz(*baseparser.TimestampTzContext) interface{} {
+func (v *TypeVisitor) VisitTimestampTz(*baseparser2.TimestampTzContext) interface{} {
 	return &types.TimestampTzType{}
 }
 
-func (v *TypeVisitor) VisitDate(*baseparser.DateContext) interface{} {
+func (v *TypeVisitor) VisitDate(*baseparser2.DateContext) interface{} {
 	return &types.DateType{}
 }
 
-func (v *TypeVisitor) VisitTime(*baseparser.TimeContext) interface{} {
+func (v *TypeVisitor) VisitTime(*baseparser2.TimeContext) interface{} {
 	return &types.TimeType{}
 }
 
-func (v *TypeVisitor) VisitIntervalYear(*baseparser.IntervalYearContext) interface{} {
+func (v *TypeVisitor) VisitIntervalYear(*baseparser2.IntervalYearContext) interface{} {
 	return &types.IntervalYearType{}
 }
 
-func (v *TypeVisitor) VisitUuid(*baseparser.UuidContext) interface{} {
+func (v *TypeVisitor) VisitUuid(*baseparser2.UuidContext) interface{} {
 	return &types.UUIDType{}
 }
 
-func (v *TypeVisitor) VisitUserDefined(ctx *baseparser.UserDefinedContext) interface{} {
+func (v *TypeVisitor) VisitUserDefined(ctx *baseparser2.UserDefinedContext) interface{} {
 	nullability := types.NullabilityRequired
 	if ctx.GetIsnull() != nil {
 		nullability = types.NullabilityNullable
@@ -187,7 +187,7 @@ func (v *TypeVisitor) VisitUserDefined(ctx *baseparser.UserDefinedContext) inter
 	return &types.ParameterizedUserDefinedType{Name: name, Nullability: nullability, TypeParameters: params}
 }
 
-func (v *TypeVisitor) VisitFixedChar(ctx *baseparser.FixedCharContext) interface{} {
+func (v *TypeVisitor) VisitFixedChar(ctx *baseparser2.FixedCharContext) interface{} {
 	nullability := types.NullabilityRequired
 	if ctx.GetIsnull() != nil {
 		nullability = types.NullabilityNullable
@@ -197,7 +197,7 @@ func (v *TypeVisitor) VisitFixedChar(ctx *baseparser.FixedCharContext) interface
 	return &types.ParameterizedFixedCharType{IntegerOption: length, Nullability: nullability}
 }
 
-func (v *TypeVisitor) VisitVarChar(ctx *baseparser.VarCharContext) interface{} {
+func (v *TypeVisitor) VisitVarChar(ctx *baseparser2.VarCharContext) interface{} {
 	nullability := types.NullabilityRequired
 	if ctx.GetIsnull() != nil {
 		nullability = types.NullabilityNullable
@@ -207,7 +207,7 @@ func (v *TypeVisitor) VisitVarChar(ctx *baseparser.VarCharContext) interface{} {
 	return &types.ParameterizedVarCharType{IntegerOption: length, Nullability: nullability}
 }
 
-func (v *TypeVisitor) VisitFixedBinary(ctx *baseparser.FixedBinaryContext) interface{} {
+func (v *TypeVisitor) VisitFixedBinary(ctx *baseparser2.FixedBinaryContext) interface{} {
 	nullability := types.NullabilityRequired
 	if ctx.GetIsnull() != nil {
 		nullability = types.NullabilityNullable
@@ -217,7 +217,7 @@ func (v *TypeVisitor) VisitFixedBinary(ctx *baseparser.FixedBinaryContext) inter
 	return &types.ParameterizedFixedBinaryType{IntegerOption: length, Nullability: nullability}
 }
 
-func (v *TypeVisitor) VisitDecimal(ctx *baseparser.DecimalContext) interface{} {
+func (v *TypeVisitor) VisitDecimal(ctx *baseparser2.DecimalContext) interface{} {
 	nullability := types.NullabilityRequired
 	if ctx.GetIsnull() != nil {
 		nullability = types.NullabilityNullable
@@ -229,7 +229,7 @@ func (v *TypeVisitor) VisitDecimal(ctx *baseparser.DecimalContext) interface{} {
 	return &types.ParameterizedDecimalType{Precision: precision, Scale: scale, Nullability: nullability}
 }
 
-func (v *TypeVisitor) VisitPrecisionTimestamp(ctx *baseparser.PrecisionTimestampContext) interface{} {
+func (v *TypeVisitor) VisitPrecisionTimestamp(ctx *baseparser2.PrecisionTimestampContext) interface{} {
 	nullability := types.NullabilityRequired
 	if ctx.GetIsnull() != nil {
 		nullability = types.NullabilityNullable
@@ -239,7 +239,7 @@ func (v *TypeVisitor) VisitPrecisionTimestamp(ctx *baseparser.PrecisionTimestamp
 	return &types.ParameterizedPrecisionTimestampType{IntegerOption: length, Nullability: nullability}
 }
 
-func (v *TypeVisitor) VisitPrecisionTimestampTZ(ctx *baseparser.PrecisionTimestampTZContext) interface{} {
+func (v *TypeVisitor) VisitPrecisionTimestampTZ(ctx *baseparser2.PrecisionTimestampTZContext) interface{} {
 	nullability := types.NullabilityRequired
 	if ctx.GetIsnull() != nil {
 		nullability = types.NullabilityNullable
@@ -249,7 +249,7 @@ func (v *TypeVisitor) VisitPrecisionTimestampTZ(ctx *baseparser.PrecisionTimesta
 	return &types.ParameterizedPrecisionTimestampTzType{IntegerOption: length, Nullability: nullability}
 }
 
-func (v *TypeVisitor) VisitPrecisionIntervalDay(ctx *baseparser.PrecisionIntervalDayContext) interface{} {
+func (v *TypeVisitor) VisitPrecisionIntervalDay(ctx *baseparser2.PrecisionIntervalDayContext) interface{} {
 	nullability := types.NullabilityRequired
 	if ctx.GetIsnull() != nil {
 		nullability = types.NullabilityNullable
@@ -259,7 +259,7 @@ func (v *TypeVisitor) VisitPrecisionIntervalDay(ctx *baseparser.PrecisionInterva
 	return &types.ParameterizedIntervalDayType{IntegerOption: length, Nullability: nullability}
 }
 
-func (v *TypeVisitor) VisitStruct(ctx *baseparser.StructContext) interface{} {
+func (v *TypeVisitor) VisitStruct(ctx *baseparser2.StructContext) interface{} {
 	nullability := types.NullabilityRequired
 	if ctx.GetIsnull() != nil {
 		nullability = types.NullabilityNullable
@@ -271,7 +271,7 @@ func (v *TypeVisitor) VisitStruct(ctx *baseparser.StructContext) interface{} {
 	return &types.ParameterizedStructType{Types: fieldTypes, Nullability: nullability}
 }
 
-func (v *TypeVisitor) VisitList(ctx *baseparser.ListContext) interface{} {
+func (v *TypeVisitor) VisitList(ctx *baseparser2.ListContext) interface{} {
 	nullability := types.NullabilityRequired
 	if ctx.GetIsnull() != nil {
 		nullability = types.NullabilityNullable
@@ -280,11 +280,11 @@ func (v *TypeVisitor) VisitList(ctx *baseparser.ListContext) interface{} {
 	return &types.ParameterizedListType{Type: elementType, Nullability: nullability}
 }
 
-func (v *TypeVisitor) VisitNStruct(*baseparser.NStructContext) interface{} {
+func (v *TypeVisitor) VisitNStruct(*baseparser2.NStructContext) interface{} {
 	panic("implement me")
 }
 
-func (v *TypeVisitor) VisitMap(ctx *baseparser.MapContext) interface{} {
+func (v *TypeVisitor) VisitMap(ctx *baseparser2.MapContext) interface{} {
 	nullability := types.NullabilityRequired
 	if ctx.GetIsnull() != nil {
 		nullability = types.NullabilityNullable
@@ -297,11 +297,11 @@ func (v *TypeVisitor) VisitMap(ctx *baseparser.MapContext) interface{} {
 	return &types.ParameterizedMapType{Key: keyType, Value: valueType, Nullability: nullability}
 }
 
-func (v *TypeVisitor) VisitParameterName(ctx *baseparser.ParameterNameContext) interface{} {
+func (v *TypeVisitor) VisitParameterName(ctx *baseparser2.ParameterNameContext) interface{} {
 	return types.StringParameter(ctx.Identifier().GetText())
 }
 
-func (v *TypeVisitor) VisitNumericLiteral(ctx *baseparser.NumericLiteralContext) interface{} {
+func (v *TypeVisitor) VisitNumericLiteral(ctx *baseparser2.NumericLiteralContext) interface{} {
 	num, err := strconv.ParseInt(ctx.Number().GetText(), 10, 0)
 	if err != nil {
 		panic(err)
@@ -309,11 +309,11 @@ func (v *TypeVisitor) VisitNumericLiteral(ctx *baseparser.NumericLiteralContext)
 	return integer_parameters.NewConcreteIntParam(int32(num))
 }
 
-func (v *TypeVisitor) VisitNumericParameterName(ctx *baseparser.NumericParameterNameContext) interface{} {
+func (v *TypeVisitor) VisitNumericParameterName(ctx *baseparser2.NumericParameterNameContext) interface{} {
 	return integer_parameters.NewVariableIntParam(ctx.GetText())
 }
 
-func (v *TypeVisitor) VisitNumericExpression(ctx *baseparser.NumericExpressionContext) interface{} {
+func (v *TypeVisitor) VisitNumericExpression(ctx *baseparser2.NumericExpressionContext) interface{} {
 	// TODO handle numeric expression
 	return ctx.GetText()
 }

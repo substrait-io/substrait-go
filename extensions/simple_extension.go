@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	substraitgo "github.com/substrait-io/substrait-go"
-	types2 "github.com/substrait-io/substrait-go/parser/types"
+	types2 "github.com/substrait-io/substrait-go/types/parser"
 )
 
 type ParamType string
