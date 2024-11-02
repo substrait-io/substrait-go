@@ -52,3 +52,4 @@ jobs:
           disable_search: true
           file: ./coverage.out
           fail_ci_if_error: true
+          codecov_yml_path: .codecov.yml

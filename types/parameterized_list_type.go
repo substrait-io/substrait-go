@@ -55,3 +55,19 @@ func (m *ParameterizedListType) MatchWithoutNullability(ot Type) bool {
 	}
 	return false
 }
+
+func (m *ParameterizedListType) GetNullability() Nullability {
+	return m.Nullability
+}
+
+func (m *ParameterizedListType) ShortString() string {
+	return "list"
+}
+
+func (m *ParameterizedListType) ReturnType() (Type, error) {
+	elemType, err := m.Type.ReturnType()
+	if err != nil {
+		return nil, err
+	}
+	return &ListType{Nullability: m.Nullability, Type: elemType}, nil
+}

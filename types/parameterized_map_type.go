@@ -60,3 +60,24 @@ func (m *ParameterizedMapType) MatchWithoutNullability(ot Type) bool {
 	}
 	return false
 }
+
+func (m *ParameterizedMapType) GetNullability() Nullability {
+	return m.Nullability
+}
+
+func (m *ParameterizedMapType) ShortString() string {
+	return "map"
+}
+
+func (m *ParameterizedMapType) ReturnType() (Type, error) {
+	keyType, kerr := m.Key.ReturnType()
+	if kerr != nil {
+		return nil, fmt.Errorf("error in getting key type: %w", kerr)
+	}
+	valueType, verr := m.Value.ReturnType()
+	if verr != nil {
+		return nil, fmt.Errorf("error in getting value type: %w", kerr)
+	}
+
+	return &MapType{Nullability: m.Nullability, Key: keyType, Value: valueType}, nil
+}
