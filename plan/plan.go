@@ -723,7 +723,7 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			out.fromProtoCommon(rel.Write.Common)
 		}
 		switch rel.Write.Op {
-		case proto.WriteRel_WRITE_OP_CTAS:
+		case proto.WriteRel_WRITE_OP_CTAS, proto.WriteRel_WRITE_OP_INSERT, proto.WriteRel_WRITE_OP_DELETE:
 			switch writeType := rel.Write.WriteType.(type) {
 			case *proto.WriteRel_NamedTable:
 				out.names = writeType.NamedTable.Names
