@@ -812,9 +812,19 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 				Nullability:      nullability,
 			}}
 	case *proto.Expression_Literal_IntervalDayToSecond_:
+		precision := types.PrecisionMicroSeconds
+		switch lit.IntervalDayToSecond.PrecisionMode.(type) {
+		case *proto.Expression_Literal_IntervalDayToSecond_Precision:
+			var err error
+			precision, err = types.ProtoToTimePrecision(lit.IntervalDayToSecond.GetPrecision())
+			if err != nil {
+				return nil
+			}
+		}
 		return &ProtoLiteral{
 			Value: lit.IntervalDayToSecond,
 			Type: &types.IntervalDayType{
+				Precision:        precision,
 				Nullability:      nullability,
 				TypeVariationRef: l.TypeVariationReference,
 			},
