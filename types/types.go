@@ -414,6 +414,9 @@ type (
 		// is compatible with this param otherwise it returns false.
 		// This method ignores nullability for matching.
 		MatchWithoutNullability(ot Type) bool
+		ShortString() string
+		GetNullability() Nullability
+		ReturnType() (Type, error)
 	}
 
 	FixedType interface {
@@ -686,6 +689,10 @@ func (s *PrimitiveType[T]) MatchWithoutNullability(ot Type) bool {
 	return false
 }
 
+func (s *PrimitiveType[T]) ReturnType() (Type, error) {
+	return s, nil
+}
+
 // create type aliases to the generic structs
 type (
 	BooleanType                           = PrimitiveType[bool]
@@ -774,6 +781,13 @@ func (s *FixedLenType[T]) WithLength(length int32) FixedType {
 
 func (s *FixedLenType[T]) GetLength() int32 {
 	return s.Length
+}
+
+func (s *FixedLenType[T]) GetReturnType(length int32, nullability Nullability) Type {
+	out := *s
+	out.Length = length
+	out.Nullability = nullability
+	return &out
 }
 
 // DecimalType is a decimal type with concrete precision and scale parameters, e.g. Decimal(10, 2).

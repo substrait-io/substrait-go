@@ -80,7 +80,7 @@ type ValueArg struct {
 }
 
 func (v ValueArg) toTypeString() string {
-	return v.Value.Expr.(*parser.Type).ShortType()
+	return v.Value.ValueType.ShortString()
 }
 
 func (v ValueArg) argumentMarker() {}
@@ -146,7 +146,6 @@ func (a *ArgumentList) UnmarshalYAML(fn func(interface{}) error) error {
 				rv.Elem().Set(reflect.ValueOf(val))
 				return nil
 			})
-
 			if err != nil {
 				return fmt.Errorf("failure reading YAML %v", err)
 			}
@@ -200,14 +199,14 @@ type Function interface {
 }
 
 type ScalarFunctionImpl struct {
-	Args             ArgumentList          `yaml:",omitempty"`
-	Options          map[string]Option     `yaml:",omitempty"`
-	Variadic         *VariadicBehavior     `yaml:",omitempty"`
-	SessionDependent bool                  `yaml:"sessionDependent,omitempty"`
-	Deterministic    bool                  `yaml:",omitempty"`
-	Nullability      NullabilityHandling   `yaml:",omitempty" default:"MIRROR"`
-	Return           parser.TypeExpression `yaml:",omitempty"`
-	Implementation   map[string]string     `yaml:",omitempty"`
+	Args             ArgumentList           `yaml:",omitempty"`
+	Options          map[string]Option      `yaml:",omitempty"`
+	Variadic         *VariadicBehavior      `yaml:",omitempty"`
+	SessionDependent bool                   `yaml:"sessionDependent,omitempty"`
+	Deterministic    bool                   `yaml:",omitempty"`
+	Nullability      NullabilityHandling    `yaml:",omitempty" default:"MIRROR"`
+	Return           *parser.TypeExpression `yaml:",omitempty"`
+	Implementation   map[string]string      `yaml:",omitempty"`
 }
 
 func (s *ScalarFunctionImpl) signatureKey() string {

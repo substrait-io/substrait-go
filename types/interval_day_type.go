@@ -49,6 +49,7 @@ func (m *IntervalDayType) ToProto() *proto.Type {
 }
 
 func (*IntervalDayType) ShortString() string { return "iday" }
+
 func (m *IntervalDayType) String() string {
 	return fmt.Sprintf("interval_day%s<%d>", strNullable(m),
 		m.Precision.ToProtoVal())
@@ -64,4 +65,11 @@ func (s *IntervalDayType) BaseString() string {
 
 func (m *IntervalDayType) GetPrecision() TimePrecision {
 	return m.Precision
+}
+
+func (m *IntervalDayType) GetReturnType(length int32, nullability Nullability) Type {
+	out := *m
+	out.Precision = TimePrecision(length)
+	out.Nullability = nullability
+	return &out
 }

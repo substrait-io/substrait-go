@@ -112,6 +112,13 @@ func (m *PrecisionTimestampType) GetPrecision() TimePrecision {
 	return m.Precision
 }
 
+func (m *PrecisionTimestampType) GetReturnType(length int32, nullability Nullability) Type {
+	out := *m
+	out.Precision = TimePrecision(length)
+	out.Nullability = nullability
+	return &out
+}
+
 // PrecisionTimestampTzType this is used to represent a type of Precision timestamp with TimeZone
 type PrecisionTimestampTzType struct {
 	PrecisionTimestampType
@@ -159,8 +166,20 @@ func (m *PrecisionTimestampTzType) Equals(rhs Type) bool {
 	}
 	return false
 }
+
+func (m *PrecisionTimestampTzType) GetNullability() Nullability {
+	return m.Nullability
+}
+
 func (*PrecisionTimestampTzType) ShortString() string { return "pretstz" }
 
 func (m *PrecisionTimestampTzType) BaseString() string {
 	return typeNames[reflect.TypeOf(m)]
+}
+
+func (m *PrecisionTimestampTzType) GetReturnType(length int32, nullability Nullability) Type {
+	out := *m
+	out.Precision = TimePrecision(length)
+	out.Nullability = nullability
+	return &out
 }

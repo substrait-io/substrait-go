@@ -23,11 +23,12 @@ func TestParameterizedDecimalType(t *testing.T) {
 		expectedNullableRequiredString string
 		expectedHasParameterizedParam  bool
 		expectedParameterizedParams    []interface{}
+		expectedReturnType             types.Type
 	}{
-		{"both parameterized", precision_P, scale_S, "decimal?<P,S>", "decimal<P,S>", true, []interface{}{precision_P, scale_S}},
-		{"precision concrete", precision_38, scale_S, "decimal?<38,S>", "decimal<38,S>", true, []interface{}{scale_S}},
-		{"scale concrete", precision_P, scale_5, "decimal?<P,5>", "decimal<P,5>", true, []interface{}{precision_P}},
-		{"both concrete", precision_38, scale_5, "decimal?<38,5>", "decimal<38,5>", false, nil},
+		{"both parameterized", precision_P, scale_S, "decimal?<P,S>", "decimal<P,S>", true, []interface{}{precision_P, scale_S}, nil},
+		{"precision concrete", precision_38, scale_S, "decimal?<38,S>", "decimal<38,S>", true, []interface{}{scale_S}, nil},
+		{"scale concrete", precision_P, scale_5, "decimal?<P,5>", "decimal<P,5>", true, []interface{}{precision_P}, nil},
+		{"both concrete", precision_38, scale_5, "decimal?<38,5>", "decimal<38,5>", false, nil, &types.DecimalType{Precision: 38, Scale: 5, Nullability: types.NullabilityRequired}},
 	} {
 		t.Run(td.name, func(t *testing.T) {
 			pd := &types.ParameterizedDecimalType{Precision: td.precision, Scale: td.scale}
@@ -35,6 +36,14 @@ func TestParameterizedDecimalType(t *testing.T) {
 			require.Equal(t, td.expectedNullableRequiredString, pd.SetNullability(types.NullabilityRequired).String())
 			require.Equal(t, td.expectedHasParameterizedParam, pd.HasParameterizedParam())
 			require.Equal(t, td.expectedParameterizedParams, pd.GetParameterizedParams())
+			retType, err := pd.ReturnType()
+			if td.expectedReturnType == nil {
+				require.Error(t, err)
+				require.True(t, pd.HasParameterizedParam())
+			} else {
+				require.Nil(t, err)
+				require.Equal(t, td.expectedReturnType, retType)
+			}
 		})
 	}
 }

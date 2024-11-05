@@ -87,3 +87,24 @@ func (m *ParameterizedStructType) MatchWithoutNullability(ot Type) bool {
 	}
 	return false
 }
+
+func (m *ParameterizedStructType) GetNullability() Nullability {
+	return m.Nullability
+}
+
+func (m *ParameterizedStructType) ShortString() string {
+	return "struct"
+}
+
+func (m *ParameterizedStructType) ReturnType() (Type, error) {
+	var types []Type
+	for _, typ := range m.Types {
+		retType, err := typ.ReturnType()
+		if err != nil {
+			return nil, fmt.Errorf("error in struct field type: %w", err)
+		}
+		types = append(types, retType)
+
+	}
+	return &StructType{Nullability: m.Nullability, Types: types}, nil
+}

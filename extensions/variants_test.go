@@ -15,42 +15,41 @@ import (
 
 func TestEvaluateTypeExpression(t *testing.T) {
 	var (
-		p, _          = parser.New()
-		i64Null, _    = p.ParseString("i64?")
-		i64NonNull, _ = p.ParseString("i64")
-		strNull, _    = p.ParseString("string?")
+		i64Null, _    = parser.ParseType("i64?")
+		i64NonNull, _ = parser.ParseType("i64")
+		strNull, _    = parser.ParseType("string?")
 	)
 
 	tests := []struct {
 		name     string
 		nulls    extensions.NullabilityHandling
-		ret      parser.TypeExpression
+		ret      types.FuncDefArgType
 		extArgs  extensions.ArgumentList
 		args     []types.Type
 		expected types.Type
 		err      string
 	}{
-		{"defaults", "", *i64NonNull, extensions.ArgumentList{
-			extensions.ValueArg{Value: i64Null}},
+		{"defaults", "", i64NonNull, extensions.ArgumentList{
+			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64Null}}},
 			[]types.Type{&types.Int64Type{Nullability: types.NullabilityNullable}},
 			&types.Int64Type{Nullability: types.NullabilityNullable}, ""},
-		{"arg mismatch", "", *strNull, extensions.ArgumentList{extensions.ValueArg{Value: strNull}},
+		{"arg mismatch", "", strNull, extensions.ArgumentList{extensions.ValueArg{Value: &parser.TypeExpression{ValueType: strNull}}},
 			[]types.Type{}, nil, "invalid expression: mismatch in number of arguments provided. got 0, expected 1"},
-		{"missing enum arg", "", *i64Null, extensions.ArgumentList{
-			extensions.ValueArg{Value: i64NonNull}, extensions.EnumArg{Name: "foo"}},
+		{"missing enum arg", "", i64Null, extensions.ArgumentList{
+			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64NonNull}}, extensions.EnumArg{Name: "foo"}},
 			[]types.Type{&types.Int64Type{}, &types.Int64Type{}}, nil, "invalid type: arg #1 (foo) should be an enum"},
-		{"discrete null handling", extensions.DiscreteNullability, *strNull, extensions.ArgumentList{
-			extensions.ValueArg{Value: strNull}},
+		{"discrete null handling", extensions.DiscreteNullability, strNull, extensions.ArgumentList{
+			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: strNull}}},
 			[]types.Type{&types.StringType{Nullability: types.NullabilityRequired}},
 			nil, "invalid type: discrete nullability did not match for arg #0"},
-		{"mirror", extensions.MirrorNullability, *strNull, extensions.ArgumentList{
-			extensions.ValueArg{Value: i64NonNull}, extensions.ValueArg{Value: i64Null}},
+		{"mirror", extensions.MirrorNullability, strNull, extensions.ArgumentList{
+			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64NonNull}}, extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64Null}}},
 			[]types.Type{
 				&types.Int64Type{Nullability: types.NullabilityRequired},
 				&types.Int64Type{Nullability: types.NullabilityRequired}},
 			&types.StringType{Nullability: types.NullabilityRequired}, ""},
-		{"declared output", extensions.DeclaredOutputNullability, *strNull, extensions.ArgumentList{
-			extensions.ValueArg{Value: strNull}},
+		{"declared output", extensions.DeclaredOutputNullability, strNull, extensions.ArgumentList{
+			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: strNull}}},
 			[]types.Type{&types.StringType{Nullability: types.NullabilityRequired}},
 			&types.StringType{Nullability: types.NullabilityNullable}, ""},
 	}
@@ -70,31 +69,29 @@ func TestEvaluateTypeExpression(t *testing.T) {
 
 func TestVariantWithVariadic(t *testing.T) {
 	var (
-		p, _          = parser.New()
-		i64Null, _    = p.ParseString("i64?")
-		i64NonNull, _ = p.ParseString("i64")
-		// strNull, _    = p.ParseString("string?")
+		i64Null, _    = parser.ParseType("i64?")
+		i64NonNull, _ = parser.ParseType("i64")
 	)
 
 	tests := []struct {
 		name     string
 		nulls    extensions.NullabilityHandling
-		ret      parser.TypeExpression
+		ret      types.FuncDefArgType
 		extArgs  extensions.ArgumentList
 		args     []types.Type
 		expected types.Type
 		variadic extensions.VariadicBehavior
 		err      string
 	}{
-		{"basic", "", *i64NonNull, extensions.ArgumentList{
-			extensions.ValueArg{Value: i64Null}},
+		{"basic", "", i64NonNull, extensions.ArgumentList{
+			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64Null}}},
 			[]types.Type{&types.Int64Type{Nullability: types.NullabilityNullable},
 				&types.Int64Type{Nullability: types.NullabilityNullable}},
 			&types.Int64Type{Nullability: types.NullabilityNullable},
 			extensions.VariadicBehavior{
 				Min: 0, ParameterConsistency: extensions.ConsistentParams}, ""},
-		{"bad arg count", "", *i64NonNull, extensions.ArgumentList{
-			extensions.ValueArg{Value: i64Null}},
+		{"bad arg count", "", i64NonNull, extensions.ArgumentList{
+			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64Null}}},
 			[]types.Type{&types.Int64Type{Nullability: types.NullabilityNullable},
 				&types.Int64Type{Nullability: types.NullabilityNullable}},
 			nil, extensions.VariadicBehavior{

@@ -60,13 +60,9 @@ func validateType(arg Argument, actual types.Type, idx int, nullHandling Nullabi
 		}
 
 		if nullHandling == DiscreteNullability {
-			if t, ok := p.Value.Expr.(*parser.Type); ok {
-				if isNullable != t.Optional() {
-					return allNonNull, fmt.Errorf("%w: discrete nullability did not match for arg #%d",
-						substraitgo.ErrInvalidType, idx)
-				}
-			} else {
-				return allNonNull, substraitgo.ErrNotImplemented
+			if isNullable != (p.Value.ValueType.GetNullability() == types.NullabilityNullable) {
+				return allNonNull, fmt.Errorf("%w: discrete nullability did not match for arg #%d",
+					substraitgo.ErrInvalidType, idx)
 			}
 		}
 	case TypeArg:
@@ -76,7 +72,7 @@ func validateType(arg Argument, actual types.Type, idx int, nullHandling Nullabi
 	return allNonNull, nil
 }
 
-func EvaluateTypeExpression(nullHandling NullabilityHandling, expr parser.TypeExpression, paramTypeList ArgumentList, variadic *VariadicBehavior, actualTypes []types.Type) (types.Type, error) {
+func EvaluateTypeExpression(nullHandling NullabilityHandling, expr types.FuncDefArgType, paramTypeList ArgumentList, variadic *VariadicBehavior, actualTypes []types.Type) (types.Type, error) {
 	if len(paramTypeList) != len(actualTypes) {
 		if variadic == nil {
 			return nil, fmt.Errorf("%w: mismatch in number of arguments provided. got %d, expected %d",
@@ -111,15 +107,9 @@ func EvaluateTypeExpression(nullHandling NullabilityHandling, expr parser.TypeEx
 		}
 	}
 
-	var outType types.Type
-	if t, ok := expr.Expr.(*parser.Type); ok {
-		var err error
-		outType, err = t.RetType()
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		return nil, substraitgo.ErrNotImplemented
+	outType, err := expr.ReturnType()
+	if err != nil {
+		return nil, err
 	}
 
 	if nullHandling == MirrorNullability || nullHandling == "" {
@@ -219,11 +209,7 @@ func getFuncDefFromArgList(paramTypeList ArgumentList) ([]types.FuncDefArgType, 
 	for argPos, param := range paramTypeList {
 		switch paramType := param.(type) {
 		case ValueArg:
-			funcDefArgType, err := paramType.Value.Expr.(*parser.Type).ArgType()
-			if err != nil {
-				return nil, err
-			}
-			out = append(out, funcDefArgType)
+			out = append(out, paramType.Value.ValueType)
 		case EnumArg:
 			return nil, fmt.Errorf("%w: invalid argument at position %d for match operation", substraitgo.ErrInvalidType, argPos)
 		case TypeArg:
@@ -242,11 +228,11 @@ func parseFuncName(compoundName string) (name string, args ArgumentList) {
 	}
 	splitArgs := strings.Split(argsStr, "_")
 	for _, argStr := range splitArgs {
-		parsed, err := defParser.ParseString(argStr)
+		parsed, err := parser.ParseType(argStr)
 		if err != nil {
 			panic(err)
 		}
-		exp := ValueArg{Name: name, Value: parsed}
+		exp := ValueArg{Name: name, Value: &parser.TypeExpression{ValueType: parsed}}
 		args = append(args, exp)
 	}
 
@@ -316,7 +302,7 @@ func (s *ScalarFunctionVariant) SessionDependent() bool           { return s.imp
 func (s *ScalarFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
 func (s *ScalarFunctionVariant) URI() string                      { return s.uri }
 func (s *ScalarFunctionVariant) ResolveType(argumentTypes []types.Type) (types.Type, error) {
-	return EvaluateTypeExpression(s.impl.Nullability, s.impl.Return, s.impl.Args, s.impl.Variadic, argumentTypes)
+	return EvaluateTypeExpression(s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes)
 }
 func (s *ScalarFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
@@ -374,10 +360,6 @@ type AggVariantOptions struct {
 	IntermediateOutputType string
 }
 
-var (
-	defParser, _ = parser.New()
-)
-
 func NewAggFuncVariantOpts(id ID, opts AggVariantOptions) *AggregateFunctionVariant {
 	var aggIntermediate parser.TypeExpression
 	if opts.Decomposable == "" {
@@ -389,11 +371,11 @@ func NewAggFuncVariantOpts(id ID, opts AggVariantOptions) *AggregateFunctionVari
 				substraitgo.ErrInvalidExpr, id))
 		}
 
-		intermediate, err := defParser.ParseString(opts.IntermediateOutputType)
+		intermediate, err := parser.ParseType(opts.IntermediateOutputType)
 		if err != nil {
 			panic(err)
 		}
-		aggIntermediate = *intermediate
+		aggIntermediate.ValueType = intermediate
 	}
 
 	simpleName, args := parseFuncName(id.Name)
@@ -432,7 +414,7 @@ func (s *AggregateFunctionVariant) SessionDependent() bool           { return s.
 func (s *AggregateFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
 func (s *AggregateFunctionVariant) URI() string                      { return s.uri }
 func (s *AggregateFunctionVariant) ResolveType(argumentTypes []types.Type) (types.Type, error) {
-	return EvaluateTypeExpression(s.impl.Nullability, s.impl.Return, s.impl.Args, s.impl.Variadic, argumentTypes)
+	return EvaluateTypeExpression(s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes)
 }
 func (s *AggregateFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
@@ -442,8 +424,8 @@ func (s *AggregateFunctionVariant) ID() ID {
 }
 func (s *AggregateFunctionVariant) Decomposability() DecomposeType { return s.impl.Decomposable }
 func (s *AggregateFunctionVariant) Intermediate() (types.FuncDefArgType, error) {
-	if t, ok := s.impl.Intermediate.Expr.(*parser.Type); ok {
-		return t.ArgType()
+	if s.impl.Intermediate.ValueType != nil {
+		return s.impl.Intermediate.ValueType, nil
 	}
 	return nil, fmt.Errorf("%w: bad intermediate type expression", substraitgo.ErrInvalidType)
 }
@@ -513,11 +495,11 @@ func NewWindowFuncVariantOpts(id ID, opts WindowVariantOpts) *WindowFunctionVari
 				substraitgo.ErrInvalidExpr, id))
 		}
 
-		intermediate, err := defParser.ParseString(opts.IntermediateOutputType)
+		intermediate, err := parser.ParseType(opts.IntermediateOutputType)
 		if err != nil {
 			panic(err)
 		}
-		aggIntermediate = *intermediate
+		aggIntermediate.ValueType = intermediate
 	}
 
 	simpleName, args := parseFuncName(id.Name)
@@ -552,7 +534,7 @@ func (s *WindowFunctionVariant) SessionDependent() bool           { return s.imp
 func (s *WindowFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
 func (s *WindowFunctionVariant) URI() string                      { return s.uri }
 func (s *WindowFunctionVariant) ResolveType(argumentTypes []types.Type) (types.Type, error) {
-	return EvaluateTypeExpression(s.impl.Nullability, s.impl.Return, s.impl.Args, s.impl.Variadic, argumentTypes)
+	return EvaluateTypeExpression(s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes)
 }
 func (s *WindowFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
@@ -562,8 +544,8 @@ func (s *WindowFunctionVariant) ID() ID {
 }
 func (s *WindowFunctionVariant) Decomposability() DecomposeType { return s.impl.Decomposable }
 func (s *WindowFunctionVariant) Intermediate() (types.FuncDefArgType, error) {
-	if t, ok := s.impl.Intermediate.Expr.(*parser.Type); ok {
-		return t.ArgType()
+	if s.impl.Intermediate.ValueType != nil {
+		return s.impl.Intermediate.ValueType, nil
 	}
 	return nil, fmt.Errorf("%w: bad intermediate type expression", substraitgo.ErrInvalidType)
 }

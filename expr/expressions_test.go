@@ -341,8 +341,7 @@ func TestRoundTripUsingTestData(t *testing.T) {
 	require.NoError(t, dec.Decode(&tmp))
 
 	var (
-		typeParser, _ = parser.New()
-		protoSchema   proto.NamedStruct
+		protoSchema proto.NamedStruct
 	)
 
 	raw, err := json.Marshal(tmp["baseSchema"])
@@ -370,7 +369,7 @@ func TestRoundTripUsingTestData(t *testing.T) {
 			assert.True(t, e.Equals(e))
 
 			if typTest, ok := test["type"].(string); ok {
-				exp, err := typeParser.ParseString(typTest)
+				exp, err := parser.ParseType(typTest)
 				require.NoError(t, err)
 
 				assert.Equal(t, exp.String(), e.GetType().String())
