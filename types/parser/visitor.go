@@ -186,8 +186,8 @@ func (v *TypeVisitor) VisitUserDefined(ctx *baseparser2.UserDefinedContext) inte
 			params = append(params, &types.StringUDTParam{StringVal: string(param)})
 		default:
 			// TODO handle other user defined type parameters
-			v.ErrorListener.ReportVisitError(fmt.Errorf("User defined type parameter is not a FuncDefArgType/int/string " +
-				fmt.Sprintf("%T", param)))
+			v.ErrorListener.ReportVisitError(fmt.Errorf(
+				"User defined type parameter is not a FuncDefArgType/int/string, type %T ", param))
 		}
 	}
 	name := ctx.Identifier().GetText()
