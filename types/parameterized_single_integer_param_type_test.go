@@ -14,6 +14,7 @@ import (
 func TestParameterizedSingleIntegerType(t *testing.T) {
 	abstractLeafParam_L1 := integer_parameters.NewVariableIntParam("L1")
 	concreteLeafParam_38 := integer_parameters.NewConcreteIntParam(38)
+	concreteLeafParam_5 := integer_parameters.NewConcreteIntParam(5)
 	for _, td := range []struct {
 		name                           string
 		typ                            types.FuncDefArgType
@@ -34,6 +35,8 @@ func TestParameterizedSingleIntegerType(t *testing.T) {
 		{"nullable concrete precisionTimeStamp", &types.ParameterizedPrecisionTimestampType{IntegerOption: concreteLeafParam_38}, "precision_timestamp?<38>", "precision_timestamp<38>", "prets", false, nil, &types.PrecisionTimestampType{Precision: 38, Nullability: types.NullabilityRequired}},
 		{"nullable precisionTimeStampTz", &types.ParameterizedPrecisionTimestampTzType{IntegerOption: abstractLeafParam_L1}, "precision_timestamp_tz?<L1>", "precision_timestamp_tz<L1>", "pretstz", true, []interface{}{abstractLeafParam_L1}, nil},
 		{"nullable concrete precisionTimeStampTz", &types.ParameterizedPrecisionTimestampTzType{IntegerOption: concreteLeafParam_38}, "precision_timestamp_tz?<38>", "precision_timestamp_tz<38>", "pretstz", false, nil, &types.PrecisionTimestampTzType{PrecisionTimestampType: types.PrecisionTimestampType{Precision: 38, Nullability: types.NullabilityRequired}}},
+		{"nullable interval day", &types.ParameterizedIntervalDayType{IntegerOption: abstractLeafParam_L1}, "interval_day?<L1>", "interval_day<L1>", "iday", true, []interface{}{abstractLeafParam_L1}, nil},
+		{"nullable concrete interval day", &types.ParameterizedIntervalDayType{IntegerOption: concreteLeafParam_5}, "interval_day?<5>", "interval_day<5>", "iday", false, nil, &types.IntervalDayType{Precision: 5, Nullability: types.NullabilityRequired}},
 	} {
 		t.Run(td.name, func(t *testing.T) {
 			require.Equal(t, td.expectedNullableString, td.typ.SetNullability(types.NullabilityNullable).String())
