@@ -42,6 +42,11 @@ type simpleErrorListener struct {
 	errors     []string
 }
 
+func (l *simpleErrorListener) ReportVisitError(err error) {
+	l.errorCount++
+	l.errors = append(l.errors, fmt.Sprintf("Visit error: %s", err))
+}
+
 func (l *simpleErrorListener) SyntaxError(recognizer antlr.Recognizer, offendingSymbol interface{}, line, column int, msg string, e antlr.RecognitionException) {
 	l.errorCount++
 	l.errors = append(l.errors, fmt.Sprintf("Syntax error at line %d:%d: %s ", line, column, msg))
@@ -58,10 +63,6 @@ func (l *simpleErrorListener) ReportContextSensitivity(recognizer antlr.Parser, 
 
 func (l *simpleErrorListener) ErrorCount() int {
 	return l.errorCount
-}
-
-func (l *simpleErrorListener) GetError() string {
-	return l.errors[0]
 }
 
 func (l *simpleErrorListener) GetErrors() []string {
@@ -100,9 +101,12 @@ func ParseType(input string) (types.FuncDefArgType, error) {
 	context := p.StartRule()
 	if errorListener.ErrorCount() > 0 {
 		fmt.Printf("ParseTree: %v", antlr.TreesStringTree(context, []string{}, p))
-		return nil, fmt.Errorf("error parsing input '%s': %s", input, errorListener.GetError())
+		return nil, fmt.Errorf("error parsing input '%s': %s", input, errorListener.GetErrors())
 	}
 	ret := visitor.Visit(context)
+	if errorListener.ErrorCount() > 0 {
+		return nil, fmt.Errorf("error parsing input '%s': %s", input, errorListener.GetErrors())
+	}
 	retType, ok := ret.(types.FuncDefArgType)
 	if !ok {
 		return nil, fmt.Errorf("failed to parse %s as FuncDefArgType", input)

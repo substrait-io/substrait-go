@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -169,6 +170,45 @@ func TestTypeExpression_UnmarshalYAML(t *testing.T) {
 			}
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, te.ValueType)
+		})
+	}
+}
+
+func TestTypeExpression_UnmarshalYAML1(t1 *testing.T) {
+	concreteInt38 := integer_parameters.ConcreteIntParam(38)
+	variableIntS := integer_parameters.VariableIntParam("S")
+	tests := []struct {
+		name      string
+		ValueType types.FuncDefArgType
+		hasError  bool
+	}{
+		{"i16", &types.Int16Type{Nullability: types.NullabilityRequired}, false},
+		{"i16?", &types.Int16Type{Nullability: types.NullabilityNullable}, false},
+		{"decimal<38,S>", &types.ParameterizedDecimalType{Precision: &concreteInt38, Scale: &variableIntS, Nullability: types.NullabilityRequired}, false},
+		{"invalid", nil, true},
+	}
+	for _, tt := range tests {
+		t1.Run(tt.name, func(t1 *testing.T) {
+			t := &TypeExpression{}
+			dummyFunc := func(arg interface{}) error {
+				argPtr := reflect.ValueOf(arg)
+				if argPtr.Kind() == reflect.Ptr && !argPtr.IsNil() {
+					argPtr.Elem().Set(reflect.ValueOf(tt.name))
+					return nil
+				}
+				return fmt.Errorf("expected pointer argument")
+			}
+			err := t.UnmarshalYAML(dummyFunc)
+			if tt.hasError {
+				require.Error(t1, err)
+				return
+			}
+			require.NoError(t1, err)
+			assert.Equal(t1, tt.ValueType, t.ValueType)
+
+			out, err := t.MarshalYAML()
+			require.NoError(t1, err)
+			assert.Equal(t1, tt.name, out)
 		})
 	}
 }

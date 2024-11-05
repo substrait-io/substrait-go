@@ -8,7 +8,7 @@ import (
 )
 
 type UDTParameter interface {
-	isTypeParameter()
+	isTypeParameter() bool
 	String() string
 	toTypeParam() (TypeParam, error)
 	MatchWithoutNullability(param TypeParam) bool
@@ -19,7 +19,7 @@ type DataTypeUDTParam struct {
 	Type FuncDefArgType
 }
 
-func (d *DataTypeUDTParam) isTypeParameter() {}
+func (d *DataTypeUDTParam) isTypeParameter() bool { return true }
 
 func (d *DataTypeUDTParam) String() string {
 	return d.Type.String()
@@ -53,7 +53,7 @@ type IntegerUDTParam struct {
 	Integer int32
 }
 
-func (i *IntegerUDTParam) isTypeParameter() {}
+func (i *IntegerUDTParam) isTypeParameter() bool { return true }
 
 func (i *IntegerUDTParam) String() string {
 	return fmt.Sprintf("%d", i.Integer)
@@ -78,7 +78,7 @@ type StringUDTParam struct {
 	StringVal string
 }
 
-func (s *StringUDTParam) isTypeParameter() {}
+func (s *StringUDTParam) isTypeParameter() bool { return true }
 
 func (s *StringUDTParam) String() string {
 	return s.StringVal

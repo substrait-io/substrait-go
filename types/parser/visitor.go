@@ -10,8 +10,13 @@ import (
 	baseparser2 "github.com/substrait-io/substrait-go/types/parser/baseparser"
 )
 
+type errorListener interface {
+	ReportVisitError(err error)
+}
+
 type TypeVisitor struct {
 	baseparser2.SubstraitTypeVisitor
+	ErrorListener errorListener
 }
 
 var _ baseparser2.SubstraitTypeVisitor = &TypeVisitor{}
@@ -46,7 +51,8 @@ func (v *TypeVisitor) VisitTypeLiteral(ctx *baseparser2.TypeLiteralContext) inte
 func (v *TypeVisitor) VisitLiteralNumber(ctx *baseparser2.LiteralNumberContext) interface{} {
 	num, err := strconv.ParseInt(ctx.Number().GetText(), 10, 0)
 	if err != nil {
-		panic(err)
+		v.ErrorListener.ReportVisitError(fmt.Errorf("error parsing number: %s", err))
+		return 0
 	}
 	return num
 }
@@ -180,7 +186,8 @@ func (v *TypeVisitor) VisitUserDefined(ctx *baseparser2.UserDefinedContext) inte
 			params = append(params, &types.StringUDTParam{StringVal: string(param)})
 		default:
 			// TODO handle other user defined type parameters
-			panic("User defined type parameter is not a FuncDefArgType/int/string " + fmt.Sprintf("%T", param))
+			v.ErrorListener.ReportVisitError(fmt.Errorf("User defined type parameter is not a FuncDefArgType/int/string " +
+				fmt.Sprintf("%T", param)))
 		}
 	}
 	name := ctx.Identifier().GetText()
@@ -292,7 +299,7 @@ func (v *TypeVisitor) VisitMap(ctx *baseparser2.MapContext) interface{} {
 	keyType, keyOk := v.Visit(ctx.GetKey()).(types.FuncDefArgType)
 	valueType, valueOk := v.Visit(ctx.GetValue()).(types.FuncDefArgType)
 	if !keyOk || !valueOk {
-		panic("Map key or value type is not a FuncDefArgType")
+		v.ErrorListener.ReportVisitError(fmt.Errorf("map key or value type is not a FuncDefArgType"))
 	}
 	return &types.ParameterizedMapType{Key: keyType, Value: valueType, Nullability: nullability}
 }
@@ -304,7 +311,8 @@ func (v *TypeVisitor) VisitParameterName(ctx *baseparser2.ParameterNameContext) 
 func (v *TypeVisitor) VisitNumericLiteral(ctx *baseparser2.NumericLiteralContext) interface{} {
 	num, err := strconv.ParseInt(ctx.Number().GetText(), 10, 0)
 	if err != nil {
-		panic(err)
+		v.ErrorListener.ReportVisitError(fmt.Errorf("error parsing type parameter as number: %s", err))
+		return integer_parameters.NewConcreteIntParam(0)
 	}
 	return integer_parameters.NewConcreteIntParam(int32(num))
 }
