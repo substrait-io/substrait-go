@@ -45,25 +45,6 @@ type (
 	Null types.Type
 )
 
-func StructLiteralFromProto(s *proto.Expression_Literal_Struct) StructLiteralValue {
-	fields := make(StructLiteralValue, len(s.Fields))
-	for i, f := range s.Fields {
-		fields[i] = LiteralFromProto(f)
-	}
-	return fields
-}
-
-func (s StructLiteralValue) ToProto() *proto.Expression_Literal_Struct {
-	fields := make([]*proto.Expression_Literal, len(s))
-	for i, f := range s {
-		fields[i] = f.ToProtoLiteral()
-	}
-
-	return &proto.Expression_Literal_Struct{
-		Fields: fields,
-	}
-}
-
 // Literal represents a specific literal of some type which could also
 // be a typed null or a nested type like a struct/map/list.
 //

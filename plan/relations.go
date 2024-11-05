@@ -208,23 +208,23 @@ func (n *NamedTableReadRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, _
 type VirtualTableReadRel struct {
 	baseReadRel
 
-	values []expr.StructLiteralValue
+	values []expr.VirtualTableExpressionValue
 }
 
-func (v *VirtualTableReadRel) Values() []expr.StructLiteralValue {
+func (v *VirtualTableReadRel) Values() []expr.VirtualTableExpressionValue {
 	return v.values
 }
 
 func (v *VirtualTableReadRel) ToProto() *proto.Rel {
 	readRel := v.toReadRelProto()
-	values := make([]*proto.Expression_Literal_Struct, len(v.values))
+	values := make([]*proto.Expression_Nested_Struct, len(v.values))
 	for i, v := range v.values {
 		values[i] = v.ToProto()
 	}
 
 	readRel.ReadType = &proto.ReadRel_VirtualTable_{
 		VirtualTable: &proto.ReadRel_VirtualTable{
-			Values: values,
+			Expressions: values,
 		},
 	}
 	return &proto.Rel{

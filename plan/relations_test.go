@@ -13,7 +13,7 @@ func noOpRewrite(e expr.Expression) (expr.Expression, error) {
 }
 
 func createVirtualTableReadRel(value int64) *VirtualTableReadRel {
-	return &VirtualTableReadRel{values: []expr.StructLiteralValue{[]expr.Literal{&expr.PrimitiveLiteral[int64]{Value: value}}}}
+	return &VirtualTableReadRel{values: []expr.VirtualTableExpressionValue{[]expr.Expression{&expr.PrimitiveLiteral[int64]{Value: value}}}}
 }
 
 func createPrimitiveFloat(value float64) expr.Expression {
@@ -40,7 +40,7 @@ func TestRelations_Copy(t *testing.T) {
 	projectRel := &ProjectRel{input: createVirtualTableReadRel(1), exprs: []expr.Expression{createPrimitiveFloat(1.0), createPrimitiveFloat(2.0)}}
 	setRel := &SetRel{inputs: []Rel{createVirtualTableReadRel(1), createVirtualTableReadRel(2), createVirtualTableReadRel(3)}, op: SetOpUnionAll}
 	sortRel := &SortRel{input: createVirtualTableReadRel(1), sorts: []expr.SortField{{Expr: createPrimitiveFloat(1.0), Kind: types.SortAscNullsFirst}}}
-	virtualTableReadRel := &VirtualTableReadRel{values: []expr.StructLiteralValue{[]expr.Literal{&expr.PrimitiveLiteral[int64]{Value: 1}}}}
+	virtualTableReadRel := &VirtualTableReadRel{values: []expr.VirtualTableExpressionValue{[]expr.Expression{&expr.PrimitiveLiteral[int64]{Value: 1}}}}
 	namedTableWriteRel := &NamedTableWriteRel{input: namedTableReadRel}
 
 	type relationTestCase struct {
