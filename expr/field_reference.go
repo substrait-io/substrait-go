@@ -542,11 +542,7 @@ func NewRootFieldRef(ref Reference, baseSchema *types.StructType) (*FieldReferen
 
 // NewRootFieldRefFromType creates a new field reference with a specific known type.  Prefer using NewRootFieldRef.
 func NewRootFieldRefFromType(ref Reference, t types.Type) (*FieldReference, error) {
-	return &FieldReference{
-		Reference: ref,
-		Root:      RootReference,
-		knownType: t,
-	}, nil
+	return NewFieldRefFromType(RootReference, ref, t)
 }
 
 func NewFieldRef(root RootRefType, ref Reference, baseSchema *types.StructType) (*FieldReference, error) {
@@ -575,6 +571,30 @@ func NewFieldRef(root RootRefType, ref Reference, baseSchema *types.StructType) 
 			Reference: ref,
 			Root:      root,
 			knownType: typ,
+		}, nil
+	case *MaskExpression:
+	}
+
+	return nil, substraitgo.ErrNotImplemented
+}
+
+// NewFieldRefFromType creates a new field reference with a specific known type.  Prefer using NewFieldRef.
+func NewFieldRefFromType(root RootRefType, ref Reference, t types.Type) (*FieldReference, error) {
+	switch ref.(type) {
+	case ReferenceSegment:
+		if root == RootReference {
+			// Nothing to do.
+		} else if _, ok := root.(Expression); ok {
+			// Nothing to do.
+		} else {
+			return nil, fmt.Errorf("%w: unknown root reference type %v",
+				substraitgo.ErrInvalidExpr, root)
+		}
+
+		return &FieldReference{
+			Reference: ref,
+			Root:      root,
+			knownType: t,
 		}, nil
 	case *MaskExpression:
 	}
