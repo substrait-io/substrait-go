@@ -1611,26 +1611,6 @@ func (ex *Extended) ToProto() *proto.ExtendedExpression {
 	}
 }
 
-func VirtualTableExpressionFromProto(s *proto.Expression_Nested_Struct, reg ExtensionRegistry) (VirtualTableExpressionValue, error) {
-	fields := make(VirtualTableExpressionValue, len(s.Fields))
-	for i, f := range s.Fields {
-		val, err := ExprFromProto(f, nil, reg)
-		if err != nil {
-			return nil, err
-		}
-		fields[i] = val
-	}
-	return fields, nil
-}
-
-func VirtualTableExprFromLiteralProto(s *proto.Expression_Literal_Struct) VirtualTableExpressionValue {
-	fields := make(VirtualTableExpressionValue, len(s.Fields))
-	for i, f := range s.Fields {
-		fields[i] = LiteralFromProto(f)
-	}
-	return fields
-}
-
 func (s VirtualTableExpressionValue) ToProto() *proto.Expression_Nested_Struct {
 	fields := make([]*proto.Expression, len(s))
 	for i, f := range s {

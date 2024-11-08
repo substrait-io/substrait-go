@@ -12,6 +12,7 @@ import (
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/expr"
 	"github.com/substrait-io/substrait-go/extensions"
+	"github.com/substrait-io/substrait-go/plan/internal"
 	"github.com/substrait-io/substrait-go/proto"
 	"github.com/substrait-io/substrait-go/types"
 	"golang.org/x/exp/slices"
@@ -321,10 +322,10 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			}
 			var values []expr.VirtualTableExpressionValue
 			for _, v := range readType.VirtualTable.Values {
-				values = append(values, expr.VirtualTableExprFromLiteralProto(v))
+				values = append(values, internal.VirtualTableExprFromLiteralProto(v))
 			}
 			for _, v := range readType.VirtualTable.Expressions {
-				row, err := expr.VirtualTableExpressionFromProto(v, reg)
+				row, err := internal.VirtualTableExpressionFromProto(v, reg)
 				if err != nil {
 					return nil, err
 				}
