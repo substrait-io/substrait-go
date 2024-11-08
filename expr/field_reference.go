@@ -540,6 +540,15 @@ func NewRootFieldRef(ref Reference, baseSchema *types.StructType) (*FieldReferen
 	return NewFieldRef(RootReference, ref, baseSchema)
 }
 
+// NewRootFieldRefFromType creates a new field reference with a specific known type.  Prefer using NewRootFieldRef.
+func NewRootFieldRefFromType(ref Reference, t types.Type) (*FieldReference, error) {
+	return &FieldReference{
+		Reference: ref,
+		Root:      RootReference,
+		knownType: t,
+	}, nil
+}
+
 func NewFieldRef(root RootRefType, ref Reference, baseSchema *types.StructType) (*FieldReference, error) {
 	if ref != nil && root == RootReference && baseSchema == nil {
 		return nil, fmt.Errorf("%w: must provide the base schema to create a root field ref",

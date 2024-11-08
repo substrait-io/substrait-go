@@ -74,6 +74,9 @@ func TestBoundExpressions(t *testing.T) {
 			&types.Int32Type{Nullability: types.NullabilityNullable}},
 		{MustExpr(NewRootFieldRef(NewStructFieldRef(10), &boringSchema.Struct)), false,
 			&types.StringType{}},
+		{MustExpr(NewRootFieldRefFromType(
+			NewStructFieldRef(10), &types.StringType{})), false,
+			&types.StringType{}},
 		{MustExpr(NewScalarFunc(extReg, subID, nil,
 			NewPrimitiveLiteral(int8(1), false),
 			NewPrimitiveLiteral(int8(5), false))), false,
