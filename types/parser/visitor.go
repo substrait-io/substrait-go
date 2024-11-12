@@ -8,15 +8,12 @@ import (
 	"github.com/substrait-io/substrait-go/types"
 	"github.com/substrait-io/substrait-go/types/integer_parameters"
 	baseparser2 "github.com/substrait-io/substrait-go/types/parser/baseparser"
+	"github.com/substrait-io/substrait-go/types/parser/util"
 )
-
-type errorListener interface {
-	ReportVisitError(err error)
-}
 
 type TypeVisitor struct {
 	baseparser2.SubstraitTypeVisitor
-	ErrorListener errorListener
+	ErrorListener util.VisitErrorListener
 }
 
 var _ baseparser2.SubstraitTypeVisitor = &TypeVisitor{}
@@ -41,7 +38,12 @@ func (v *TypeVisitor) VisitParenExpression(ctx *baseparser2.ParenExpressionConte
 }
 
 func (v *TypeVisitor) VisitMultilineDefinition(*baseparser2.MultilineDefinitionContext) interface{} {
-	panic("implement MultilineDefinition")
+	// TODO implement multiline definition
+	return &types.ParameterizedDecimalType{
+		Precision:   integer_parameters.NewVariableIntParam("P"),
+		Scale:       integer_parameters.NewVariableIntParam("S"),
+		Nullability: types.NullabilityRequired,
+	}
 }
 
 func (v *TypeVisitor) VisitTypeLiteral(ctx *baseparser2.TypeLiteralContext) interface{} {

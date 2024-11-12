@@ -2,6 +2,9 @@ package literal
 
 import (
 	"fmt"
+	"reflect"
+	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,8 +17,8 @@ func NewBool(value bool) (expr.Literal, error) {
 	return expr.NewPrimitiveLiteral[bool](value, false), nil
 }
 
-func NewInt8(value int8) (expr.Literal, error) {
-	return expr.NewPrimitiveLiteral[int8](value, false), nil
+func NewInt8(value int8) expr.Literal {
+	return expr.NewPrimitiveLiteral[int8](value, false)
 }
 
 func NewInt16(value int16) (expr.Literal, error) {
@@ -30,12 +33,12 @@ func NewInt64(value int64) (expr.Literal, error) {
 	return expr.NewPrimitiveLiteral[int64](value, false), nil
 }
 
-func NewFloat32(value float32) (expr.Literal, error) {
-	return expr.NewPrimitiveLiteral[float32](value, false), nil
+func NewFloat32(value float32) expr.Literal {
+	return expr.NewPrimitiveLiteral[float32](value, false)
 }
 
-func NewFloat64(value float64) (expr.Literal, error) {
-	return expr.NewPrimitiveLiteral[float64](value, false), nil
+func NewFloat64(value float64) expr.Literal {
+	return expr.NewPrimitiveLiteral[float64](value, false)
 }
 
 func NewString(value string) (expr.Literal, error) {
@@ -44,6 +47,14 @@ func NewString(value string) (expr.Literal, error) {
 
 func NewDate(days int) (expr.Literal, error) {
 	return expr.NewLiteral[types.Date](types.Date(days), false)
+}
+
+func NewDateFromString(value string) (expr.Literal, error) {
+	tm, err := time.Parse("2006-01-02", value)
+	if err != nil {
+		return nil, err
+	}
+	return NewDate(int(tm.Unix() / 86400))
 }
 
 // NewTime creates a new Time literal from the given hours, minutes, seconds and microseconds.
@@ -65,10 +76,45 @@ func NewTimeFromMicros(micros int64) (expr.Literal, error) {
 	return expr.NewLiteral[types.Time](types.Time(micros), false)
 }
 
+func NewTimeFromString(value string) (expr.Literal, error) {
+	ts, err := parseTimeFromString(value)
+	if err != nil {
+		return nil, err
+	}
+	seconds := ts.Hour()*3600 + ts.Minute()*60 + ts.Second()
+	micros := int64(seconds)*int64(1e6) + int64(ts.Nanosecond())/1e3
+	return NewTimeFromMicros(micros)
+}
+
+func parseTimeFromString(value string) (time.Time, error) {
+	if t, err := time.Parse(time.RFC3339, value); err == nil {
+		return t, nil
+	}
+
+	layoutWithoutOffset := "2006-01-02T15:04:05"
+	if t, err := time.Parse(layoutWithoutOffset, value); err == nil {
+		return t, nil
+	}
+	timeOnlyInMicros := "15:04:05.9999999"
+	if t, err := time.Parse(timeOnlyInMicros, value); err == nil {
+		return t, nil
+	}
+	timeOnlyInMillis := "15:04:05.999"
+	return time.Parse(timeOnlyInMillis, value)
+}
+
 // NewTimestamp creates a new Timestamp literal from a time.Time timestamp value.
 // This uses the number of microseconds elapsed since January 1, 1970 00:00:00 UTC
 func NewTimestamp(timestamp time.Time) (expr.Literal, error) {
 	return expr.NewLiteral[types.Timestamp](types.Timestamp(timestamp.UnixMicro()), false)
+}
+
+func NewTimestampFromString(value string) (expr.Literal, error) {
+	tm, err := parseTimeFromString(value)
+	if err != nil {
+		return nil, err
+	}
+	return NewTimestamp(tm)
 }
 
 func NewTimestampFromMicros(micros int64) (expr.Literal, error) {
@@ -81,12 +127,141 @@ func NewTimestampTZ(timestamp time.Time) (expr.Literal, error) {
 	return expr.NewLiteral[types.TimestampTz](types.TimestampTz(timestamp.UnixMicro()), false)
 }
 
+func NewTimestampTZFromString(value string) (expr.Literal, error) {
+	tm, err := parseTimeFromString(value)
+	if err != nil {
+		return nil, err
+	}
+	return NewTimestampTZ(tm)
+}
+
 func NewTimestampTZFromMicros(micros int64) (expr.Literal, error) {
 	return expr.NewLiteral[types.TimestampTz](types.TimestampTz(micros), false)
 }
 
+func NewIntervalYearsToMonthFromString(yearsToMonth string) (expr.Literal, error) {
+	years, months, err := parseIntervalYearsToMonth(yearsToMonth)
+	if err != nil {
+		return nil, err
+	}
+	return NewIntervalYearsToMonth(years, months)
+}
+
+func parseIntervalYearsToMonth(interval string) (int32, int32, error) {
+	if len(interval) < 3 || interval[0] != 'P' {
+		return 0, 0, fmt.Errorf("invalid interval format: %s", interval)
+	}
+	interval = interval[1:]
+	yIndex := -1
+	mIndex := -1
+	for i, c := range interval {
+		if c == 'Y' {
+			yIndex = i
+		} else if c == 'M' {
+			mIndex = i
+		}
+	}
+	if yIndex == -1 && mIndex == -1 {
+		return 0, 0, fmt.Errorf("invalid interval format: %s", interval)
+	}
+	var months, years int
+	var err error
+	if yIndex != -1 {
+		years, err = strconv.Atoi(interval[:yIndex])
+		if err != nil {
+			return 0, 0, err
+		}
+		interval = interval[yIndex+1:]
+		mIndex -= yIndex + 1
+	}
+	if mIndex > 0 {
+		months, err = strconv.Atoi(interval[:mIndex])
+		if err != nil {
+			return 0, 0, err
+		}
+	}
+	return int32(years), int32(months), nil
+}
+
 func NewIntervalYearsToMonth(years, months int32) (expr.Literal, error) {
 	return expr.NewLiteral[*types.IntervalYearToMonth](&types.IntervalYearToMonth{Years: years, Months: months}, false)
+}
+
+func NewIntervalDaysToSecondFromString(daysToSecond string) (expr.Literal, error) {
+	days, seconds, subSeconds, precision, err := parseIntervalDaysToSecond(daysToSecond)
+	if err != nil {
+		return nil, err
+	}
+	return expr.NewLiteral[*types.IntervalDayToSecond](&types.IntervalDayToSecond{
+		Days:    days,
+		Seconds: seconds,
+		PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{
+			Precision: precision,
+		},
+		Subseconds: subSeconds,
+	}, false)
+}
+
+func parseIntervalDaysToSecond(interval string) (int32, int32, int64, int32, error) {
+	if len(interval) < 3 || interval[0] != 'P' {
+		return 0, 0, 0, 0, fmt.Errorf("invalid interval format: %s", interval)
+	}
+
+	// Parse interval of format P[n]DT[n]H[n]M[n]S[n]F
+	regex := `^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?(?:(\d*\.\d+)F)?)?$`
+	r := regexp.MustCompile(regex)
+
+	// Find matches
+	matches := r.FindStringSubmatch(interval)
+	if matches == nil {
+		return 0, 0, 0, 0, fmt.Errorf("invalid interval format: %s", interval)
+	}
+
+	// Parse each component
+	var err error
+	var days, hours, minutes, seconds int
+	var fraction float64
+	var subSeconds int64
+	if matches[1] != "" {
+		days, err = strconv.Atoi(matches[1])
+		if err != nil {
+			return 0, 0, 0, 0, fmt.Errorf("invalid day value: %v", err)
+		}
+	}
+	if matches[2] != "" {
+		hours, err = strconv.Atoi(matches[2])
+		if err != nil {
+			return 0, 0, 0, 0, fmt.Errorf("invalid hour value: %v", err)
+		}
+	}
+	if matches[3] != "" {
+		minutes, err = strconv.Atoi(matches[3])
+		if err != nil {
+			return 0, 0, 0, 0, fmt.Errorf("invalid minute value: %v", err)
+		}
+	}
+	if matches[4] != "" {
+		seconds, err = strconv.Atoi(matches[4])
+		if err != nil {
+			return 0, 0, 0, 0, fmt.Errorf("invalid second value: %v", err)
+		}
+	}
+	if matches[5] != "" {
+		fraction, err = strconv.ParseFloat(matches[5], 64)
+		if err != nil {
+			return 0, 0, 0, 0, fmt.Errorf("invalid fractional second value: %v", err)
+		}
+	}
+
+	seconds += hours*3600 + minutes*60
+	nanoSeconds := int64(fraction * 1e9)
+	subSeconds = int64(fraction * 1e6)
+	precision := int32(types.PrecisionMicroSeconds)
+	if nanoSeconds > subSeconds*1e3 {
+		subSeconds = nanoSeconds
+		precision = int32(types.PrecisionNanoSeconds)
+	}
+	return int32(days), int32(seconds), subSeconds, precision, nil
 }
 
 func NewIntervalDaysToSecond(days, seconds int32, micros int64) (expr.Literal, error) {
@@ -204,4 +379,17 @@ func getTimeValueByPrecision(tm time.Time, precision types.TimePrecision) int64 
 	default:
 		panic(fmt.Sprintf("unknown TimePrecision %v", precision))
 	}
+}
+
+func NewList(elements []expr.Literal) (expr.Literal, error) {
+	if len(elements) == 0 {
+		return nil, fmt.Errorf("empty list literal")
+	}
+	firstType := reflect.TypeOf(elements[0])
+	for i, e := range elements {
+		if reflect.TypeOf(e) != firstType {
+			return nil, fmt.Errorf("element %d of list literal has different type", i)
+		}
+	}
+	return expr.NewLiteral[expr.ListLiteralValue](elements, false)
 }

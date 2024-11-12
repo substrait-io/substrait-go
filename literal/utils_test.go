@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/expr"
 	"github.com/substrait-io/substrait-go/proto"
 	"github.com/substrait-io/substrait-go/types"
@@ -179,26 +180,22 @@ func TestNewFixedChar(t *testing.T) {
 
 func TestNewFloat32(t *testing.T) {
 	tests := []struct {
-		name    string
-		value   float32
-		want    expr.Literal
-		wantErr assert.ErrorAssertionFunc
+		name  string
+		value float32
+		want  expr.Literal
 	}{
-		{"0", 0, expr.NewPrimitiveLiteral[float32](0, false), assert.NoError},
-		{"1.1", 1.1, expr.NewPrimitiveLiteral[float32](1.1, false), assert.NoError},
-		{"-1.1", -1.1, expr.NewPrimitiveLiteral[float32](-1.1, false), assert.NoError},
-		{"NaN", float32(math.NaN()), expr.NewPrimitiveLiteral[float32](float32(math.NaN()), false), assert.NoError},
-		{"+Inf", float32(math.Inf(1)), expr.NewPrimitiveLiteral[float32](float32(math.Inf(1)), false), assert.NoError},
-		{"-Inf", float32(math.Inf(-1)), expr.NewPrimitiveLiteral[float32](float32(math.Inf(-1)), false), assert.NoError},
-		{"max float32", float32(math.MaxFloat32), expr.NewPrimitiveLiteral[float32](math.MaxFloat32, false), assert.NoError},
-		{"min float32", float32(math.SmallestNonzeroFloat32), expr.NewPrimitiveLiteral[float32](math.SmallestNonzeroFloat32, false), assert.NoError},
+		{"0", 0, expr.NewPrimitiveLiteral[float32](0, false)},
+		{"1.1", 1.1, expr.NewPrimitiveLiteral[float32](1.1, false)},
+		{"-1.1", -1.1, expr.NewPrimitiveLiteral[float32](-1.1, false)},
+		{"NaN", float32(math.NaN()), expr.NewPrimitiveLiteral[float32](float32(math.NaN()), false)},
+		{"+Inf", float32(math.Inf(1)), expr.NewPrimitiveLiteral[float32](float32(math.Inf(1)), false)},
+		{"-Inf", float32(math.Inf(-1)), expr.NewPrimitiveLiteral[float32](float32(math.Inf(-1)), false)},
+		{"max float32", float32(math.MaxFloat32), expr.NewPrimitiveLiteral[float32](math.MaxFloat32, false)},
+		{"min float32", float32(math.SmallestNonzeroFloat32), expr.NewPrimitiveLiteral[float32](math.SmallestNonzeroFloat32, false)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewFloat32(tt.value)
-			if !tt.wantErr(t, err, fmt.Sprintf("NewFloat32(%v)", tt.value)) {
-				return
-			}
+			got := NewFloat32(tt.value)
 			if !math.IsNaN(float64(tt.value)) {
 				assert.Equalf(t, tt.want, got, "NewFloat32(%v)", tt.value)
 			} else {
@@ -211,26 +208,22 @@ func TestNewFloat32(t *testing.T) {
 
 func TestNewFloat64(t *testing.T) {
 	tests := []struct {
-		name    string
-		value   float64
-		want    expr.Literal
-		wantErr assert.ErrorAssertionFunc
+		name  string
+		value float64
+		want  expr.Literal
 	}{
-		{"0", 0, expr.NewPrimitiveLiteral[float64](0, false), assert.NoError},
-		{"1.1", 1.1, expr.NewPrimitiveLiteral[float64](1.1, false), assert.NoError},
-		{"-1.1", -1.1, expr.NewPrimitiveLiteral[float64](-1.1, false), assert.NoError},
-		{"NaN", math.NaN(), expr.NewPrimitiveLiteral[float64](math.NaN(), false), assert.NoError},
-		{"+Inf", math.Inf(1), expr.NewPrimitiveLiteral[float64](math.Inf(1), false), assert.NoError},
-		{"-Inf", math.Inf(-1), expr.NewPrimitiveLiteral[float64](math.Inf(-1), false), assert.NoError},
-		{"max float64", math.MaxFloat64, expr.NewPrimitiveLiteral[float64](math.MaxFloat64, false), assert.NoError},
-		{"min float64", math.SmallestNonzeroFloat64, expr.NewPrimitiveLiteral[float64](math.SmallestNonzeroFloat64, false), assert.NoError},
+		{"0", 0, expr.NewPrimitiveLiteral[float64](0, false)},
+		{"1.1", 1.1, expr.NewPrimitiveLiteral[float64](1.1, false)},
+		{"-1.1", -1.1, expr.NewPrimitiveLiteral[float64](-1.1, false)},
+		{"NaN", math.NaN(), expr.NewPrimitiveLiteral[float64](math.NaN(), false)},
+		{"+Inf", math.Inf(1), expr.NewPrimitiveLiteral[float64](math.Inf(1), false)},
+		{"-Inf", math.Inf(-1), expr.NewPrimitiveLiteral[float64](math.Inf(-1), false)},
+		{"max float64", math.MaxFloat64, expr.NewPrimitiveLiteral[float64](math.MaxFloat64, false)},
+		{"min float64", math.SmallestNonzeroFloat64, expr.NewPrimitiveLiteral[float64](math.SmallestNonzeroFloat64, false)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewFloat64(tt.value)
-			if !tt.wantErr(t, err, fmt.Sprintf("NewFloat64(%v)", tt.value)) {
-				return
-			}
+			got := NewFloat64(tt.value)
 			if !math.IsNaN(tt.value) {
 				assert.Equalf(t, tt.want, got, "NewFloat64(%v)", tt.value)
 			} else {
@@ -315,23 +308,19 @@ func TestNewInt64(t *testing.T) {
 
 func TestNewInt8(t *testing.T) {
 	tests := []struct {
-		name    string
-		value   int8
-		want    expr.Literal
-		wantErr assert.ErrorAssertionFunc
+		name  string
+		value int8
+		want  expr.Literal
 	}{
-		{"0", 0, expr.NewPrimitiveLiteral[int8](0, false), assert.NoError},
-		{"1", 1, expr.NewPrimitiveLiteral[int8](1, false), assert.NoError},
-		{"-1", -1, expr.NewPrimitiveLiteral[int8](-1, false), assert.NoError},
-		{"max int8", math.MaxInt8, expr.NewPrimitiveLiteral[int8](math.MaxInt8, false), assert.NoError},
-		{"min int8", math.MinInt8, expr.NewPrimitiveLiteral[int8](math.MinInt8, false), assert.NoError},
+		{"0", 0, expr.NewPrimitiveLiteral[int8](0, false)},
+		{"1", 1, expr.NewPrimitiveLiteral[int8](1, false)},
+		{"-1", -1, expr.NewPrimitiveLiteral[int8](-1, false)},
+		{"max int8", math.MaxInt8, expr.NewPrimitiveLiteral[int8](math.MaxInt8, false)},
+		{"min int8", math.MinInt8, expr.NewPrimitiveLiteral[int8](math.MinInt8, false)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewInt8(tt.value)
-			if !tt.wantErr(t, err, fmt.Sprintf("NewInt8(%v)", tt.value)) {
-				return
-			}
+			got := NewInt8(tt.value)
 			assert.Equalf(t, tt.want, got, "NewInt8(%v)", tt.value)
 		})
 	}
@@ -379,6 +368,76 @@ func createIntervalDaysLiteral(days, seconds int32, micros int64) *expr.ProtoLit
 	}
 }
 
+func createIntervalDaysLiteralWithNanos(days, seconds int32, nanos int64) *expr.ProtoLiteral {
+	return &expr.ProtoLiteral{
+		Value: &types.IntervalDayToSecond{
+			Days:       days,
+			Seconds:    seconds,
+			Subseconds: nanos,
+			PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{
+				Precision: int32(types.PrecisionNanoSeconds),
+			},
+		},
+		Type: &types.IntervalDayType{
+			Nullability: proto.Type_NULLABILITY_REQUIRED,
+		},
+	}
+}
+
+func TestNewIntervalDaysToSecondFromString(t *testing.T) {
+	tests := []struct {
+		name    string
+		want    expr.Literal
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{"P0D", createIntervalDaysLiteral(0, 0, 0), assert.NoError},
+		{"P1D", createIntervalDaysLiteral(1, 0, 0), assert.NoError},
+		{"PT2H", createIntervalDaysLiteral(0, 7200, 0), assert.NoError},
+		{"PT3M", createIntervalDaysLiteral(0, 180, 0), assert.NoError},
+		{"PT4S", createIntervalDaysLiteral(0, 4, 0), assert.NoError},
+		{"PT0.5F", createIntervalDaysLiteral(0, 0, 500000), assert.NoError},
+		{"P1DT2H3M4S0.5F", createIntervalDaysLiteral(1, 7384, 500000), assert.NoError},
+		{"P10DT12H45M30S0.25F", createIntervalDaysLiteral(10, 45930, 250000), assert.NoError},
+		{"P2DT3H", createIntervalDaysLiteral(2, 10800, 0), assert.NoError},
+		{"P5DT10M", createIntervalDaysLiteral(5, 600, 0), assert.NoError},
+		{"PT15M20S", createIntervalDaysLiteral(0, 920, 0), assert.NoError},
+		{"PT1H5M10S.5F", createIntervalDaysLiteral(0, 3910, 500000), assert.NoError},
+		{"P3DT4H5S", createIntervalDaysLiteral(3, 14405, 0), assert.NoError},
+		{"PT0.75F", createIntervalDaysLiteral(0, 0, 750000), assert.NoError},
+		{"PT23H59M59S0.999F", createIntervalDaysLiteral(0, 86399, 999000), assert.NoError},
+		{"PT0.0F", createIntervalDaysLiteral(0, 0, 0), assert.NoError},
+		{"P1000D", createIntervalDaysLiteral(1000, 0, 0), assert.NoError},
+		{"PT10000H", createIntervalDaysLiteral(0, 36000000, 0), assert.NoError},
+		{"PT100000M", createIntervalDaysLiteral(0, 6000000, 0), assert.NoError},
+		{"PT86400S", createIntervalDaysLiteral(0, 86400, 0), assert.NoError},
+		{"PT1.25F", createIntervalDaysLiteral(0, 0, 1250000), assert.NoError},
+		{"P0DT0H0M0S0.0F", createIntervalDaysLiteral(0, 0, 0), assert.NoError},
+		{"PT0.123F", createIntervalDaysLiteral(0, 0, 123000), assert.NoError},
+		{"PT0.999F", createIntervalDaysLiteral(0, 0, 999000), assert.NoError},
+		{"PT0.9999999F", createIntervalDaysLiteralWithNanos(0, 0, 999999900), assert.NoError},
+		{"PT1S0.5F", createIntervalDaysLiteral(0, 1, 500000), assert.NoError},
+		{"PT1S", createIntervalDaysLiteral(0, 1, 0), assert.NoError},
+		{"P", nil, assert.Error},
+		{"PT", nil, assert.Error},
+		{"P5M", nil, assert.Error},
+		{"PT0H0M0S0F", nil, assert.Error},
+		{"P1DT2H3S5M", nil, assert.Error},
+		{"P1D2H3M", nil, assert.Error},
+		{"PT1H2.5S", nil, assert.Error},
+		{"P10DT-5H", nil, assert.Error},
+		{"P10DT3H0X", nil, assert.Error},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewIntervalDaysToSecondFromString(tt.name)
+			if !tt.wantErr(t, err, fmt.Sprintf("NewIntervalDaysToSecondFromString(%v)", tt.name)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "NewIntervalDaysToSecondFromString(%v)", tt.name)
+		})
+	}
+}
+
 func TestNewIntervalYearsToMonth(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -412,6 +471,34 @@ func createIntervalYearsLiteral(years, months int32) *expr.ProtoLiteral {
 		Type: &types.IntervalYearType{
 			Nullability: proto.Type_NULLABILITY_REQUIRED,
 		},
+	}
+}
+
+func TestNewIntervalYearsToMonthFromString(t *testing.T) {
+	tests := []struct {
+		name    string
+		want    expr.Literal
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{"P0Y", createIntervalYearsLiteral(0, 0), assert.NoError},
+		{"P2M", createIntervalYearsLiteral(0, 2), assert.NoError},
+		{"P10Y", createIntervalYearsLiteral(10, 0), assert.NoError},
+		{"P10M", createIntervalYearsLiteral(0, 10), assert.NoError},
+		{"P8Y9M", createIntervalYearsLiteral(8, 9), assert.NoError},
+		{"PY1M", nil, assert.Error},
+		{"P", nil, assert.Error},
+		{"PYM", nil, assert.Error},
+		{"PXZ", nil, assert.Error},
+		{"PXmM", nil, assert.Error},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewIntervalYearsToMonthFromString(tt.name)
+			if !tt.wantErr(t, err, fmt.Sprintf("NewIntervalYearsToMonth(%v)", tt.name)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "NewIntervalYearsToMonth(%v)", tt.name)
+		})
 	}
 }
 
@@ -735,6 +822,141 @@ func TestNewPrecisionTimestampTz(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 			assert.True(t, tt.want.Equals(got))
+		})
+	}
+}
+
+func TestNewTimestampFromString(t *testing.T) {
+	tests := []struct {
+		name    string
+		want    expr.Literal
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{"1970-01-01T00:00:00Z", expr.NewPrimitiveLiteral(types.Timestamp(0), false), assert.NoError},
+		{"2016-01-02T15:04:05Z", expr.NewPrimitiveLiteral(types.Timestamp(1451747045000000), false), assert.NoError},
+		{"2016-01-02 15:04:05", nil, assert.Error},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewTimestampFromString(tt.name)
+			if !tt.wantErr(t, err, fmt.Sprintf("NewTimestampFromString(%v)", tt.name)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "NewTimestampFromString(%v)", tt.name)
+		})
+	}
+}
+
+func TestNewTimestampTZFromString(t *testing.T) {
+	tests := []struct {
+		name    string
+		want    expr.Literal
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{"1970-01-01T00:00:00Z", expr.NewPrimitiveLiteral(types.TimestampTz(0), false), assert.NoError},
+		{"2016-01-02T15:04:05Z", expr.NewPrimitiveLiteral(types.TimestampTz(1451747045000000), false), assert.NoError},
+		{"2016-01-02T15:04:05", expr.NewPrimitiveLiteral(types.TimestampTz(1451747045000000), false), assert.NoError},
+		{"2016-01-02T15:04:05+00:00", expr.NewPrimitiveLiteral(types.TimestampTz(1451747045000000), false), assert.NoError},
+		{"2016-01-02T15:04:05+00:00", expr.NewPrimitiveLiteral(types.TimestampTz(1451747045000000), false), assert.NoError},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewTimestampTZFromString(tt.name)
+			if !tt.wantErr(t, err, fmt.Sprintf("NewTimestampFromString(%v)", tt.name)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "NewTimestampFromString(%v)", tt.name)
+		})
+	}
+}
+
+func TestNewList(t *testing.T) {
+	i8Lit1 := NewInt8(1)
+	i8Lit2 := NewInt8(2)
+	i32Lit1, _ := NewInt32(1)
+	i32Lit2, _ := NewInt32(2)
+	listLiteral, _ := expr.NewLiteral[expr.ListLiteralValue]([]expr.Literal{i8Lit1, i8Lit2}, false)
+	int8Type := &types.Int8Type{Nullability: types.NullabilityRequired}
+	int32Type := &types.Int32Type{Nullability: types.NullabilityRequired}
+	int8ListType := &types.ListType{Type: int8Type, Nullability: types.NullabilityRequired}
+	int32ListType := &types.ListType{Type: int32Type, Nullability: types.NullabilityRequired}
+	listOfListType := &types.ListType{Type: int8ListType, Nullability: types.NullabilityRequired}
+	tests := []struct {
+		name       string
+		elements   []expr.Literal
+		expSuccess bool
+		litType    types.Type
+		wantErr    assert.ErrorAssertionFunc
+	}{
+		{"empty", []expr.Literal{}, false, nil, assert.Error},
+		{"i32List", []expr.Literal{i8Lit1, i32Lit2}, false, nil, assert.Error},
+		{"i8ListSingle", []expr.Literal{i8Lit1}, true, int8ListType, assert.NoError},
+		{"listOfListSingle", []expr.Literal{listLiteral}, true, listOfListType, assert.NoError},
+		{"i8List", []expr.Literal{i8Lit1, i8Lit2}, true, int8ListType, assert.NoError},
+		{"i32List", []expr.Literal{i32Lit1, i32Lit2}, true, int32ListType, assert.NoError},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewList(tt.elements)
+			if !tt.wantErr(t, err, fmt.Sprintf("NewList(%v)", tt.elements)) {
+				return
+			}
+			if tt.expSuccess {
+				want, err := expr.NewLiteral[expr.ListLiteralValue](tt.elements, false)
+				require.NoError(t, err)
+				assert.Equalf(t, want, got, "NewList(%v)", tt.elements)
+				assert.Equalf(t, tt.litType, got.GetType(), "NewList(%v)", tt.elements)
+			}
+		})
+	}
+}
+
+func TestNewDateFromString(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		want    expr.Literal
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{"empty", "", nil, assert.Error},
+		{"1970-01-01", "1970-01-01", expr.NewPrimitiveLiteral(types.Date(0), false), assert.NoError},
+		{"2021-01-01", "2021-01-01", expr.NewPrimitiveLiteral(types.Date(18628), false), assert.NoError},
+		{"2021-01-01T00:00:00Z", "2021-01-01T00:00:00Z", nil, assert.Error},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewDateFromString(tt.value)
+			if !tt.wantErr(t, err, fmt.Sprintf("NewDateFromString(%v)", tt.value)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "NewDateFromString(%v)", tt.value)
+		})
+	}
+}
+
+func TestNewTimeFromString(t *testing.T) {
+	type args struct {
+	}
+	tests := []struct {
+		name    string
+		value   string
+		want    expr.Literal
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{"empty", "", nil, assert.Error},
+		{"00:00:00", "00:00:00", expr.NewPrimitiveLiteral(types.Time(0), false), assert.NoError},
+		{"01:02:03", "01:02:03", expr.NewPrimitiveLiteral(types.Time(3723000000), false), assert.NoError},
+		{"01:02:03.456", "01:02:03.456", expr.NewPrimitiveLiteral(types.Time(3723456000), false), assert.NoError},
+		{"01:02:03.456789", "01:02:03.456789", expr.NewPrimitiveLiteral(types.Time(3723456789), false), assert.NoError},
+		{"01:02:03.456789012", "01:02:03.456789012", expr.NewPrimitiveLiteral(types.Time(3723456789), false), assert.NoError},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewTimeFromString(tt.value)
+			if !tt.wantErr(t, err, fmt.Sprintf("NewTimeFromString(%v)", tt.value)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "NewTimeFromString(%v)", tt.value)
 		})
 	}
 }

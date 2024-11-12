@@ -7,7 +7,6 @@ go 1.22.0
 toolchain go1.22.3
 
 require (
-	github.com/alecthomas/participle/v2 v2.0.0
 	github.com/antlr4-go/antlr/v4 v4.13.1
 	github.com/cockroachdb/apd/v3 v3.2.1
 	github.com/creasty/defaults v1.8.0
