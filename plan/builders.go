@@ -98,6 +98,13 @@ type Builder interface {
 	Join(left, right Rel, condition expr.Expression, joinType JoinType) (*JoinRel, error)
 	NamedScanRemap(tableName []string, schema types.NamedStruct, remap []int32) (*NamedTableReadRel, error)
 	NamedScan(tableName []string, schema types.NamedStruct) *NamedTableReadRel
+	NamedWriteRemap(input Rel, op WriteOp, tableName []string, schema types.NamedStruct, remap []int32) (*NamedTableWriteRel, error)
+	// NamedInsert inserts data from the input relation into a named table.
+	NamedInsert(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error)
+	// NamedDelete deletes rows from a specified named table based on the
+	// provided input relation, which typically includes conditions that filter
+	// the rows to delete.
+	NamedDelete(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error)
 	VirtualTableRemap(fields []string, remap []int32, values ...expr.StructLiteralValue) (*VirtualTableReadRel, error)
 	VirtualTable(fields []string, values ...expr.StructLiteralValue) (*VirtualTableReadRel, error)
 	SortRemap(input Rel, remap []int32, sorts ...expr.SortField) (*SortRel, error)
@@ -454,6 +461,36 @@ func (b *builder) JoinRemap(left, right Rel, condition expr.Expression, joinType
 
 func (b *builder) Join(left, right Rel, condition expr.Expression, joinType JoinType) (*JoinRel, error) {
 	return b.JoinAndFilterRemap(left, right, condition, nil, joinType, nil)
+}
+
+func (b *builder) NamedWriteRemap(input Rel, op WriteOp, tableName []string, schema types.NamedStruct, remap []int32) (*NamedTableWriteRel, error) {
+	if input == nil {
+		return nil, errNilInputRel
+	}
+
+	nOutput := int32(len(input.Remap(input.RecordType()).Types))
+	for _, idx := range remap {
+		if idx < 0 || idx >= nOutput {
+			return nil, errOutputMappingOutOfRange
+		}
+	}
+
+	return &NamedTableWriteRel{
+		RelCommon:   RelCommon{mapping: remap},
+		names:       tableName,
+		tableSchema: schema,
+		op:          op,
+		input:       input,
+		outputMode:  OutputModeNoOutput,
+	}, nil
+}
+
+func (b *builder) NamedInsert(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {
+	return b.NamedWriteRemap(input, WriteOpInsert, tableName, schema, nil)
+}
+
+func (b *builder) NamedDelete(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {
+	return b.NamedWriteRemap(input, WriteOpDelete, tableName, schema, nil)
 }
 
 func (b *builder) NamedScanRemap(tableName []string, schema types.NamedStruct, remap []int32) (*NamedTableReadRel, error) {
