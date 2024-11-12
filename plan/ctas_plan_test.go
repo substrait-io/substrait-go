@@ -125,8 +125,7 @@ func getProjectionForTest2(t *testing.T, b plan.Builder) plan.Rel {
 
 	// column 0 from the output of namedScanRel is role
 	// Build the filter with condition `role LIKE 'Engineer'`
-	l, err := literal.NewString("Engineer")
-	require.NoError(t, err)
+	l := literal.NewString("Engineer")
 	roleLikeEngineer := makeConditionExprForLike(t, b, namedScanRel, 0, l)
 	filterRel := makeFilterRel(t, b, namedScanRel, roleLikeEngineer)
 

@@ -146,30 +146,30 @@ octet_length('😄'::str) = 4::i64`
 	assert.Equal(t, "octet_length", testFile.TestCases[2].FuncName)
 	assert.Equal(t, "octet_length", testFile.TestCases[3].FuncName)
 
-	strAbc, err := literal.NewString("abc")
-	strDef, err := literal.NewString("def")
-	strRes, err := literal.NewString("abcdef")
+	strAbc := literal.NewString("abc")
+	strDef := literal.NewString("def")
+	strRes := literal.NewString("abcdef")
 	assert.Equal(t, strAbc, testFile.TestCases[0].Args[0].Value)
 	assert.Equal(t, strDef, testFile.TestCases[0].Args[1].Value)
 	assert.Equal(t, strRes, testFile.TestCases[0].Result.Value)
 
-	strArg1, err := literal.NewString("HHHelloooo")
-	strArg2, err := literal.NewString("Hel+")
+	strArg1 := literal.NewString("HHHelloooo")
+	strArg2 := literal.NewString("Hel+")
 	//listStr := &types.ListType{Type: &types.StringType{}}
 	assert.Equal(t, strArg1, testFile.TestCases[1].Args[0].Value)
 	assert.Equal(t, strArg2, testFile.TestCases[1].Args[1].Value)
-	strRes1, err := literal.NewString("HH")
-	strRes2, err := literal.NewString("oooo")
+	strRes1 := literal.NewString("HH")
+	strRes2 := literal.NewString("oooo")
 	result, err := literal.NewList([]expr.Literal{strRes1, strRes2})
 	assert.Equal(t, result, testFile.TestCases[1].Result.Value)
 
-	str1, err := literal.NewString("à")
-	i642, err := literal.NewInt64(2)
+	str1 := literal.NewString("à")
+	i642 := literal.NewInt64(2)
 	assert.Equal(t, str1, testFile.TestCases[2].Args[0].Value)
 	assert.Equal(t, i642, testFile.TestCases[2].Result.Value)
 
-	str2, err := literal.NewString("😄")
-	i644, err := literal.NewInt64(4)
+	str2 := literal.NewString("😄")
+	i644 := literal.NewInt64(4)
 	assert.Equal(t, str2, testFile.TestCases[3].Args[0].Value)
 	assert.Equal(t, i644, testFile.TestCases[3].Result.Value)
 
@@ -186,8 +186,8 @@ some_func('abc'::str, 'def'::str) = [1, 2, 3, 4, 5, 6]::List<i8>`
 	assert.Len(t, testFile.TestCases, 1)
 
 	assert.Equal(t, "some_func", testFile.TestCases[0].FuncName)
-	strAbc, err := literal.NewString("abc")
-	strDef, err := literal.NewString("def")
+	strAbc := literal.NewString("abc")
+	strDef := literal.NewString("def")
 	assert.Equal(t, strAbc, testFile.TestCases[0].Args[0].Value)
 	assert.Equal(t, strDef, testFile.TestCases[0].Args[1].Value)
 	i8List := &types.ListType{Type: &types.Int8Type{}}

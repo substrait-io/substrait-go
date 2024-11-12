@@ -21,16 +21,16 @@ func NewInt8(value int8) expr.Literal {
 	return expr.NewPrimitiveLiteral[int8](value, false)
 }
 
-func NewInt16(value int16) (expr.Literal, error) {
-	return expr.NewPrimitiveLiteral[int16](value, false), nil
+func NewInt16(value int16) expr.Literal {
+	return expr.NewPrimitiveLiteral[int16](value, false)
 }
 
-func NewInt32(value int32) (expr.Literal, error) {
-	return expr.NewPrimitiveLiteral[int32](value, false), nil
+func NewInt32(value int32) expr.Literal {
+	return expr.NewPrimitiveLiteral[int32](value, false)
 }
 
-func NewInt64(value int64) (expr.Literal, error) {
-	return expr.NewPrimitiveLiteral[int64](value, false), nil
+func NewInt64(value int64) expr.Literal {
+	return expr.NewPrimitiveLiteral[int64](value, false)
 }
 
 func NewFloat32(value float32) expr.Literal {
@@ -41,8 +41,8 @@ func NewFloat64(value float64) expr.Literal {
 	return expr.NewPrimitiveLiteral[float64](value, false)
 }
 
-func NewString(value string) (expr.Literal, error) {
-	return expr.NewPrimitiveLiteral[string](value, false), nil
+func NewString(value string) expr.Literal {
+	return expr.NewPrimitiveLiteral[string](value, false)
 }
 
 func NewDate(days int) (expr.Literal, error) {

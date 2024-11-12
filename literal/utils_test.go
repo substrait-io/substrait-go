@@ -249,10 +249,7 @@ func TestNewInt16(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewInt16(tt.value)
-			if !tt.wantErr(t, err, fmt.Sprintf("NewInt16(%v)", tt.value)) {
-				return
-			}
+			got := NewInt16(tt.value)
 			assert.Equalf(t, tt.want, got, "NewInt16(%v)", tt.value)
 		})
 	}
@@ -273,10 +270,7 @@ func TestNewInt32(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewInt32(tt.value)
-			if !tt.wantErr(t, err, fmt.Sprintf("NewInt32(%v)", tt.value)) {
-				return
-			}
+			got := NewInt32(tt.value)
 			assert.Equalf(t, tt.want, got, "NewInt32(%v)", tt.value)
 		})
 	}
@@ -297,10 +291,7 @@ func TestNewInt64(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewInt64(tt.value)
-			if !tt.wantErr(t, err, fmt.Sprintf("NewInt64(%v)", tt.value)) {
-				return
-			}
+			got := NewInt64(tt.value)
 			assert.Equalf(t, tt.want, got, "NewInt64(%v)", tt.value)
 		})
 	}
@@ -515,10 +506,7 @@ func TestNewString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewString(tt.value)
-			if !tt.wantErr(t, err, fmt.Sprintf("NewString(%v)", tt.value)) {
-				return
-			}
+			got := NewString(tt.value)
 			assert.Equalf(t, tt.want, got, "NewString(%v)", tt.value)
 		})
 	}
@@ -873,8 +861,8 @@ func TestNewTimestampTZFromString(t *testing.T) {
 func TestNewList(t *testing.T) {
 	i8Lit1 := NewInt8(1)
 	i8Lit2 := NewInt8(2)
-	i32Lit1, _ := NewInt32(1)
-	i32Lit2, _ := NewInt32(2)
+	i32Lit1 := NewInt32(1)
+	i32Lit2 := NewInt32(2)
 	listLiteral, _ := expr.NewLiteral[expr.ListLiteralValue]([]expr.Literal{i8Lit1, i8Lit2}, false)
 	int8Type := &types.Int8Type{Nullability: types.NullabilityRequired}
 	int32Type := &types.Int32Type{Nullability: types.NullabilityRequired}
@@ -935,8 +923,6 @@ func TestNewDateFromString(t *testing.T) {
 }
 
 func TestNewTimeFromString(t *testing.T) {
-	type args struct {
-	}
 	tests := []struct {
 		name    string
 		value   string

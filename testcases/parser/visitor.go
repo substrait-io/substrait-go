@@ -340,11 +340,11 @@ func getIntLiteral(integerStr string, intType types.Type) (expr.Literal, error) 
 	case *types.Int8Type:
 		return literal.NewInt8(int8(value)), nil
 	case *types.Int16Type:
-		return literal.NewInt16(int16(value))
+		return literal.NewInt16(int16(value)), nil
 	case *types.Int32Type:
-		return literal.NewInt32(int32(value))
+		return literal.NewInt32(int32(value)), nil
 	case *types.Int64Type:
-		return literal.NewInt64(value)
+		return literal.NewInt64(value), nil
 	default:
 		return nil, fmt.Errorf("invalid int type %v", intType)
 	}
@@ -410,7 +410,7 @@ func (v *TestCaseVisitor) VisitFloatArg(ctx *baseparser.FloatArgContext) interfa
 }
 
 func (v *TestCaseVisitor) VisitStringArg(ctx *baseparser.StringArgContext) interface{} {
-	value, _ := literal.NewString(getRawStringFromStringLiteral(ctx.StringLiteral().GetText()))
+	value := literal.NewString(getRawStringFromStringLiteral(ctx.StringLiteral().GetText()))
 	return &CaseLiteral{Value: value, ValueText: ctx.StringLiteral().GetText(), Type: &types.StringType{}}
 }
 
@@ -555,13 +555,13 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 	}
 
 	if ctx.NumericLiteral() != nil {
-		value, _ := literal.NewString(ctx.NumericLiteral().GetText())
+		value := literal.NewString(ctx.NumericLiteral().GetText())
 		return value
 	}
 
 	if ctx.StringLiteral() != nil {
 		valueStr := getRawStringFromStringLiteral(ctx.GetText())
-		value, _ := literal.NewString(valueStr)
+		value := literal.NewString(valueStr)
 		return value
 	}
 
