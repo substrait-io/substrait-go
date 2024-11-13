@@ -519,6 +519,19 @@ func (b *builder) NamedScan(tableName []string, schema types.NamedStruct) *Named
 }
 
 func (b *builder) VirtualTableRemap(fieldNames []string, remap []int32, values ...expr.StructLiteralValue) (*VirtualTableReadRel, error) {
+	// convert Literal to Expression
+	exprs := make([]expr.VirtualTableExpressionValue, 0)
+	for _, row := range values {
+		rowExpr := make(expr.VirtualTableExpressionValue, 0)
+		for _, col := range row {
+			rowExpr = append(rowExpr, col)
+		}
+		exprs = append(exprs, rowExpr)
+	}
+	return b.VirtualTableFromExprRemap(fieldNames, remap, exprs...)
+}
+
+func (b *builder) VirtualTableFromExprRemap(fieldNames []string, remap []int32, values ...expr.VirtualTableExpressionValue) (*VirtualTableReadRel, error) {
 	if len(values) == 0 {
 		return nil, fmt.Errorf("%w: must provide at least one set of values for virtual table", substraitgo.ErrInvalidRel)
 	}

@@ -45,6 +45,7 @@ type (
 	Null types.Type
 )
 
+// Deprecated: use VirtualTableExprFromLiteralProto
 func StructLiteralFromProto(s *proto.Expression_Literal_Struct) StructLiteralValue {
 	fields := make(StructLiteralValue, len(s.Fields))
 	for i, f := range s.Fields {

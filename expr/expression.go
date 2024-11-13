@@ -25,6 +25,13 @@ import (
 //
 //	NewScalarFunc(reg, id, nil, MustExpr(NewRootFieldRef(...)),
 //	    MustExpr(NewScalarFunc(...)))
+
+type (
+	// VirtualTableExpressionValue is a slice of other expression where each
+	// element in the slice is a different field in the struct
+	VirtualTableExpressionValue []Expression
+)
+
 func MustExpr(e Expression, err error) Expression {
 	if err != nil {
 		panic(err)
@@ -1601,5 +1608,15 @@ func (ex *Extended) ToProto() *proto.ExtendedExpression {
 		AdvancedExtensions: ex.AdvancedExts,
 		ExpectedTypeUrls:   ex.ExpectedTypeURLs,
 		ReferredExpr:       refs,
+	}
+}
+
+func (s VirtualTableExpressionValue) ToProto() *proto.Expression_Nested_Struct {
+	fields := make([]*proto.Expression, len(s))
+	for i, f := range s {
+		fields[i] = f.ToProto()
+	}
+	return &proto.Expression_Nested_Struct{
+		Fields: fields,
 	}
 }
