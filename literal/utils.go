@@ -13,8 +13,8 @@ import (
 	"github.com/substrait-io/substrait-go/types"
 )
 
-func NewBool(value bool) (expr.Literal, error) {
-	return expr.NewPrimitiveLiteral[bool](value, false), nil
+func NewBool(value bool) expr.Literal {
+	return expr.NewPrimitiveLiteral[bool](value, false)
 }
 
 func NewInt8(value int8) expr.Literal {

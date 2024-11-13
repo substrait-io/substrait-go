@@ -27,10 +27,7 @@ func TestNewBool(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewBool(tt.value)
-			if !tt.wantErr(t, err, fmt.Sprintf("NewBool(%v)", tt.value)) {
-				return
-			}
+			got := NewBool(tt.value)
 			assert.Equalf(t, tt.want, got, "NewBool(%v)", tt.value)
 		})
 	}
