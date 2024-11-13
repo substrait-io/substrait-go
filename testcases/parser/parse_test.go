@@ -166,7 +166,7 @@ starts_with('abcd'::str, 'AB'::str) [case_sensitivity:CASE_INSENSITIVE] = true::
 	assert.Equal(t, strArg2, testFile.TestCases[1].Args[1].Value)
 	strRes1 := literal.NewString("HH")
 	strRes2 := literal.NewString("oooo")
-	result, err := literal.NewList([]expr.Literal{strRes1, strRes2})
+	result, _ := literal.NewList([]expr.Literal{strRes1, strRes2})
 	assert.Equal(t, result, testFile.TestCases[1].Result.Value)
 
 	str1 := literal.NewString("à")
@@ -197,7 +197,7 @@ some_func('abc'::str, 'def'::str) = [1, 2, 3, 4, 5, 6]::List<i8>`
 	assert.Equal(t, strAbc, testFile.TestCases[0].Args[0].Value)
 	assert.Equal(t, strDef, testFile.TestCases[0].Args[1].Value)
 	i8List := &types.ListType{Type: &types.Int8Type{}}
-	list, err := literal.NewList([]expr.Literal{
+	list, _ := literal.NewList([]expr.Literal{
 		literal.NewInt8(1), literal.NewInt8(2), literal.NewInt8(3),
 		literal.NewInt8(4), literal.NewInt8(5), literal.NewInt8(6),
 	})
