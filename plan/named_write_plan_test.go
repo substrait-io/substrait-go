@@ -16,8 +16,7 @@ func getFilterForTest1(t *testing.T, b plan.Builder) plan.Rel {
 
 	// column 0 from the output of namedTableReadRel is name
 	// Build the filter with condition `name LIKE 'Alice'`
-	l, err := literal.NewString("Alice")
-	require.NoError(t, err)
+	l := literal.NewString("Alice")
 	nameLikeAlice := makeConditionExprForLike(t, b, namedTableReadRel, 0, l)
 	return makeFilterRel(t, b, namedTableReadRel, nameLikeAlice)
 }

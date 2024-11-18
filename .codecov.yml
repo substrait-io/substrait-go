@@ -2,3 +2,4 @@
 coverage:
   ignore:
     - "types/parser/baseparser/*.go"
+    - "testcases/parser/baseparser/*.go"
