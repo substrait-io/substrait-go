@@ -91,6 +91,10 @@ type NullLiteral struct {
 	Type types.Type
 }
 
+func NewNullLiteral(t types.Type) *NullLiteral {
+	return &NullLiteral{Type: t}
+}
+
 func (*NullLiteral) IsScalar() bool { return true }
 
 func (*NullLiteral) isRootRef() {}

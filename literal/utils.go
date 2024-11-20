@@ -207,8 +207,9 @@ func parseIntervalDaysToSecond(interval string) (int32, int32, int64, int32, err
 		return 0, 0, 0, 0, fmt.Errorf("invalid interval format: %s", interval)
 	}
 
-	// Parse interval of format P[n]DT[n]H[n]M[n]S[n]F
-	regex := `^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?(?:(\d*\.\d+)F)?)?$`
+	// Parse interval of format P[n]DT[n]H[n]M[n]S
+	// Ex: 3DT4H5M6.789S
+	regex := `^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d*(\.\d+)?)S)?)?$`
 	r := regexp.MustCompile(regex)
 
 	// Find matches
@@ -220,7 +221,7 @@ func parseIntervalDaysToSecond(interval string) (int32, int32, int64, int32, err
 	// Parse each component
 	var err error
 	var days, hours, minutes, seconds int
-	var fraction float64
+	var secFloat float64
 	var subSeconds int64
 	if matches[1] != "" {
 		days, err = strconv.Atoi(matches[1])
@@ -241,21 +242,17 @@ func parseIntervalDaysToSecond(interval string) (int32, int32, int64, int32, err
 		}
 	}
 	if matches[4] != "" {
-		seconds, err = strconv.Atoi(matches[4])
-		if err != nil {
-			return 0, 0, 0, 0, fmt.Errorf("invalid second value: %v", err)
-		}
-	}
-	if matches[5] != "" {
-		fraction, err = strconv.ParseFloat(matches[5], 64)
+		secFloat, err = strconv.ParseFloat(matches[4], 64)
 		if err != nil {
 			return 0, 0, 0, 0, fmt.Errorf("invalid fractional second value: %v", err)
 		}
 	}
 
+	seconds = int(secFloat)
+	secFloat -= float64(seconds)
 	seconds += hours*3600 + minutes*60
-	nanoSeconds := int64(fraction * 1e9)
-	subSeconds = int64(fraction * 1e6)
+	nanoSeconds := int64(secFloat * 1e9)
+	subSeconds = int64(secFloat * 1e6)
 	precision := int32(types.PrecisionMicroSeconds)
 	if nanoSeconds > subSeconds*1e3 {
 		subSeconds = nanoSeconds
@@ -385,9 +382,18 @@ func NewList(elements []expr.Literal) (expr.Literal, error) {
 	if len(elements) == 0 {
 		return nil, fmt.Errorf("empty list literal")
 	}
-	firstType := reflect.TypeOf(elements[0])
+	anchorType := reflect.TypeOf(elements[0])
 	for i, e := range elements {
-		if reflect.TypeOf(e) != firstType {
+		currentType := reflect.TypeOf(e)
+		if currentType != anchorType {
+			nullLiteralType := reflect.TypeOf((*expr.NullLiteral)(nil))
+			if currentType == nullLiteralType {
+				continue
+			}
+			if anchorType == nullLiteralType {
+				anchorType = currentType
+				continue
+			}
 			return nil, fmt.Errorf("element %d of list literal has different type", i)
 		}
 	}
