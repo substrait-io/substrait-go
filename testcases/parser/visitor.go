@@ -356,70 +356,6 @@ func (v *TestCaseVisitor) VisitBooleanArg(ctx *baseparser.BooleanArgContext) int
 	return &CaseLiteral{Value: boolLiteral, ValueText: ctx.BooleanLiteral().GetText(), Type: &types.BooleanType{}}
 }
 
-func (v *TestCaseVisitor) getListLiteral(values []expr.Literal, elementType types.Type) (expr.Literal, error) {
-	var err error
-	var elements []expr.Literal
-	switch elementType := elementType.(type) {
-	case *types.Int8Type, *types.Int16Type, *types.Int32Type, *types.Int64Type:
-		elements, err = getIntLiterals(values, elementType)
-		if err != nil {
-			v.ErrorListener.ReportVisitError(fmt.Errorf("invalid list arg %v", err))
-		}
-	case *types.Float32Type, *types.Float64Type:
-		elements, err = getFloatLiterals(values, elementType)
-		if err != nil {
-			v.ErrorListener.ReportVisitError(fmt.Errorf("invalid list arg %v", err))
-		}
-	case *types.DecimalType:
-		elements, err = getDecimalLiterals(values)
-		if err != nil {
-			v.ErrorListener.ReportVisitError(fmt.Errorf("invalid list arg %v", err))
-		}
-	default:
-		elements = values
-	}
-	value, err := literal.NewList(elements)
-	return value, err
-}
-
-func getDecimalLiterals(values []expr.Literal) ([]expr.Literal, error) {
-	var elements []expr.Literal
-	for _, value := range values {
-		decimal, err := literal.NewDecimalFromString(value.(*expr.PrimitiveLiteral[string]).Value)
-		if err != nil {
-			return nil, err
-		}
-		elements = append(elements, decimal)
-	}
-	return elements, nil
-}
-
-func getIntLiterals(strLiterals []expr.Literal, intType types.Type) ([]expr.Literal, error) {
-	var elements []expr.Literal
-	for _, strLiteral := range strLiterals {
-		integerStr := strLiteral.(*expr.PrimitiveLiteral[string]).Value
-		element, err := getIntLiteral(integerStr, intType)
-		if err != nil {
-			return nil, err
-		}
-		elements = append(elements, element)
-	}
-	return elements, nil
-}
-
-func getFloatLiterals(strLiterals []expr.Literal, floatType types.Type) ([]expr.Literal, error) {
-	var elements []expr.Literal
-	for _, strLiteral := range strLiterals {
-		floatStr := strLiteral.(*expr.PrimitiveLiteral[string]).Value
-		value, err2 := getFloatLiteral(floatStr, floatType)
-		if err2 != nil {
-			return elements, err2
-		}
-		elements = append(elements, value)
-	}
-	return elements, nil
-}
-
 func (v *TestCaseVisitor) getLiteral(value expr.Literal, elementType types.Type) expr.Literal {
 	strLiteral, ok := value.(*expr.PrimitiveLiteral[string])
 	if !ok {
@@ -696,6 +632,7 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 
 	if ctx.NumericLiteral() != nil {
 		if v.getLiteralTypeInContext() == nil {
+			// in compactAggregateFuncCall context, the type is not set, full schema of table may not be available
 			return literal.NewString(ctx.NumericLiteral().GetText())
 		}
 		value := v.getLiteralFromString(ctx.NumericLiteral().GetText(), v.getLiteralTypeInContext())
