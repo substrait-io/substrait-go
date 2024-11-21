@@ -92,6 +92,7 @@ func (b *baseReadRel) fromProtoReadRel(rel *proto.ReadRel, reg expr.ExtensionReg
 }
 
 func (b *baseReadRel) RecordType() types.StructType {
+	// MEGAHACK -- Handle remaps.
 	return b.baseSchema.Struct
 }
 
@@ -504,6 +505,7 @@ type ProjectRel struct {
 }
 
 func (p *ProjectRel) RecordType() types.StructType {
+	// MEGAHACK -- Handle remaps.
 	initial := p.input.RecordType()
 	output := slices.Grow(slices.Clone(initial.Types), len(p.exprs))
 
@@ -612,6 +614,7 @@ type JoinRel struct {
 }
 
 func (j *JoinRel) RecordType() types.StructType {
+	// MEGAHACK -- Handle remaps.
 	var typeList []types.Type
 	switch j.joinType {
 	case JoinTypeInner:
@@ -744,6 +747,7 @@ type CrossRel struct {
 }
 
 func (c *CrossRel) RecordType() types.StructType {
+	// MEGAHACK -- Handle remaps.
 	return types.StructType{
 		Nullability: proto.Type_NULLABILITY_REQUIRED,
 		Types:       append(c.left.RecordType().Types, c.right.RecordType().Types...),
@@ -807,10 +811,13 @@ type FetchRel struct {
 	advExtension  *extensions.AdvancedExtension
 }
 
-func (f *FetchRel) RecordType() types.StructType { return f.input.RecordType() }
-func (f *FetchRel) Input() Rel                   { return f.input }
-func (f *FetchRel) Offset() int64                { return f.offset }
-func (f *FetchRel) Count() int64                 { return f.count }
+func (f *FetchRel) RecordType() types.StructType {
+	// MEGAHACK -- Handle remaps.
+	return f.input.RecordType()
+}
+func (f *FetchRel) Input() Rel    { return f.input }
+func (f *FetchRel) Offset() int64 { return f.offset }
+func (f *FetchRel) Count() int64  { return f.count }
 func (f *FetchRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return f.advExtension
 }
@@ -894,6 +901,7 @@ type AggregateRel struct {
 }
 
 func (ar *AggregateRel) RecordType() types.StructType {
+	// MEGAHACK -- Handle remaps.
 	groupTypes := make([]types.Type, 0, len(ar.groups)+len(ar.measures))
 	for _, g := range ar.groups {
 		for _, e := range g {
@@ -1017,9 +1025,12 @@ type SortRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
-func (sr *SortRel) RecordType() types.StructType { return sr.input.RecordType() }
-func (sr *SortRel) Input() Rel                   { return sr.input }
-func (sr *SortRel) Sorts() []expr.SortField      { return sr.sorts }
+func (sr *SortRel) RecordType() types.StructType {
+	// MEGAHACK -- Handle remaps.
+	return sr.input.RecordType()
+}
+func (sr *SortRel) Input() Rel              { return sr.input }
+func (sr *SortRel) Sorts() []expr.SortField { return sr.sorts }
 func (sr *SortRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return sr.advExtension
 }
@@ -1095,9 +1106,12 @@ type FilterRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
-func (fr *FilterRel) RecordType() types.StructType { return fr.input.RecordType() }
-func (fr *FilterRel) Input() Rel                   { return fr.input }
-func (fr *FilterRel) Condition() expr.Expression   { return fr.cond }
+func (fr *FilterRel) RecordType() types.StructType {
+	// MEGAHACK -- Handle remaps.
+	return fr.input.RecordType()
+}
+func (fr *FilterRel) Input() Rel                 { return fr.input }
+func (fr *FilterRel) Condition() expr.Expression { return fr.cond }
 func (fr *FilterRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return fr.advExtension
 }
@@ -1174,9 +1188,12 @@ type SetRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
-func (s *SetRel) RecordType() types.StructType { return s.inputs[0].Remap(s.inputs[0].RecordType()) }
-func (s *SetRel) Inputs() []Rel                { return s.inputs }
-func (s *SetRel) Op() SetOp                    { return s.op }
+func (s *SetRel) RecordType() types.StructType {
+	// MEGAHACK -- Handle remaps.
+	return s.inputs[0].Remap(s.inputs[0].RecordType())
+}
+func (s *SetRel) Inputs() []Rel { return s.inputs }
+func (s *SetRel) Op() SetOp     { return s.op }
 func (s *SetRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return s.advExtension
 }
@@ -1231,7 +1248,10 @@ type ExtensionSingleRel struct {
 	detail *anypb.Any
 }
 
-func (es *ExtensionSingleRel) RecordType() types.StructType { return es.input.RecordType() }
+func (es *ExtensionSingleRel) RecordType() types.StructType {
+	// MEGAHACK -- Handle remaps.
+	return es.input.RecordType()
+}
 
 func (es *ExtensionSingleRel) Input() Rel         { return es.input }
 func (es *ExtensionSingleRel) Detail() *anypb.Any { return es.detail }
@@ -1398,6 +1418,7 @@ type HashJoinRel struct {
 }
 
 func (hr *HashJoinRel) RecordType() types.StructType {
+	// MEGAHACK -- Handle remaps.
 	return types.StructType{
 		Nullability: proto.Type_NULLABILITY_REQUIRED,
 		Types:       append(hr.left.Remap(hr.left.RecordType()).Types, hr.right.Remap(hr.right.RecordType()).Types...),
@@ -1501,6 +1522,7 @@ type MergeJoinRel struct {
 }
 
 func (mr *MergeJoinRel) RecordType() types.StructType {
+	// MEGAHACK -- Handle remaps.
 	return types.StructType{
 		Nullability: proto.Type_NULLABILITY_REQUIRED,
 		Types:       append(mr.left.Remap(mr.left.RecordType()).Types, mr.right.Remap(mr.right.RecordType()).Types...),
@@ -1625,6 +1647,7 @@ type NamedTableWriteRel struct {
 }
 
 func (wr *NamedTableWriteRel) RecordType() types.StructType {
+	// MEGAHACK -- Handle remaps?
 	switch wr.outputMode {
 	case OutputModeNoOutput:
 		return types.StructType{}
