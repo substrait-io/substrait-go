@@ -505,12 +505,23 @@ type ProjectRel struct {
 }
 
 func (p *ProjectRel) RecordType() types.StructType {
-	// MEGAHACK -- Handle remaps.
 	initial := p.input.RecordType()
-	output := slices.Grow(slices.Clone(initial.Types), len(p.exprs))
+	var output []types.Type
 
-	for _, e := range p.exprs {
-		output = append(output, e.GetType())
+	if len(p.mapping) > 0 {
+		output = slices.Grow(output, len(p.mapping))
+		for _, m := range p.mapping {
+			if int(m) < len(initial.Types) {
+				output = append(output, initial.Types[m])
+			} else {
+				output = append(output, p.exprs[int(m)-len(initial.Types)].GetType())
+			}
+		}
+	} else {
+		output = slices.Grow(slices.Clone(initial.Types), len(p.exprs))
+		for _, e := range p.exprs {
+			output = append(output, e.GetType())
+		}
 	}
 
 	return types.StructType{

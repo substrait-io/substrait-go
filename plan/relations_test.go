@@ -345,3 +345,31 @@ func TestRelations_Copy(t *testing.T) {
 		})
 	}
 }
+
+// FakeRel is a pretend relation that allows direct control of its output types.
+type FakeRel struct {
+	outputType types.StructType
+
+	Rel
+}
+
+func (f *FakeRel) RecordType() types.StructType {
+	return f.outputType
+}
+
+func TestProjectRecordType(t *testing.T) {
+	var rel ProjectRel
+	rel.input = &FakeRel{outputType: types.StructType{
+		Types: []types.Type{&types.Int64Type{}, &types.Int64Type{}},
+	}}
+
+	rel.mapping = nil
+	expected := types.StructType{Types: []types.Type{&types.Int64Type{}, &types.Int64Type{}}}
+	result := rel.RecordType()
+	assert.Equal(t, expected, result)
+
+	rel.mapping = []int32{0}
+	expected = types.StructType{Types: []types.Type{&types.Int64Type{}}}
+	result = rel.RecordType()
+	assert.Equal(t, expected, result)
+}

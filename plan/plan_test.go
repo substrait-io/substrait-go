@@ -50,6 +50,3 @@ func TestRelFromProto(t *testing.T) {
 	}
 
 }
-
-func TestRecordType(t *testing.T) {
-}

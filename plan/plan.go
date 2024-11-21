@@ -241,7 +241,6 @@ func (r *Root) ToProtoPlanRel() *proto.PlanRel {
 }
 
 func (r *Root) RecordType() types.NamedStruct {
-	// MEGAHACK -- Handle remaps.
 	return types.NamedStruct{
 		Names:  r.names,
 		Struct: r.input.Remap(r.input.RecordType()),
