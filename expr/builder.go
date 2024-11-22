@@ -42,15 +42,21 @@ type ExprBuilder struct {
 
 // Literal returns a wrapped literal that can be passed as an argument
 // to any of the other expression builders such as ScalarFunc.Args.
-func (e *ExprBuilder) Literal(l Literal) literalWrapper {
-	return literalWrapper{l, nil}
+func (e *ExprBuilder) Literal(l Literal) exprWrapper {
+	return exprWrapper{l, nil}
 }
 
-// Wrap is like Literal but allows propagating an error (such as
-// when calling expr.NewLiteral) that will bubble up when attempting
+// Expression returns a wrapped expression that can be passed as an argument
+// to any of the other expression builders such as ScalarFunc.Args.
+func (e *ExprBuilder) Expression(expr Expression) exprWrapper {
+	return exprWrapper{expr, nil}
+}
+
+// Wrap is like Literal or Expression but allows propagating an error
+// (such as when calling expr.NewLiteral) that will bubble up when attempting
 // to build an expression so it doesn't get swallowed or force a panic.
-func (e *ExprBuilder) Wrap(l Literal, err error) literalWrapper {
-	return literalWrapper{l, err}
+func (e *ExprBuilder) Wrap(l Literal, err error) exprWrapper {
+	return exprWrapper{l, err}
 }
 
 // Enum wraps a string representing an Enum argument to a function being
@@ -142,13 +148,13 @@ func (e *ExprBuilder) Cast(from Builder, to types.Type) *castBuilder {
 	}
 }
 
-type literalWrapper struct {
-	wrapped Literal
-	err     error
+type exprWrapper struct {
+	expression Expression
+	err        error
 }
 
-func (l literalWrapper) BuildFuncArg() (types.FuncArg, error) { return l.wrapped, l.err }
-func (l literalWrapper) BuildExpr() (Expression, error)       { return l.wrapped, l.err }
+func (e exprWrapper) BuildFuncArg() (types.FuncArg, error) { return e.expression, e.err }
+func (e exprWrapper) BuildExpr() (Expression, error)       { return e.expression, e.err }
 
 type enumWrapper string
 
