@@ -17,7 +17,10 @@ func TestExprBuilder(t *testing.T) {
 		Reg:        expr.NewEmptyExtensionRegistry(&extensions.DefaultCollection),
 		BaseSchema: &boringSchema.Struct,
 	}
-	precomputedExpression, _ := expr.NewLiteral(int32(3), false)
+	precomputedLiteral, _ := expr.NewLiteral(int32(3), false)
+	precomputedExpression, _ := b.ScalarFunc(addID).Args(
+		b.Wrap(expr.NewLiteral(int32(3), false)),
+		b.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
 
 	tests := []struct {
 		name     string
@@ -48,12 +51,15 @@ func TestExprBuilder(t *testing.T) {
 				b.Cast(b.RootRef(expr.NewStructFieldRef(6)), &types.Int32Type{}).
 					FailBehavior(types.BehaviorThrowException),
 			), ""},
-		{"expression", "subtract(.field(3) => i32, i32(3)) => i32",
+		{"expression with lit", "subtract(.field(3) => i32, i32(3)) => i32",
+			b.ScalarFunc(subID).Args(b.RootRef(expr.NewStructFieldRef(3)),
+				b.Expression(precomputedLiteral)), ""},
+		{"expression with expr", "subtract(.field(3) => i32, add(i32(3), i32(3)) => i32) => i32",
 			b.ScalarFunc(subID).Args(b.RootRef(expr.NewStructFieldRef(3)),
 				b.Expression(precomputedExpression)), ""},
 		{"wrap expression", "subtract(.field(3) => i32, i32(3)) => i32",
 			b.ScalarFunc(subID).Args(b.RootRef(expr.NewStructFieldRef(3)),
-				b.WrapExpression(expr.NewLiteral(int32(3), false))), ""},
+				b.Wrap(expr.NewLiteral(int32(3), false))), ""},
 		{"window func", "",
 			b.WindowFunc(rankID), "invalid expression: non-decomposable window or agg function '{https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml rank}' must use InitialToResult phase"},
 		{"window func", "rank(; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_UNSPECIFIED) => i64?",
