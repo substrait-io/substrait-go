@@ -50,7 +50,7 @@ const (
 
 type TypeVariation struct {
 	Name        string
-	Parent      parser.TypeExpression
+	Parent      string
 	Description string
 	Functions   TypeVariationFunctions
 }

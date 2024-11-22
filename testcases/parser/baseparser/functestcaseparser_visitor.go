@@ -121,20 +121,26 @@ type FuncTestCaseParserVisitor interface {
 	// Visit a parse tree produced by FuncTestCaseParser#intervalDayArg.
 	VisitIntervalDayArg(ctx *IntervalDayArgContext) interface{}
 
+	// Visit a parse tree produced by FuncTestCaseParser#fixedCharArg.
+	VisitFixedCharArg(ctx *FixedCharArgContext) interface{}
+
+	// Visit a parse tree produced by FuncTestCaseParser#varCharArg.
+	VisitVarCharArg(ctx *VarCharArgContext) interface{}
+
+	// Visit a parse tree produced by FuncTestCaseParser#fixedBinaryArg.
+	VisitFixedBinaryArg(ctx *FixedBinaryArgContext) interface{}
+
+	// Visit a parse tree produced by FuncTestCaseParser#precisionTimestampArg.
+	VisitPrecisionTimestampArg(ctx *PrecisionTimestampArgContext) interface{}
+
+	// Visit a parse tree produced by FuncTestCaseParser#precisionTimestampTZArg.
+	VisitPrecisionTimestampTZArg(ctx *PrecisionTimestampTZArgContext) interface{}
+
 	// Visit a parse tree produced by FuncTestCaseParser#listArg.
 	VisitListArg(ctx *ListArgContext) interface{}
 
 	// Visit a parse tree produced by FuncTestCaseParser#literalList.
 	VisitLiteralList(ctx *LiteralListContext) interface{}
-
-	// Visit a parse tree produced by FuncTestCaseParser#intervalYearLiteral.
-	VisitIntervalYearLiteral(ctx *IntervalYearLiteralContext) interface{}
-
-	// Visit a parse tree produced by FuncTestCaseParser#intervalDayLiteral.
-	VisitIntervalDayLiteral(ctx *IntervalDayLiteralContext) interface{}
-
-	// Visit a parse tree produced by FuncTestCaseParser#timeInterval.
-	VisitTimeInterval(ctx *TimeIntervalContext) interface{}
 
 	// Visit a parse tree produced by FuncTestCaseParser#dataType.
 	VisitDataType(ctx *DataTypeContext) interface{}
@@ -178,9 +184,6 @@ type FuncTestCaseParserVisitor interface {
 	// Visit a parse tree produced by FuncTestCaseParser#time.
 	VisitTime(ctx *TimeContext) interface{}
 
-	// Visit a parse tree produced by FuncTestCaseParser#intervalDay.
-	VisitIntervalDay(ctx *IntervalDayContext) interface{}
-
 	// Visit a parse tree produced by FuncTestCaseParser#intervalYear.
 	VisitIntervalYear(ctx *IntervalYearContext) interface{}
 
@@ -211,23 +214,23 @@ type FuncTestCaseParserVisitor interface {
 	// Visit a parse tree produced by FuncTestCaseParser#intervalDayType.
 	VisitIntervalDayType(ctx *IntervalDayTypeContext) interface{}
 
-	// Visit a parse tree produced by FuncTestCaseParser#fixedChar.
-	VisitFixedChar(ctx *FixedCharContext) interface{}
+	// Visit a parse tree produced by FuncTestCaseParser#fixedCharType.
+	VisitFixedCharType(ctx *FixedCharTypeContext) interface{}
 
-	// Visit a parse tree produced by FuncTestCaseParser#varChar.
-	VisitVarChar(ctx *VarCharContext) interface{}
+	// Visit a parse tree produced by FuncTestCaseParser#varCharType.
+	VisitVarCharType(ctx *VarCharTypeContext) interface{}
 
-	// Visit a parse tree produced by FuncTestCaseParser#fixedBinary.
-	VisitFixedBinary(ctx *FixedBinaryContext) interface{}
+	// Visit a parse tree produced by FuncTestCaseParser#fixedBinaryType.
+	VisitFixedBinaryType(ctx *FixedBinaryTypeContext) interface{}
 
-	// Visit a parse tree produced by FuncTestCaseParser#decimal.
-	VisitDecimal(ctx *DecimalContext) interface{}
+	// Visit a parse tree produced by FuncTestCaseParser#decimalType.
+	VisitDecimalType(ctx *DecimalTypeContext) interface{}
 
-	// Visit a parse tree produced by FuncTestCaseParser#precisionTimestamp.
-	VisitPrecisionTimestamp(ctx *PrecisionTimestampContext) interface{}
+	// Visit a parse tree produced by FuncTestCaseParser#precisionTimestampType.
+	VisitPrecisionTimestampType(ctx *PrecisionTimestampTypeContext) interface{}
 
-	// Visit a parse tree produced by FuncTestCaseParser#precisionTimestampTZ.
-	VisitPrecisionTimestampTZ(ctx *PrecisionTimestampTZContext) interface{}
+	// Visit a parse tree produced by FuncTestCaseParser#precisionTimestampTZType.
+	VisitPrecisionTimestampTZType(ctx *PrecisionTimestampTZTypeContext) interface{}
 
 	// Visit a parse tree produced by FuncTestCaseParser#list.
 	VisitList(ctx *ListContext) interface{}
@@ -241,17 +244,17 @@ type FuncTestCaseParserVisitor interface {
 	// Visit a parse tree produced by FuncTestCaseParser#substraitError.
 	VisitSubstraitError(ctx *SubstraitErrorContext) interface{}
 
-	// Visit a parse tree produced by FuncTestCaseParser#func_option.
-	VisitFunc_option(ctx *Func_optionContext) interface{}
+	// Visit a parse tree produced by FuncTestCaseParser#funcOption.
+	VisitFuncOption(ctx *FuncOptionContext) interface{}
 
-	// Visit a parse tree produced by FuncTestCaseParser#option_name.
-	VisitOption_name(ctx *Option_nameContext) interface{}
+	// Visit a parse tree produced by FuncTestCaseParser#optionName.
+	VisitOptionName(ctx *OptionNameContext) interface{}
 
-	// Visit a parse tree produced by FuncTestCaseParser#option_value.
-	VisitOption_value(ctx *Option_valueContext) interface{}
+	// Visit a parse tree produced by FuncTestCaseParser#optionValue.
+	VisitOptionValue(ctx *OptionValueContext) interface{}
 
-	// Visit a parse tree produced by FuncTestCaseParser#func_options.
-	VisitFunc_options(ctx *Func_optionsContext) interface{}
+	// Visit a parse tree produced by FuncTestCaseParser#funcOptions.
+	VisitFuncOptions(ctx *FuncOptionsContext) interface{}
 
 	// Visit a parse tree produced by FuncTestCaseParser#nonReserved.
 	VisitNonReserved(ctx *NonReservedContext) interface{}

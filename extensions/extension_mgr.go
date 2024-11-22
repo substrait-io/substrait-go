@@ -26,7 +26,7 @@ const SubstraitDefaultURIPrefix = "https://github.com/substrait-io/substrait/blo
 var DefaultCollection Collection
 
 func init() {
-	substraitFS := substrait.GetSubstraitFS()
+	substraitFS := substrait.GetSubstraitExtensionsFS()
 	entries, err := substraitFS.ReadDir("extensions")
 	if err != nil {
 		return

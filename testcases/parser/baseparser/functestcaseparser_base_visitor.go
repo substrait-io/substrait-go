@@ -159,23 +159,31 @@ func (v *BaseFuncTestCaseParserVisitor) VisitIntervalDayArg(ctx *IntervalDayArgC
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseFuncTestCaseParserVisitor) VisitFixedCharArg(ctx *FixedCharArgContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseFuncTestCaseParserVisitor) VisitVarCharArg(ctx *VarCharArgContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseFuncTestCaseParserVisitor) VisitFixedBinaryArg(ctx *FixedBinaryArgContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseFuncTestCaseParserVisitor) VisitPrecisionTimestampArg(ctx *PrecisionTimestampArgContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseFuncTestCaseParserVisitor) VisitPrecisionTimestampTZArg(ctx *PrecisionTimestampTZArgContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseFuncTestCaseParserVisitor) VisitListArg(ctx *ListArgContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
 func (v *BaseFuncTestCaseParserVisitor) VisitLiteralList(ctx *LiteralListContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseFuncTestCaseParserVisitor) VisitIntervalYearLiteral(ctx *IntervalYearLiteralContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseFuncTestCaseParserVisitor) VisitIntervalDayLiteral(ctx *IntervalDayLiteralContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseFuncTestCaseParserVisitor) VisitTimeInterval(ctx *TimeIntervalContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -235,10 +243,6 @@ func (v *BaseFuncTestCaseParserVisitor) VisitTime(ctx *TimeContext) interface{} 
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseFuncTestCaseParserVisitor) VisitIntervalDay(ctx *IntervalDayContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
 func (v *BaseFuncTestCaseParserVisitor) VisitIntervalYear(ctx *IntervalYearContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -279,27 +283,27 @@ func (v *BaseFuncTestCaseParserVisitor) VisitIntervalDayType(ctx *IntervalDayTyp
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseFuncTestCaseParserVisitor) VisitFixedChar(ctx *FixedCharContext) interface{} {
+func (v *BaseFuncTestCaseParserVisitor) VisitFixedCharType(ctx *FixedCharTypeContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseFuncTestCaseParserVisitor) VisitVarChar(ctx *VarCharContext) interface{} {
+func (v *BaseFuncTestCaseParserVisitor) VisitVarCharType(ctx *VarCharTypeContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseFuncTestCaseParserVisitor) VisitFixedBinary(ctx *FixedBinaryContext) interface{} {
+func (v *BaseFuncTestCaseParserVisitor) VisitFixedBinaryType(ctx *FixedBinaryTypeContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseFuncTestCaseParserVisitor) VisitDecimal(ctx *DecimalContext) interface{} {
+func (v *BaseFuncTestCaseParserVisitor) VisitDecimalType(ctx *DecimalTypeContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseFuncTestCaseParserVisitor) VisitPrecisionTimestamp(ctx *PrecisionTimestampContext) interface{} {
+func (v *BaseFuncTestCaseParserVisitor) VisitPrecisionTimestampType(ctx *PrecisionTimestampTypeContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseFuncTestCaseParserVisitor) VisitPrecisionTimestampTZ(ctx *PrecisionTimestampTZContext) interface{} {
+func (v *BaseFuncTestCaseParserVisitor) VisitPrecisionTimestampTZType(ctx *PrecisionTimestampTZTypeContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -319,19 +323,19 @@ func (v *BaseFuncTestCaseParserVisitor) VisitSubstraitError(ctx *SubstraitErrorC
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseFuncTestCaseParserVisitor) VisitFunc_option(ctx *Func_optionContext) interface{} {
+func (v *BaseFuncTestCaseParserVisitor) VisitFuncOption(ctx *FuncOptionContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseFuncTestCaseParserVisitor) VisitOption_name(ctx *Option_nameContext) interface{} {
+func (v *BaseFuncTestCaseParserVisitor) VisitOptionName(ctx *OptionNameContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseFuncTestCaseParserVisitor) VisitOption_value(ctx *Option_valueContext) interface{} {
+func (v *BaseFuncTestCaseParserVisitor) VisitOptionValue(ctx *OptionValueContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseFuncTestCaseParserVisitor) VisitFunc_options(ctx *Func_optionsContext) interface{} {
+func (v *BaseFuncTestCaseParserVisitor) VisitFuncOptions(ctx *FuncOptionsContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

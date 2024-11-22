@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/substrait-io/substrait"
 	"github.com/substrait-io/substrait-go/expr"
 	"github.com/substrait-io/substrait-go/literal"
 	"github.com/substrait-io/substrait-go/types"
@@ -29,7 +30,7 @@ add(100::i16, 100::i16) = 200::i16
 add(120::i8, 10::i8) [overflow:ERROR] = <!ERROR>
 `
 
-	testFile, err := ParseTestCaseFile(header + tests)
+	testFile, err := ParseTestCasesFromString(header + tests)
 	require.NoError(t, err)
 	assert.Len(t, testFile.TestCases, 3)
 }
@@ -39,7 +40,7 @@ func TestParseDataTimeExample(t *testing.T) {
 	tests := `# timestamp examples using the timestamp type
 lt('2016-12-31T13:30:15'::ts, '2017-12-31T13:30:15'::ts) = true::bool
 `
-	testFile, err := ParseTestCaseFile(header + tests)
+	testFile, err := ParseTestCasesFromString(header + tests)
 	require.NoError(t, err)
 	require.NotNil(t, testFile)
 	assert.Len(t, testFile.TestCases, 1)
@@ -70,7 +71,7 @@ power(1.0::dec<38, 5>, -1.0::dec<38, 5>) = 1.0::fp64
 power(-1::dec, 0.5::dec<38,1>) [complex_number_result:NAN] = nan::fp64
 `
 
-	testFile, err := ParseTestCaseFile(header + tests)
+	testFile, err := ParseTestCasesFromString(header + tests)
 	require.NoError(t, err)
 	require.NotNil(t, testFile)
 	assert.Len(t, testFile.TestCases, 3)
@@ -119,14 +120,24 @@ func TestParseTestWithVariousTypes(t *testing.T) {
 		{"f11('P10DT5H6M7S'::interval_day, 5::i64) = 'P10DT10H6M7S'::interval_day"},
 		{"f11('P10DT6M7S'::interval_day, 5::i64) = 'P10DT11M7S'::interval_day"},
 		{"or(false::bool, null::bool) = null::bool"},
-		// TODO Fix grammar to get varchar, fixed_binary, precision timestamp working
-		//{"f12('a'::vchar<9>, 'b'::<varchar>) = 'c'::<varchar>"},
-		//{"f8('1991-01-01T01:02:03.456'::pts, '1991-01-01T00:00:00.000000'::pts) = '1991-01-01T22:33:44'::pts"},
-		//{"f8('1991-01-01T01:02:03.456+05:30'::ptstz, '1991-01-01T00:00:00+15:30'::ptstz) = '1991-01-01T22:33:44'::ptstz"},
+		{"f12('a'::vchar<9>, 'b'::varchar<4>) = 'c'::varchar<3>"},
+		{"f8('1991-01-01T01:02:03.456'::pts<3>, '1991-01-01T00:00:00.000000'::pts<6>) = '1991-01-01T22:33:44'::pts<0>"},
+		{"f8('1991-01-01T01:02:03.456+05:30'::ptstz<3>, '1991-01-01T00:00:00+15:30'::ptstz<0>) = '1991-01-01T22:33:44+15:30'::ptstz<0>"},
+		//{"f12('P10DT6M7.2000S'::iday<4>, 5::i64) = 'P10DT11M7.2000S'::iday<4>"},  // TODO enable after fixing the grammar
+		{"f12('P10DT6M7S'::interval_day, 5::i64) = 'P10DT11M7S'::interval_day"},
+		{"concat('abcd'::varchar<9>, Null::str) [null_handling:ACCEPT_NULLS] = Null::str"},
+		{"concat('abcd'::vchar<9>, 'ef'::varchar<9>) = Null::vchar<9>"},
+		{"concat('abcd'::vchar<9>, 'ef'::fixedchar<9>) = Null::fchar<9>"},
+		{"concat('abcd'::fbin<9>, 'ef'::fixedbinary<9>) = Null::fbin<9>"},
+		{"f35('1991-01-01T01:02:03.456'::pts<3>) = '1991-01-01T01:02:30.123123'::precision_timestamp<3>"},
+		{"f36('1991-01-01T01:02:03.456'::pts<3>, '1991-01-01T01:02:30.123123'::precision_timestamp<3>) = 123456::i64"},
+		{"f37('1991-01-01T01:02:03.123456'::pts<6>, '1991-01-01T04:05:06.456'::precision_timestamp<6>) = 123456::i64"},
+		{"f38('1991-01-01T01:02:03.456+05:30'::ptstz<3>) = '1991-01-01T00:00:00+15:30'::precision_timestamp_tz<3>"},
+		{"f39('1991-01-01T01:02:03.123456+05:30'::ptstz<6>) = '1991-01-01T00:00:00+15:30'::precision_timestamp_tz<6>"},
 	}
 	for _, test := range tests {
 		t.Run(test.testCaseStr, func(t *testing.T) {
-			testFile, err := ParseTestCaseFile(header + test.testCaseStr)
+			testFile, err := ParseTestCasesFromString(header + test.testCaseStr)
 			require.NoError(t, err)
 			require.NotNil(t, testFile)
 			assert.Len(t, testFile.TestCases, 1)
@@ -143,7 +154,7 @@ octet_length('à'::str) = 2::i64
 octet_length('😄'::str) = 4::i64
 starts_with('abcd'::str, 'AB'::str) [case_sensitivity:CASE_INSENSITIVE] = true::bool`
 
-	testFile, err := ParseTestCaseFile(header + tests)
+	testFile, err := ParseTestCasesFromString(header + tests)
 	require.NoError(t, err)
 	require.NotNil(t, testFile)
 	assert.Len(t, testFile.TestCases, 5)
@@ -186,7 +197,7 @@ func TestParseStringWithIntList(t *testing.T) {
 	tests := `# basic
 some_func('abc'::str, 'def'::str) = [1, 2, 3, 4, 5, 6]::List<i8>`
 
-	testFile, err := ParseTestCaseFile(header + tests)
+	testFile, err := ParseTestCasesFromString(header + tests)
 	require.NoError(t, err)
 	require.NotNil(t, testFile)
 	assert.Len(t, testFile.TestCases, 1)
@@ -211,7 +222,7 @@ func TestParseAggregateFunc(t *testing.T) {
 avg((1,2,3)::fp32) = 2::fp64
 sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ERROR>`
 
-	testFile, err := ParseTestCaseFile(header + tests)
+	testFile, err := ParseTestCasesFromString(header + tests)
 	require.NoError(t, err)
 	require.NotNil(t, testFile)
 	assert.Len(t, testFile.TestCases, 2)
@@ -272,7 +283,7 @@ func TestParseAggregateFuncCompact(t *testing.T) {
 ((20, 20), (-3, -3), (1, 1), (10,10), (5,5)) corr(col0::fp32, col1::fp32) = 1::fp64
 `
 
-	testFile, err := ParseTestCaseFile(header + tests)
+	testFile, err := ParseTestCasesFromString(header + tests)
 	require.NoError(t, err)
 	require.NotNil(t, testFile)
 	assert.Len(t, testFile.TestCases, 1)
@@ -308,7 +319,7 @@ DEFINE t1(i64, fp32) = ((20, 20), (-3, -3), (1, 1), (10,10), (5,5.5))
 corr(t1.col1, t1.col0) = 1::fp64
 `
 
-	testFile, err := ParseTestCaseFile(header + tests)
+	testFile, err := ParseTestCasesFromString(header + tests)
 	require.NoError(t, err)
 	require.NotNil(t, testFile)
 	assert.Len(t, testFile.TestCases, 2)
@@ -344,7 +355,7 @@ func TestParseAggregateFuncWithVariousTypes(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.testCaseStr, func(t *testing.T) {
-			testFile, err := ParseTestCaseFile(header + test.testCaseStr)
+			testFile, err := ParseTestCasesFromString(header + test.testCaseStr)
 			require.NoError(t, err)
 			require.NotNil(t, testFile)
 			assert.Len(t, testFile.TestCases, 1)
@@ -356,11 +367,14 @@ func TestParseAggregateFuncWithMixedArgs(t *testing.T) {
 	header := makeAggregateTestHeader("v1.0", "extensions/functions_arithmetic.yaml")
 	tests := `# basic
 ((20), (-3), (1), (10)) LIST_AGG(col0::fp32, ','::string) = 1::fp64
+DEFINE t1(fp32) = ((20), (-3), (1), (10))
+LIST_AGG(t1.col0, ','::string) = 1::fp64
 `
 
-	testFile, err := ParseTestCaseFile(header + tests)
+	testFile, err := ParseTestCasesFromString(header + tests)
 	require.NoError(t, err)
 	require.NotNil(t, testFile)
+	assert.Len(t, testFile.TestCases, 2)
 }
 
 func TestParseTestWithBadScalarTests(t *testing.T) {
@@ -388,7 +402,7 @@ func TestParseTestWithBadScalarTests(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.testCaseStr, func(t *testing.T) {
-			_, err := ParseTestCaseFile(header + test.testCaseStr)
+			_, err := ParseTestCasesFromString(header + test.testCaseStr)
 			require.Error(t, err)
 			expectedErrorMsg := fmt.Sprintf("Syntax error at line 5:%d: %s", test.position, test.errorMsg)
 			assert.Contains(t, err.Error(), expectedErrorMsg)
@@ -414,7 +428,7 @@ corr(t1.col0, t2.col1) = 1::fp64`,
 	}
 	for _, test := range tests {
 		t.Run(test.testCaseStr, func(t *testing.T) {
-			_, err := ParseTestCaseFile(header + test.testCaseStr)
+			_, err := ParseTestCasesFromString(header + test.testCaseStr)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), test.errorMsg)
 		})
@@ -426,13 +440,18 @@ func TestParseAggregateTestWithVariousTypes(t *testing.T) {
 	tests := []struct {
 		testCaseStr string
 	}{
-		{"f1((1, 2, 3, 4)::i64) = 10.0::fp32"},
+		{"f1((1, 2, 3, 4)::i64) = 10::fp64"},
+		{"f1((1, 2, 3, 4)::i16) = 10.0::fp32"},
+		{"f1((1, 2, 3, 4)::i32) = 10::i64"},
 		{"f2(1.0::fp32, 2.0::fp64) = -7.0::fp32"},
 		{"f3(('a', 'b')::string) = 'c'::str"},
 		{"f4((false, true)::boolean) = false::bool"},
+		{"f5((1.1, 2.2)::fp32) = 3.3::fp32"},
+		{"f5((1.1, 2.2)::fp64) = 3.3::fp64"},
 		{"f5((1.1, 2.2)::decimal) = 3.3::dec"},
 		{"f6((1.1, 2.2)::dec<38,10>) = 3.3::dec<38,10>"},
 		{"f7((1.0, 2)::decimal<38,0>) = 3.0::decimal<38,0>"},
+		{"f6((1.1, 2.2, null)::dec?<38,10>) = 3.3::dec<38,10>"},
 		{"f8(('1991-01-01', '1991-02-02')::date) = '2001-01-01'::date"},
 		{"f8(('13:01:01.2345678', '14:01:01.333')::time) = 123456::i64"},
 		{"f8('13:01:01.234'::time) = 123::i32"},
@@ -441,13 +460,53 @@ func TestParseAggregateTestWithVariousTypes(t *testing.T) {
 		{"f10(('P10Y5M', 'P11Y5M')::interval_year) = 'P21Y10M'::interval_year"},
 		{"f10(('P10Y2M', 'P10Y7M')::iyear) = 'P20Y9M'::iyear"},
 		{"f11(('P10DT5H6M7S', 'P10DT6M7S')::interval_day) = 'P20DT11H6M7S'::interval_day"},
+		{"f11(('P10DT5H6M7S', 'P10DT6M7S')::iday?) = 'P20DT11H6M7S'::iday"},
+		{"f11(('P10DT5H6M7S', 'P10DT6M7S')::iday?<6>) = 'P20DT11H6M7S'::iday"},
+		{"((20, 20), (-3, -3), (1, 1), (10,10), (5,5)) count_star() = 1::fp64"},
+		{"((20), (3), (1), (10), (5)) count_star() = 1::fp64"},
+		{`DEFINE t1(fp32, fp32) = ((20, 20), (-3, -3), (1, 1), (10,10), (5,5))
+count_star() = 1::fp64`},
+		{"f20(('abcd', 'ef')::fchar?<9>) = Null::fchar<9>"},
+		{"f20(('abcd', 'ef')::fixedchar<9>) = Null::fchar<9>"},
+		{"f20(('abcd', 'ef', null)::vchar?<9>) = Null::vchar<9>"},
+		{"f20(('abcd', 'ef')::varchar<9>) = Null::vchar<9>"},
+		{"f20(('abcd', 'ef')::fbin<9>) = Null::fbin<9>"},
+		{"f20(('abcd', 'ef')::fixedbinary?<9>) = Null::fixedbinary<9>"},
+		{"f35(('1991-01-01T01:02:03.456')::pts?<3>) = '1991-01-01T01:02:30.123123'::precision_timestamp<3>"},
+		{"f36(('1991-01-01T01:02:03.456', '1991-01-01T01:02:30.123123')::precision_timestamp<3>) = 123456::i64"},
+		{"f37(('1991-01-01T01:02:03.123456', '1991-01-01T04:05:06.456')::precision_timestamp<6>) = 123456::i64"},
+		{"f38(('1991-01-01T01:02:03.456+05:30')::ptstz?<3>) = '1991-01-01T00:00:00+15:30'::precision_timestamp_tz<3>"},
+		{"f39(('1991-01-01T01:02:03.456+05:30', '1991-01-01T01:02:03.123456+05:30')::ptstz<6>) = '1991-01-01T00:00:00+15:30'::ptstz<6>"},
 	}
 	for _, test := range tests {
 		t.Run(test.testCaseStr, func(t *testing.T) {
-			testFile, err := ParseTestCaseFile(header + test.testCaseStr)
+			testFile, err := ParseTestCasesFromString(header + test.testCaseStr)
 			require.NoError(t, err)
 			require.NotNil(t, testFile)
 			assert.Len(t, testFile.TestCases, 1)
 		})
 	}
+}
+
+func TestParseTestCaseFile(t *testing.T) {
+	fs := substrait.GetSubstraitTestsFS()
+	testFile, err := ParseTestCaseFileFromFS(fs, "tests/cases/arithmetic/add.test")
+	require.NoError(t, err)
+	require.NotNil(t, testFile)
+	assert.Len(t, testFile.TestCases, 15)
+
+	testFile, err = ParseTestCaseFileFromFS(fs, "tests/cases/arithmetic/max.test")
+	require.NoError(t, err)
+	require.NotNil(t, testFile)
+	assert.Len(t, testFile.TestCases, 12)
+
+	testFile, err = ParseTestCaseFileFromFS(fs, "tests/cases/arithmetic_decimal/power.test")
+	require.NoError(t, err)
+	require.NotNil(t, testFile)
+	assert.Len(t, testFile.TestCases, 9)
+
+	testFile, err = ParseTestCaseFileFromFS(fs, "tests/cases/datetime/lt_datetime.test")
+	require.NoError(t, err)
+	require.NotNil(t, testFile)
+	assert.Len(t, testFile.TestCases, 13)
 }
