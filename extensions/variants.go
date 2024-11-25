@@ -194,7 +194,7 @@ func validateVariadicBehaviorForMatch(variadicBehavior *VariadicBehavior, actual
 	// verify consistency of variadic behavior
 	if variadicBehavior.ParameterConsistency == ConsistentParams {
 		// all concrete types must be equal for all variable arguments
-		firstVariadicArgIdx := variadicBehavior.Min - 1
+		firstVariadicArgIdx := max(variadicBehavior.Min-1, 0)
 		for i := firstVariadicArgIdx; i < len(actualTypes)-1; i++ {
 			if !actualTypes[i].Equals(actualTypes[i+1]) {
 				return false

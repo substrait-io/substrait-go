@@ -904,6 +904,80 @@ scalar_functions:
 	}
 }
 
+func TestScalarFunctionsVariadicMin0(t *testing.T) {
+	const uri = "http://localhost/sample.yaml"
+	const defYaml = `---
+scalar_functions:
+  -
+    name: and
+    impls:
+      - args:
+          - value: boolean?
+            name: a
+        variadic:
+          min: 0
+        return: boolean?
+`
+
+	dialectYaml := `
+name: test
+type: sql
+dependencies:
+  boolean: 
+    http://localhost/sample.yaml
+supported_types:
+  i32:
+    sql_type_name: INTEGER
+scalar_functions:
+  - name: boolean.and
+    local_name: and
+    supported_kernels:
+      - bool
+`
+	// get substrait function registry
+	var c extensions.Collection
+	require.NoError(t, c.Load(uri, strings.NewReader(defYaml)))
+	funcRegistry := NewFunctionRegistry(&c)
+	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
+
+	booleanNullable := &types.BooleanType{Nullability: types.NullabilityNullable}
+	int8Nullable := &types.Int8Type{Nullability: types.NullabilityNullable}
+
+	tests := []struct {
+		name     string
+		argTypes []types.Type
+		isMatch  bool
+	}{
+		{"No Arguments", []types.Type{}, true},
+		{"One Argument", []types.Type{booleanNullable}, true},
+		{"Two Arguments", []types.Type{booleanNullable, booleanNullable}, true},
+		{"Three Arguments", []types.Type{booleanNullable, booleanNullable, booleanNullable}, true},
+		{"Wrong Arguments", []types.Type{int8Nullable}, false},
+		{"Wrong Arguments", []types.Type{booleanNullable, int8Nullable}, false},
+		{"Wrong Arguments", []types.Type{int8Nullable, booleanNullable}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fv := localRegistry.GetScalarFunctions(LocalFunctionName("and"), len(tt.argTypes))
+
+			require.Len(t, fv, 1)
+			match, err := fv[0].Match(tt.argTypes)
+			require.NoError(t, err)
+			assert.Equal(t, tt.isMatch, match)
+			if !tt.isMatch {
+				return
+			}
+
+			for pos, typ := range tt.argTypes {
+				match, err = fv[0].MatchAt(typ, pos)
+				require.NoError(t, err)
+				assert.Equal(t, tt.isMatch, match)
+			}
+		})
+	}
+}
+
 // this tests that match functionality returns true for function with variadic argument
 // when argument count is greater than variadic min count
 func TestScalarFuncVariadicArgMatch(t *testing.T) {
