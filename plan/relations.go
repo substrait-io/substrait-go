@@ -70,14 +70,14 @@ func (b *baseReadRel) fromProtoReadRel(rel *proto.ReadRel, reg expr.ExtensionReg
 	b.baseSchema = types.NewNamedStructFromProto(rel.BaseSchema)
 	var err error
 	if rel.Filter != nil {
-		b.filter, err = expr.ExprFromProto(rel.Filter, (*types.RecordType)(&b.baseSchema.Struct), reg)
+		b.filter, err = expr.ExprFromProto(rel.Filter, types.NewRecordTypeFromStruct(b.baseSchema.Struct), reg)
 		if err != nil {
 			return err
 		}
 	}
 
 	if rel.BestEffortFilter != nil {
-		b.bestEffortFilter, err = expr.ExprFromProto(rel.BestEffortFilter, (*types.RecordType)(&b.baseSchema.Struct), reg)
+		b.bestEffortFilter, err = expr.ExprFromProto(rel.BestEffortFilter, types.NewRecordTypeFromStruct(b.baseSchema.Struct), reg)
 		if err != nil {
 			return err
 		}
@@ -92,7 +92,7 @@ func (b *baseReadRel) fromProtoReadRel(rel *proto.ReadRel, reg expr.ExtensionReg
 }
 
 func (b *baseReadRel) directOutputSchema() types.RecordType {
-	return types.RecordType(b.baseSchema.Struct)
+	return *types.NewRecordTypeFromStruct(b.baseSchema.Struct)
 }
 
 func (b *baseReadRel) RecordType() types.RecordType {
@@ -513,16 +513,13 @@ type ProjectRel struct {
 
 func (p *ProjectRel) directOutputSchema() types.RecordType {
 	initial := p.input.RecordType()
-	output := slices.Grow(slices.Clone(initial.Types), len(p.exprs))
+	output := slices.Grow(slices.Clone(initial.Types()), len(p.exprs))
 
 	for _, e := range p.exprs {
 		output = append(output, e.GetType())
 	}
 
-	return types.RecordType{
-		Nullability: initial.Nullability,
-		Types:       output,
-	}
+	return *types.NewRecordTypeFromTypes(output)
 }
 func (p *ProjectRel) RecordType() types.RecordType {
 	return p.remap(p.directOutputSchema())
@@ -630,36 +627,33 @@ func (j *JoinRel) directOutputSchema() types.RecordType {
 	case JoinTypeLeftSemi:
 		return j.left.RecordType()
 	case JoinTypeOuter:
-		typeList = j.JoinedRecordType().Types
+		typeList = j.JoinedRecordType().Types()
 		for i, t := range typeList {
 			typeList[i] = t.WithNullability(types.NullabilityNullable)
 		}
 	case JoinTypeLeft, JoinTypeLeftSingle:
 		left := j.left.RecordType()
 		right := j.right.RecordType()
-		typeList = make([]types.Type, 0, len(left.Types)+len(right.Types))
-		typeList = append(typeList, left.Types...)
-		for _, r := range right.Types {
+		typeList = make([]types.Type, 0, left.FieldCount()+right.FieldCount())
+		typeList = append(typeList, left.Types()...)
+		for _, r := range right.Types() {
 			typeList = append(typeList, r.WithNullability(types.NullabilityNullable))
 		}
 	case JoinTypeRight:
 		left := j.left.RecordType()
 		right := j.right.RecordType()
-		typeList = make([]types.Type, 0, len(left.Types)+len(right.Types))
-		for _, l := range left.Types {
+		typeList = make([]types.Type, 0, left.FieldCount()+right.FieldCount())
+		for _, l := range left.Types() {
 			typeList = append(typeList, l.WithNullability(types.NullabilityNullable))
 		}
-		typeList = append(typeList, right.Types...)
+		typeList = append(typeList, right.Types()...)
 	case JoinTypeLeftAnti:
-		typeList = j.left.RecordType().Types
+		typeList = j.left.RecordType().Types()
 	case JoinTypeRightSemi, JoinTypeRightAnti, JoinTypeRightSingle:
 		panic(fmt.Sprintf("join type: %v not supported", j.joinType))
 	}
 
-	return types.RecordType{
-		Nullability: proto.Type_NULLABILITY_REQUIRED,
-		Types:       typeList,
-	}
+	return *types.NewRecordTypeFromTypes(typeList)
 }
 
 func (j *JoinRel) RecordType() types.RecordType {
@@ -667,10 +661,7 @@ func (j *JoinRel) RecordType() types.RecordType {
 }
 
 func (j *JoinRel) JoinedRecordType() types.RecordType {
-	return types.RecordType{
-		Nullability: proto.Type_NULLABILITY_REQUIRED,
-		Types:       append(j.left.RecordType().Types, j.right.RecordType().Types...),
-	}
+	return j.left.RecordType().Concat(j.right.RecordType())
 }
 
 func (j *JoinRel) Left() Rel             { return j.left }
@@ -759,10 +750,7 @@ type CrossRel struct {
 }
 
 func (c *CrossRel) directOutputSchema() types.RecordType {
-	return types.RecordType{
-		Nullability: proto.Type_NULLABILITY_REQUIRED,
-		Types:       append(c.left.RecordType().Types, c.right.RecordType().Types...),
-	}
+	return c.left.RecordType().Concat(c.right.RecordType())
 }
 func (c *CrossRel) RecordType() types.RecordType {
 	return c.remap(c.directOutputSchema())
@@ -925,10 +913,7 @@ func (ar *AggregateRel) directOutputSchema() types.RecordType {
 		groupTypes = append(groupTypes, m.measure.GetType())
 	}
 
-	return types.RecordType{
-		Nullability: proto.Type_NULLABILITY_REQUIRED,
-		Types:       groupTypes,
-	}
+	return *types.NewRecordTypeFromTypes(groupTypes)
 }
 
 func (ar *AggregateRel) RecordType() types.RecordType {
@@ -1441,10 +1426,7 @@ type HashJoinRel struct {
 }
 
 func (hr *HashJoinRel) directOutputSchema() types.RecordType {
-	return types.RecordType{
-		Nullability: proto.Type_NULLABILITY_REQUIRED,
-		Types:       append(hr.left.RecordType().Types, hr.right.RecordType().Types...),
-	}
+	return hr.left.RecordType().Concat(hr.right.RecordType())
 }
 
 func (hr *HashJoinRel) RecordType() types.RecordType {
@@ -1548,10 +1530,7 @@ type MergeJoinRel struct {
 }
 
 func (mr *MergeJoinRel) directOutputSchema() types.RecordType {
-	return types.RecordType{
-		Nullability: proto.Type_NULLABILITY_REQUIRED,
-		Types:       append(mr.left.RecordType().Types, mr.right.RecordType().Types...),
-	}
+	return mr.left.RecordType().Concat(mr.right.RecordType())
 }
 
 func (mr *MergeJoinRel) RecordType() types.RecordType {
@@ -1680,7 +1659,7 @@ func (wr *NamedTableWriteRel) directOutputSchema() types.RecordType {
 	case OutputModeNoOutput:
 		return types.RecordType{}
 	case OutputModeModifiedRecords:
-		return types.RecordType(wr.tableSchema.Struct)
+		return *types.NewRecordTypeFromStruct(wr.tableSchema.Struct)
 	case OutputModeUnspecified:
 		panic("output mode not specified")
 	}

@@ -72,7 +72,7 @@ func TestBoundExpressions(t *testing.T) {
 	}{
 		{NewPrimitiveLiteral(int32(1), true), true,
 			&types.Int32Type{Nullability: types.NullabilityNullable}},
-		{MustExpr(NewRootFieldRef(NewStructFieldRef(10), (*types.RecordType)(&boringSchema.Struct))), false,
+		{MustExpr(NewRootFieldRef(NewStructFieldRef(10), types.NewRecordTypeFromStruct(boringSchema.Struct))), false,
 			&types.StringType{}},
 		{MustExpr(NewRootFieldRefFromType(
 			NewStructFieldRef(10), &types.StringType{})), false,
@@ -83,16 +83,16 @@ func TestBoundExpressions(t *testing.T) {
 			&types.Int8Type{Nullability: types.NullabilityRequired}},
 		{MustExpr(NewScalarFunc(extReg, addID, nil,
 			NewPrimitiveLiteral(int8(1), false),
-			MustExpr(NewRootFieldRef(NewStructFieldRef(1), (*types.RecordType)(&boringSchema.Struct))))), false,
+			MustExpr(NewRootFieldRef(NewStructFieldRef(1), types.NewRecordTypeFromStruct(boringSchema.Struct))))), false,
 			&types.Int8Type{Nullability: types.NullabilityNullable}},
-		{MustExpr(NewScalarFunc(extReg, indexInID, nil, MustExpr(NewRootFieldRef(NewStructFieldRef(2), (*types.RecordType)(&boringSchema.Struct))),
-			NewListExpr(false, MustExpr(NewRootFieldRef(NewStructFieldRef(3), (*types.RecordType)(&boringSchema.Struct))),
+		{MustExpr(NewScalarFunc(extReg, indexInID, nil, MustExpr(NewRootFieldRef(NewStructFieldRef(2), types.NewRecordTypeFromStruct(boringSchema.Struct))),
+			NewListExpr(false, MustExpr(NewRootFieldRef(NewStructFieldRef(3), types.NewRecordTypeFromStruct(boringSchema.Struct))),
 				NewPrimitiveLiteral(int32(10), true)))), false,
 			&types.Int64Type{Nullability: types.NullabilityNullable}},
 		{MustExpr(NewWindowFunc(extReg, rankID, nil, types.AggInvocationAll, types.AggPhaseInitialToResult)),
 			false, &types.Int64Type{Nullability: types.NullabilityNullable}},
 		{MustExpr(NewScalarFunc(extReg, extractID, nil, types.Enum("YEAR"),
-			MustExpr(NewRootFieldRef(NewStructFieldRef(9), (*types.RecordType)(&boringSchema.Struct))))), false,
+			MustExpr(NewRootFieldRef(NewStructFieldRef(9), types.NewRecordTypeFromStruct(boringSchema.Struct))))), false,
 			&types.Int64Type{Nullability: types.NullabilityRequired}},
 	}
 

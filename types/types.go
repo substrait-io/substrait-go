@@ -1338,13 +1338,42 @@ func (n NamedStruct) String() string {
 	return b.String()
 }
 
-type RecordType StructType
-
-func (r *RecordType) Equals(other *RecordType) bool {
-	thisType := StructType(*r)
-	return thisType.Equals((*StructType)(other))
+type RecordType struct {
+	types []Type
 }
 
-func (r *RecordType) String() string {
-	return (*StructType)(r).String()
+func NewRecordTypeFromTypes(types []Type) *RecordType {
+	return &RecordType{types: types}
+}
+
+func NewRecordTypeFromStruct(s StructType) *RecordType {
+	return &RecordType{types: s.Types}
+}
+
+func (r RecordType) Equals(other *RecordType) bool {
+	return r.AsStructType().Equals(other.AsStructType())
+}
+
+func (r RecordType) String() string {
+	return r.AsStructType().String()
+}
+
+func (r RecordType) GetFieldRef(index int32) Type {
+	return r.types[index]
+}
+
+func (r RecordType) FieldCount() int32 {
+	return int32(len(r.types))
+}
+
+func (r RecordType) AsStructType() *StructType {
+	return &StructType{Nullability: NullabilityRequired, Types: r.types}
+}
+
+func (r RecordType) Types() []Type {
+	return r.types
+}
+
+func (r RecordType) Concat(other RecordType) RecordType {
+	return RecordType{types: append(r.Types(), other.Types()...)}
 }

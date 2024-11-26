@@ -1569,15 +1569,15 @@ func ExtendedFromProto(ex *proto.ExtendedExpression, c *extensions.Collection) (
 		refs[i].OutputNames = r.OutputNames
 		switch et := r.ExprType.(type) {
 		case *proto.ExpressionReference_Expression:
-			thisType := types.RecordType(base.Struct)
-			expr, err := ExprFromProto(et.Expression, &thisType, reg)
+			thisType := types.NewRecordTypeFromStruct(base.Struct)
+			expr, err := ExprFromProto(et.Expression, thisType, reg)
 			if err != nil {
 				return nil, err
 			}
 			refs[i].SetExpr(expr)
 		case *proto.ExpressionReference_Measure:
-			thisType := types.RecordType(base.Struct)
-			agg, err := NewAggregateFunctionFromProto(et.Measure, &thisType, reg)
+			thisType := types.NewRecordTypeFromStruct(base.Struct)
+			agg, err := NewAggregateFunctionFromProto(et.Measure, thisType, reg)
 			if err != nil {
 				return nil, err
 			}

@@ -555,8 +555,7 @@ func NewFieldRef(root RootRefType, ref Reference, baseSchema *types.RecordType) 
 	case ReferenceSegment:
 		var rootType types.Type
 		if root == RootReference {
-			x := types.StructType(*baseSchema)
-			rootType = &x
+			rootType = baseSchema.AsStructType()
 		} else if rootExpr, ok := root.(Expression); ok {
 			rootType = rootExpr.GetType()
 		} else {
@@ -750,8 +749,8 @@ func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema *typ
 	case *proto.Expression_FieldReference_DirectReference:
 		refseg := RefSegmentFromProto(rt.DirectReference)
 		if root == RootReference && baseSchema != nil {
-			baseType := types.StructType(*baseSchema)
-			knownType, err = refseg.GetType(&baseType)
+			baseType := baseSchema.AsStructType()
+			knownType, err = refseg.GetType(baseType)
 			if err != nil {
 				return nil, err
 			}

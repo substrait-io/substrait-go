@@ -15,7 +15,7 @@ import (
 func TestExprBuilder(t *testing.T) {
 	b := expr.ExprBuilder{
 		Reg:        expr.NewEmptyExtensionRegistry(&extensions.DefaultCollection),
-		BaseSchema: (*types.RecordType)(&boringSchema.Struct),
+		BaseSchema: types.NewRecordTypeFromStruct(boringSchema.Struct),
 	}
 	precomputedLiteral, _ := expr.NewLiteral(int32(3), false)
 	precomputedExpression, _ := b.ScalarFunc(addID).Args(

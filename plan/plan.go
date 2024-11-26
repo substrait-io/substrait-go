@@ -243,7 +243,7 @@ func (r *Root) ToProtoPlanRel() *proto.PlanRel {
 func (r *Root) RecordType() types.NamedStruct {
 	return types.NamedStruct{
 		Names:  r.names,
-		Struct: types.StructType(r.input.RecordType()),
+		Struct: *r.input.RecordType().AsStructType(),
 	}
 }
 
