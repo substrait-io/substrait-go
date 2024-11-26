@@ -243,7 +243,7 @@ func (r *Root) ToProtoPlanRel() *proto.PlanRel {
 func (r *Root) RecordType() types.NamedStruct {
 	return types.NamedStruct{
 		Names:  r.names,
-		Struct: r.input.Remap(r.input.RecordType()),
+		Struct: r.input.RecordType(),
 	}
 }
 
@@ -271,13 +271,11 @@ type Rel interface {
 	// result should be 3 columns consisting of the 5th, 2nd and 1st
 	// output columns from the underlying relation.
 	OutputMapping() []int32
-	// Remap utilizes the OutputMapping to construct the expected result
-	// record type from the output RecordType of the underlying Relation.
-	// If the output mapping is nil, then this just returns the input
-	// type.
-	Remap(types.StructType) types.StructType
-	// RecordType returns the output record type of the underlying relation
-	// as a struct type.
+	// directOutputSchema returns the output record type of the underlying
+	// relation as a struct type.  Mapping is not applied.
+	directOutputSchema() types.StructType
+	// RecordType returns the types used by all columns returned by
+	// this relation after applying any provided mapping.
 	RecordType() types.StructType
 
 	GetAdvancedExtension() *extensions.AdvancedExtension
@@ -532,9 +530,9 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			return nil, fmt.Errorf("%w: set operation must not be unspecified", substraitgo.ErrInvalidRel)
 		}
 
-		primary := inputs[0].Remap(inputs[0].RecordType())
+		primary := inputs[0].RecordType()
 		for i, in := range inputs[1:] {
-			t := in.Remap(in.RecordType())
+			t := in.RecordType()
 			if !t.Equals(&primary) {
 				return nil, fmt.Errorf("%w: set operation field mismatch found in input #%d, expected %s, got %s",
 					substraitgo.ErrInvalidRel, i+1, &primary, &t)

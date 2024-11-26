@@ -164,7 +164,7 @@ func (b *builder) UserDefinedType(nameSpace, typeName string, params ...types.Ty
 }
 
 func (b *builder) JoinedRecordFieldRef(left, right Rel, index int32) (*expr.FieldReference, error) {
-	baseTypes := append(left.Remap(left.RecordType()).Types, right.Remap(right.RecordType()).Types...)
+	baseTypes := append(left.RecordType().Types, right.RecordType().Types...)
 	if index < 0 || index > int32(len(baseTypes)) {
 		return nil, fmt.Errorf("%w: cannot create field ref index %d, only %d fields to reference",
 			substraitgo.ErrInvalidArg, index, len(baseTypes))
@@ -207,7 +207,7 @@ func (b *builder) ProjectRemap(input Rel, remap []int32, exprs ...expr.Expressio
 		return nil, fmt.Errorf("%w: must provide at least one expression for project relation", substraitgo.ErrInvalidRel)
 	}
 
-	noutput := int32(len(input.Remap(input.RecordType()).Types) + len(exprs))
+	noutput := int32(len(input.RecordType().Types) + len(exprs))
 	for _, idx := range remap {
 		if idx < 0 || idx >= noutput {
 			return nil, errOutputMappingOutOfRange
@@ -306,7 +306,7 @@ func (b *builder) CreateTableAsSelectRemap(input Rel, remap []int32, tableName [
 		return nil, errNilInputRel
 	}
 
-	nOutput := int32(len(input.Remap(input.RecordType()).Types))
+	nOutput := int32(len(input.RecordType().Types))
 	for _, idx := range remap {
 		if idx < 0 || idx >= nOutput {
 			return nil, errOutputMappingOutOfRange
@@ -332,7 +332,7 @@ func (b *builder) CrossRemap(left, right Rel, remap []int32) (*CrossRel, error) 
 		return nil, errNilInputRel
 	}
 
-	noutput := int32(len(left.Remap(left.RecordType()).Types) + len(right.Remap(right.RecordType()).Types))
+	noutput := int32(len(left.RecordType().Types) + len(right.RecordType().Types))
 	for _, idx := range remap {
 		if idx < 0 || idx >= noutput {
 			return nil, errOutputMappingOutOfRange
@@ -354,7 +354,7 @@ func (b *builder) FetchRemap(input Rel, offset, count int64, remap []int32) (*Fe
 		return nil, errNilInputRel
 	}
 
-	noutput := int32(len(input.Remap(input.RecordType()).Types))
+	noutput := int32(len(input.RecordType().Types))
 	for _, idx := range remap {
 		if idx < 0 || idx >= noutput {
 			return nil, errOutputMappingOutOfRange
@@ -387,7 +387,7 @@ func (b *builder) FilterRemap(input Rel, condition expr.Expression, remap []int3
 			substraitgo.ErrInvalidArg, condition.GetType())
 	}
 
-	noutput := int32(len(input.Remap(input.RecordType()).Types))
+	noutput := int32(len(input.directOutputSchema().Types))
 	for _, idx := range remap {
 		if idx < 0 || idx >= noutput {
 			return nil, errOutputMappingOutOfRange
@@ -441,7 +441,7 @@ func (b *builder) JoinAndFilterRemap(left, right Rel, condition, postJoinFilter 
 		joinType: joinType,
 	}
 
-	noutput := int32(len(out.RecordType().Types))
+	noutput := int32(len(out.directOutputSchema().Types))
 	for _, idx := range remap {
 		if idx < 0 || idx >= noutput {
 			return nil, errOutputMappingOutOfRange
@@ -468,7 +468,7 @@ func (b *builder) NamedWriteRemap(input Rel, op WriteOp, tableName []string, sch
 		return nil, errNilInputRel
 	}
 
-	nOutput := int32(len(input.Remap(input.RecordType()).Types))
+	nOutput := int32(len(input.RecordType().Types))
 	for _, idx := range remap {
 		if idx < 0 || idx >= nOutput {
 			return nil, errOutputMappingOutOfRange
@@ -589,7 +589,7 @@ func (b *builder) SortRemap(input Rel, remap []int32, sorts ...expr.SortField) (
 		return nil, errNilInputRel
 	}
 
-	noutput := int32(len(input.Remap(input.RecordType()).Types))
+	noutput := int32(len(input.RecordType().Types))
 	for _, idx := range remap {
 		if idx < 0 || idx >= noutput {
 			return nil, errOutputMappingOutOfRange
@@ -639,7 +639,7 @@ func (b *builder) SetRemap(op SetOp, remap []int32, inputs ...Rel) (*SetRel, err
 		}
 	}
 
-	output := inputs[0].Remap(inputs[0].RecordType())
+	output := inputs[0].RecordType()
 
 	noutput := int32(len(output.Types))
 	for _, idx := range remap {
@@ -649,7 +649,7 @@ func (b *builder) SetRemap(op SetOp, remap []int32, inputs ...Rel) (*SetRel, err
 	}
 
 	for _, in := range inputs[1:] {
-		t := in.Remap(in.RecordType())
+		t := in.RecordType()
 		if !output.Equals(&t) {
 			return nil, fmt.Errorf("%w: mismatched column types in set relation, %s vs %s",
 				substraitgo.ErrInvalidRel, &output, &t)
@@ -673,7 +673,7 @@ func (b *builder) PlanWithTypes(root Rel, rootNames []string, expectedTypeURLs [
 			substraitgo.ErrInvalidRel)
 	}
 
-	rec := len(root.Remap(root.RecordType()).Types)
+	rec := len(root.RecordType().Types)
 	if rec != len(rootNames) {
 		return nil, fmt.Errorf("%w: mismatched number of names and result record columns, got %d expected %d",
 			substraitgo.ErrInvalidRel, len(rootNames), rec)

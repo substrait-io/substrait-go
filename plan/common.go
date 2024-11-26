@@ -33,7 +33,7 @@ func (rc *RelCommon) fromProtoCommon(c *proto.RelCommon) {
 	}
 }
 
-func (rc *RelCommon) Remap(initial types.StructType) types.StructType {
+func (rc *RelCommon) remap(initial types.StructType) types.StructType {
 	if rc.mapping == nil {
 		return initial
 	}

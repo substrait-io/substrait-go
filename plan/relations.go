@@ -91,8 +91,12 @@ func (b *baseReadRel) fromProtoReadRel(rel *proto.ReadRel, reg expr.ExtensionReg
 	return nil
 }
 
-func (b *baseReadRel) RecordType() types.StructType {
+func (b *baseReadRel) directOutputSchema() types.StructType {
 	return b.baseSchema.Struct
+}
+
+func (b *baseReadRel) RecordType() types.StructType {
+	return b.remap(b.directOutputSchema())
 }
 
 func (b *baseReadRel) BaseSchema() types.NamedStruct                       { return b.baseSchema }
@@ -162,6 +166,10 @@ func (n *NamedTableReadRel) Names() []string { return n.names }
 
 func (n *NamedTableReadRel) NamedTableAdvancedExtension() *extensions.AdvancedExtension {
 	return n.advExtension
+}
+
+func (n *NamedTableReadRel) RecordType() types.StructType {
+	return n.remap(n.directOutputSchema())
 }
 
 func (n *NamedTableReadRel) ToProtoPlanRel() *proto.PlanRel {
@@ -503,7 +511,7 @@ type ProjectRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
-func (p *ProjectRel) RecordType() types.StructType {
+func (p *ProjectRel) directOutputSchema() types.StructType {
 	initial := p.input.RecordType()
 	output := slices.Grow(slices.Clone(initial.Types), len(p.exprs))
 
@@ -515,6 +523,9 @@ func (p *ProjectRel) RecordType() types.StructType {
 		Nullability: initial.Nullability,
 		Types:       output,
 	}
+}
+func (p *ProjectRel) RecordType() types.StructType {
+	return p.remap(p.directOutputSchema())
 }
 func (p *ProjectRel) Input() Rel                     { return p.input }
 func (p *ProjectRel) Expressions() []expr.Expression { return p.exprs }
@@ -611,29 +622,29 @@ type JoinRel struct {
 	advExtension   *extensions.AdvancedExtension
 }
 
-func (j *JoinRel) RecordType() types.StructType {
+func (j *JoinRel) directOutputSchema() types.StructType {
 	var typeList []types.Type
 	switch j.joinType {
 	case JoinTypeInner:
 		return j.JoinedRecordType()
 	case JoinTypeLeftSemi:
-		return j.left.Remap(j.left.RecordType())
+		return j.left.RecordType()
 	case JoinTypeOuter:
 		typeList = j.JoinedRecordType().Types
 		for i, t := range typeList {
 			typeList[i] = t.WithNullability(types.NullabilityNullable)
 		}
 	case JoinTypeLeft, JoinTypeLeftSingle:
-		left := j.left.Remap(j.left.RecordType())
-		right := j.right.Remap(j.right.RecordType())
+		left := j.left.RecordType()
+		right := j.right.RecordType()
 		typeList = make([]types.Type, 0, len(left.Types)+len(right.Types))
 		typeList = append(typeList, left.Types...)
 		for _, r := range right.Types {
 			typeList = append(typeList, r.WithNullability(types.NullabilityNullable))
 		}
 	case JoinTypeRight:
-		left := j.left.Remap(j.left.RecordType())
-		right := j.right.Remap(j.right.RecordType())
+		left := j.left.RecordType()
+		right := j.right.RecordType()
 		typeList = make([]types.Type, 0, len(left.Types)+len(right.Types))
 		for _, l := range left.Types {
 			typeList = append(typeList, l.WithNullability(types.NullabilityNullable))
@@ -651,10 +662,14 @@ func (j *JoinRel) RecordType() types.StructType {
 	}
 }
 
+func (j *JoinRel) RecordType() types.StructType {
+	return j.remap(j.directOutputSchema())
+}
+
 func (j *JoinRel) JoinedRecordType() types.StructType {
 	return types.StructType{
 		Nullability: proto.Type_NULLABILITY_REQUIRED,
-		Types:       append(j.left.Remap(j.left.RecordType()).Types, j.right.Remap(j.right.RecordType()).Types...),
+		Types:       append(j.left.RecordType().Types, j.right.RecordType().Types...),
 	}
 }
 
@@ -743,13 +758,15 @@ type CrossRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
-func (c *CrossRel) RecordType() types.StructType {
+func (c *CrossRel) directOutputSchema() types.StructType {
 	return types.StructType{
 		Nullability: proto.Type_NULLABILITY_REQUIRED,
 		Types:       append(c.left.RecordType().Types, c.right.RecordType().Types...),
 	}
 }
-
+func (c *CrossRel) RecordType() types.StructType {
+	return c.remap(c.directOutputSchema())
+}
 func (c *CrossRel) Left() Rel  { return c.left }
 func (c *CrossRel) Right() Rel { return c.right }
 func (c *CrossRel) GetAdvancedExtension() *extensions.AdvancedExtension {
@@ -807,10 +824,13 @@ type FetchRel struct {
 	advExtension  *extensions.AdvancedExtension
 }
 
-func (f *FetchRel) RecordType() types.StructType { return f.input.RecordType() }
-func (f *FetchRel) Input() Rel                   { return f.input }
-func (f *FetchRel) Offset() int64                { return f.offset }
-func (f *FetchRel) Count() int64                 { return f.count }
+func (f *FetchRel) directOutputSchema() types.StructType { return f.input.RecordType() }
+func (f *FetchRel) RecordType() types.StructType {
+	return f.remap(f.directOutputSchema())
+}
+func (f *FetchRel) Input() Rel    { return f.input }
+func (f *FetchRel) Offset() int64 { return f.offset }
+func (f *FetchRel) Count() int64  { return f.count }
 func (f *FetchRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return f.advExtension
 }
@@ -893,7 +913,7 @@ type AggregateRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
-func (ar *AggregateRel) RecordType() types.StructType {
+func (ar *AggregateRel) directOutputSchema() types.StructType {
 	groupTypes := make([]types.Type, 0, len(ar.groups)+len(ar.measures))
 	for _, g := range ar.groups {
 		for _, e := range g {
@@ -909,6 +929,10 @@ func (ar *AggregateRel) RecordType() types.StructType {
 		Nullability: proto.Type_NULLABILITY_REQUIRED,
 		Types:       groupTypes,
 	}
+}
+
+func (ar *AggregateRel) RecordType() types.StructType {
+	return ar.remap(ar.directOutputSchema())
 }
 
 func (ar *AggregateRel) Input() Rel { return ar.input }
@@ -1017,9 +1041,12 @@ type SortRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
-func (sr *SortRel) RecordType() types.StructType { return sr.input.RecordType() }
-func (sr *SortRel) Input() Rel                   { return sr.input }
-func (sr *SortRel) Sorts() []expr.SortField      { return sr.sorts }
+func (sr *SortRel) directOutputSchema() types.StructType { return sr.input.RecordType() }
+func (sr *SortRel) RecordType() types.StructType {
+	return sr.remap(sr.directOutputSchema())
+}
+func (sr *SortRel) Input() Rel              { return sr.input }
+func (sr *SortRel) Sorts() []expr.SortField { return sr.sorts }
 func (sr *SortRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return sr.advExtension
 }
@@ -1095,9 +1122,12 @@ type FilterRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
-func (fr *FilterRel) RecordType() types.StructType { return fr.input.RecordType() }
-func (fr *FilterRel) Input() Rel                   { return fr.input }
-func (fr *FilterRel) Condition() expr.Expression   { return fr.cond }
+func (fr *FilterRel) directOutputSchema() types.StructType { return fr.input.RecordType() }
+func (fr *FilterRel) RecordType() types.StructType {
+	return fr.remap(fr.directOutputSchema())
+}
+func (fr *FilterRel) Input() Rel                 { return fr.input }
+func (fr *FilterRel) Condition() expr.Expression { return fr.cond }
 func (fr *FilterRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return fr.advExtension
 }
@@ -1174,9 +1204,12 @@ type SetRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
-func (s *SetRel) RecordType() types.StructType { return s.inputs[0].Remap(s.inputs[0].RecordType()) }
-func (s *SetRel) Inputs() []Rel                { return s.inputs }
-func (s *SetRel) Op() SetOp                    { return s.op }
+func (s *SetRel) directOutputSchema() types.StructType { return s.inputs[0].RecordType() }
+func (s *SetRel) RecordType() types.StructType {
+	return s.remap(s.directOutputSchema())
+}
+func (s *SetRel) Inputs() []Rel { return s.inputs }
+func (s *SetRel) Op() SetOp     { return s.op }
 func (s *SetRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return s.advExtension
 }
@@ -1231,8 +1264,12 @@ type ExtensionSingleRel struct {
 	detail *anypb.Any
 }
 
-func (es *ExtensionSingleRel) RecordType() types.StructType { return es.input.RecordType() }
-
+func (es *ExtensionSingleRel) directOutputSchema() types.StructType {
+	return es.input.RecordType()
+}
+func (es *ExtensionSingleRel) RecordType() types.StructType {
+	return es.remap(es.directOutputSchema())
+}
 func (es *ExtensionSingleRel) Input() Rel         { return es.input }
 func (es *ExtensionSingleRel) Detail() *anypb.Any { return es.detail }
 
@@ -1283,8 +1320,11 @@ type ExtensionLeafRel struct {
 	detail *anypb.Any
 }
 
-func (el *ExtensionLeafRel) RecordType() types.StructType { return types.StructType{} }
-func (el *ExtensionLeafRel) Detail() *anypb.Any           { return el.detail }
+func (el *ExtensionLeafRel) directOutputSchema() types.StructType { return types.StructType{} }
+func (el *ExtensionLeafRel) RecordType() types.StructType {
+	return el.remap(el.directOutputSchema())
+}
+func (el *ExtensionLeafRel) Detail() *anypb.Any { return el.detail }
 
 func (el *ExtensionLeafRel) ToProto() *proto.Rel {
 	return &proto.Rel{
@@ -1325,9 +1365,12 @@ type ExtensionMultiRel struct {
 	detail *anypb.Any
 }
 
-func (em *ExtensionMultiRel) RecordType() types.StructType { return types.StructType{} }
-func (em *ExtensionMultiRel) Inputs() []Rel                { return em.inputs }
-func (em *ExtensionMultiRel) Detail() *anypb.Any           { return em.detail }
+func (em *ExtensionMultiRel) directOutputSchema() types.StructType { return types.StructType{} }
+func (em *ExtensionMultiRel) RecordType() types.StructType {
+	return em.remap(em.directOutputSchema())
+}
+func (em *ExtensionMultiRel) Inputs() []Rel      { return em.inputs }
+func (em *ExtensionMultiRel) Detail() *anypb.Any { return em.detail }
 
 func (em *ExtensionMultiRel) ToProto() *proto.Rel {
 	inputs := make([]*proto.Rel, len(em.inputs))
@@ -1397,11 +1440,15 @@ type HashJoinRel struct {
 	advExtension        *extensions.AdvancedExtension
 }
 
-func (hr *HashJoinRel) RecordType() types.StructType {
+func (hr *HashJoinRel) directOutputSchema() types.StructType {
 	return types.StructType{
 		Nullability: proto.Type_NULLABILITY_REQUIRED,
-		Types:       append(hr.left.Remap(hr.left.RecordType()).Types, hr.right.Remap(hr.right.RecordType()).Types...),
+		Types:       append(hr.left.RecordType().Types, hr.right.RecordType().Types...),
 	}
+}
+
+func (hr *HashJoinRel) RecordType() types.StructType {
+	return hr.remap(hr.directOutputSchema())
 }
 
 func (hr *HashJoinRel) Left() Rel                         { return hr.left }
@@ -1500,11 +1547,15 @@ type MergeJoinRel struct {
 	advExtension        *extensions.AdvancedExtension
 }
 
-func (mr *MergeJoinRel) RecordType() types.StructType {
+func (mr *MergeJoinRel) directOutputSchema() types.StructType {
 	return types.StructType{
 		Nullability: proto.Type_NULLABILITY_REQUIRED,
-		Types:       append(mr.left.Remap(mr.left.RecordType()).Types, mr.right.Remap(mr.right.RecordType()).Types...),
+		Types:       append(mr.left.RecordType().Types, mr.right.RecordType().Types...),
 	}
+}
+
+func (mr *MergeJoinRel) RecordType() types.StructType {
+	return mr.remap(mr.directOutputSchema())
 }
 
 func (mr *MergeJoinRel) Left() Rel                         { return mr.left }
@@ -1624,7 +1675,7 @@ type NamedTableWriteRel struct {
 	outputMode  OutputMode
 }
 
-func (wr *NamedTableWriteRel) RecordType() types.StructType {
+func (wr *NamedTableWriteRel) directOutputSchema() types.StructType {
 	switch wr.outputMode {
 	case OutputModeNoOutput:
 		return types.StructType{}
@@ -1634,6 +1685,10 @@ func (wr *NamedTableWriteRel) RecordType() types.StructType {
 		panic("output mode not specified")
 	}
 	return types.StructType{}
+}
+
+func (wr *NamedTableWriteRel) RecordType() types.StructType {
+	return wr.remap(wr.directOutputSchema())
 }
 
 func (n *NamedTableWriteRel) Names() []string { return n.names }

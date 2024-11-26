@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/substrait-io/substrait-go/expr"
+	"github.com/substrait-io/substrait-go/proto"
 	"github.com/substrait-io/substrait-go/types"
 )
 
@@ -344,4 +345,117 @@ func TestRelations_Copy(t *testing.T) {
 			}
 		})
 	}
+}
+
+// fakeRel is a pretend relation that allows direct control of its direct output schema.
+type fakeRel struct {
+	RelCommon
+
+	outputType types.StructType
+}
+
+func (f *fakeRel) directOutputSchema() types.StructType {
+	return f.outputType
+}
+
+func (f *fakeRel) RecordType() types.StructType {
+	return f.remap(f.directOutputSchema())
+}
+
+func (f *fakeRel) ToProto() *proto.Rel {
+	panic("unused")
+}
+
+func (f *fakeRel) ToProtoPlanRel() *proto.PlanRel {
+	panic("unused")
+}
+
+func (f *fakeRel) Copy(newInputs ...Rel) (Rel, error) {
+	panic("unused")
+}
+
+func (f *fakeRel) GetInputs() []Rel {
+	panic("unused")
+}
+
+func (f *fakeRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error) {
+	panic("unused")
+}
+
+func TestProjectRecordType(t *testing.T) {
+	var rel ProjectRel
+	rel.input = &fakeRel{outputType: types.StructType{
+		Types: []types.Type{&types.Int64Type{}, &types.Int64Type{}},
+	}}
+
+	rel.mapping = nil
+	expected := types.StructType{Types: []types.Type{&types.Int64Type{}, &types.Int64Type{}}}
+	result := rel.RecordType()
+	assert.Equal(t, expected, result)
+
+	rel.mapping = []int32{0}
+	expected = types.StructType{Types: []types.Type{&types.Int64Type{}}}
+	result = rel.RecordType()
+	assert.Equal(t, expected, result)
+}
+
+func TestExtensionSingleRecordType(t *testing.T) {
+	var rel ExtensionSingleRel
+	rel.input = &fakeRel{outputType: types.StructType{
+		Types: []types.Type{&types.Int64Type{}, &types.Int64Type{}},
+	}}
+
+	rel.mapping = nil
+	expected := types.StructType{Types: []types.Type{&types.Int64Type{}, &types.Int64Type{}}}
+	result := rel.RecordType()
+	assert.Equal(t, expected, result)
+
+	rel.mapping = []int32{0}
+	expected = types.StructType{Types: []types.Type{&types.Int64Type{}}}
+	result = rel.RecordType()
+	assert.Equal(t, expected, result)
+}
+
+func TestHashJoinRecordType(t *testing.T) {
+	var rel HashJoinRel
+	rel.left = &fakeRel{outputType: types.StructType{
+		Types: []types.Type{&types.Int64Type{}, &types.Int64Type{}},
+	}}
+	rel.right = &fakeRel{outputType: types.StructType{
+		Types: []types.Type{&types.StringType{}, &types.StringType{}},
+	}}
+
+	rel.mapping = nil
+	expected := types.StructType{Nullability: types.NullabilityRequired,
+		Types: []types.Type{&types.Int64Type{}, &types.Int64Type{}, &types.StringType{}, &types.StringType{}}}
+	result := rel.RecordType()
+	assert.Equal(t, expected, result)
+
+	rel.mapping = []int32{0}
+	expected = types.StructType{Nullability: types.NullabilityRequired,
+		Types: []types.Type{&types.Int64Type{}}}
+	result = rel.RecordType()
+	assert.Equal(t, expected, result)
+}
+
+func TestMergeJoinRecordType(t *testing.T) {
+	var rel MergeJoinRel
+	rel.left = &fakeRel{outputType: types.StructType{
+		Types: []types.Type{&types.Int64Type{}, &types.Int64Type{}},
+	}}
+	rel.right = &fakeRel{outputType: types.StructType{
+		Types: []types.Type{&types.StringType{}, &types.StringType{}},
+	}}
+
+	rel.mapping = nil
+	expected := types.StructType{Nullability: types.NullabilityRequired,
+		Types: []types.Type{&types.Int64Type{}, &types.Int64Type{}, &types.StringType{}, &types.StringType{}}}
+	result := rel.RecordType()
+	assert.Equal(t, expected, result)
+
+	rel.mapping = []int32{0}
+	expected = types.StructType{Nullability: types.NullabilityRequired,
+		Types: []types.Type{&types.Int64Type{}}}
+	result = rel.RecordType()
+	assert.Equal(t, expected, result)
 }
