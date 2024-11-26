@@ -1338,6 +1338,7 @@ func (n NamedStruct) String() string {
 	return b.String()
 }
 
+// RecordType is the type of a record (or row) comprising a list of fields (or columns).
 type RecordType struct {
 	types []Type
 }
