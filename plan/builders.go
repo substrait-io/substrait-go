@@ -174,7 +174,7 @@ func (b *builder) JoinedRecordFieldRef(left, right Rel, index int32) (*expr.Fiel
 }
 
 func (b *builder) RootFieldRef(input Rel, index int32) (*expr.FieldReference, error) {
-	base := types.StructType(input.RecordType())
+	base := input.RecordType()
 	if index < 0 || index > int32(len(base.Types)) {
 		return nil, fmt.Errorf("%w: cannot create field ref index %d, only %d fields in rel",
 			substraitgo.ErrInvalidArg, index, len(base.Types))
@@ -639,7 +639,7 @@ func (b *builder) SetRemap(op SetOp, remap []int32, inputs ...Rel) (*SetRel, err
 		}
 	}
 
-	output := types.StructType(inputs[0].RecordType())
+	output := inputs[0].RecordType()
 
 	noutput := int32(len(output.Types))
 	for _, idx := range remap {
@@ -649,7 +649,7 @@ func (b *builder) SetRemap(op SetOp, remap []int32, inputs ...Rel) (*SetRel, err
 	}
 
 	for _, in := range inputs[1:] {
-		t := types.StructType(in.RecordType())
+		t := in.RecordType()
 		if !output.Equals(&t) {
 			return nil, fmt.Errorf("%w: mismatched column types in set relation, %s vs %s",
 				substraitgo.ErrInvalidRel, &output, &t)

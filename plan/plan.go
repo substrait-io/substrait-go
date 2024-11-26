@@ -346,7 +346,7 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			return nil, fmt.Errorf("error getting input to FilterRel: %w", err)
 		}
 
-		base := types.StructType(input.RecordType())
+		base := input.RecordType()
 		cond, err := expr.ExprFromProto(rel.Filter.Condition, &base, reg)
 		if err != nil {
 			return nil, fmt.Errorf("error getting condition for FilterRel: %w", err)
