@@ -1338,4 +1338,4 @@ func (n NamedStruct) String() string {
 	return b.String()
 }
 
-type RecordType = StructType
+type RecordType StructType

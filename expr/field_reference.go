@@ -536,7 +536,7 @@ type FieldReference struct {
 	knownType types.Type
 }
 
-func NewRootFieldRef(ref Reference, baseSchema *types.StructType) (*FieldReference, error) {
+func NewRootFieldRef(ref Reference, baseSchema *types.RecordType) (*FieldReference, error) {
 	return NewFieldRef(RootReference, ref, baseSchema)
 }
 
@@ -545,7 +545,7 @@ func NewRootFieldRefFromType(ref Reference, t types.Type) (*FieldReference, erro
 	return NewFieldRefFromType(RootReference, ref, t)
 }
 
-func NewFieldRef(root RootRefType, ref Reference, baseSchema *types.StructType) (*FieldReference, error) {
+func NewFieldRef(root RootRefType, ref Reference, baseSchema *types.RecordType) (*FieldReference, error) {
 	if ref != nil && root == RootReference && baseSchema == nil {
 		return nil, fmt.Errorf("%w: must provide the base schema to create a root field ref",
 			substraitgo.ErrInvalidExpr)
