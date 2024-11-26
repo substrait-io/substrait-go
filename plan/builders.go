@@ -170,7 +170,7 @@ func (b *builder) JoinedRecordFieldRef(left, right Rel, index int32) (*expr.Fiel
 			substraitgo.ErrInvalidArg, index, len(baseTypes))
 	}
 
-	return expr.NewRootFieldRef(expr.NewStructFieldRef(index), &types.StructType{Types: baseTypes})
+	return expr.NewRootFieldRef(expr.NewStructFieldRef(index), &types.RecordType{Types: baseTypes})
 }
 
 func (b *builder) RootFieldRef(input Rel, index int32) (*expr.FieldReference, error) {

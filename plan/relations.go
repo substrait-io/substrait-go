@@ -70,14 +70,14 @@ func (b *baseReadRel) fromProtoReadRel(rel *proto.ReadRel, reg expr.ExtensionReg
 	b.baseSchema = types.NewNamedStructFromProto(rel.BaseSchema)
 	var err error
 	if rel.Filter != nil {
-		b.filter, err = expr.ExprFromProto(rel.Filter, &b.baseSchema.Struct, reg)
+		b.filter, err = expr.ExprFromProto(rel.Filter, (*types.RecordType)(&b.baseSchema.Struct), reg)
 		if err != nil {
 			return err
 		}
 	}
 
 	if rel.BestEffortFilter != nil {
-		b.bestEffortFilter, err = expr.ExprFromProto(rel.BestEffortFilter, &b.baseSchema.Struct, reg)
+		b.bestEffortFilter, err = expr.ExprFromProto(rel.BestEffortFilter, (*types.RecordType)(&b.baseSchema.Struct), reg)
 		if err != nil {
 			return err
 		}

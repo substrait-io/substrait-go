@@ -111,7 +111,7 @@ func ExampleExpression_scalarFunction() {
 	var addVariant = ext.NewScalarFuncVariant(ext.ID{URI: substraitext, Name: "add:i32_i32"})
 
 	var ex expr.Expression
-	refArg, _ := expr.NewRootFieldRef(expr.NewStructFieldRef(0), &types.StructType{Types: []types.Type{&types.Int32Type{}}})
+	refArg, _ := expr.NewRootFieldRef(expr.NewStructFieldRef(0), &types.RecordType{Types: []types.Type{&types.Int32Type{}}})
 	ex, _ = expr.NewCustomScalarFunc(reg, addVariant, &types.Int32Type{}, nil,
 		refArg, expr.NewPrimitiveLiteral(float64(10), false))
 
@@ -146,7 +146,7 @@ func sampleNestedExpr(reg expr.ExtensionRegistry, substraitExtURI string) expr.E
 		mul = ext.NewScalarFuncVariant(ext.ID{URI: substraitExtURI, Name: "multiply"})
 	)
 
-	baseSchema := &types.StructType{
+	baseSchema := &types.RecordType{
 		Types: []types.Type{
 			&types.BooleanType{},
 			&types.Int32Type{},
@@ -360,7 +360,7 @@ func TestRoundTripUsingTestData(t *testing.T) {
 			var ex proto.Expression
 			require.NoError(t, protojson.Unmarshal(buf.Bytes(), &ex))
 
-			e, err := expr.ExprFromProto(&ex, &baseSchema.Struct, reg)
+			e, err := expr.ExprFromProto(&ex, (*types.RecordType)(&baseSchema.Struct), reg)
 			require.NoError(t, err)
 
 			result := e.ToProto()

@@ -40,7 +40,7 @@ func MustExpr(e Expression, err error) Expression {
 	return e
 }
 
-func FuncArgFromProto(e *proto.FunctionArgument, baseSchema types.Type, reg ExtensionRegistry) (types.FuncArg, error) {
+func FuncArgFromProto(e *proto.FunctionArgument, baseSchema *types.RecordType, reg ExtensionRegistry) (types.FuncArg, error) {
 	switch et := e.ArgType.(type) {
 	case *proto.FunctionArgument_Enum:
 		return types.Enum(et.Enum), nil
@@ -52,7 +52,7 @@ func FuncArgFromProto(e *proto.FunctionArgument, baseSchema types.Type, reg Exte
 	return nil, substraitgo.ErrNotImplemented
 }
 
-func ExprFromProto(e *proto.Expression, baseSchema types.Type, reg ExtensionRegistry) (Expression, error) {
+func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg ExtensionRegistry) (Expression, error) {
 	if e == nil {
 		return nil, fmt.Errorf("%w: protobuf Expression is nil", substraitgo.ErrInvalidExpr)
 	}
@@ -1569,13 +1569,15 @@ func ExtendedFromProto(ex *proto.ExtendedExpression, c *extensions.Collection) (
 		refs[i].OutputNames = r.OutputNames
 		switch et := r.ExprType.(type) {
 		case *proto.ExpressionReference_Expression:
-			expr, err := ExprFromProto(et.Expression, &base.Struct, reg)
+			thisType := types.RecordType(base.Struct)
+			expr, err := ExprFromProto(et.Expression, &thisType, reg)
 			if err != nil {
 				return nil, err
 			}
 			refs[i].SetExpr(expr)
 		case *proto.ExpressionReference_Measure:
-			agg, err := NewAggregateFunctionFromProto(et.Measure, &base.Struct, reg)
+			thisType := types.RecordType(base.Struct)
+			agg, err := NewAggregateFunctionFromProto(et.Measure, &thisType, reg)
 			if err != nil {
 				return nil, err
 			}

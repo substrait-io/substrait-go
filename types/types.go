@@ -1339,3 +1339,12 @@ func (n NamedStruct) String() string {
 }
 
 type RecordType StructType
+
+func (r *RecordType) Equals(other *RecordType) bool {
+	thisType := StructType(*r)
+	return thisType.Equals((*StructType)(other))
+}
+
+func (r *RecordType) String() string {
+	return (*StructType)(r).String()
+}
