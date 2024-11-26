@@ -33,12 +33,12 @@ func (rc *RelCommon) fromProtoCommon(c *proto.RelCommon) {
 	}
 }
 
-func (rc *RelCommon) remap(initial types.StructType) types.StructType {
+func (rc *RelCommon) remap(initial types.RecordType) types.RecordType {
 	if rc.mapping == nil {
 		return initial
 	}
 
-	out := types.StructType{
+	out := types.RecordType{
 		Nullability:      initial.Nullability,
 		TypeVariationRef: initial.TypeVariationRef,
 		Types:            make([]types.Type, len(rc.mapping)),
