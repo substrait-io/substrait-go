@@ -382,6 +382,12 @@ func (f *fakeRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs .
 	panic("unused")
 }
 
+func (f *fakeRel) ChangeMapping(mapping []int32) error {
+	newMapping, err := ChangeMapping(f, mapping)
+	f.mapping = newMapping
+	return err
+}
+
 func TestProjectRecordType(t *testing.T) {
 	var rel ProjectRel
 	rel.input = &fakeRel{outputType: *types.NewRecordTypeFromTypes(

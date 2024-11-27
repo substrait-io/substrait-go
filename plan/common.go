@@ -49,6 +49,10 @@ func (rc *RelCommon) remap(initial types.RecordType) types.RecordType {
 
 func (rc *RelCommon) OutputMapping() []int32 { return rc.mapping }
 
+func (rc *RelCommon) ClearMapping() {
+	rc.mapping = nil
+}
+
 func (rc *RelCommon) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return rc.advExtension
 }
