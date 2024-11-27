@@ -1,0 +1,152 @@
+{
+  "extensionUris": [
+    {
+      "extensionUriAnchor": 1,
+      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    }
+  ],
+  "extensions": [
+    {
+      "extensionFunction": {
+        "extensionUriReference": 1,
+        "functionAnchor": 1,
+        "name": "add:i32_i32"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "root": {
+        "input": {
+          "project": {
+            "common": {
+              "direct": {
+              }
+            },
+            "input": {
+                  "read": {
+                    "baseSchema": {
+                      "names": [
+                        "col0",
+                        "col1"
+                      ],
+                      "struct": {
+                        "nullability": "NULLABILITY_REQUIRED",
+                        "types": [
+                          {
+                            "i32": {
+                              "nullability": "NULLABILITY_REQUIRED"
+                            }
+                          },                          {
+                            "i32": {
+                              "nullability": "NULLABILITY_REQUIRED"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    "common": {
+                      "direct": {
+                      }
+                    },
+                    "virtualTable": {
+                      "expressions": [
+                        {
+                          "fields": [
+                            {
+                              "scalarFunction": {
+                                "arguments": [
+                                  {
+                                    "value": {
+                                      "literal": {
+                                        "i32": 1
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "value": {
+                                      "literal": {
+                                        "i32": 1
+                                      }
+                                    }
+                                  }
+                                ],
+                                "functionReference": 1,
+                                "outputType": {
+                                  "i32": {
+                                    "nullability": "NULLABILITY_REQUIRED"
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "scalarFunction": {
+                                "arguments": [
+                                  {
+                                    "value": {
+                                      "literal": {
+                                        "i32": 2
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "value": {
+                                      "literal": {
+                                        "i32": 2
+                                      }
+                                    }
+                                  }
+                                ],
+                                "functionReference": 1,
+                                "outputType": {
+                                  "i32": {
+                                    "nullability": "NULLABILITY_REQUIRED"
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                },
+            "expressions": [
+              {
+                "selection": {
+                  "directReference": {
+                    "structField": {}
+                  },
+                  "rootReference": {}
+                }
+              },
+              {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 1
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "names": [
+          "col0",
+          "col1",
+          "col0",
+          "col1"
+        ]
+      }
+    }
+  ],
+  "version": {
+  "majorNumber": 0,
+  "minorNumber": 29,
+  "patchNumber": 0,
+  "producer": "substrait-go"
+}
+}

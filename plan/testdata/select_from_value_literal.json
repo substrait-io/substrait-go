@@ -1,0 +1,94 @@
+{
+  "relations": [
+    {
+      "root": {
+        "input": {
+          "project": {
+            "common": {
+              "direct": {}
+            },
+            "input": {
+              "read": {
+                "baseSchema": {
+                  "names": [
+                    "col0",
+                    "col1"
+                  ],
+                  "struct": {
+                    "nullability": "NULLABILITY_REQUIRED",
+                    "types": [
+                      {
+                        "i32":  {
+                          "nullability":  "NULLABILITY_REQUIRED"
+                        }
+                      },
+                      {
+                        "i32":  {
+                          "nullability":  "NULLABILITY_REQUIRED"
+                        }
+                      }
+                    ]
+                  }
+                },
+                "common": {
+                  "direct": {}
+                },
+                "virtualTable": {
+                  "expressions": [
+                    {
+                      "fields": [
+                        {
+                          "literal":  {
+                            "i32":  1
+                          }
+                        },
+                        {
+                          "literal":  {
+                            "i32":  2
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "expressions": [
+              {
+                "selection": {
+                  "directReference": {
+                    "structField": {}
+                  },
+                  "rootReference": {}
+                }
+              },
+              {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 1
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "names": [
+          "col0",
+          "col1",
+          "col0",
+          "col1"
+        ]
+      }
+    }
+  ],
+  "version": {
+    "majorNumber": 0,
+    "minorNumber": 29,
+    "patchNumber": 0,
+    "producer": "substrait-go"
+  }
+}
