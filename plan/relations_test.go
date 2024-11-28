@@ -422,6 +422,30 @@ func TestExtensionSingleRecordType(t *testing.T) {
 	assert.Equal(t, expected, result)
 }
 
+func TestExtensionLeafRecordType(t *testing.T) {
+	var rel ExtensionLeafRel
+
+	rel.ClearMapping()
+	expected := *types.NewRecordTypeFromTypes(nil)
+	result := rel.RecordType()
+	assert.Equal(t, expected, result)
+
+	err := rel.ChangeMapping([]int32{0})
+	assert.ErrorContains(t, err, "output mapping index out of range")
+}
+
+func TestExtensionMultiRecordType(t *testing.T) {
+	var rel ExtensionMultiRel
+
+	rel.ClearMapping()
+	expected := *types.NewRecordTypeFromTypes(nil)
+	result := rel.RecordType()
+	assert.Equal(t, expected, result)
+
+	err := rel.ChangeMapping([]int32{0})
+	assert.ErrorContains(t, err, "output mapping index out of range")
+}
+
 func TestHashJoinRecordType(t *testing.T) {
 	var rel HashJoinRel
 	rel.left = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
