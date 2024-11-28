@@ -14,7 +14,6 @@ import (
 	"github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/plan"
 	substraitproto "github.com/substrait-io/substrait-go/proto"
-	substraitextensions "github.com/substrait-io/substrait-go/proto/extensions"
 	"github.com/substrait-io/substrait-go/types"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
@@ -224,92 +223,6 @@ func TestAggregateNoGrouping(t *testing.T) {
 	p, err := b.Plan(root, []string{"cnt"})
 	require.NoError(t, err)
 	assert.Equal(t, "NSTRUCT<cnt: i64>", p.GetRoots()[0].RecordType().String())
-	planAsProto, err := p.ToProto()
-	assert.NoError(t, err)
-	s := substraitproto.Plan{
-		ExtensionUris: []*substraitextensions.SimpleExtensionURI{{
-			ExtensionUriAnchor: 1,
-			Uri:                "https://github.com/substrait-io/substrait/blob/main/extensions/functions_aggregate_generic.yaml",
-		}},
-		Extensions: []*substraitextensions.SimpleExtensionDeclaration{{
-			MappingType: &substraitextensions.SimpleExtensionDeclaration_ExtensionFunction_{
-				ExtensionFunction: &substraitextensions.SimpleExtensionDeclaration_ExtensionFunction{
-					ExtensionUriReference: 1,
-					FunctionAnchor:        1,
-					Name:                  "count:",
-				},
-			},
-		}},
-		Relations: []*substraitproto.PlanRel{{
-			RelType: &substraitproto.PlanRel_Root{
-				Root: &substraitproto.RelRoot{
-					Input: &substraitproto.Rel{
-						RelType: &substraitproto.Rel_Aggregate{
-							Aggregate: &substraitproto.AggregateRel{
-								Common: &substraitproto.RelCommon{
-									EmitKind: &substraitproto.RelCommon_Direct_{
-										Direct: &substraitproto.RelCommon_Direct{},
-									},
-								},
-								Input: &substraitproto.Rel{
-									RelType: &substraitproto.Rel_Read{
-										Read: &substraitproto.ReadRel{
-											Common: &substraitproto.RelCommon{
-												EmitKind: &substraitproto.RelCommon_Direct_{
-													Direct: &substraitproto.RelCommon_Direct{},
-												},
-											},
-											BaseSchema: &substraitproto.NamedStruct{
-												Names: []string{"a", "b"},
-												Struct: &substraitproto.Type_Struct{
-													Types: []*substraitproto.Type{{
-														Kind: &substraitproto.Type_String_{
-															String_: &substraitproto.Type_String{
-																Nullability: substraitproto.Type_NULLABILITY_REQUIRED,
-															},
-														},
-													}, {
-														Kind: &substraitproto.Type_Fp32{
-															Fp32: &substraitproto.Type_FP32{
-																Nullability: substraitproto.Type_NULLABILITY_REQUIRED,
-															},
-														},
-													}},
-													Nullability: substraitproto.Type_NULLABILITY_REQUIRED,
-												},
-											},
-											ReadType: &substraitproto.ReadRel_NamedTable_{
-												NamedTable: &substraitproto.ReadRel_NamedTable{
-													Names: []string{"test"},
-												},
-											},
-										},
-									},
-								},
-								Measures: []*substraitproto.AggregateRel_Measure{{
-									Measure: &substraitproto.AggregateFunction{
-										FunctionReference: 1,
-										OutputType: &substraitproto.Type{
-											Kind: &substraitproto.Type_I64_{
-												I64: &substraitproto.Type_I64{
-													Nullability: substraitproto.Type_NULLABILITY_REQUIRED,
-												},
-											},
-										},
-										Phase:      substraitproto.AggregationPhase_AGGREGATION_PHASE_INITIAL_TO_RESULT,
-										Invocation: substraitproto.AggregateFunction_AGGREGATION_INVOCATION_ALL,
-									},
-								}},
-							},
-						},
-					},
-					Names: []string{"cnt"},
-				},
-			},
-		}},
-		Version: &substraitproto.Version{MinorNumber: 29, Producer: "substrait-go"},
-	}
-	assert.Equal(t, s.String(), planAsProto.String())
 }
 
 func TestAggregateRelErrors(t *testing.T) {

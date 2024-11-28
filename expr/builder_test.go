@@ -90,6 +90,8 @@ func TestExprBuilder(t *testing.T) {
 			if tt.err == "" {
 				require.NoError(t, err)
 				assert.Equal(t, tt.expected, e.String())
+				// Also that converting to proto does not panic.
+				e.ToProto()
 			} else {
 				assert.EqualError(t, err, tt.err)
 			}
