@@ -76,7 +76,7 @@ func (s *SortField) ToProto() *proto.SortField {
 	return ret
 }
 
-func SortFieldFromProto(f *proto.SortField, baseSchema types.Type, reg ExtensionRegistry) (sf SortField, err error) {
+func SortFieldFromProto(f *proto.SortField, baseSchema *types.RecordType, reg ExtensionRegistry) (sf SortField, err error) {
 	sf.Expr, err = ExprFromProto(f.Expr, baseSchema, reg)
 	if err != nil {
 		return
@@ -719,7 +719,7 @@ func NewCustomAggregateFunc(reg ExtensionRegistry, v *extensions.AggregateFuncti
 	}, nil
 }
 
-func NewAggregateFunctionFromProto(agg *proto.AggregateFunction, baseSchema types.Type, reg ExtensionRegistry) (*AggregateFunction, error) {
+func NewAggregateFunctionFromProto(agg *proto.AggregateFunction, baseSchema *types.RecordType, reg ExtensionRegistry) (*AggregateFunction, error) {
 	if agg.OutputType == nil {
 		return nil, fmt.Errorf("%w: missing output type", substraitgo.ErrInvalidExpr)
 	}

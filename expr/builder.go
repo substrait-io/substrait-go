@@ -37,7 +37,7 @@ type Builder interface {
 // See the unit tests for additional examples / constructs.
 type ExprBuilder struct {
 	Reg        ExtensionRegistry
-	BaseSchema *types.StructType
+	BaseSchema *types.RecordType
 }
 
 // Literal returns a wrapped literal that can be passed as an argument

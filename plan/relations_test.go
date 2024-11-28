@@ -351,14 +351,14 @@ func TestRelations_Copy(t *testing.T) {
 type fakeRel struct {
 	RelCommon
 
-	outputType types.StructType
+	outputType types.RecordType
 }
 
-func (f *fakeRel) directOutputSchema() types.StructType {
+func (f *fakeRel) directOutputSchema() types.RecordType {
 	return f.outputType
 }
 
-func (f *fakeRel) RecordType() types.StructType {
+func (f *fakeRel) RecordType() types.RecordType {
 	return f.remap(f.directOutputSchema())
 }
 
@@ -384,78 +384,71 @@ func (f *fakeRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs .
 
 func TestProjectRecordType(t *testing.T) {
 	var rel ProjectRel
-	rel.input = &fakeRel{outputType: types.StructType{
-		Types: []types.Type{&types.Int64Type{}, &types.Int64Type{}},
-	}}
+	rel.input = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
+		[]types.Type{&types.Int64Type{}, &types.Int64Type{}})}
 
 	rel.mapping = nil
-	expected := types.StructType{Types: []types.Type{&types.Int64Type{}, &types.Int64Type{}}}
+	expected := *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}, &types.Int64Type{}})
 	result := rel.RecordType()
 	assert.Equal(t, expected, result)
 
 	rel.mapping = []int32{0}
-	expected = types.StructType{Types: []types.Type{&types.Int64Type{}}}
+	expected = *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}})
 	result = rel.RecordType()
 	assert.Equal(t, expected, result)
 }
 
 func TestExtensionSingleRecordType(t *testing.T) {
 	var rel ExtensionSingleRel
-	rel.input = &fakeRel{outputType: types.StructType{
-		Types: []types.Type{&types.Int64Type{}, &types.Int64Type{}},
-	}}
+	rel.input = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
+		[]types.Type{&types.Int64Type{}, &types.Int64Type{}})}
 
 	rel.mapping = nil
-	expected := types.StructType{Types: []types.Type{&types.Int64Type{}, &types.Int64Type{}}}
+	expected := *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}, &types.Int64Type{}})
 	result := rel.RecordType()
 	assert.Equal(t, expected, result)
 
 	rel.mapping = []int32{0}
-	expected = types.StructType{Types: []types.Type{&types.Int64Type{}}}
+	expected = *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}})
 	result = rel.RecordType()
 	assert.Equal(t, expected, result)
 }
 
 func TestHashJoinRecordType(t *testing.T) {
 	var rel HashJoinRel
-	rel.left = &fakeRel{outputType: types.StructType{
-		Types: []types.Type{&types.Int64Type{}, &types.Int64Type{}},
-	}}
-	rel.right = &fakeRel{outputType: types.StructType{
-		Types: []types.Type{&types.StringType{}, &types.StringType{}},
-	}}
+	rel.left = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
+		[]types.Type{&types.Int64Type{}, &types.Int64Type{}})}
+	rel.right = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
+		[]types.Type{&types.StringType{}, &types.StringType{}})}
 
 	rel.mapping = nil
-	expected := types.StructType{Nullability: types.NullabilityRequired,
-		Types: []types.Type{&types.Int64Type{}, &types.Int64Type{}, &types.StringType{}, &types.StringType{}}}
+	expected := *types.NewRecordTypeFromTypes(
+		[]types.Type{&types.Int64Type{}, &types.Int64Type{}, &types.StringType{}, &types.StringType{}})
 	result := rel.RecordType()
 	assert.Equal(t, expected, result)
 
 	rel.mapping = []int32{0}
-	expected = types.StructType{Nullability: types.NullabilityRequired,
-		Types: []types.Type{&types.Int64Type{}}}
+	expected = *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}})
 	result = rel.RecordType()
 	assert.Equal(t, expected, result)
 }
 
 func TestMergeJoinRecordType(t *testing.T) {
 	var rel MergeJoinRel
-	rel.left = &fakeRel{outputType: types.StructType{
-		Types: []types.Type{&types.Int64Type{}, &types.Int64Type{}},
-	}}
-	rel.right = &fakeRel{outputType: types.StructType{
-		Types: []types.Type{&types.StringType{}, &types.StringType{}},
-	}}
+	rel.left = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
+		[]types.Type{&types.Int64Type{}, &types.Int64Type{}})}
+	rel.right = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
+		[]types.Type{&types.StringType{}, &types.StringType{}})}
 
 	rel.mapping = nil
-	expected := types.StructType{Nullability: types.NullabilityRequired,
-		Types: []types.Type{&types.Int64Type{}, &types.Int64Type{}, &types.StringType{}, &types.StringType{}}}
+	expected := *types.NewRecordTypeFromTypes(
+		[]types.Type{&types.Int64Type{}, &types.Int64Type{}, &types.StringType{}, &types.StringType{}})
 	result := rel.RecordType()
 	assert.Equal(t, expected, result)
 
 	rel.mapping = []int32{0}
-	expected = types.StructType{Nullability: types.NullabilityRequired,
-		Types: []types.Type{&types.Int64Type{}}}
+	expected = *types.NewRecordTypeFromTypes(
+		[]types.Type{&types.Int64Type{}})
 	result = rel.RecordType()
 	assert.Equal(t, expected, result)
 }

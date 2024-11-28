@@ -536,7 +536,7 @@ type FieldReference struct {
 	knownType types.Type
 }
 
-func NewRootFieldRef(ref Reference, baseSchema *types.StructType) (*FieldReference, error) {
+func NewRootFieldRef(ref Reference, baseSchema *types.RecordType) (*FieldReference, error) {
 	return NewFieldRef(RootReference, ref, baseSchema)
 }
 
@@ -545,7 +545,7 @@ func NewRootFieldRefFromType(ref Reference, t types.Type) (*FieldReference, erro
 	return NewFieldRefFromType(RootReference, ref, t)
 }
 
-func NewFieldRef(root RootRefType, ref Reference, baseSchema *types.StructType) (*FieldReference, error) {
+func NewFieldRef(root RootRefType, ref Reference, baseSchema *types.RecordType) (*FieldReference, error) {
 	if ref != nil && root == RootReference && baseSchema == nil {
 		return nil, fmt.Errorf("%w: must provide the base schema to create a root field ref",
 			substraitgo.ErrInvalidExpr)
@@ -555,7 +555,7 @@ func NewFieldRef(root RootRefType, ref Reference, baseSchema *types.StructType) 
 	case ReferenceSegment:
 		var rootType types.Type
 		if root == RootReference {
-			rootType = baseSchema
+			rootType = baseSchema.AsStructType()
 		} else if rootExpr, ok := root.(Expression); ok {
 			rootType = rootExpr.GetType()
 		} else {
@@ -726,7 +726,7 @@ func (f *FieldReference) Visit(v VisitFunc) Expression {
 
 func (*FieldReference) IsScalar() bool { return true }
 
-func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema types.Type, reg ExtensionRegistry) (*FieldReference, error) {
+func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema *types.RecordType, reg ExtensionRegistry) (*FieldReference, error) {
 	var (
 		ref       Reference
 		root      RootRefType
@@ -749,7 +749,8 @@ func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema type
 	case *proto.Expression_FieldReference_DirectReference:
 		refseg := RefSegmentFromProto(rt.DirectReference)
 		if root == RootReference && baseSchema != nil {
-			knownType, err = refseg.GetType(baseSchema)
+			baseType := baseSchema.AsStructType()
+			knownType, err = refseg.GetType(baseType)
 			if err != nil {
 				return nil, err
 			}

@@ -243,7 +243,7 @@ func (r *Root) ToProtoPlanRel() *proto.PlanRel {
 func (r *Root) RecordType() types.NamedStruct {
 	return types.NamedStruct{
 		Names:  r.names,
-		Struct: r.input.RecordType(),
+		Struct: *r.input.RecordType().AsStructType(),
 	}
 }
 
@@ -273,10 +273,10 @@ type Rel interface {
 	OutputMapping() []int32
 	// directOutputSchema returns the output record type of the underlying
 	// relation as a struct type.  Mapping is not applied.
-	directOutputSchema() types.StructType
+	directOutputSchema() types.RecordType
 	// RecordType returns the types used by all columns returned by
 	// this relation after applying any provided mapping.
-	RecordType() types.StructType
+	RecordType() types.RecordType
 
 	GetAdvancedExtension() *extensions.AdvancedExtension
 	ToProto() *proto.Rel
