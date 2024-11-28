@@ -393,12 +393,13 @@ func TestProjectRecordType(t *testing.T) {
 	rel.input = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
 		[]types.Type{&types.Int64Type{}, &types.Int64Type{}})}
 
-	rel.mapping = nil
+	rel.ClearMapping()
 	expected := *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}, &types.Int64Type{}})
 	result := rel.RecordType()
 	assert.Equal(t, expected, result)
 
-	rel.mapping = []int32{0}
+	err := rel.ChangeMapping([]int32{0})
+	assert.NoError(t, err)
 	expected = *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}})
 	result = rel.RecordType()
 	assert.Equal(t, expected, result)
@@ -409,12 +410,13 @@ func TestExtensionSingleRecordType(t *testing.T) {
 	rel.input = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
 		[]types.Type{&types.Int64Type{}, &types.Int64Type{}})}
 
-	rel.mapping = nil
+	rel.ClearMapping()
 	expected := *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}, &types.Int64Type{}})
 	result := rel.RecordType()
 	assert.Equal(t, expected, result)
 
-	rel.mapping = []int32{0}
+	err := rel.ChangeMapping([]int32{0})
+	assert.NoError(t, err)
 	expected = *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}})
 	result = rel.RecordType()
 	assert.Equal(t, expected, result)
@@ -427,13 +429,14 @@ func TestHashJoinRecordType(t *testing.T) {
 	rel.right = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
 		[]types.Type{&types.StringType{}, &types.StringType{}})}
 
-	rel.mapping = nil
+	rel.ClearMapping()
 	expected := *types.NewRecordTypeFromTypes(
 		[]types.Type{&types.Int64Type{}, &types.Int64Type{}, &types.StringType{}, &types.StringType{}})
 	result := rel.RecordType()
 	assert.Equal(t, expected, result)
 
-	rel.mapping = []int32{0}
+	err := rel.ChangeMapping([]int32{0})
+	assert.NoError(t, err)
 	expected = *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}})
 	result = rel.RecordType()
 	assert.Equal(t, expected, result)
@@ -446,13 +449,14 @@ func TestMergeJoinRecordType(t *testing.T) {
 	rel.right = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
 		[]types.Type{&types.StringType{}, &types.StringType{}})}
 
-	rel.mapping = nil
+	rel.ClearMapping()
 	expected := *types.NewRecordTypeFromTypes(
 		[]types.Type{&types.Int64Type{}, &types.Int64Type{}, &types.StringType{}, &types.StringType{}})
 	result := rel.RecordType()
 	assert.Equal(t, expected, result)
 
-	rel.mapping = []int32{0}
+	err := rel.ChangeMapping([]int32{0})
+	assert.NoError(t, err)
 	expected = *types.NewRecordTypeFromTypes(
 		[]types.Type{&types.Int64Type{}})
 	result = rel.RecordType()
