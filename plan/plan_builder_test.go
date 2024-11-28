@@ -223,6 +223,9 @@ func TestAggregateNoGrouping(t *testing.T) {
 	p, err := b.Plan(root, []string{"cnt"})
 	require.NoError(t, err)
 	assert.Equal(t, "NSTRUCT<cnt: i64>", p.GetRoots()[0].RecordType().String())
+	planAsProto, err := p.ToProto()
+	assert.NoError(t, err)
+	assert.Equal(t, "version:{minor_number:29  producer:\"substrait-go\"}  extension_uris:{extension_uri_anchor:1  uri:\"https://github.com/substrait-io/substrait/blob/main/extensions/functions_aggregate_generic.yaml\"}  extensions:{extension_function:{extension_uri_reference:1  function_anchor:1  name:\"count:\"}}  relations:{root:{input:{aggregate:{common:{direct:{}}  input:{read:{common:{direct:{}}  base_schema:{names:\"a\"  names:\"b\"  struct:{types:{string:{nullability:NULLABILITY_REQUIRED}}  types:{fp32:{nullability:NULLABILITY_REQUIRED}}  nullability:NULLABILITY_REQUIRED}}  named_table:{names:\"test\"}}}  measures:{measure:{function_reference:1  output_type:{i64:{nullability:NULLABILITY_REQUIRED}}  phase:AGGREGATION_PHASE_INITIAL_TO_RESULT  invocation:AGGREGATION_INVOCATION_ALL}}}}  names:\"cnt\"}}", planAsProto.String())
 }
 
 func TestAggregateRelErrors(t *testing.T) {
