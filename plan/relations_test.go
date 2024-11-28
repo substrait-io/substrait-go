@@ -486,3 +486,18 @@ func TestMergeJoinRecordType(t *testing.T) {
 	result = rel.RecordType()
 	assert.Equal(t, expected, result)
 }
+
+func TestNamedTableWriteRecordType(t *testing.T) {
+	var rel NamedTableWriteRel
+	rel.input = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
+		[]types.Type{&types.Int64Type{}, &types.StringType{}})}
+	rel.outputMode = proto.WriteRel_OUTPUT_MODE_MODIFIED_RECORDS
+
+	rel.ClearMapping()
+	expected := *types.NewRecordTypeFromTypes(nil)
+	result := rel.RecordType()
+	assert.Equal(t, expected, result)
+
+	err := rel.ChangeMapping([]int32{0})
+	assert.ErrorContains(t, err, "output mapping index out of range")
+}
