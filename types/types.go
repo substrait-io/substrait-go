@@ -416,7 +416,7 @@ type (
 		MatchWithoutNullability(ot Type) bool
 		ShortString() string
 		GetNullability() Nullability
-		ReturnType() (Type, error)
+		ReturnType(funcParameters []FuncDefArgType, argumentTypes []Type) (Type, error)
 	}
 
 	FixedType interface {
@@ -430,6 +430,98 @@ type (
 		GetPrecision() TimePrecision
 	}
 )
+
+type EnumType struct {
+	Nullability      Nullability
+	TypeVariationRef uint32
+	Name             string
+	Options          []string
+}
+
+func (e *EnumType) ToProtoFuncArg() *proto.FunctionArgument {
+	// FIXME no proto for enum yet
+	return &proto.FunctionArgument{
+		ArgType: &proto.FunctionArgument_Type{Type: TypeToProto(e)},
+	}
+}
+
+func (e *EnumType) isRootRef() {}
+
+func (e *EnumType) GetType() Type {
+	return e
+}
+
+func (e *EnumType) GetTypeVariationReference() uint32 {
+	return e.TypeVariationRef
+}
+
+func (e *EnumType) Equals(t Type) bool {
+	return e.MatchWithNullability(t)
+}
+
+func (e *EnumType) WithNullability(n Nullability) Type {
+	out := *e
+	out.Nullability = n
+	return &out
+}
+
+func (e *EnumType) String() string {
+	return e.Name
+}
+
+func (e *EnumType) SetNullability(n Nullability) FuncDefArgType {
+	e.Nullability = n
+	return e
+}
+
+func (e *EnumType) HasParameterizedParam() bool {
+	return true
+}
+
+func (e *EnumType) GetParameterizedParams() []interface{} {
+	params := make([]interface{}, len(e.Options))
+	for i, p := range e.Options {
+		params[i] = p
+	}
+	return params
+}
+
+func (e *EnumType) MatchWithNullability(ot Type) bool {
+	if e.Nullability != ot.GetNullability() {
+		return false
+	}
+	return e.MatchWithoutNullability(ot)
+}
+
+func (e *EnumType) MatchWithoutNullability(ot Type) bool {
+	if odt, ok := ot.(*EnumType); ok {
+		if e.Name != odt.Name {
+			return false
+		}
+		if len(e.Options) != len(odt.Options) {
+			return false
+		}
+		for i, v := range e.Options {
+			if v != odt.Options[i] {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func (e *EnumType) ShortString() string {
+	return "enum"
+}
+
+func (e *EnumType) GetNullability() Nullability {
+	return e.Nullability
+}
+
+func (e *EnumType) ReturnType(funcParameters []FuncDefArgType, argumentTypes []Type) (Type, error) {
+	return e, nil
+}
 
 // TypeToProto properly constructs the appropriate protobuf message
 // for the given type.
@@ -689,7 +781,7 @@ func (s *PrimitiveType[T]) MatchWithoutNullability(ot Type) bool {
 	return false
 }
 
-func (s *PrimitiveType[T]) ReturnType() (Type, error) {
+func (s *PrimitiveType[T]) ReturnType([]FuncDefArgType, []Type) (Type, error) {
 	return s, nil
 }
 

@@ -24,31 +24,31 @@ func TestEvaluateTypeExpression(t *testing.T) {
 		name     string
 		nulls    extensions.NullabilityHandling
 		ret      types.FuncDefArgType
-		extArgs  extensions.ArgumentList
+		extArgs  extensions.FuncParameterList
 		args     []types.Type
 		expected types.Type
 		err      string
 	}{
-		{"defaults", "", i64NonNull, extensions.ArgumentList{
+		{"defaults", "", i64NonNull, extensions.FuncParameterList{
 			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64Null}}},
 			[]types.Type{&types.Int64Type{Nullability: types.NullabilityNullable}},
 			&types.Int64Type{Nullability: types.NullabilityNullable}, ""},
-		{"arg mismatch", "", strNull, extensions.ArgumentList{extensions.ValueArg{Value: &parser.TypeExpression{ValueType: strNull}}},
+		{"arg mismatch", "", strNull, extensions.FuncParameterList{extensions.ValueArg{Value: &parser.TypeExpression{ValueType: strNull}}},
 			[]types.Type{}, nil, "invalid expression: mismatch in number of arguments provided. got 0, expected 1"},
-		{"missing enum arg", "", i64Null, extensions.ArgumentList{
+		{"missing enum arg", "", i64Null, extensions.FuncParameterList{
 			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64NonNull}}, extensions.EnumArg{Name: "foo"}},
 			[]types.Type{&types.Int64Type{}, &types.Int64Type{}}, nil, "invalid type: arg #1 (foo) should be an enum"},
-		{"discrete null handling", extensions.DiscreteNullability, strNull, extensions.ArgumentList{
+		{"discrete null handling", extensions.DiscreteNullability, strNull, extensions.FuncParameterList{
 			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: strNull}}},
 			[]types.Type{&types.StringType{Nullability: types.NullabilityRequired}},
 			nil, "invalid type: discrete nullability did not match for arg #0"},
-		{"mirror", extensions.MirrorNullability, strNull, extensions.ArgumentList{
+		{"mirror", extensions.MirrorNullability, strNull, extensions.FuncParameterList{
 			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64NonNull}}, extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64Null}}},
 			[]types.Type{
 				&types.Int64Type{Nullability: types.NullabilityRequired},
 				&types.Int64Type{Nullability: types.NullabilityRequired}},
 			&types.StringType{Nullability: types.NullabilityRequired}, ""},
-		{"declared output", extensions.DeclaredOutputNullability, strNull, extensions.ArgumentList{
+		{"declared output", extensions.DeclaredOutputNullability, strNull, extensions.FuncParameterList{
 			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: strNull}}},
 			[]types.Type{&types.StringType{Nullability: types.NullabilityRequired}},
 			&types.StringType{Nullability: types.NullabilityNullable}, ""},
@@ -77,20 +77,20 @@ func TestVariantWithVariadic(t *testing.T) {
 		name     string
 		nulls    extensions.NullabilityHandling
 		ret      types.FuncDefArgType
-		extArgs  extensions.ArgumentList
+		extArgs  extensions.FuncParameterList
 		args     []types.Type
 		expected types.Type
 		variadic extensions.VariadicBehavior
 		err      string
 	}{
-		{"basic", "", i64NonNull, extensions.ArgumentList{
+		{"basic", "", i64NonNull, extensions.FuncParameterList{
 			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64Null}}},
 			[]types.Type{&types.Int64Type{Nullability: types.NullabilityNullable},
 				&types.Int64Type{Nullability: types.NullabilityNullable}},
 			&types.Int64Type{Nullability: types.NullabilityNullable},
 			extensions.VariadicBehavior{
 				Min: 0, ParameterConsistency: extensions.ConsistentParams}, ""},
-		{"bad arg count", "", i64NonNull, extensions.ArgumentList{
+		{"bad arg count", "", i64NonNull, extensions.FuncParameterList{
 			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64Null}}},
 			[]types.Type{&types.Int64Type{Nullability: types.NullabilityNullable},
 				&types.Int64Type{Nullability: types.NullabilityNullable}},

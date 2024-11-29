@@ -64,8 +64,8 @@ func (m *ParameterizedListType) ShortString() string {
 	return "list"
 }
 
-func (m *ParameterizedListType) ReturnType() (Type, error) {
-	elemType, err := m.Type.ReturnType()
+func (m *ParameterizedListType) ReturnType([]FuncDefArgType, []Type) (Type, error) {
+	elemType, err := m.Type.ReturnType(nil, nil)
 	if err != nil {
 		return nil, err
 	}

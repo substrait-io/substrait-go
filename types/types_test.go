@@ -163,6 +163,7 @@ func TestGetShortTypeName(t *testing.T) {
 		{"string", "str"},
 		{"decimal", "dec"},
 		{"unknown", "unknown"},
+		{"enum", "enum"},
 	}
 	for _, tt := range tests {
 		t.Run(string(tt.name), func(t *testing.T) {
@@ -217,6 +218,7 @@ func TestMatchForBasicTypeResultMatch(t *testing.T) {
 		{"timestampTzType", &TimestampTzType{}, &TimestampTzType{}},
 		{"intervalYearType", &IntervalYearType{}, &IntervalYearType{}},
 		{"uuidType", &UUIDType{}, &UUIDType{}},
+		{"enumType", &EnumType{Options: []string{"A", "B", "C"}, Name: "ABC"}, &EnumType{Options: []string{"A", "B", "C"}, Name: "ABC"}},
 	} {
 		t.Run(td.name, func(t *testing.T) {
 			// MatchWithNullability should match exact nullability and not match with different nullability
@@ -319,6 +321,8 @@ func TestMatchParameterizeConcreteTypeResultMismatch(t *testing.T) {
 	concreteInt38 := integer_parameters.NewConcreteIntParam(38)
 	concreteInt2 := integer_parameters.NewConcreteIntParam(2)
 	concreteInt5 := integer_parameters.NewConcreteIntParam(5)
+	enumOptions := []string{"A", "B", "C"}
+	enumType := &EnumType{Options: enumOptions, Name: "ABC"}
 	for _, td := range []struct {
 		name           string
 		paramType      FuncDefArgType
@@ -346,6 +350,7 @@ func TestMatchParameterizeConcreteTypeResultMismatch(t *testing.T) {
 		{"userDefinedType", &ParameterizedUserDefinedType{TypeParameters: []UDTParameter{&IntegerUDTParam{Integer: 10}}, Name: "udt"}, &UserDefinedType{TypeParameters: []TypeParam{&DataTypeParameter{Type: &Int64Type{}}}}},
 		{"userDefinedType", &ParameterizedUserDefinedType{TypeParameters: []UDTParameter{&IntegerUDTParam{Integer: 10}}, Name: "udt"}, &UserDefinedType{TypeParameters: []TypeParam{IntegerParameter(11)}}},
 		{"userDefinedType", &ParameterizedUserDefinedType{TypeParameters: []UDTParameter{&StringUDTParam{StringVal: "L1"}}, Name: "udt"}, &UserDefinedType{TypeParameters: []TypeParam{IntegerParameter(11)}}},
+		{"enumType", &EnumType{Name: "ABCEnum", Options: enumOptions}, enumType},
 	} {
 		t.Run(td.name, func(t *testing.T) {
 			assert.False(t, td.paramType.MatchWithNullability(td.argOfOtherType))
@@ -371,6 +376,9 @@ func TestMatchParameterizedNonNestedTypeResultMatch(t *testing.T) {
 	argIntervalDayType := &IntervalDayType{Precision: 5}
 	paramIntervalDayType := &ParameterizedIntervalDayType{IntegerOption: intParamLen}
 
+	enumOptions := []string{"A", "B", "C"}
+	enumType := &EnumType{Name: "ABCEnum", Options: enumOptions}
+
 	for _, td := range []struct {
 		name      string
 		paramType FuncDefArgType
@@ -383,6 +391,7 @@ func TestMatchParameterizedNonNestedTypeResultMatch(t *testing.T) {
 		{"precisionTimestamp", paramPrecisionTimeStamp, argPrecisionTimeStamp},
 		{"precisionTimestampTz", paramPrecisionTimeStampTz, argPrecisionTimeStampTzType},
 		{"decimalType", paramDecimalType, argDecimalType},
+		{"enumType", &EnumType{Name: "ABCEnum", Options: enumOptions}, enumType},
 	} {
 		t.Run(td.name, func(t *testing.T) {
 			// MatchWithNullability should match exact nullability and not match with different nullability

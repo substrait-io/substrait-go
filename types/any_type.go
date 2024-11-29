@@ -49,6 +49,6 @@ func (m AnyType) ShortString() string {
 	return "any"
 }
 
-func (m AnyType) ReturnType() (Type, error) {
+func (m AnyType) ReturnType([]FuncDefArgType, []Type) (Type, error) {
 	return nil, nil
 }

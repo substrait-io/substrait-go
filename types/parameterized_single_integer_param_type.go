@@ -98,7 +98,7 @@ func (m *parameterizedTypeSingleIntegerParam[T]) getNewInstance() T {
 	return reflect.New(tType).Interface().(T)
 }
 
-func (m *parameterizedTypeSingleIntegerParam[T]) ReturnType() (Type, error) {
+func (m *parameterizedTypeSingleIntegerParam[T]) ReturnType([]FuncDefArgType, []Type) (Type, error) {
 	concreteIntParam, ok := m.IntegerOption.(*integer_parameters.ConcreteIntParam)
 	if !ok {
 		return nil, substraitgo.ErrNotImplemented

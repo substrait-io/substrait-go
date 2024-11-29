@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	substraitgo "github.com/substrait-io/substrait-go"
+	"github.com/substrait-io/substrait-go/types"
 	"github.com/substrait-io/substrait-go/types/parser"
 )
 
@@ -55,9 +56,9 @@ type TypeVariation struct {
 	Functions   TypeVariationFunctions
 }
 
-type Argument interface {
+type FuncParameter interface {
 	toTypeString() string
-	argumentMarker() // unexported marker method
+	GetTypeExpression() types.FuncDefArgType
 }
 
 type EnumArg struct {
@@ -70,7 +71,9 @@ func (EnumArg) toTypeString() string {
 	return "req"
 }
 
-func (v EnumArg) argumentMarker() {}
+func (v EnumArg) GetTypeExpression() types.FuncDefArgType {
+	return &types.EnumType{Name: v.Name, Options: v.Options}
+}
 
 type ValueArg struct {
 	Name        string `yaml:",omitempty"`
@@ -83,27 +86,31 @@ func (v ValueArg) toTypeString() string {
 	return v.Value.ValueType.ShortString()
 }
 
-func (v ValueArg) argumentMarker() {}
+func (v ValueArg) GetTypeExpression() types.FuncDefArgType {
+	return v.Value.ValueType
+}
 
 type TypeArg struct {
 	Name        string `yaml:",omitempty"`
 	Description string `yaml:",omitempty"`
-	Type        string
+	Type        *parser.TypeExpression
 }
 
 func (TypeArg) toTypeString() string { return "type" }
 
-func (v TypeArg) argumentMarker() {}
+func (v TypeArg) GetTypeExpression() types.FuncDefArgType {
+	return v.Type.ValueType
+}
 
-type ArgumentList []Argument
+type FuncParameterList []FuncParameter
 
-func (a *ArgumentList) UnmarshalYAML(fn func(interface{}) error) error {
+func (a *FuncParameterList) UnmarshalYAML(fn func(interface{}) error) error {
 	var args []map[string]any
 	if err := fn(&args); err != nil {
 		return err
 	}
 
-	*a = make(ArgumentList, len(args))
+	*a = make(FuncParameterList, len(args))
 	for i, arg := range args {
 		var (
 			name, desc string
@@ -153,11 +160,24 @@ func (a *ArgumentList) UnmarshalYAML(fn func(interface{}) error) error {
 			(*a)[i] = arg
 
 		} else if typ, ok := arg["type"]; ok {
-			(*a)[i] = TypeArg{
+			arg := TypeArg{
 				Name:        name,
 				Description: desc,
-				Type:        typ.(string),
+				Type:        new(parser.TypeExpression),
 			}
+			err := arg.Type.UnmarshalYAML(func(v any) error {
+				rv := reflect.ValueOf(v)
+				if rv.Type().Kind() != reflect.Ptr {
+					return substraitgo.ErrInvalidType
+				}
+				rv.Elem().Set(reflect.ValueOf(typ))
+				return nil
+			})
+			if err != nil {
+				return fmt.Errorf("failure reading YAML %v", err)
+			}
+
+			(*a)[i] = arg
 		}
 	}
 
@@ -199,7 +219,7 @@ type Function interface {
 }
 
 type ScalarFunctionImpl struct {
-	Args             ArgumentList           `yaml:",omitempty"`
+	Args             FuncParameterList      `yaml:",omitempty"`
 	Options          map[string]Option      `yaml:",omitempty"`
 	Variadic         *VariadicBehavior      `yaml:",omitempty"`
 	SessionDependent bool                   `yaml:"sessionDependent,omitempty"`
