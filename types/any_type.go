@@ -52,3 +52,7 @@ func (m AnyType) ShortString() string {
 func (m AnyType) ReturnType([]FuncDefArgType, []Type) (Type, error) {
 	return nil, nil
 }
+
+func (m AnyType) WithParameters([]interface{}) (Type, error) {
+	return nil, fmt.Errorf("any type doesn't have any parameters")
+}

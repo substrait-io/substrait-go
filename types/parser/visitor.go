@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/substrait-io/substrait-go/types"
@@ -37,15 +38,6 @@ func (v *TypeVisitor) VisitParenExpression(ctx *baseparser2.ParenExpressionConte
 	return v.Visit(ctx.Expr())
 }
 
-func (v *TypeVisitor) VisitMultilineDefinition(*baseparser2.MultilineDefinitionContext) interface{} {
-	// TODO implement multiline definition
-	return &types.ParameterizedDecimalType{
-		Precision:   integer_parameters.NewVariableIntParam("P"),
-		Scale:       integer_parameters.NewVariableIntParam("S"),
-		Nullability: types.NullabilityRequired,
-	}
-}
-
 func (v *TypeVisitor) VisitTypeLiteral(ctx *baseparser2.TypeLiteralContext) interface{} {
 	return v.Visit(ctx.TypeDef())
 }
@@ -56,27 +48,48 @@ func (v *TypeVisitor) VisitLiteralNumber(ctx *baseparser2.LiteralNumberContext) 
 		v.ErrorListener.ReportVisitError(fmt.Errorf("error parsing number: %s", err))
 		return 0
 	}
-	return num
+	return &LiteralNumber{Value: num}
 }
 
-func (v *TypeVisitor) VisitFunctionCall(*baseparser2.FunctionCallContext) interface{} {
-	panic("implement FunctionCall")
+func (v *TypeVisitor) VisitFunctionCall(ctx *baseparser2.FunctionCallContext) interface{} {
+	args := make([]Expr, 0, len(ctx.AllExpr()))
+	for _, expr := range ctx.AllExpr() {
+		args = append(args, v.Visit(expr).(Expr))
+	}
+	return &FunctionCallExpr{
+		Name: strings.ToLower(ctx.Identifier().GetText()),
+		Args: args,
+	}
 }
 
-func (v *TypeVisitor) VisitBinaryExpr(*baseparser2.BinaryExprContext) interface{} {
-	panic("implement BinaryExpr")
+func (v *TypeVisitor) VisitBinaryExpr(ctx *baseparser2.BinaryExprContext) interface{} {
+	return &BinaryExpr{
+		Op:    getBinaryOpType(ctx.GetOp().GetText()),
+		Left:  v.Visit(ctx.GetLeft()).(Expr),
+		Right: v.Visit(ctx.GetRight()).(Expr),
+	}
 }
 
-func (v *TypeVisitor) VisitIfExpr(*baseparser2.IfExprContext) interface{} {
-	panic("implement IfExpr")
+func (v *TypeVisitor) VisitIfExpr(ctx *baseparser2.IfExprContext) interface{} {
+	return &IfExpr{
+		Condition: v.Visit(ctx.GetIfExpr()).(Expr),
+		Then:      v.Visit(ctx.GetThenExpr()).(Expr),
+		Else:      v.Visit(ctx.GetElseExpr()).(Expr),
+	}
 }
 
-func (v *TypeVisitor) VisitNotExpr(*baseparser2.NotExprContext) interface{} {
-	panic("implement NotExpr")
+func (v *TypeVisitor) VisitNotExpr(ctx *baseparser2.NotExprContext) interface{} {
+	return &NotExpr{
+		Expr: v.Visit(ctx.Expr()).(Expr),
+	}
 }
 
-func (v *TypeVisitor) VisitTernary(*baseparser2.TernaryContext) interface{} {
-	panic("implement Ternary expr")
+func (v *TypeVisitor) VisitTernary(ctx *baseparser2.TernaryContext) interface{} {
+	return &IfExpr{
+		Condition: v.Visit(ctx.GetIfExpr()).(Expr),
+		Then:      v.Visit(ctx.GetThenExpr()).(Expr),
+		Else:      v.Visit(ctx.GetElseExpr()).(Expr),
+	}
 }
 
 func (v *TypeVisitor) VisitTypeDef(ctx *baseparser2.TypeDefContext) interface{} {
@@ -324,6 +337,21 @@ func (v *TypeVisitor) VisitNumericParameterName(ctx *baseparser2.NumericParamete
 }
 
 func (v *TypeVisitor) VisitNumericExpression(ctx *baseparser2.NumericExpressionContext) interface{} {
-	// TODO handle numeric expression
-	return ctx.GetText()
+	return v.Visit(ctx.Expr())
+}
+
+func (v *TypeVisitor) VisitMultilineDefinition(ctx *baseparser2.MultilineDefinitionContext) interface{} {
+	assignments := make([]Assignment, 0)
+	for i, expr := range ctx.AllExpr() {
+		parsedExpr := v.Visit(expr)
+		assignement := Assignment{
+			Name:  ctx.Identifier(i).GetText(),
+			Value: parsedExpr.(Expr),
+		}
+		assignments = append(assignments, assignement)
+	}
+	return &OutputDerivation{
+		Assignments: assignments,
+		FinalType:   v.Visit(ctx.GetFinalType()).(types.FuncDefArgType),
+	}
 }

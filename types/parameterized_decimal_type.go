@@ -80,3 +80,16 @@ func (m *ParameterizedDecimalType) ReturnType([]FuncDefArgType, []Type) (Type, e
 	}
 	return &DecimalType{Nullability: m.Nullability, Precision: int32(*precision), Scale: int32(*scale)}, nil
 }
+
+func (m *ParameterizedDecimalType) WithParameters(params []interface{}) (Type, error) {
+	if len(params) != 2 {
+		return nil, fmt.Errorf("decimal type must have 2 parameters")
+	}
+	if precision, ok := params[0].(int64); ok {
+		if scale, ok := params[1].(int64); ok {
+			return &DecimalType{Nullability: m.Nullability, Precision: int32(precision), Scale: int32(scale)}, nil
+		}
+		return nil, fmt.Errorf("scale must be an integer")
+	}
+	return nil, fmt.Errorf("precision must be an integer, but got %t", params[0])
+}

@@ -1350,3 +1350,110 @@ window_functions:
 	require.Equal(t, 3, fv[0].MinArgumentCount())
 	require.Equal(t, 5, fv[0].MaxArgumentCount())
 }
+
+func TestDecimalScalarFunctionsLookup(t *testing.T) {
+	baseUri := "https://github.com/substrait-io/substrait/blob/main/extensions/"
+	decArithmeticUri := baseUri + "functions_arithmetic_decimal.yaml"
+	allFunctions := gFunctionRegistry.GetAllFunctions()
+
+	dialectYaml := `
+name: test
+type: sql
+dependencies:
+  arithmetic: 
+    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic_decimal.yaml
+supported_types:
+  decimal:
+    sql_type_name: INTEGER
+    supported_as_column: true
+scalar_functions:
+- name: arithmetic.add
+  local_name: +
+  infix: true
+  required_options:
+    overflow: ERROR
+    rounding: TIE_TO_EVEN
+  supported_kernels:
+  - dec_dec
+- name: arithmetic.subtract
+  local_name: '-'
+  infix: true
+  required_options:
+    overflow: ERROR
+    rounding: TIE_TO_EVEN
+  supported_kernels:
+  - dec_dec
+`
+	decType30S2 := &types.DecimalType{Precision: 30, Scale: 2, Nullability: types.NullabilityNullable}
+	decType32S2 := &types.DecimalType{Precision: 32, Scale: 2, Nullability: types.NullabilityNullable}
+	decType33S2 := &types.DecimalType{Precision: 33, Scale: 2, Nullability: types.NullabilityNullable}
+	decType10S4 := &types.DecimalType{Precision: 10, Scale: 4, Nullability: types.NullabilityNullable}
+	decType12S5 := &types.DecimalType{Precision: 12, Scale: 5, Nullability: types.NullabilityNullable}
+	decType8S3 := &types.DecimalType{Precision: 8, Scale: 3, Nullability: types.NullabilityNullable}
+	decType9S2 := &types.DecimalType{Precision: 9, Scale: 2, Nullability: types.NullabilityNullable}
+	decType11S3 := &types.DecimalType{Precision: 11, Scale: 3, Nullability: types.NullabilityNullable}
+	decType20S10 := &types.DecimalType{Precision: 20, Scale: 10, Nullability: types.NullabilityNullable}
+	decType21S10 := &types.DecimalType{Precision: 21, Scale: 10, Nullability: types.NullabilityNullable}
+	decType35S30 := &types.DecimalType{Precision: 35, Scale: 30, Nullability: types.NullabilityNullable}
+	decType36S30 := &types.DecimalType{Precision: 36, Scale: 30, Nullability: types.NullabilityNullable}
+	decType38S20 := &types.DecimalType{Precision: 38, Scale: 20, Nullability: types.NullabilityNullable}
+	decType38S19 := &types.DecimalType{Precision: 38, Scale: 19, Nullability: types.NullabilityNullable}
+	decType10S5 := &types.DecimalType{Precision: 10, Scale: 5, Nullability: types.NullabilityNullable}
+	dectype12S8 := &types.DecimalType{Precision: 12, Scale: 8, Nullability: types.NullabilityNullable}
+	decType14S8 := &types.DecimalType{Precision: 14, Scale: 8, Nullability: types.NullabilityNullable}
+	localRegistry := getLocalFunctionRegistry(t, dialectYaml, gFunctionRegistry)
+	tests := []struct {
+		numArgs            int
+		localName          string
+		substraitName      string
+		args               []types.Type
+		expectedReturnType types.Type
+		expectedUri        string
+		expectedNames      []string
+		expectedNotation   FunctionNotation
+		isOverflowError    bool
+	}{
+		{2, "+", "add", []types.Type{decType30S2, decType32S2}, decType33S2, decArithmeticUri, []string{"add:dec_dec"}, INFIX, true},
+		{2, "+", "add", []types.Type{decType10S4, decType10S5}, decType12S5, decArithmeticUri, []string{"add:dec_dec"}, INFIX, true},
+		{2, "+", "add", []types.Type{decType8S3, decType9S2}, decType11S3, decArithmeticUri, []string{"add:dec_dec"}, INFIX, true},
+		{2, "+", "add", []types.Type{decType20S10, decType20S10}, decType21S10, decArithmeticUri, []string{"add:dec_dec"}, INFIX, true},
+		{2, "+", "add", []types.Type{decType35S30, decType35S30}, decType36S30, decArithmeticUri, []string{"add:dec_dec"}, INFIX, true},
+		{2, "+", "add", []types.Type{decType38S20, decType38S20}, decType38S19, decArithmeticUri, []string{"add:dec_dec"}, INFIX, true},
+		{2, "+", "add", []types.Type{decType10S5, dectype12S8}, decType14S8, decArithmeticUri, []string{"add:dec_dec"}, INFIX, true},
+		{2, "-", "subtract", []types.Type{decType30S2, decType32S2}, decType33S2, decArithmeticUri, []string{"subtract:dec_dec"}, INFIX, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.substraitName, func(t *testing.T) {
+			var fv []*LocalScalarFunctionVariant
+			fv = localRegistry.GetScalarFunctions(LocalFunctionName(tt.localName), tt.numArgs)
+
+			assert.Greater(t, len(fv), 0)
+			assert.Equal(t, tt.expectedUri, fv[0].URI())
+			assert.Equal(t, tt.localName, fv[0].LocalName())
+			assert.Equal(t, tt.expectedNotation, fv[0].Notation())
+			assert.Equal(t, tt.isOverflowError, fv[0].IsOptionSupported("overflow", "ERROR"))
+			assert.False(t, fv[0].IsOptionSupported("overflow", "SILENT"))
+			checkCompoundNames(t, getScalarCompoundNames(fv), tt.expectedNames)
+			retType, err := fv[0].ResolveType(tt.args)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedReturnType, retType)
+			fv = localRegistry.GetScalarFunctions(SubstraitFunctionName(tt.substraitName), tt.numArgs)
+			assert.Greater(t, len(fv), 0)
+			assert.Equal(t, tt.expectedUri, fv[0].URI())
+			assert.Equal(t, tt.localName, fv[0].LocalName())
+			assert.Equal(t, tt.substraitName, fv[0].Name())
+			checkCompoundNames(t, getScalarCompoundNames(fv), tt.expectedNames)
+
+			scalarFunctions := gFunctionRegistry.GetScalarFunctions(tt.substraitName, tt.numArgs)
+			assert.Greater(t, len(scalarFunctions), 0)
+			for _, f := range scalarFunctions {
+				assert.Contains(t, allFunctions, f)
+			}
+			scalarFunctions = gFunctionRegistry.GetScalarFunctionsByName(tt.substraitName)
+			assert.Greater(t, len(scalarFunctions), 0)
+			for _, f := range scalarFunctions {
+				assert.Contains(t, allFunctions, f)
+			}
+		})
+	}
+}

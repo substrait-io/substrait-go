@@ -71,3 +71,7 @@ func (m IntervalCompoundType) String() string {
 	return fmt.Sprintf("intervalcompound%s<%d>", strNullable(m),
 		m.precision.ToProtoVal())
 }
+
+func (m IntervalCompoundType) GetParameters() []interface{} {
+	return []interface{}{m.precision}
+}

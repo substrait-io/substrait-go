@@ -106,3 +106,14 @@ func (m *parameterizedTypeSingleIntegerParam[T]) ReturnType([]FuncDefArgType, []
 	t := m.getNewInstance()
 	return t.GetReturnType(int32(*concreteIntParam), m.Nullability), nil
 }
+
+func (m *parameterizedTypeSingleIntegerParam[T]) WithParameters(params []interface{}) (Type, error) {
+	if len(params) != 1 {
+		return nil, fmt.Errorf("type must have 1 parameter")
+	}
+	if length, ok := params[0].(int32); ok {
+		t := m.getNewInstance()
+		return t.GetReturnType(length, m.Nullability), nil
+	}
+	return nil, fmt.Errorf("length must be an integer")
+}
