@@ -121,6 +121,7 @@ func TestParseFuncDefArgType(t *testing.T) {
 		t.Run(tt.input, func(t *testing.T) {
 			got, err := ParseType(tt.input)
 			require.NoError(t, err)
+			require.NotNil(t, got)
 			assert.Equal(t, tt.expected, got.String())
 			if tt.shortName != "" {
 				assert.Equal(t, tt.shortName, got.ShortString())

@@ -195,8 +195,8 @@ func (v *TypeVisitor) VisitUserDefined(ctx *baseparser2.UserDefinedContext) inte
 		switch param := paramExpr.(type) {
 		case types.FuncDefArgType:
 			params = append(params, &types.DataTypeUDTParam{Type: param})
-		case int64:
-			params = append(params, &types.IntegerUDTParam{Integer: int32(param)})
+		case *LiteralNumber:
+			params = append(params, &types.IntegerUDTParam{Integer: int32(param.Value)})
 		case types.StringParameter:
 			params = append(params, &types.StringUDTParam{StringVal: string(param)})
 		default:

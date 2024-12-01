@@ -111,9 +111,9 @@ func (m *parameterizedTypeSingleIntegerParam[T]) WithParameters(params []interfa
 	if len(params) != 1 {
 		return nil, fmt.Errorf("type must have 1 parameter")
 	}
-	if length, ok := params[0].(int32); ok {
+	if length, ok := params[0].(int64); ok {
 		t := m.getNewInstance()
-		return t.GetReturnType(length, m.Nullability), nil
+		return t.GetReturnType(int32(length), m.Nullability), nil
 	}
 	return nil, fmt.Errorf("length must be an integer")
 }

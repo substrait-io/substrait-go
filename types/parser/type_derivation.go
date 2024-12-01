@@ -169,7 +169,7 @@ func (f FunctionCallExpr) Evaluate(symbolTable map[string]any) (any, error) {
 	case "min":
 		return min(args[0].(int64), args[1].(int64)), nil
 	default:
-		panic(fmt.Sprintf("Unknown function %s", f.Name))
+		return nil, fmt.Errorf("unknown function %s", f.Name)
 	}
 }
 
