@@ -1283,9 +1283,13 @@ func (p EnumParameter) ToProto() *proto.Type_Parameter {
 // StringParameter is a type parameter which is a string value
 type StringParameter string
 
-func (b StringParameter) Equals(p TypeParam) bool {
-	if rhs, ok := p.(StringParameter); ok {
-		return b == rhs
+func (p StringParameter) String() string {
+	return string(p)
+}
+
+func (p StringParameter) Equals(o TypeParam) bool {
+	if rhs, ok := o.(StringParameter); ok {
+		return p == rhs
 	}
 	return false
 }

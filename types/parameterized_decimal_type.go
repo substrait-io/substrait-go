@@ -39,12 +39,8 @@ func (m *ParameterizedDecimalType) GetParameterizedParams() []interface{} {
 		return nil
 	}
 	var params []interface{}
-	if p, ok := m.Precision.(integer_parameters.IntegerParameter); ok {
-		params = append(params, p)
-	}
-	if p, ok := m.Scale.(integer_parameters.IntegerParameter); ok {
-		params = append(params, p)
-	}
+	params = append(params, m.Precision)
+	params = append(params, m.Scale)
 	return params
 }
 
@@ -83,6 +79,11 @@ func (m *ParameterizedDecimalType) ReturnType([]FuncDefArgType, []Type) (Type, e
 
 func (m *ParameterizedDecimalType) WithParameters(params []interface{}) (Type, error) {
 	if len(params) != 2 {
+		p, pOk := m.Precision.(*integer_parameters.ConcreteIntParam)
+		s, sOk := m.Scale.(*integer_parameters.ConcreteIntParam)
+		if pOk && sOk {
+			return &DecimalType{Nullability: m.Nullability, Precision: int32(*p), Scale: int32(*s)}, nil
+		}
 		return nil, fmt.Errorf("decimal type must have 2 parameters")
 	}
 	if precision, ok := params[0].(int64); ok {

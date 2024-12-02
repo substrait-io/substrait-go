@@ -89,6 +89,7 @@ func (v *TypeVisitor) VisitTernary(ctx *baseparser2.TernaryContext) interface{} 
 		Condition: v.Visit(ctx.GetIfExpr()).(Expr),
 		Then:      v.Visit(ctx.GetThenExpr()).(Expr),
 		Else:      v.Visit(ctx.GetElseExpr()).(Expr),
+		IsTernary: true,
 	}
 }
 

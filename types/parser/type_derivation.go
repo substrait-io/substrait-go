@@ -10,6 +10,7 @@ import (
 
 type Expr interface {
 	Evaluate(symbolTable map[string]any) (any, error)
+	String() string
 }
 
 type LiteralNumber struct {
@@ -18,6 +19,10 @@ type LiteralNumber struct {
 
 func (l *LiteralNumber) Evaluate(map[string]any) (any, error) {
 	return l.Value, nil
+}
+
+func (l *LiteralNumber) String() string {
+	return fmt.Sprintf("%d", l.Value)
 }
 
 type BinaryOp int
@@ -37,6 +42,37 @@ const (
 	EQ
 	NEQ
 )
+
+func (b BinaryOp) String() string {
+	switch b {
+	case Plus:
+		return "+"
+	case Minus:
+		return "-"
+	case Multiply:
+		return "*"
+	case Divide:
+		return "/"
+	case LT:
+		return "<"
+	case LTE:
+		return "<="
+	case GT:
+		return ">"
+	case GTE:
+		return ">="
+	case EQ:
+		return "="
+	case NEQ:
+		return "!="
+	case And:
+		return "and"
+	case Or:
+		return "or"
+	default:
+		panic("Invalid binary operator")
+	}
+}
 
 func getBinaryOpType(op string) BinaryOp {
 	op = strings.ToLower(op)
@@ -115,10 +151,22 @@ func (b BinaryExpr) Evaluate(symbolTable map[string]any) (any, error) {
 	}
 }
 
+func (b BinaryExpr) String() string {
+	return fmt.Sprintf("(%s %s %s)", b.Left, b.Op, b.Right)
+}
+
 type IfExpr struct {
 	Condition Expr
 	Then      Expr
 	Else      Expr
+	IsTernary bool
+}
+
+func (i IfExpr) String() string {
+	if i.IsTernary {
+		return fmt.Sprintf("%s ? %s : %s", i.Condition, i.Then, i.Else)
+	}
+	return fmt.Sprintf("if %s then %s else %s", i.Condition, i.Then, i.Else)
 }
 
 func (i IfExpr) Evaluate(symbolTable map[string]any) (any, error) {
@@ -136,6 +184,10 @@ type NotExpr struct {
 	Expr Expr
 }
 
+func (n NotExpr) String() string {
+	return fmt.Sprintf("!%s", n.Expr)
+}
+
 func (n NotExpr) Evaluate(symbolTable map[string]any) (any, error) {
 	result, err := n.Expr.Evaluate(symbolTable)
 	if err != nil {
@@ -147,6 +199,20 @@ func (n NotExpr) Evaluate(symbolTable map[string]any) (any, error) {
 type FunctionCallExpr struct {
 	Name string
 	Args []Expr
+}
+
+func (f FunctionCallExpr) String() string {
+	sb := strings.Builder{}
+	sb.WriteString(f.Name)
+	sb.WriteString("(")
+	for i, arg := range f.Args {
+		sb.WriteString(arg.String())
+		if i < len(f.Args)-1 {
+			sb.WriteString(", ")
+		}
+	}
+	sb.WriteString(")")
+	return sb.String()
 }
 
 func (f FunctionCallExpr) Evaluate(symbolTable map[string]any) (any, error) {
