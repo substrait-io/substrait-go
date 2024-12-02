@@ -7,35 +7,35 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	. "github.com/substrait-io/substrait-go/types"
+	"github.com/substrait-io/substrait-go/types"
 	"github.com/substrait-io/substrait-go/types/integer_parameters"
 )
 
 func TestParameterizedListType(t *testing.T) {
-	decimalType := &ParameterizedDecimalType{
+	decimalType := &types.ParameterizedDecimalType{
 		Precision:   integer_parameters.NewVariableIntParam("P"),
 		Scale:       integer_parameters.NewVariableIntParam("S"),
-		Nullability: NullabilityRequired,
+		Nullability: types.NullabilityRequired,
 	}
-	int8Type := &Int8Type{}
+	int8Type := &types.Int8Type{}
 	for _, td := range []struct {
 		name                           string
-		param                          FuncDefArgType
+		param                          types.FuncDefArgType
 		expectedNullableString         string
 		expectedNullableRequiredString string
 		expectedHasParameterizedParam  bool
 		expectedParameterizedParams    []interface{}
-		expectedReturnType             Type
+		expectedReturnType             types.Type
 	}{
 		{"parameterized param", decimalType, "list?<decimal<P,S>>", "list<decimal<P,S>>", true, []interface{}{decimalType}, nil},
-		{"concrete param", int8Type, "list?<i8>", "list<i8>", false, nil, &ListType{Nullability: NullabilityRequired, Type: int8Type}},
+		{"concrete param", int8Type, "list?<i8>", "list<i8>", false, nil, &types.ListType{Nullability: types.NullabilityRequired, Type: int8Type}},
 	} {
 		t.Run(td.name, func(t *testing.T) {
-			pd := &ParameterizedListType{Type: td.param}
-			assert.Equal(t, NullabilityUnspecified, pd.GetNullability())
-			require.Equal(t, td.expectedNullableString, pd.SetNullability(NullabilityNullable).String())
-			require.Equal(t, td.expectedNullableRequiredString, pd.SetNullability(NullabilityRequired).String())
-			assert.Equal(t, NullabilityRequired, pd.GetNullability())
+			pd := &types.ParameterizedListType{Type: td.param}
+			assert.Equal(t, types.NullabilityUnspecified, pd.GetNullability())
+			require.Equal(t, td.expectedNullableString, pd.SetNullability(types.NullabilityNullable).String())
+			require.Equal(t, td.expectedNullableRequiredString, pd.SetNullability(types.NullabilityRequired).String())
+			assert.Equal(t, types.NullabilityRequired, pd.GetNullability())
 			require.Equal(t, td.expectedHasParameterizedParam, pd.HasParameterizedParam())
 			require.Equal(t, td.expectedParameterizedParams, pd.GetParameterizedParams())
 			assert.Equal(t, "list", pd.ShortString())
