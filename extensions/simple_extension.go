@@ -59,6 +59,7 @@ type TypeVariation struct {
 
 type FuncParameter interface {
 	toTypeString() string
+	argumentMarker() // unexported marker method
 	GetTypeExpression() types.FuncDefArgType
 }
 
@@ -71,6 +72,8 @@ type EnumArg struct {
 func (EnumArg) toTypeString() string {
 	return EnumTypeString
 }
+
+func (v EnumArg) argumentMarker() {}
 
 func (v EnumArg) GetTypeExpression() types.FuncDefArgType {
 	return &types.EnumType{Name: v.Name, Options: v.Options}
@@ -87,6 +90,8 @@ func (v ValueArg) toTypeString() string {
 	return v.Value.ValueType.ShortString()
 }
 
+func (v ValueArg) argumentMarker() {}
+
 func (v ValueArg) GetTypeExpression() types.FuncDefArgType {
 	return v.Value.ValueType
 }
@@ -98,6 +103,8 @@ type TypeArg struct {
 }
 
 func (TypeArg) toTypeString() string { return "type" }
+
+func (v TypeArg) argumentMarker() {}
 
 func (v TypeArg) GetTypeExpression() types.FuncDefArgType {
 	return v.Type.ValueType
