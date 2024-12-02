@@ -39,10 +39,10 @@ func (m *ParameterizedDecimalType) GetParameterizedParams() []interface{} {
 		return nil
 	}
 	var params []interface{}
-	if p, ok := m.Precision.(*integer_parameters.VariableIntParam); ok {
+	if p, ok := m.Precision.(integer_parameters.IntegerParameter); ok {
 		params = append(params, p)
 	}
-	if p, ok := m.Scale.(*integer_parameters.VariableIntParam); ok {
+	if p, ok := m.Scale.(integer_parameters.IntegerParameter); ok {
 		params = append(params, p)
 	}
 	return params

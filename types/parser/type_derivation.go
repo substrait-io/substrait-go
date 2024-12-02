@@ -277,14 +277,17 @@ func (m *OutputDerivation) ReturnType(funcParameters []types.FuncDefArgType, arg
 	parametrizedParams := m.FinalType.GetParameterizedParams()
 	params := make([]interface{}, 0, len(parametrizedParams))
 	for _, p := range parametrizedParams {
-		if intParam, ok := p.(*integer_parameters.VariableIntParam); ok {
-			if paramValue, ok := symbolTable[string(*intParam)]; ok {
+		switch param := p.(type) {
+		case *integer_parameters.VariableIntParam:
+			if paramValue, ok := symbolTable[string(*param)]; ok {
 				params = append(params, paramValue)
 			} else {
-				return nil, fmt.Errorf("parameter %s is not defined", intParam)
+				return nil, fmt.Errorf("parameter %s is not defined", param)
 			}
-		} else {
-			params = append(params, p)
+		case *integer_parameters.ConcreteIntParam:
+			params = append(params, int64(*param))
+		default:
+			params = append(params, param)
 		}
 	}
 

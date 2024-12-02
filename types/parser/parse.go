@@ -39,7 +39,6 @@ func (t *TypeExpression) UnmarshalYAML(fn func(interface{}) error) error {
 }
 
 func ParseType(input string) (types.FuncDefArgType, error) {
-	var err error
 	is := antlr.NewInputStream(input)
 	lexer := baseparser2.NewSubstraitTypeLexer(is)
 	stream := antlr.NewCommonTokenStream(lexer, 0)
@@ -47,15 +46,12 @@ func ParseType(input string) (types.FuncDefArgType, error) {
 	errorListener := util.NewSimpleErrorListener()
 	p.AddErrorListener(errorListener)
 	p.GetInterpreter().SetPredictionMode(antlr.PredictionModeSLL)
-	defer util.TransformPanicToError(&err, input, "ParseExpr", errorListener)
 
 	visitor := &TypeVisitor{}
-	context := p.StartRule()
-	if errorListener.ErrorCount() > 0 {
-		fmt.Printf("ParseTree: %v", antlr.TreesStringTree(context, []string{}, p))
-		return nil, fmt.Errorf("error parsing input '%s': %s", input, errorListener.GetErrors())
+	ret, err := parseType(input, p, errorListener, visitor)
+	if err != nil {
+		return nil, err
 	}
-	ret := visitor.Visit(context)
 	if errorListener.ErrorCount() > 0 {
 		return nil, fmt.Errorf("error parsing input '%s': %s", input, errorListener.GetErrors())
 	}
@@ -64,4 +60,17 @@ func ParseType(input string) (types.FuncDefArgType, error) {
 		return nil, fmt.Errorf("failed to parse %s as FuncDefArgType", input)
 	}
 	return retType, nil
+}
+
+func parseType(input string, p *baseparser2.SubstraitTypeParser, errorListener *util.SimpleErrorListener, visitor *TypeVisitor) (any, error) {
+	var err error
+	defer util.TransformPanicToError(&err, input, "ParseExpr", errorListener)
+	context := p.StartRule()
+	if errorListener.ErrorCount() > 0 {
+		fmt.Printf("ParseTree: %v", antlr.TreesStringTree(context, []string{}, p))
+		return nil, fmt.Errorf("error parsing input '%s': %s", input, errorListener.GetErrors())
+	}
+	ret := visitor.Visit(context)
+
+	return ret, err
 }

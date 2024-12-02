@@ -36,6 +36,8 @@ func parseAndTestTypeDerivation(t *testing.T, tt *testcase) {
 func TestBinaryExpr_Evaluate(t *testing.T) {
 	tests := []testcase{
 		{"+", "x = 1 + 2\nvarchar<x>", &types.VarCharType{Length: 3}, assert.NoError},
+		{"+", "x = 1 + 2\ndecimal<20, x>", &types.DecimalType{Precision: 20, Scale: 3}, assert.NoError},
+		{"+", "P1 = 30 / 2\nS1 = 3\ndecimal<P1, S1>", &types.DecimalType{Precision: 15, Scale: 3}, assert.NoError},
 		{"-", "L1 = 9\nL2 = 4\nL3 = L1 - L2\nvarchar<L3>", &types.VarCharType{Length: 5}, assert.NoError},
 		{"*", "l2 = 5\nl3 = 6\nl4 = l2 * l3\nvarchar<l4>", &types.VarCharType{Length: 30}, assert.NoError},
 	}
@@ -68,6 +70,12 @@ func TestIfExpr_Evaluate(t *testing.T) {
 		{"if", "x = 1\ny = 2\nz = if !(x < y) then x * 3 else y * 4\nvarchar<z>", &types.VarCharType{Length: 8}, assert.NoError},
 		{"if", "x = 1\ny = 2\nz = if x < y then x * 3 else y * 4\nvarchar<z>", &types.VarCharType{Length: 3}, assert.NoError},
 		{"if", "x = 1\ny = 2\nz = (x < y) ? x * 3 : y * 4\nvarchar<z>", &types.VarCharType{Length: 3}, assert.NoError},
+		{"if", "x = 1\ny = 2\nz = (x <= y) ? x * 3 : y * 4\nvarchar<z>", &types.VarCharType{Length: 3}, assert.NoError},
+		{"if", "x = 1\ny = 2\nz = (x = y) ? x * 3 : y * 4\nvarchar<z>", &types.VarCharType{Length: 8}, assert.NoError},
+		{"if", "x = 1\ny = 2\nz = (x != y) ? x * 3 : y * 4\nvarchar<z>", &types.VarCharType{Length: 3}, assert.NoError},
+		{"if", "x = 1\ny = 2\nz = (x >= y) ? x * 3 : y * 4\nvarchar<z>", &types.VarCharType{Length: 8}, assert.NoError},
+		{"if", "x = 1\ny = 2\nz = ((x < y) or (x > y)) ? x * 3 : y * 4\nvarchar<z>", &types.VarCharType{Length: 3}, assert.NoError},
+		{"if", "x = 1\ny = 2\nz = ((x < y) and (x > y)) ? x * 3 : y * 4\nvarchar<z>", &types.VarCharType{Length: 8}, assert.NoError},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

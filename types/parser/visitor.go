@@ -344,11 +344,11 @@ func (v *TypeVisitor) VisitMultilineDefinition(ctx *baseparser2.MultilineDefinit
 	assignments := make([]Assignment, 0)
 	for i, expr := range ctx.AllExpr() {
 		parsedExpr := v.Visit(expr)
-		assignement := Assignment{
+		assignment := Assignment{
 			Name:  ctx.Identifier(i).GetText(),
 			Value: parsedExpr.(Expr),
 		}
-		assignments = append(assignments, assignement)
+		assignments = append(assignments, assignment)
 	}
 	return &OutputDerivation{
 		Assignments: assignments,
