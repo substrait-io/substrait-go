@@ -96,6 +96,11 @@ func TestEmitEmptyPlan(t *testing.T) {
 
 	assert.Equal(t, "NSTRUCT<a: fp32, b: string>", p.GetRoots()[0].RecordType().String())
 
+	// Verify the mapping remains the same after receiving an error.
+	err = root.ChangeMapping([]int32{-1})
+	require.Error(t, err)
+	assert.Equal(t, "NSTRUCT<a: fp32, b: string>", p.GetRoots()[0].RecordType().String())
+
 	protoPlan, err := p.ToProto()
 	require.NoError(t, err)
 

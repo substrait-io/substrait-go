@@ -157,13 +157,15 @@ type MappableRel interface {
 	OutputMapping() []int32
 }
 
+// ChangeMapping implements the core functionality of ChangeMapping for relations.
+// It returns the relation's existing mapping on an error to ease being called.
 func ChangeMapping(r MappableRel, mapping []int32) ([]int32, error) {
 	nOutput := r.RecordType().FieldCount()
 	oldMapping := r.OutputMapping()
 	newMapping := make([]int32, 0, len(mapping))
 	for _, idx := range mapping {
 		if idx < 0 || idx >= nOutput {
-			return nil, errOutputMappingOutOfRange
+			return r.OutputMapping(), errOutputMappingOutOfRange
 		}
 		if len(oldMapping) > 0 {
 			newMapping = append(newMapping, oldMapping[idx])

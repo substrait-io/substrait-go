@@ -383,9 +383,7 @@ func (f *fakeRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs .
 }
 
 func (f *fakeRel) ChangeMapping(mapping []int32) error {
-	newMapping, err := ChangeMapping(f, mapping)
-	f.mapping = newMapping
-	return err
+	panic("unused")
 }
 
 func TestProjectRecordType(t *testing.T) {
