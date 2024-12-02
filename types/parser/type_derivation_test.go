@@ -177,7 +177,10 @@ decimal<prec,scale>`
 				return
 			}
 			assert.Equalf(t, tt.want, got, "Evaluate(%v)", tt.expr)
-			assert.Equalf(t, tt.expr, derivation.String(), "Evaluate(%v)", tt.expr)
+			assert.Equal(t, tt.expr, derivation.String())
+			assert.Equal(t, tt.want.GetNullability(), derivation.GetNullability())
+			assert.Equal(t, tt.want.ShortString(), derivation.ShortString())
+			assert.GreaterOrEqual(t, len(tt.want.GetParameters()), len(derivation.GetParameterizedParams()))
 		})
 	}
 }

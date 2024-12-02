@@ -656,6 +656,8 @@ func TypeToProto(t Type) *proto.Type {
 		return t.ToProto()
 	case *MapType:
 		return t.ToProto()
+	case *UserDefinedType:
+		return t.ToProto()
 	}
 	panic("unimplemented type")
 }

@@ -15,6 +15,9 @@ func TestNewIntervalYearToMonthType(t *testing.T) {
 
 	for _, nullability := range allPossibleNullability {
 		expectedIntervalType := IntervalYearToMonthType{nullability: nullability}
+
+		parameters := expectedIntervalType.GetParameters()
+		assert.Len(t, parameters, 0)
 		// verify IntervalYearToMonthType
 		createdIntervalTypeIfcType := NewIntervalYearToMonthType().WithTypeVariationRef(0).WithNullability(nullability)
 		createdIntervalType := createdIntervalTypeIfcType.(IntervalYearToMonthType)

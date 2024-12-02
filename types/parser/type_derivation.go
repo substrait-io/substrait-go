@@ -281,9 +281,6 @@ func (m *OutputDerivation) HasParameterizedParam() bool {
 }
 
 func (m *OutputDerivation) GetParameterizedParams() []interface{} {
-	if !m.HasParameterizedParam() {
-		return nil
-	}
 	return m.FinalType.GetParameterizedParams()
 }
 

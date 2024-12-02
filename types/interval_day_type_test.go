@@ -20,6 +20,9 @@ func TestIntervalDayType(t *testing.T) {
 		for _, nullability := range allPossibleNullability {
 			expectedIntervalDayType := &IntervalDayType{Precision: precision, Nullability: nullability}
 			expectedFormatString := fmt.Sprintf("%s<%d>", strNullable(expectedIntervalDayType), precision.ToProtoVal())
+
+			parameters := expectedIntervalDayType.GetParameters()
+			assert.Equal(t, parameters, []interface{}{precision})
 			// verify IntervalDayType
 			createdIntervalDayTypeIfc := (&IntervalDayType{Precision: precision}).WithNullability(nullability)
 			createdIntervalDayType := createdIntervalDayTypeIfc.(*IntervalDayType)

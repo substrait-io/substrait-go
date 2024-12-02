@@ -90,6 +90,7 @@ func TestTypeRoundtrip(t *testing.T) {
 				&StructType{Nullability: n, Types: []Type{
 					&TimeType{Nullability: n}, &TimestampType{Nullability: n},
 					&TimestampTzType{Nullability: n}}},
+				&UserDefinedType{TypeParameters: []TypeParam{&DataTypeParameter{Type: &Int32Type{}}}, Nullability: n},
 			}
 
 			for _, tt := range tests {
@@ -138,6 +139,9 @@ func TestGetTypeNameToTypeMap(t *testing.T) {
 				typ, err := SimpleTypeNameToType(TypeName(tt.name))
 				assert.NoError(t, err)
 				assert.Equalf(t, tt.typ, typ, "SimpleTypeNameToType(%s) = %v, want %v", tt.name, typ, tt.typ)
+
+				parameters := typ.GetParameters()
+				assert.Len(t, parameters, 0)
 			} else if tt.name != "decimal" {
 				typ, err := FixedTypeNameToType(TypeName(tt.name))
 				assert.NoError(t, err)
@@ -192,6 +196,8 @@ func TestFixedLenType_WithLength(t *testing.T) {
 			}
 			assert.Equal(t, fmt.Sprintf("%d", tt.length), typ.ParameterString())
 			assert.Equal(t, tt.typeStr, typ.BaseString())
+			parameters := typ.GetParameters()
+			assert.Len(t, parameters, 1)
 		})
 	}
 }
@@ -261,6 +267,9 @@ func TestMatchForBasicTypeResultMisMatch(t *testing.T) {
 		t.Run(td.name, func(t *testing.T) {
 			assert.False(t, td.paramType.MatchWithNullability(td.argOfOtherType))
 			assert.False(t, td.paramType.MatchWithoutNullability(td.argOfOtherType))
+
+			parameters := td.paramType.GetParameterizedParams()
+			assert.Nil(t, parameters)
 		})
 	}
 }
@@ -279,21 +288,22 @@ func TestMatchParameterizeConcreteTypeResultMatch(t *testing.T) {
 		name          string
 		paramType     FuncDefArgType
 		argOfSameType Type
+		parameters    []interface{}
 	}{
-		{"decimalConcreteToDecimalConcrete", &ParameterizedDecimalType{Precision: concreteInt38, Scale: concreteInt2}, decimal382Concrete},
-		{"fixedCharType", &ParameterizedFixedCharType{IntegerOption: concreteInt5}, fixedCharLen5},
-		{"varCharType", &ParameterizedVarCharType{IntegerOption: concreteInt5}, varCharLen5},
-		{"fixedBinaryType", &ParameterizedFixedBinaryType{IntegerOption: concreteInt5}, fixedBinaryLen5},
-		{"intervalDayType", &ParameterizedIntervalDayType{IntegerOption: concreteInt5}, intervalDayLen5},
-		{"listType", &ParameterizedListType{Type: &ParameterizedDecimalType{Precision: concreteInt38, Scale: concreteInt2}}, &ListType{Type: &DecimalType{Precision: 38, Scale: 2}}},
-		{"listTypeWithOtherListType", &ParameterizedListType{Type: &ParameterizedDecimalType{Precision: concreteInt38, Scale: concreteInt2}}, &ListType{Type: &DecimalType{Precision: 38, Scale: 2}}},
-		{"mapTypeKeyTypeDiffers", &ParameterizedMapType{Key: &Int32Type{}, Value: &BooleanType{}}, &MapType{Key: &Int32Type{}, Value: &BooleanType{}}},
-		{"mapTypeValueTypeDiffers", &ParameterizedMapType{Key: &Int32Type{}, Value: &BooleanType{}}, &MapType{Key: &Int32Type{}, Value: &BooleanType{}}},
-		{"structType", &ParameterizedStructType{Types: []FuncDefArgType{&BooleanType{}, &BooleanType{}}}, &StructType{Types: []Type{&BooleanType{}, &BooleanType{}}}},
-		{"userDefinedType", &ParameterizedUserDefinedType{TypeParameters: []UDTParameter{&DataTypeUDTParam{&Int32Type{}}}, Name: "udt"}, &UserDefinedType{TypeParameters: []TypeParam{&DataTypeParameter{Type: &Int32Type{}}}}},
-		{"userDefinedType2", &ParameterizedUserDefinedType{TypeParameters: []UDTParameter{&DataTypeUDTParam{&Int32Type{}}, &DataTypeUDTParam{&Int32Type{}}}, Name: "udt"}, &UserDefinedType{TypeParameters: []TypeParam{&DataTypeParameter{Type: &Int32Type{}}, &DataTypeParameter{Type: &Int32Type{}}}}},
-		{"userDefinedType3", &ParameterizedUserDefinedType{TypeParameters: []UDTParameter{&StringUDTParam{StringVal: "L1"}}, Name: "udt"}, &UserDefinedType{TypeParameters: []TypeParam{StringParameter("L1")}}},
-		{"userDefinedType4", &ParameterizedUserDefinedType{TypeParameters: []UDTParameter{&IntegerUDTParam{Integer: 10}}, Name: "udt"}, &UserDefinedType{TypeParameters: []TypeParam{IntegerParameter(10)}}},
+		{"decimalConcreteToDecimalConcrete", &ParameterizedDecimalType{Precision: concreteInt38, Scale: concreteInt2}, decimal382Concrete, []interface{}{int64(38), int64(2)}},
+		{"fixedCharType", &ParameterizedFixedCharType{IntegerOption: concreteInt5}, fixedCharLen5, []interface{}{int64(5)}},
+		{"varCharType", &ParameterizedVarCharType{IntegerOption: concreteInt5}, varCharLen5, []interface{}{int64(5)}},
+		{"fixedBinaryType", &ParameterizedFixedBinaryType{IntegerOption: concreteInt5}, fixedBinaryLen5, []interface{}{int64(5)}},
+		{"intervalDayType", &ParameterizedIntervalDayType{IntegerOption: concreteInt5}, intervalDayLen5, []interface{}{TimePrecision(5)}},
+		{"listType", &ParameterizedListType{Type: &ParameterizedDecimalType{Precision: concreteInt38, Scale: concreteInt2}}, &ListType{Type: decimal382Concrete}, []interface{}{decimal382Concrete}},
+		{"listTypeWithOtherListType", &ParameterizedListType{Type: &ParameterizedDecimalType{Precision: concreteInt38, Scale: concreteInt2}}, &ListType{Type: decimal382Concrete}, []interface{}{decimal382Concrete}},
+		{"mapTypeKeyTypeDiffers", &ParameterizedMapType{Key: &Int32Type{}, Value: &BooleanType{}}, &MapType{Key: &Int32Type{}, Value: &BooleanType{}}, []interface{}{&Int32Type{}, &BooleanType{}}},
+		{"mapTypeValueTypeDiffers", &ParameterizedMapType{Key: &Int32Type{}, Value: &BooleanType{}}, &MapType{Key: &Int32Type{}, Value: &BooleanType{}}, []interface{}{&Int32Type{}, &BooleanType{}}},
+		{"structType", &ParameterizedStructType{Types: []FuncDefArgType{&BooleanType{}, &BooleanType{}}}, &StructType{Types: []Type{&BooleanType{}, &BooleanType{}}}, []interface{}{&BooleanType{}, &BooleanType{}}},
+		{"userDefinedType", &ParameterizedUserDefinedType{TypeParameters: []UDTParameter{&DataTypeUDTParam{&Int32Type{}}}, Name: "udt"}, &UserDefinedType{TypeParameters: []TypeParam{&DataTypeParameter{Type: &Int32Type{}}}}, []interface{}{&DataTypeParameter{Type: &Int32Type{}}}},
+		{"userDefinedType2", &ParameterizedUserDefinedType{TypeParameters: []UDTParameter{&DataTypeUDTParam{&Int32Type{}}, &DataTypeUDTParam{&Int32Type{}}}, Name: "udt"}, &UserDefinedType{TypeParameters: []TypeParam{&DataTypeParameter{Type: &Int32Type{}}, &DataTypeParameter{Type: &Int32Type{}}}}, []interface{}{&DataTypeParameter{Type: &Int32Type{}}, &DataTypeParameter{Type: &Int32Type{}}}},
+		{"userDefinedType3", &ParameterizedUserDefinedType{TypeParameters: []UDTParameter{&StringUDTParam{StringVal: "L1"}}, Name: "udt"}, &UserDefinedType{TypeParameters: []TypeParam{StringParameter("L1")}}, []interface{}{StringParameter("L1")}},
+		{"userDefinedType4", &ParameterizedUserDefinedType{TypeParameters: []UDTParameter{&IntegerUDTParam{Integer: 10}}, Name: "udt"}, &UserDefinedType{TypeParameters: []TypeParam{IntegerParameter(10)}}, []interface{}{IntegerParameter(10)}},
 	} {
 		t.Run(td.name, func(t *testing.T) {
 			// MatchWithNullability should match exact nullability and not match with different nullability
@@ -307,6 +317,10 @@ func TestMatchParameterizeConcreteTypeResultMatch(t *testing.T) {
 			assert.True(t, td.paramType.SetNullability(NullabilityRequired).MatchWithoutNullability(td.argOfSameType.WithNullability(NullabilityRequired)))
 			assert.True(t, td.paramType.SetNullability(NullabilityRequired).MatchWithoutNullability(td.argOfSameType.WithNullability(NullabilityNullable)))
 			assert.True(t, td.paramType.SetNullability(NullabilityRequired).MatchWithoutNullability(td.argOfSameType.WithNullability(NullabilityNullable)))
+
+			parameters := td.argOfSameType.GetParameters()
+			assert.NotNil(t, parameters)
+			assert.Equal(t, td.parameters, parameters)
 		})
 	}
 }
