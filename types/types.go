@@ -431,6 +431,10 @@ type (
 	}
 )
 
+var CommonEnumType = &EnumType{}
+
+// EnumType represents an enumeration function parameter.
+// It supports a fixed set of declared string values as constant arguments.
 type EnumType struct {
 	Nullability      Nullability
 	TypeVariationRef uint32
@@ -494,6 +498,9 @@ func (e *EnumType) MatchWithNullability(ot Type) bool {
 }
 
 func (e *EnumType) MatchWithoutNullability(ot Type) bool {
+	if ot == CommonEnumType {
+		return true
+	}
 	if odt, ok := ot.(*EnumType); ok {
 		if e.Name != odt.Name {
 			return false

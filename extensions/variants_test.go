@@ -29,13 +29,13 @@ func TestEvaluateTypeExpression(t *testing.T) {
 		expected types.Type
 		err      string
 	}{
-		{"defaults", "", i64NonNull, extensions.FuncParameterList{
+		{"defaults", extensions.MirrorNullability, i64NonNull, extensions.FuncParameterList{
 			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64Null}}},
 			[]types.Type{&types.Int64Type{Nullability: types.NullabilityNullable}},
 			&types.Int64Type{Nullability: types.NullabilityNullable}, ""},
-		{"arg mismatch", "", strNull, extensions.FuncParameterList{extensions.ValueArg{Value: &parser.TypeExpression{ValueType: strNull}}},
+		{"arg mismatch", extensions.MirrorNullability, strNull, extensions.FuncParameterList{extensions.ValueArg{Value: &parser.TypeExpression{ValueType: strNull}}},
 			[]types.Type{}, nil, "invalid expression: mismatch in number of arguments provided. got 0, expected 1"},
-		{"missing enum arg", "", i64Null, extensions.FuncParameterList{
+		{"missing enum arg", extensions.MirrorNullability, i64Null, extensions.FuncParameterList{
 			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64NonNull}}, extensions.EnumArg{Name: "foo"}},
 			[]types.Type{&types.Int64Type{}, &types.Int64Type{}}, nil, "invalid type: arg #1 (foo) should be an enum"},
 		{"discrete null handling", extensions.DiscreteNullability, strNull, extensions.FuncParameterList{
@@ -69,8 +69,9 @@ func TestEvaluateTypeExpression(t *testing.T) {
 
 func TestVariantWithVariadic(t *testing.T) {
 	var (
-		i64Null, _    = parser.ParseType("i64?")
-		i64NonNull, _ = parser.ParseType("i64")
+		i64Null, _     = parser.ParseType("i64?")
+		i64NonNull, _  = parser.ParseType("i64")
+		varcharNull, _ = parser.ParseType("varchar?<20>")
 	)
 
 	tests := []struct {
@@ -83,27 +84,82 @@ func TestVariantWithVariadic(t *testing.T) {
 		variadic extensions.VariadicBehavior
 		err      string
 	}{
-		{"basic", "", i64NonNull, extensions.FuncParameterList{
+		{"1param2args", extensions.MirrorNullability, i64NonNull, extensions.FuncParameterList{
 			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64Null}}},
 			[]types.Type{&types.Int64Type{Nullability: types.NullabilityNullable},
 				&types.Int64Type{Nullability: types.NullabilityNullable}},
 			&types.Int64Type{Nullability: types.NullabilityNullable},
 			extensions.VariadicBehavior{
 				Min: 0, ParameterConsistency: extensions.ConsistentParams}, ""},
-		{"bad arg count", "", i64NonNull, extensions.FuncParameterList{
+		{"1param1arg", extensions.MirrorNullability, i64NonNull, extensions.FuncParameterList{
 			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64Null}}},
-			[]types.Type{&types.Int64Type{Nullability: types.NullabilityNullable},
+			[]types.Type{&types.Int64Type{Nullability: types.NullabilityNullable}},
+			&types.Int64Type{Nullability: types.NullabilityNullable},
+			extensions.VariadicBehavior{
+				Min: 0, ParameterConsistency: extensions.ConsistentParams}, ""},
+		{"1param0args", extensions.MirrorNullability, i64NonNull, extensions.FuncParameterList{
+			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64Null}}},
+			[]types.Type{},
+			&types.Int64Type{Nullability: types.NullabilityRequired},
+			extensions.VariadicBehavior{
+				Min: 0, ParameterConsistency: extensions.ConsistentParams}, ""},
+		{"2params3args", extensions.MirrorNullability, i64NonNull, extensions.FuncParameterList{
+			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: varcharNull}},
+			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64Null}}},
+			[]types.Type{&types.VarCharType{Nullability: types.NullabilityNullable, Length: 20},
+				&types.Int64Type{Nullability: types.NullabilityNullable},
 				&types.Int64Type{Nullability: types.NullabilityNullable}},
+			&types.Int64Type{Nullability: types.NullabilityNullable},
+			extensions.VariadicBehavior{
+				Min: 0, ParameterConsistency: extensions.ConsistentParams}, ""},
+		{"2params2args", extensions.MirrorNullability, i64NonNull, extensions.FuncParameterList{
+			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: varcharNull}},
+			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64Null}}},
+			[]types.Type{&types.VarCharType{Nullability: types.NullabilityNullable, Length: 20},
+				&types.Int64Type{Nullability: types.NullabilityNullable}},
+			&types.Int64Type{Nullability: types.NullabilityNullable},
+			extensions.VariadicBehavior{
+				Min: 0, ParameterConsistency: extensions.ConsistentParams}, ""},
+		{"2params1arg", extensions.MirrorNullability, i64NonNull, extensions.FuncParameterList{
+			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: varcharNull}},
+			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64Null}}},
+			[]types.Type{&types.VarCharType{Nullability: types.NullabilityNullable, Length: 20}},
+			&types.Int64Type{Nullability: types.NullabilityNullable},
+			extensions.VariadicBehavior{
+				Min: 0, ParameterConsistency: extensions.ConsistentParams}, ""},
+		{"2params1argBad", extensions.MirrorNullability, i64NonNull, extensions.FuncParameterList{
+			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: varcharNull}},
+			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64Null}}},
+			[]types.Type{&types.Int64Type{Nullability: types.NullabilityNullable}},
+			&types.Int64Type{Nullability: types.NullabilityNullable},
+			extensions.VariadicBehavior{
+				Min: 0, ParameterConsistency: extensions.ConsistentParams}, "invalid type: argument types did not match"},
+		{"2params0argsBad", extensions.MirrorNullability, i64NonNull, extensions.FuncParameterList{
+			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: varcharNull}},
+			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64Null}}},
+			[]types.Type{},
+			&types.Int64Type{Nullability: types.NullabilityRequired},
+			extensions.VariadicBehavior{
+				Min: 0, ParameterConsistency: extensions.ConsistentParams}, "invalid expression: mismatch in number of arguments provided. got 0, expected at least 1"},
+		{"min2Variadic1ArgBad", extensions.MirrorNullability, i64NonNull, extensions.FuncParameterList{
+			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64Null}}},
+			[]types.Type{&types.Int64Type{Nullability: types.NullabilityNullable}},
 			nil, extensions.VariadicBehavior{
 				Min: 2, ParameterConsistency: extensions.ConsistentParams},
-			"invalid expression: mismatch in number of arguments provided, invalid number of variadic params. got 2 total"},
+			"invalid expression: mismatch in number of arguments provided, invalid number of variadic params. got 1 total"},
+		{"min2Variadic1ArgBad", extensions.MirrorNullability, i64NonNull, extensions.FuncParameterList{
+			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64Null}}},
+			[]types.Type{},
+			nil, extensions.VariadicBehavior{
+				Min: 2, ParameterConsistency: extensions.ConsistentParams},
+			"invalid expression: mismatch in number of arguments provided, invalid number of variadic params. got 0 total"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := extensions.EvaluateTypeExpression(tt.nulls, tt.ret, tt.extArgs, &tt.variadic, tt.args)
 			if tt.err == "" {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Truef(t, tt.expected.Equals(result), "expected: %s\ngot: %s", tt.expected, result)
 			} else {
 				assert.EqualError(t, err, tt.err)

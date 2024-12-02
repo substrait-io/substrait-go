@@ -44,7 +44,7 @@ func validateType(funcParameter FuncParameter, actual types.Type, idx int, nullH
 	allNonNull := true
 	switch p := funcParameter.(type) {
 	case EnumArg:
-		if actual != nil {
+		if actual != types.CommonEnumType {
 			return allNonNull, fmt.Errorf("%w: arg #%d (%s) should be an enum",
 				substraitgo.ErrInvalidType, idx, p.Name)
 		}
@@ -78,20 +78,26 @@ func validateType(funcParameter FuncParameter, actual types.Type, idx int, nullH
 //	argumentTypes: the actual argument types provided to the function
 func EvaluateTypeExpression(nullHandling NullabilityHandling, returnTypeExpr types.FuncDefArgType,
 	funcParameters FuncParameterList, variadic *VariadicBehavior, argumentTypes []types.Type) (types.Type, error) {
-	if len(funcParameters) != len(argumentTypes) {
-		if variadic == nil {
-			return nil, fmt.Errorf("%w: mismatch in number of arguments provided. got %d, expected %d",
-				substraitgo.ErrInvalidExpr, len(argumentTypes), len(funcParameters))
+	if variadic != nil {
+		numVariadicArgs := len(argumentTypes) - (len(funcParameters) - 1)
+		if numVariadicArgs < 0 {
+			return nil, fmt.Errorf("%w: mismatch in number of arguments provided. got %d, expected at least %d",
+				substraitgo.ErrInvalidExpr, len(argumentTypes), len(funcParameters)-1)
 		}
-
-		if !variadic.IsValidArgumentCount(len(argumentTypes) - len(funcParameters) - 1) {
+		if !variadic.IsValidArgumentCount(numVariadicArgs) {
 			return nil, fmt.Errorf("%w: mismatch in number of arguments provided, invalid number of variadic params. got %d total",
 				substraitgo.ErrInvalidExpr, len(argumentTypes))
 		}
+	} else if len(funcParameters) != len(argumentTypes) {
+		return nil, fmt.Errorf("%w: mismatch in number of arguments provided. got %d, expected %d",
+			substraitgo.ErrInvalidExpr, len(argumentTypes), len(funcParameters))
 	}
 
 	allNonNull := true
 	for i, p := range funcParameters {
+		if i >= len(argumentTypes) {
+			break
+		}
 		nonNull, err := validateType(p, argumentTypes[i], i, nullHandling)
 		if err != nil {
 			return nil, err
@@ -110,6 +116,15 @@ func EvaluateTypeExpression(nullHandling NullabilityHandling, returnTypeExpr typ
 			}
 			allNonNull = allNonNull && nonNull
 		}
+	}
+
+	// validate non variadic arguments
+	isMatch, err := matchArguments(nullHandling, funcParameters, variadic, argumentTypes)
+	if err != nil {
+		return nil, err
+	}
+	if !isMatch {
+		return nil, fmt.Errorf("%w: argument types did not match", substraitgo.ErrInvalidType)
 	}
 
 	funcParameterTypes := make([]types.FuncDefArgType, len(funcParameters))
@@ -134,8 +149,11 @@ func EvaluateTypeExpression(nullHandling NullabilityHandling, returnTypeExpr typ
 func matchArguments(nullability NullabilityHandling, paramTypeList FuncParameterList, variadicBehavior *VariadicBehavior, actualTypes []types.Type) (bool, error) {
 	if variadicBehavior == nil && len(actualTypes) != len(paramTypeList) {
 		return false, nil
-	} else if variadicBehavior != nil && !validateVariadicBehaviorForMatch(variadicBehavior, actualTypes) {
-		return false, nil
+	} else if variadicBehavior != nil {
+		numNonVariadicArgs := len(paramTypeList) - 1
+		if !validateVariadicBehaviorForMatch(variadicBehavior, actualTypes[numNonVariadicArgs:]) {
+			return false, nil
+		}
 	}
 	funcDefArgList, err := getFuncDefFromArgList(paramTypeList)
 	if err != nil {
@@ -220,7 +238,7 @@ func getFuncDefFromArgList(paramTypeList FuncParameterList) ([]types.FuncDefArgT
 		case ValueArg:
 			out = append(out, paramType.Value.ValueType)
 		case EnumArg:
-			return nil, fmt.Errorf("%w: invalid argument at position %d for match operation", substraitgo.ErrInvalidType, argPos)
+			out = append(out, types.CommonEnumType)
 		case TypeArg:
 			return nil, fmt.Errorf("%w: invalid argument at position %d for match operation", substraitgo.ErrInvalidType, argPos)
 		default:

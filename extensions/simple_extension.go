@@ -47,6 +47,7 @@ type TypeVariationFunctions string
 const (
 	TypeVariationInheritsFuncs TypeVariationFunctions = "INHERITS"
 	TypeVariationSeparateFuncs TypeVariationFunctions = "SEPARATE"
+	EnumTypeString                                    = "req" // TODO change this to "enum"
 )
 
 type TypeVariation struct {
@@ -68,7 +69,7 @@ type EnumArg struct {
 }
 
 func (EnumArg) toTypeString() string {
-	return "req"
+	return EnumTypeString
 }
 
 func (v EnumArg) GetTypeExpression() types.FuncDefArgType {

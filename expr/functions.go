@@ -181,7 +181,7 @@ func resolveVariant[T variant](id extensions.ID, reg ExtensionRegistry, getter f
 	for _, arg := range args {
 		switch a := arg.(type) {
 		case types.Enum:
-			argTypes = append(argTypes, nil)
+			argTypes = append(argTypes, types.CommonEnumType)
 		case Expression:
 			argTypes = append(argTypes, a.GetType())
 		}
@@ -192,9 +192,9 @@ func resolveVariant[T variant](id extensions.ID, reg ExtensionRegistry, getter f
 		if strings.IndexByte(id.Name, ':') == -1 {
 			sigs := make([]string, len(argTypes))
 			for i, t := range argTypes {
-				if t == nil {
+				if t == types.CommonEnumType {
 					// enum value
-					sigs[i] = "req"
+					sigs[i] = extensions.EnumTypeString
 				} else if ud, ok := t.(*types.UserDefinedType); ok {
 					id, found := reg.DecodeType(ud.TypeReference)
 					if !found {
