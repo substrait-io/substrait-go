@@ -47,7 +47,12 @@ func (rc *RelCommon) remap(initial types.RecordType) types.RecordType {
 	return *types.NewRecordTypeFromTypes(outTypes)
 }
 
-func (rc *RelCommon) OutputMapping() []int32 { return rc.mapping }
+func (rc *RelCommon) OutputMapping() []int32 {
+	// Make a copy of the output mapping to prevent accidental modification.
+	mapCopy := make([]int32, len(rc.mapping))
+	copy(mapCopy, rc.mapping)
+	return mapCopy
+}
 
 func (rc *RelCommon) ClearMapping() {
 	rc.mapping = nil
