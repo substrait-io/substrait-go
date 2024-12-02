@@ -464,19 +464,19 @@ func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
 			},
 		}
 	case *types.PrecisionTimestampType:
-		v := t.Value.(uint64)
+		v := t.Value.(int64)
 		lit.LiteralType = &proto.Expression_Literal_PrecisionTimestamp_{
 			PrecisionTimestamp: &proto.Expression_Literal_PrecisionTimestamp{
 				Precision: literalType.GetPrecisionProtoVal(),
-				Value:     int64(v),
+				Value:     v,
 			},
 		}
 	case *types.PrecisionTimestampTzType:
-		v := t.Value.(uint64)
+		v := t.Value.(int64)
 		lit.LiteralType = &proto.Expression_Literal_PrecisionTimestampTz{
 			PrecisionTimestampTz: &proto.Expression_Literal_PrecisionTimestamp{
 				Precision: literalType.GetPrecisionProtoVal(),
-				Value:     int64(v),
+				Value:     v,
 			},
 		}
 	}
