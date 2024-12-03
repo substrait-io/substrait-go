@@ -157,9 +157,9 @@ type MappableRel interface {
 	OutputMapping() []int32
 }
 
-// ChangeMapping implements the core functionality of ChangeMapping for relations.
+// RemapHelper implements the core functionality of RemapHelper for relations.
 // It returns the relation's existing mapping on an error to ease being called.
-func ChangeMapping(r MappableRel, mapping []int32) ([]int32, error) {
+func RemapHelper(r MappableRel, mapping []int32) ([]int32, error) {
 	if len(mapping) == 0 {
 		return []int32{}, nil
 	}
@@ -180,8 +180,8 @@ func ChangeMapping(r MappableRel, mapping []int32) ([]int32, error) {
 	return mapping, nil
 }
 
-func (b *baseReadRel) ChangeMapping(mapping ...int32) error {
-	newMapping, err := ChangeMapping(b, mapping)
+func (b *baseReadRel) Remap(mapping ...int32) error {
+	newMapping, err := RemapHelper(b, mapping)
 	b.mapping = newMapping
 	return err
 }
@@ -623,8 +623,8 @@ func (p *ProjectRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInput
 	return &proj, nil
 }
 
-func (p *ProjectRel) ChangeMapping(mapping ...int32) error {
-	newMapping, err := ChangeMapping(p, mapping)
+func (p *ProjectRel) Remap(mapping ...int32) error {
+	newMapping, err := RemapHelper(p, mapping)
 	p.mapping = newMapping
 	return err
 }
@@ -781,8 +781,8 @@ func (j *JoinRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs .
 	return &join, nil
 }
 
-func (j *JoinRel) ChangeMapping(mapping ...int32) error {
-	newMapping, err := ChangeMapping(j, mapping)
+func (j *JoinRel) Remap(mapping ...int32) error {
+	newMapping, err := RemapHelper(j, mapping)
 	j.mapping = newMapping
 	return err
 }
@@ -848,8 +848,8 @@ func (c *CrossRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (R
 	return c.Copy(newInputs...)
 }
 
-func (c *CrossRel) ChangeMapping(mapping ...int32) error {
-	newMapping, err := ChangeMapping(c, mapping)
+func (c *CrossRel) Remap(mapping ...int32) error {
+	newMapping, err := RemapHelper(c, mapping)
 	c.mapping = newMapping
 	return err
 }
@@ -920,8 +920,8 @@ func (f *FetchRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (R
 	return f.Copy(newInputs...)
 }
 
-func (f *FetchRel) ChangeMapping(mapping ...int32) error {
-	newMapping, err := ChangeMapping(f, mapping)
+func (f *FetchRel) Remap(mapping ...int32) error {
+	newMapping, err := RemapHelper(f, mapping)
 	f.mapping = newMapping
 	return err
 }
@@ -1074,8 +1074,8 @@ func (ar *AggregateRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newIn
 	return &aggregate, nil
 }
 
-func (ar *AggregateRel) ChangeMapping(mapping ...int32) error {
-	newMapping, err := ChangeMapping(ar, mapping)
+func (ar *AggregateRel) Remap(mapping ...int32) error {
+	newMapping, err := RemapHelper(ar, mapping)
 	ar.mapping = newMapping
 	return err
 }
@@ -1161,8 +1161,8 @@ func (sr *SortRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs 
 	return &sort, nil
 }
 
-func (sr *SortRel) ChangeMapping(mapping ...int32) error {
-	newMapping, err := ChangeMapping(sr, mapping)
+func (sr *SortRel) Remap(mapping ...int32) error {
+	newMapping, err := RemapHelper(sr, mapping)
 	sr.mapping = newMapping
 	return err
 }
@@ -1238,8 +1238,8 @@ func (fr *FilterRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInput
 	return &filter, nil
 }
 
-func (fr *FilterRel) ChangeMapping(mapping ...int32) error {
-	newMapping, err := ChangeMapping(fr, mapping)
+func (fr *FilterRel) Remap(mapping ...int32) error {
+	newMapping, err := RemapHelper(fr, mapping)
 	fr.mapping = newMapping
 	return err
 }
@@ -1317,8 +1317,8 @@ func (s *SetRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (Rel
 	return s.Copy(newInputs...)
 }
 
-func (s *SetRel) ChangeMapping(mapping ...int32) error {
-	newMapping, err := ChangeMapping(s, mapping)
+func (s *SetRel) Remap(mapping ...int32) error {
+	newMapping, err := RemapHelper(s, mapping)
 	s.mapping = newMapping
 	return err
 }
@@ -1380,8 +1380,8 @@ func (es *ExtensionSingleRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs
 	return es.Copy(newInputs...)
 }
 
-func (es *ExtensionSingleRel) ChangeMapping(mapping ...int32) error {
-	newMapping, err := ChangeMapping(es, mapping)
+func (es *ExtensionSingleRel) Remap(mapping ...int32) error {
+	newMapping, err := RemapHelper(es, mapping)
 	es.mapping = newMapping
 	return err
 }
@@ -1430,8 +1430,8 @@ func (el *ExtensionLeafRel) CopyWithExpressionRewrite(_ RewriteFunc, _ ...Rel) (
 	return el, nil
 }
 
-func (el *ExtensionLeafRel) ChangeMapping(mapping ...int32) error {
-	newMapping, err := ChangeMapping(el, mapping)
+func (el *ExtensionLeafRel) Remap(mapping ...int32) error {
+	newMapping, err := RemapHelper(el, mapping)
 	el.mapping = newMapping
 	return err
 }
@@ -1492,8 +1492,8 @@ func (em *ExtensionMultiRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs 
 	return em.Copy(newInputs...)
 }
 
-func (em *ExtensionMultiRel) ChangeMapping(mapping ...int32) error {
-	newMapping, err := ChangeMapping(em, mapping)
+func (em *ExtensionMultiRel) Remap(mapping ...int32) error {
+	newMapping, err := RemapHelper(em, mapping)
 	em.mapping = newMapping
 	return err
 }
@@ -1616,8 +1616,8 @@ func (hr *HashJoinRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInp
 	return &join, nil
 }
 
-func (hr *HashJoinRel) ChangeMapping(mapping ...int32) error {
-	newMapping, err := ChangeMapping(hr, mapping)
+func (hr *HashJoinRel) Remap(mapping ...int32) error {
+	newMapping, err := RemapHelper(hr, mapping)
 	hr.mapping = newMapping
 	return err
 }
@@ -1726,8 +1726,8 @@ func (mr *MergeJoinRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newIn
 	return &merge, nil
 }
 
-func (mr *MergeJoinRel) ChangeMapping(mapping ...int32) error {
-	newMapping, err := ChangeMapping(mr, mapping)
+func (mr *MergeJoinRel) Remap(mapping ...int32) error {
+	newMapping, err := RemapHelper(mr, mapping)
 	mr.mapping = newMapping
 	return err
 }
@@ -1843,8 +1843,8 @@ func (wr *NamedTableWriteRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs
 	return wr.Copy(newInputs...)
 }
 
-func (wr *NamedTableWriteRel) ChangeMapping(mapping ...int32) error {
-	newMapping, err := ChangeMapping(wr, mapping)
+func (wr *NamedTableWriteRel) Remap(mapping ...int32) error {
+	newMapping, err := RemapHelper(wr, mapping)
 	wr.mapping = newMapping
 	return err
 }

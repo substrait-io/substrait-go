@@ -382,7 +382,7 @@ func (f *fakeRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs .
 	panic("unused")
 }
 
-func (f *fakeRel) ChangeMapping(mapping ...int32) error {
+func (f *fakeRel) Remap(mapping ...int32) error {
 	panic("unused")
 }
 
@@ -395,7 +395,7 @@ func TestProjectRecordType(t *testing.T) {
 	result := rel.RecordType()
 	assert.Equal(t, expected, result)
 
-	err := rel.ChangeMapping(0)
+	err := rel.Remap(0)
 	assert.NoError(t, err)
 	expected = *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}})
 	result = rel.RecordType()
@@ -411,7 +411,7 @@ func TestExtensionSingleRecordType(t *testing.T) {
 	result := rel.RecordType()
 	assert.Equal(t, expected, result)
 
-	err := rel.ChangeMapping(0)
+	err := rel.Remap(0)
 	assert.NoError(t, err)
 	expected = *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}})
 	result = rel.RecordType()
@@ -425,7 +425,7 @@ func TestExtensionLeafRecordType(t *testing.T) {
 	result := rel.RecordType()
 	assert.Equal(t, expected, result)
 
-	err := rel.ChangeMapping(0)
+	err := rel.Remap(0)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 }
 
@@ -436,7 +436,7 @@ func TestExtensionMultiRecordType(t *testing.T) {
 	result := rel.RecordType()
 	assert.Equal(t, expected, result)
 
-	err := rel.ChangeMapping(0)
+	err := rel.Remap(0)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 }
 
@@ -452,7 +452,7 @@ func TestHashJoinRecordType(t *testing.T) {
 	result := rel.RecordType()
 	assert.Equal(t, expected, result)
 
-	err := rel.ChangeMapping(0)
+	err := rel.Remap(0)
 	assert.NoError(t, err)
 	expected = *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}})
 	result = rel.RecordType()
@@ -471,7 +471,7 @@ func TestMergeJoinRecordType(t *testing.T) {
 	result := rel.RecordType()
 	assert.Equal(t, expected, result)
 
-	err := rel.ChangeMapping(0)
+	err := rel.Remap(0)
 	assert.NoError(t, err)
 	expected = *types.NewRecordTypeFromTypes(
 		[]types.Type{&types.Int64Type{}})
@@ -489,6 +489,6 @@ func TestNamedTableWriteRecordType(t *testing.T) {
 	result := rel.RecordType()
 	assert.Equal(t, expected, result)
 
-	err := rel.ChangeMapping(0)
+	err := rel.Remap(0)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 }
