@@ -30,6 +30,8 @@ func TestAnyType(t *testing.T) {
 				Nullability: td.nullability,
 			}
 			anyType := anyBase.SetNullability(td.nullability)
+			require.Equal(t, td.nullability, anyType.GetNullability())
+			require.Equal(t, "any", anyType.ShortString())
 			require.Equal(t, td.expectedString, anyType.String())
 			returnType, err := anyType.ReturnType(td.parameters, td.args)
 			if td.expectedReturnType != nil {
