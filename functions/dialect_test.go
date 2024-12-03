@@ -251,7 +251,7 @@ scalar_functions:
 
 func getLocalFunctionRegistry(t *testing.T, dialectYaml string, substraitFuncRegistry FunctionRegistry) LocalFunctionRegistry {
 	dialect, err := LoadDialect(t.Name(), strings.NewReader(dialectYaml))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	localRegistry, err := dialect.LocalizeFunctionRegistry(substraitFuncRegistry)
 	assert.NoError(t, err)
 	return localRegistry
@@ -1118,9 +1118,9 @@ scalar_functions:
     impls:
       - args:
           - name: x
-            value: decimal<P,S>
+            value: decimal<P1,S1>
           - name: y
-            value: decimal<P,S>
+            value: decimal<P2,S2>
         variadic:
           min: 3
         return: i32
@@ -1432,6 +1432,88 @@ scalar_functions:
 			assert.Equal(t, tt.localName, fv[0].LocalName())
 			assert.Equal(t, tt.expectedNotation, fv[0].Notation())
 			assert.Equal(t, tt.isOverflowError, fv[0].IsOptionSupported("overflow", "ERROR"))
+			assert.False(t, fv[0].IsOptionSupported("overflow", "SILENT"))
+			checkCompoundNames(t, getScalarCompoundNames(fv), tt.expectedNames)
+			retType, err := fv[0].ResolveType(tt.args)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedReturnType, retType)
+			fv = localRegistry.GetScalarFunctions(SubstraitFunctionName(tt.substraitName), tt.numArgs)
+			assert.Greater(t, len(fv), 0)
+			assert.Equal(t, tt.expectedUri, fv[0].URI())
+			assert.Equal(t, tt.localName, fv[0].LocalName())
+			assert.Equal(t, tt.substraitName, fv[0].Name())
+			checkCompoundNames(t, getScalarCompoundNames(fv), tt.expectedNames)
+
+			scalarFunctions := gFunctionRegistry.GetScalarFunctions(tt.substraitName, tt.numArgs)
+			assert.Greater(t, len(scalarFunctions), 0)
+			for _, f := range scalarFunctions {
+				assert.Contains(t, allFunctions, f)
+			}
+			scalarFunctions = gFunctionRegistry.GetScalarFunctionsByName(tt.substraitName)
+			assert.Greater(t, len(scalarFunctions), 0)
+			for _, f := range scalarFunctions {
+				assert.Contains(t, allFunctions, f)
+			}
+		})
+	}
+}
+
+func TestScalarFunctionLookupWithAnyReturnType(t *testing.T) {
+	baseUri := "https://github.com/substrait-io/substrait/blob/main/extensions/"
+	decArithmeticUri := baseUri + "functions_comparison.yaml"
+	allFunctions := gFunctionRegistry.GetAllFunctions()
+
+	dialectYaml := `
+name: test
+type: sql
+dependencies:
+  arithmetic: 
+    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+  comparison: 
+    https://github.com/substrait-io/substrait/blob/main/extensions/functions_comparison.yaml
+supported_types:
+  decimal:
+    sql_type_name: INTEGER
+    supported_as_column: true
+scalar_functions:
+  - name: comparison.coalesce
+    supported_kernels:
+    - any1
+    variadic: 2
+  - name: comparison.least
+    local_name: least
+    supported_kernels:
+    - any1
+    variadic: 2
+  - name: comparison.nullif
+    supported_kernels:
+    - any1_any1
+`
+	varcharL50 := &types.VarCharType{Length: 50, Nullability: types.NullabilityNullable}
+	decType30S2 := &types.DecimalType{Precision: 30, Scale: 2, Nullability: types.NullabilityNullable}
+	localRegistry := getLocalFunctionRegistry(t, dialectYaml, gFunctionRegistry)
+
+	tests := []struct {
+		numArgs            int
+		localName          string
+		substraitName      string
+		args               []types.Type
+		expectedReturnType types.Type
+		expectedUri        string
+		expectedNames      []string
+	}{
+		{2, "least", "least", []types.Type{decType30S2, decType30S2}, decType30S2, decArithmeticUri, []string{"least:any"}},
+		{3, "coalesce", "coalesce", []types.Type{varcharL50, varcharL50, varcharL50}, varcharL50, decArithmeticUri, []string{"coalesce:any"}},
+		{2, "nullif", "nullif", []types.Type{decType30S2, decType30S2}, decType30S2, decArithmeticUri, []string{"nullif:any_any"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.substraitName, func(t *testing.T) {
+			var fv []*LocalScalarFunctionVariant
+			fv = localRegistry.GetScalarFunctions(LocalFunctionName(tt.localName), tt.numArgs)
+
+			require.Greater(t, len(fv), 0)
+			assert.Equal(t, tt.expectedUri, fv[0].URI())
+			assert.Equal(t, tt.localName, fv[0].LocalName())
 			assert.False(t, fv[0].IsOptionSupported("overflow", "SILENT"))
 			checkCompoundNames(t, getScalarCompoundNames(fv), tt.expectedNames)
 			retType, err := fv[0].ResolveType(tt.args)

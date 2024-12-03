@@ -121,7 +121,7 @@ func (v *TypeVisitor) VisitAnyType(ctx *baseparser2.AnyTypeContext) interface{} 
 	if ctx.AnyVar() != nil {
 		name = ctx.AnyVar().GetText()
 	}
-	return types.AnyType{Name: name, Nullability: nullability}
+	return &types.AnyType{Name: name, Nullability: nullability}
 }
 
 func (v *TypeVisitor) VisitBoolean(*baseparser2.BooleanContext) interface{} {
@@ -338,6 +338,7 @@ func (v *TypeVisitor) VisitNumericParameterName(ctx *baseparser2.NumericParamete
 }
 
 func (v *TypeVisitor) VisitNumericExpression(ctx *baseparser2.NumericExpressionContext) interface{} {
+	// TODO handle numeric expression
 	return v.Visit(ctx.Expr())
 }
 
