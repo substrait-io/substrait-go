@@ -97,7 +97,7 @@ func TestEmitEmptyPlan(t *testing.T) {
 	assert.Equal(t, "NSTRUCT<a: fp32, b: string>", p.GetRoots()[0].RecordType().String())
 
 	// Verify the mapping remains the same after receiving an error.
-	newRoot, err = root.Remap(-1)
+	_, err = root.Remap(-1)
 	require.Error(t, err)
 	assert.Equal(t, "NSTRUCT<a: fp32, b: string>", p.GetRoots()[0].RecordType().String())
 
