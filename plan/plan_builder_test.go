@@ -74,22 +74,22 @@ func TestBasicEmitPlan(t *testing.T) {
 
 func TestEmitEmptyPlan(t *testing.T) {
 	b := plan.NewBuilderDefault()
-	root := b.NamedScan([]string{"test"}, baseSchema)
-	err := root.ChangeMapping([]int32{})
+	root, err := b.NamedScanRemap([]string{"test"},
+		baseSchema, []int32{})
 	require.NoError(t, err)
 	_, err = b.Plan(root, []string{})
 	require.NoError(t, err)
 
 	b = plan.NewBuilderDefault()
 	root = b.NamedScan([]string{"test"}, baseSchema)
-	err = root.ChangeMapping([]int32{})
+	err = root.ChangeMapping()
 	require.NoError(t, err)
 	_, err = b.Plan(root, []string{})
 	require.NoError(t, err)
 
 	b = plan.NewBuilderDefault()
 	root = b.NamedScan([]string{"test"}, baseSchema)
-	err = root.ChangeMapping([]int32{1, 0})
+	err = root.ChangeMapping(1, 0)
 	require.NoError(t, err)
 	p, err := b.Plan(root, []string{"a", "b"})
 	require.NoError(t, err)
@@ -97,7 +97,7 @@ func TestEmitEmptyPlan(t *testing.T) {
 	assert.Equal(t, "NSTRUCT<a: fp32, b: string>", p.GetRoots()[0].RecordType().String())
 
 	// Verify the mapping remains the same after receiving an error.
-	err = root.ChangeMapping([]int32{-1})
+	err = root.ChangeMapping(-1)
 	require.Error(t, err)
 	assert.Equal(t, "NSTRUCT<a: fp32, b: string>", p.GetRoots()[0].RecordType().String())
 
@@ -119,7 +119,7 @@ func TestBuildEmitOutOfRangePlan(t *testing.T) {
 
 	b = plan.NewBuilderDefault()
 	root := b.NamedScan([]string{"test"}, baseSchema)
-	err = root.ChangeMapping([]int32{2})
+	err = root.ChangeMapping(2)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 }
@@ -127,10 +127,10 @@ func TestBuildEmitOutOfRangePlan(t *testing.T) {
 func TestMappingOfMapping(t *testing.T) {
 	b := plan.NewBuilderDefault()
 	ns := b.NamedScan([]string{"test"}, baseSchema)
-	err := ns.ChangeMapping([]int32{1, 0})
+	err := ns.ChangeMapping(1, 0)
 	assert.NoError(t, err)
 	assert.Equal(t, "struct<fp32, string>", ns.RecordType().String())
-	err = ns.ChangeMapping([]int32{1})
+	err = ns.ChangeMapping(1)
 	assert.NoError(t, err)
 	assert.Equal(t, "struct<string>", ns.RecordType().String())
 }
@@ -298,7 +298,7 @@ func TestAggregateRelErrors(t *testing.T) {
 
 	acr, err := b.AggregateColumns(scan, nil, 0)
 	assert.NoError(t, err)
-	err = acr.ChangeMapping([]int32{-1, 5})
+	err = acr.ChangeMapping(-1, 5)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
@@ -310,7 +310,7 @@ func TestAggregateRelErrors(t *testing.T) {
 	ref, _ = b.RootFieldRef(scan, 0)
 	ae, err := b.AggregateExprs(scan, nil, []expr.Expression{ref})
 	assert.NoError(t, err)
-	err = ae.ChangeMapping([]int32{5, -1})
+	err = ae.ChangeMapping(5, -1)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
@@ -320,7 +320,7 @@ func TestAggregateRelErrors(t *testing.T) {
 
 	ae, err = b.AggregateExprs(scan, nil, []expr.Expression{ref})
 	assert.NoError(t, err)
-	err = ae.ChangeMapping([]int32{1})
+	err = ae.ChangeMapping(1)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
@@ -328,14 +328,14 @@ func TestAggregateRelErrors(t *testing.T) {
 	assert.NoError(t, err)
 	ae, err = b.AggregateExprs(scan, nil, []expr.Expression{ref})
 	assert.NoError(t, err)
-	err = ae.ChangeMapping([]int32{0})
+	err = ae.ChangeMapping(0)
 	assert.NoError(t, err)
 
 	_, err = b.AggregateColumnsRemap(scan, []int32{0}, nil, 0)
 	assert.NoError(t, err)
 	ae, err = b.AggregateColumns(scan, nil, 0)
 	assert.NoError(t, err)
-	err = ae.ChangeMapping([]int32{0})
+	err = ae.ChangeMapping(0)
 	assert.NoError(t, err)
 }
 
@@ -429,7 +429,7 @@ func TestCrossRelErrors(t *testing.T) {
 
 	c, err := b.Cross(left, right)
 	assert.NoError(t, err)
-	err = c.ChangeMapping([]int32{-1})
+	err = c.ChangeMapping(-1)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
@@ -439,7 +439,7 @@ func TestCrossRelErrors(t *testing.T) {
 
 	c, err = b.Cross(left, right)
 	assert.NoError(t, err)
-	err = c.ChangeMapping([]int32{5})
+	err = c.ChangeMapping(5)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
@@ -450,7 +450,7 @@ func TestCrossRelErrors(t *testing.T) {
 	// Output is length 2 + 2
 	c, err = b.Cross(left, right)
 	assert.NoError(t, err)
-	err = c.ChangeMapping([]int32{2, 3})
+	err = c.ChangeMapping(2, 3)
 	assert.NoError(t, err)
 }
 
@@ -512,7 +512,7 @@ func TestFetchRel(t *testing.T) {
 
 	checkRoundTrip(t, expectedJSON, p)
 
-	err = fetch.ChangeMapping([]int32{0})
+	err = fetch.ChangeMapping(0)
 	assert.NoError(t, err)
 }
 
@@ -538,7 +538,7 @@ func TestFetchRelErrors(t *testing.T) {
 
 	f, err := b.Fetch(scan, 0, 0)
 	assert.NoError(t, err)
-	err = f.ChangeMapping([]int32{-1})
+	err = f.ChangeMapping(-1)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
@@ -548,7 +548,7 @@ func TestFetchRelErrors(t *testing.T) {
 
 	f, err = b.Fetch(scan, 0, 0)
 	assert.NoError(t, err)
-	err = f.ChangeMapping([]int32{2})
+	err = f.ChangeMapping(2)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
@@ -610,7 +610,7 @@ func TestFilterRelation(t *testing.T) {
 
 	checkRoundTrip(t, expectedJSON, p)
 
-	err = filter.ChangeMapping([]int32{0})
+	err = filter.ChangeMapping(0)
 	assert.NoError(t, err)
 }
 
@@ -648,7 +648,7 @@ func TestFilterRelationErrors(t *testing.T) {
 
 	f, err := b.Filter(scan, refBool)
 	assert.NoError(t, err)
-	err = f.ChangeMapping([]int32{-1})
+	err = f.ChangeMapping(-1)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
@@ -658,7 +658,7 @@ func TestFilterRelationErrors(t *testing.T) {
 
 	f, err = b.Filter(scan, refBool)
 	assert.NoError(t, err)
-	err = f.ChangeMapping([]int32{3})
+	err = f.ChangeMapping(3)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 }
@@ -877,7 +877,7 @@ func TestJoinRelationError(t *testing.T) {
 
 	j, err := b.Join(left, right, goodcond, plan.JoinTypeInner)
 	assert.NoError(t, err)
-	err = j.ChangeMapping([]int32{-1})
+	err = j.ChangeMapping(-1)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
@@ -887,7 +887,7 @@ func TestJoinRelationError(t *testing.T) {
 
 	j, err = b.Join(left, right, goodcond, plan.JoinTypeLeftAnti)
 	assert.NoError(t, err)
-	err = j.ChangeMapping([]int32{2})
+	err = j.ChangeMapping(2)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
@@ -1118,7 +1118,7 @@ func TestSortRelationErrors(t *testing.T) {
 	fields, _ = b.SortFields(scan, 1, 0)
 	s, err := b.Sort(scan, fields...)
 	assert.NoError(t, err)
-	err = s.ChangeMapping([]int32{-1})
+	err = s.ChangeMapping(-1)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
@@ -1136,7 +1136,7 @@ func TestSortRelationErrors(t *testing.T) {
 
 	sortRel, err := b.Sort(scan, fields...)
 	assert.NoError(t, err)
-	err = sortRel.ChangeMapping([]int32{3})
+	err = sortRel.ChangeMapping(3)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 }
@@ -1438,7 +1438,7 @@ func TestProjectErrors(t *testing.T) {
 
 	p, err := b.Project(scan, ref)
 	assert.NoError(t, err)
-	err = p.ChangeMapping([]int32{-1})
+	err = p.ChangeMapping(-1)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
@@ -1448,7 +1448,7 @@ func TestProjectErrors(t *testing.T) {
 
 	p, err = b.Project(scan, ref)
 	assert.NoError(t, err)
-	err = p.ChangeMapping([]int32{3})
+	err = p.ChangeMapping(3)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
@@ -1457,7 +1457,7 @@ func TestProjectErrors(t *testing.T) {
 
 	p, err = b.Project(scan, ref)
 	assert.NoError(t, err)
-	err = p.ChangeMapping([]int32{2})
+	err = p.ChangeMapping(2)
 	assert.NoError(t, err, "Expected expression mapping to be in-bounds")
 }
 
@@ -1669,7 +1669,7 @@ func TestSetRelErrors(t *testing.T) {
 
 	s, err := b.Set(plan.SetOpMinusMultiset, scan1, scan2)
 	assert.NoError(t, err)
-	err = s.ChangeMapping([]int32{-1})
+	err = s.ChangeMapping(-1)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
@@ -1679,7 +1679,7 @@ func TestSetRelErrors(t *testing.T) {
 
 	s, err = b.Set(plan.SetOpMinusMultiset, scan1, scan2)
 	assert.NoError(t, err)
-	err = s.ChangeMapping([]int32{3})
+	err = s.ChangeMapping(3)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 }

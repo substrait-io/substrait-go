@@ -280,7 +280,7 @@ type Rel interface {
 	//
 	// If any column numbers specified are outside the currently available input
 	// range an error is returned and the mapping is left unchanged.
-	ChangeMapping(mapping []int32) error
+	ChangeMapping(mapping ...int32) error
 	// directOutputSchema returns the output record type of the underlying
 	// relation as a struct type.  Mapping is not applied.
 	directOutputSchema() types.RecordType

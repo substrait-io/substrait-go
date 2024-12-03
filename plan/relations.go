@@ -160,6 +160,9 @@ type MappableRel interface {
 // ChangeMapping implements the core functionality of ChangeMapping for relations.
 // It returns the relation's existing mapping on an error to ease being called.
 func ChangeMapping(r MappableRel, mapping []int32) ([]int32, error) {
+	if len(mapping) == 0 {
+		return []int32{}, nil
+	}
 	nOutput := r.RecordType().FieldCount()
 	oldMapping := r.OutputMapping()
 	newMapping := make([]int32, 0, len(mapping))
@@ -177,7 +180,7 @@ func ChangeMapping(r MappableRel, mapping []int32) ([]int32, error) {
 	return mapping, nil
 }
 
-func (b *baseReadRel) ChangeMapping(mapping []int32) error {
+func (b *baseReadRel) ChangeMapping(mapping ...int32) error {
 	newMapping, err := ChangeMapping(b, mapping)
 	b.mapping = newMapping
 	return err
@@ -620,7 +623,7 @@ func (p *ProjectRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInput
 	return &proj, nil
 }
 
-func (p *ProjectRel) ChangeMapping(mapping []int32) error {
+func (p *ProjectRel) ChangeMapping(mapping ...int32) error {
 	newMapping, err := ChangeMapping(p, mapping)
 	p.mapping = newMapping
 	return err
@@ -778,7 +781,7 @@ func (j *JoinRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs .
 	return &join, nil
 }
 
-func (j *JoinRel) ChangeMapping(mapping []int32) error {
+func (j *JoinRel) ChangeMapping(mapping ...int32) error {
 	newMapping, err := ChangeMapping(j, mapping)
 	j.mapping = newMapping
 	return err
@@ -845,7 +848,7 @@ func (c *CrossRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (R
 	return c.Copy(newInputs...)
 }
 
-func (c *CrossRel) ChangeMapping(mapping []int32) error {
+func (c *CrossRel) ChangeMapping(mapping ...int32) error {
 	newMapping, err := ChangeMapping(c, mapping)
 	c.mapping = newMapping
 	return err
@@ -917,7 +920,7 @@ func (f *FetchRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (R
 	return f.Copy(newInputs...)
 }
 
-func (f *FetchRel) ChangeMapping(mapping []int32) error {
+func (f *FetchRel) ChangeMapping(mapping ...int32) error {
 	newMapping, err := ChangeMapping(f, mapping)
 	f.mapping = newMapping
 	return err
@@ -1071,7 +1074,7 @@ func (ar *AggregateRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newIn
 	return &aggregate, nil
 }
 
-func (ar *AggregateRel) ChangeMapping(mapping []int32) error {
+func (ar *AggregateRel) ChangeMapping(mapping ...int32) error {
 	newMapping, err := ChangeMapping(ar, mapping)
 	ar.mapping = newMapping
 	return err
@@ -1158,7 +1161,7 @@ func (sr *SortRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs 
 	return &sort, nil
 }
 
-func (sr *SortRel) ChangeMapping(mapping []int32) error {
+func (sr *SortRel) ChangeMapping(mapping ...int32) error {
 	newMapping, err := ChangeMapping(sr, mapping)
 	sr.mapping = newMapping
 	return err
@@ -1235,7 +1238,7 @@ func (fr *FilterRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInput
 	return &filter, nil
 }
 
-func (fr *FilterRel) ChangeMapping(mapping []int32) error {
+func (fr *FilterRel) ChangeMapping(mapping ...int32) error {
 	newMapping, err := ChangeMapping(fr, mapping)
 	fr.mapping = newMapping
 	return err
@@ -1314,7 +1317,7 @@ func (s *SetRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (Rel
 	return s.Copy(newInputs...)
 }
 
-func (s *SetRel) ChangeMapping(mapping []int32) error {
+func (s *SetRel) ChangeMapping(mapping ...int32) error {
 	newMapping, err := ChangeMapping(s, mapping)
 	s.mapping = newMapping
 	return err
@@ -1377,7 +1380,7 @@ func (es *ExtensionSingleRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs
 	return es.Copy(newInputs...)
 }
 
-func (es *ExtensionSingleRel) ChangeMapping(mapping []int32) error {
+func (es *ExtensionSingleRel) ChangeMapping(mapping ...int32) error {
 	newMapping, err := ChangeMapping(es, mapping)
 	es.mapping = newMapping
 	return err
@@ -1427,7 +1430,7 @@ func (el *ExtensionLeafRel) CopyWithExpressionRewrite(_ RewriteFunc, _ ...Rel) (
 	return el, nil
 }
 
-func (el *ExtensionLeafRel) ChangeMapping(mapping []int32) error {
+func (el *ExtensionLeafRel) ChangeMapping(mapping ...int32) error {
 	newMapping, err := ChangeMapping(el, mapping)
 	el.mapping = newMapping
 	return err
@@ -1489,7 +1492,7 @@ func (em *ExtensionMultiRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs 
 	return em.Copy(newInputs...)
 }
 
-func (em *ExtensionMultiRel) ChangeMapping(mapping []int32) error {
+func (em *ExtensionMultiRel) ChangeMapping(mapping ...int32) error {
 	newMapping, err := ChangeMapping(em, mapping)
 	em.mapping = newMapping
 	return err
@@ -1613,7 +1616,7 @@ func (hr *HashJoinRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInp
 	return &join, nil
 }
 
-func (hr *HashJoinRel) ChangeMapping(mapping []int32) error {
+func (hr *HashJoinRel) ChangeMapping(mapping ...int32) error {
 	newMapping, err := ChangeMapping(hr, mapping)
 	hr.mapping = newMapping
 	return err
@@ -1723,7 +1726,7 @@ func (mr *MergeJoinRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newIn
 	return &merge, nil
 }
 
-func (mr *MergeJoinRel) ChangeMapping(mapping []int32) error {
+func (mr *MergeJoinRel) ChangeMapping(mapping ...int32) error {
 	newMapping, err := ChangeMapping(mr, mapping)
 	mr.mapping = newMapping
 	return err
@@ -1840,7 +1843,7 @@ func (wr *NamedTableWriteRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs
 	return wr.Copy(newInputs...)
 }
 
-func (wr *NamedTableWriteRel) ChangeMapping(mapping []int32) error {
+func (wr *NamedTableWriteRel) ChangeMapping(mapping ...int32) error {
 	newMapping, err := ChangeMapping(wr, mapping)
 	wr.mapping = newMapping
 	return err
