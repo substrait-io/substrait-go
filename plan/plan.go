@@ -255,6 +255,9 @@ type RewriteFunc func(expr.Expression) (expr.Expression, error)
 // It contains the common functionality between the different relations
 // and should be type switched to determine which relation type it actually
 // is for evaluation.
+//
+// All methods in this interface should be considered constant (i.e.
+// immutable).
 type Rel interface {
 	// Hint returns a set of changes to the operation which can influence
 	// efficiency and performance but should not impact correctness.
@@ -280,7 +283,7 @@ type Rel interface {
 	//
 	// If any column numbers specified are outside the currently available
 	// input range an error is returned and the mapping is left unchanged.
-	Remap(mapping ...int32) error
+	Remap(mapping ...int32) (Rel, error)
 	// directOutputSchema returns the output record type of the underlying
 	// relation as a struct type.  Mapping is not applied.
 	directOutputSchema() types.RecordType
