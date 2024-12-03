@@ -117,7 +117,7 @@ func (m *ParameterizedStructType) WithParameters(params []interface{}) (Type, er
 	for i, typ := range m.Types {
 		t, ok := params[i].(Type)
 		if !ok {
-			return nil, fmt.Errorf("expected parameter to be of type FuncDefArgType, got %T", params[i])
+			return nil, fmt.Errorf("expected parameter to be of type Type, got %T", params[i])
 		}
 		itype, err := typ.WithParameters(t.GetParameters())
 		if err != nil {
