@@ -271,8 +271,7 @@ type Rel interface {
 	// result should be 3 columns consisting of the 5th, 2nd and 1st
 	// output columns from the underlying relation.
 	OutputMapping() []int32
-	// ClearMapping resets the mapping for this relation.
-	ClearMapping()
+
 	// ChangeMapping modifies the current relation by applying the provided
 	// mapping to the current relation.  Typically used to remove any unneeded
 	// columns or provide them in a different order.  If there already is a

@@ -391,7 +391,6 @@ func TestProjectRecordType(t *testing.T) {
 	rel.input = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
 		[]types.Type{&types.Int64Type{}, &types.Int64Type{}})}
 
-	rel.ClearMapping()
 	expected := *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}, &types.Int64Type{}})
 	result := rel.RecordType()
 	assert.Equal(t, expected, result)
@@ -408,7 +407,6 @@ func TestExtensionSingleRecordType(t *testing.T) {
 	rel.input = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
 		[]types.Type{&types.Int64Type{}, &types.Int64Type{}})}
 
-	rel.ClearMapping()
 	expected := *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}, &types.Int64Type{}})
 	result := rel.RecordType()
 	assert.Equal(t, expected, result)
@@ -423,7 +421,6 @@ func TestExtensionSingleRecordType(t *testing.T) {
 func TestExtensionLeafRecordType(t *testing.T) {
 	var rel ExtensionLeafRel
 
-	rel.ClearMapping()
 	expected := *types.NewRecordTypeFromTypes(nil)
 	result := rel.RecordType()
 	assert.Equal(t, expected, result)
@@ -435,7 +432,6 @@ func TestExtensionLeafRecordType(t *testing.T) {
 func TestExtensionMultiRecordType(t *testing.T) {
 	var rel ExtensionMultiRel
 
-	rel.ClearMapping()
 	expected := *types.NewRecordTypeFromTypes(nil)
 	result := rel.RecordType()
 	assert.Equal(t, expected, result)
@@ -451,7 +447,6 @@ func TestHashJoinRecordType(t *testing.T) {
 	rel.right = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
 		[]types.Type{&types.StringType{}, &types.StringType{}})}
 
-	rel.ClearMapping()
 	expected := *types.NewRecordTypeFromTypes(
 		[]types.Type{&types.Int64Type{}, &types.Int64Type{}, &types.StringType{}, &types.StringType{}})
 	result := rel.RecordType()
@@ -471,7 +466,6 @@ func TestMergeJoinRecordType(t *testing.T) {
 	rel.right = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
 		[]types.Type{&types.StringType{}, &types.StringType{}})}
 
-	rel.ClearMapping()
 	expected := *types.NewRecordTypeFromTypes(
 		[]types.Type{&types.Int64Type{}, &types.Int64Type{}, &types.StringType{}, &types.StringType{}})
 	result := rel.RecordType()
@@ -491,7 +485,6 @@ func TestNamedTableWriteRecordType(t *testing.T) {
 		[]types.Type{&types.Int64Type{}, &types.StringType{}})}
 	rel.outputMode = proto.WriteRel_OUTPUT_MODE_MODIFIED_RECORDS
 
-	rel.ClearMapping()
 	expected := *types.NewRecordTypeFromTypes(nil)
 	result := rel.RecordType()
 	assert.Equal(t, expected, result)

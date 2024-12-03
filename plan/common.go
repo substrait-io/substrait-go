@@ -54,10 +54,6 @@ func (rc *RelCommon) OutputMapping() []int32 {
 	return mapCopy
 }
 
-func (rc *RelCommon) ClearMapping() {
-	rc.mapping = nil
-}
-
 func (rc *RelCommon) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return rc.advExtension
 }
