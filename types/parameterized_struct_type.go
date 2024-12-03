@@ -96,10 +96,10 @@ func (m *ParameterizedStructType) ShortString() string {
 	return "struct"
 }
 
-func (m *ParameterizedStructType) ReturnType() (Type, error) {
+func (m *ParameterizedStructType) ReturnType([]FuncDefArgType, []Type) (Type, error) {
 	var types []Type
 	for _, typ := range m.Types {
-		retType, err := typ.ReturnType()
+		retType, err := typ.ReturnType(nil, nil)
 		if err != nil {
 			return nil, fmt.Errorf("error in struct field type: %w", err)
 		}

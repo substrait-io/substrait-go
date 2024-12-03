@@ -43,7 +43,7 @@ func TestParameterizedMapType(t *testing.T) {
 			assert.Equal(t, types.NullabilityRequired, pd.GetNullability())
 			require.Equal(t, td.expectedHasParameterizedParam, pd.HasParameterizedParam())
 			require.Equal(t, td.expectedParameterizedParams, pd.GetParameterizedParams())
-			retType, err := pd.ReturnType()
+			retType, err := pd.ReturnType(nil, nil)
 			if td.expectedReturnType == nil {
 				assert.Error(t, err)
 				require.True(t, pd.HasParameterizedParam())

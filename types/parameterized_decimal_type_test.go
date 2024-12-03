@@ -36,7 +36,7 @@ func TestParameterizedDecimalType(t *testing.T) {
 			require.Equal(t, td.expectedNullableRequiredString, pd.SetNullability(types.NullabilityRequired).String())
 			require.Equal(t, td.expectedHasParameterizedParam, pd.HasParameterizedParam())
 			require.Equal(t, td.expectedParameterizedParams, pd.GetParameterizedParams())
-			retType, err := pd.ReturnType()
+			retType, err := pd.ReturnType(nil, nil)
 			if td.expectedReturnType == nil {
 				require.Error(t, err)
 				require.True(t, pd.HasParameterizedParam())

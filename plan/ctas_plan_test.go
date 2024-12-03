@@ -126,7 +126,7 @@ func getProjectionForTest2(t *testing.T, b plan.Builder) plan.Rel {
 	// column 0 from the output of namedScanRel is role
 	// Build the filter with condition `role LIKE 'Engineer'`
 	l := literal.NewString("Engineer")
-	roleLikeEngineer := makeConditionExprForLike(t, b, namedScanRel, 0, l)
+	roleLikeEngineer := makeConditionExprForLike(t, b, namedScanRel, 1, l)
 	filterRel := makeFilterRel(t, b, namedScanRel, roleLikeEngineer)
 
 	// projectRel output employee_id, name, department_id, salary, role

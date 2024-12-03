@@ -39,7 +39,7 @@ func TestParameterizedListType(t *testing.T) {
 			require.Equal(t, td.expectedHasParameterizedParam, pd.HasParameterizedParam())
 			require.Equal(t, td.expectedParameterizedParams, pd.GetParameterizedParams())
 			assert.Equal(t, "list", pd.ShortString())
-			retType, err := pd.ReturnType()
+			retType, err := pd.ReturnType(nil, nil)
 			if td.expectedReturnType == nil {
 				assert.Error(t, err)
 				require.True(t, pd.HasParameterizedParam())

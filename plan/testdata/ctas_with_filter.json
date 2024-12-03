@@ -151,7 +151,7 @@
                         "functionReference": 1,
                         "outputType": {
                           "bool": {
-                            "nullability": "NULLABILITY_REQUIRED"
+                            "nullability": "NULLABILITY_NULLABLE"
                           }
                         },
                         "arguments": [
@@ -160,7 +160,7 @@
                               "selection": {
                                 "directReference": {
                                   "structField": {
-                                    "field": 0
+                                    "field": 1
                                   }
                                 },
                                 "rootReference": {}

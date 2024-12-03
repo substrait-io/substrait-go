@@ -1,4 +1,4 @@
-package types
+package types_test
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	. "github.com/substrait-io/substrait-go/types"
 	"github.com/substrait-io/substrait-go/types/integer_parameters"
 )
 
@@ -43,7 +44,7 @@ func TestParameterizedUserDefinedType(t *testing.T) {
 			require.Equal(t, td.expectedHasParameterizedParam, pd.HasParameterizedParam())
 			require.Equal(t, td.expectedParameterizedParams, pd.GetParameterizedParams())
 			assert.Equal(t, fmt.Sprintf("u!%s", td.name), pd.ShortString())
-			retType, err := pd.ReturnType()
+			retType, err := pd.ReturnType(nil, nil)
 			if td.expectedReturnType == nil {
 				assert.Error(t, err)
 				require.True(t, pd.HasParameterizedParam())

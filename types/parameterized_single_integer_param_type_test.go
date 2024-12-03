@@ -44,7 +44,7 @@ func TestParameterizedSingleIntegerType(t *testing.T) {
 			require.Equal(t, td.expectedIsParameterized, td.typ.HasParameterizedParam())
 			require.Equal(t, td.expectedAbstractParams, td.typ.GetParameterizedParams())
 			assert.Equal(t, td.expectedShortString, td.typ.ShortString())
-			retType, err := td.typ.ReturnType()
+			retType, err := td.typ.ReturnType(nil, nil)
 			if td.expectedReturnType == nil {
 				require.Error(t, err)
 				require.True(t, td.typ.HasParameterizedParam())

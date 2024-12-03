@@ -72,7 +72,7 @@ func (m *ParameterizedDecimalType) ShortString() string {
 	return "dec"
 }
 
-func (m *ParameterizedDecimalType) ReturnType() (Type, error) {
+func (m *ParameterizedDecimalType) ReturnType([]FuncDefArgType, []Type) (Type, error) {
 	precision, perr := m.Precision.(*integer_parameters.ConcreteIntParam)
 	scale, serr := m.Scale.(*integer_parameters.ConcreteIntParam)
 	if !perr || !serr {

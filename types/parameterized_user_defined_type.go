@@ -26,7 +26,7 @@ func (d *DataTypeUDTParam) String() string {
 }
 
 func (d *DataTypeUDTParam) toTypeParam() (TypeParam, error) {
-	typ, err := d.Type.ReturnType()
+	typ, err := d.Type.ReturnType(nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +191,7 @@ func (m *ParameterizedUserDefinedType) ShortString() string {
 	return fmt.Sprintf("u!%s", m.Name)
 }
 
-func (m *ParameterizedUserDefinedType) ReturnType() (Type, error) {
+func (m *ParameterizedUserDefinedType) ReturnType([]FuncDefArgType, []Type) (Type, error) {
 	var types []TypeParam
 	for _, udtParam := range m.TypeParameters {
 		param, err := udtParam.toTypeParam()

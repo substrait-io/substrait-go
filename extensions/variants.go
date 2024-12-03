@@ -16,7 +16,7 @@ type FunctionVariant interface {
 	Name() string
 	CompoundName() string
 	Description() string
-	Args() ArgumentList
+	Args() FuncParameterList
 	Options() map[string]Option
 	URI() string
 	ResolveType(argTypes []types.Type) (types.Type, error)
@@ -40,11 +40,11 @@ type FunctionVariant interface {
 	MaxArgumentCount() int
 }
 
-func validateType(arg Argument, actual types.Type, idx int, nullHandling NullabilityHandling) (bool, error) {
+func validateType(funcParameter FuncParameter, actual types.Type, idx int, nullHandling NullabilityHandling) (bool, error) {
 	allNonNull := true
-	switch p := arg.(type) {
+	switch p := funcParameter.(type) {
 	case EnumArg:
-		if actual != nil {
+		if actual != types.CommonEnumType {
 			return allNonNull, fmt.Errorf("%w: arg #%d (%s) should be an enum",
 				substraitgo.ErrInvalidType, idx, p.Name)
 		}
@@ -72,33 +72,44 @@ func validateType(arg Argument, actual types.Type, idx int, nullHandling Nullabi
 	return allNonNull, nil
 }
 
-func EvaluateTypeExpression(nullHandling NullabilityHandling, expr types.FuncDefArgType, paramTypeList ArgumentList, variadic *VariadicBehavior, actualTypes []types.Type) (types.Type, error) {
-	if len(paramTypeList) != len(actualTypes) {
-		if variadic == nil {
-			return nil, fmt.Errorf("%w: mismatch in number of arguments provided. got %d, expected %d",
-				substraitgo.ErrInvalidExpr, len(actualTypes), len(paramTypeList))
+// EvaluateTypeExpression evaluates the function return type given the input argumentTypes
+//
+//	funcParameters: the function parameters as defined in the function signature in the extension
+//	argumentTypes: the actual argument types provided to the function
+func EvaluateTypeExpression(nullHandling NullabilityHandling, returnTypeExpr types.FuncDefArgType,
+	funcParameters FuncParameterList, variadic *VariadicBehavior, argumentTypes []types.Type) (types.Type, error) {
+	if variadic != nil {
+		numVariadicArgs := len(argumentTypes) - (len(funcParameters) - 1)
+		if numVariadicArgs < 0 {
+			return nil, fmt.Errorf("%w: mismatch in number of arguments provided. got %d, expected at least %d",
+				substraitgo.ErrInvalidExpr, len(argumentTypes), len(funcParameters)-1)
 		}
-
-		if !variadic.IsValidArgumentCount(len(actualTypes) - len(paramTypeList) - 1) {
+		if !variadic.IsValidArgumentCount(numVariadicArgs) {
 			return nil, fmt.Errorf("%w: mismatch in number of arguments provided, invalid number of variadic params. got %d total",
-				substraitgo.ErrInvalidExpr, len(actualTypes))
+				substraitgo.ErrInvalidExpr, len(argumentTypes))
 		}
+	} else if len(funcParameters) != len(argumentTypes) {
+		return nil, fmt.Errorf("%w: mismatch in number of arguments provided. got %d, expected %d",
+			substraitgo.ErrInvalidExpr, len(argumentTypes), len(funcParameters))
 	}
 
 	allNonNull := true
-	for i, p := range paramTypeList {
-		nonNull, err := validateType(p, actualTypes[i], i, nullHandling)
+	for i, p := range funcParameters {
+		if i >= len(argumentTypes) {
+			break
+		}
+		nonNull, err := validateType(p, argumentTypes[i], i, nullHandling)
 		if err != nil {
 			return nil, err
 		}
 		allNonNull = allNonNull && nonNull
 	}
 
-	// validate varidic argument consistency
-	if variadic != nil && len(actualTypes) > len(paramTypeList) && variadic.ParameterConsistency == ConsistentParams {
-		nparams := len(paramTypeList)
-		lastParam := paramTypeList[nparams-1]
-		for i, actual := range actualTypes[nparams:] {
+	// validate variadic argument consistency
+	if variadic != nil && len(argumentTypes) > len(funcParameters) && variadic.ParameterConsistency == ConsistentParams {
+		nparams := len(funcParameters)
+		lastParam := funcParameters[nparams-1]
+		for i, actual := range argumentTypes[nparams:] {
 			nonNull, err := validateType(lastParam, actual, nparams+i, nullHandling)
 			if err != nil {
 				return nil, err
@@ -107,7 +118,20 @@ func EvaluateTypeExpression(nullHandling NullabilityHandling, expr types.FuncDef
 		}
 	}
 
-	outType, err := expr.ReturnType()
+	// validate non variadic arguments
+	isMatch, err := matchArguments(nullHandling, funcParameters, variadic, argumentTypes)
+	if err != nil {
+		return nil, err
+	}
+	if !isMatch {
+		return nil, fmt.Errorf("%w: argument types did not match", substraitgo.ErrInvalidType)
+	}
+
+	funcParameterTypes := make([]types.FuncDefArgType, len(funcParameters))
+	for i, p := range funcParameters {
+		funcParameterTypes[i] = p.GetTypeExpression()
+	}
+	outType, err := returnTypeExpr.ReturnType(funcParameterTypes, argumentTypes)
 	if err != nil {
 		return nil, err
 	}
@@ -122,11 +146,14 @@ func EvaluateTypeExpression(nullHandling NullabilityHandling, expr types.FuncDef
 	return outType, nil
 }
 
-func matchArguments(nullability NullabilityHandling, paramTypeList ArgumentList, variadicBehavior *VariadicBehavior, actualTypes []types.Type) (bool, error) {
+func matchArguments(nullability NullabilityHandling, paramTypeList FuncParameterList, variadicBehavior *VariadicBehavior, actualTypes []types.Type) (bool, error) {
 	if variadicBehavior == nil && len(actualTypes) != len(paramTypeList) {
 		return false, nil
-	} else if variadicBehavior != nil && !validateVariadicBehaviorForMatch(variadicBehavior, actualTypes) {
-		return false, nil
+	} else if variadicBehavior != nil {
+		numNonVariadicArgs := len(paramTypeList) - 1
+		if !validateVariadicBehaviorForMatch(variadicBehavior, actualTypes[numNonVariadicArgs:]) {
+			return false, nil
+		}
 	}
 	funcDefArgList, err := getFuncDefFromArgList(paramTypeList)
 	if err != nil {
@@ -146,7 +173,7 @@ func matchArguments(nullability NullabilityHandling, paramTypeList ArgumentList,
 	return true, nil
 }
 
-func matchArgumentAt(actualType types.Type, argPos int, nullability NullabilityHandling, paramTypeList ArgumentList, variadicBehavior *VariadicBehavior) (bool, error) {
+func matchArgumentAt(actualType types.Type, argPos int, nullability NullabilityHandling, paramTypeList FuncParameterList, variadicBehavior *VariadicBehavior) (bool, error) {
 	if argPos < 0 {
 		return false, fmt.Errorf("non-zero argument position")
 	}
@@ -204,14 +231,14 @@ func validateVariadicBehaviorForMatch(variadicBehavior *VariadicBehavior, actual
 	return true
 }
 
-func getFuncDefFromArgList(paramTypeList ArgumentList) ([]types.FuncDefArgType, error) {
+func getFuncDefFromArgList(paramTypeList FuncParameterList) ([]types.FuncDefArgType, error) {
 	var out []types.FuncDefArgType
 	for argPos, param := range paramTypeList {
 		switch paramType := param.(type) {
 		case ValueArg:
 			out = append(out, paramType.Value.ValueType)
 		case EnumArg:
-			return nil, fmt.Errorf("%w: invalid argument at position %d for match operation", substraitgo.ErrInvalidType, argPos)
+			out = append(out, types.CommonEnumType)
 		case TypeArg:
 			return nil, fmt.Errorf("%w: invalid argument at position %d for match operation", substraitgo.ErrInvalidType, argPos)
 		default:
@@ -221,7 +248,7 @@ func getFuncDefFromArgList(paramTypeList ArgumentList) ([]types.FuncDefArgType, 
 	return out, nil
 }
 
-func parseFuncName(compoundName string) (name string, args ArgumentList) {
+func parseFuncName(compoundName string) (name string, args FuncParameterList) {
 	name, argsStr, _ := strings.Cut(compoundName, ":")
 	if len(argsStr) == 0 {
 		return name, nil
@@ -239,14 +266,14 @@ func parseFuncName(compoundName string) (name string, args ArgumentList) {
 	return name, args
 }
 
-func minArgumentCount(paramTypeList ArgumentList, variadicBehavior *VariadicBehavior) int {
+func minArgumentCount(paramTypeList FuncParameterList, variadicBehavior *VariadicBehavior) int {
 	if variadicBehavior == nil {
 		return len(paramTypeList)
 	}
 	return len(paramTypeList) + variadicBehavior.Min
 }
 
-func maxArgumentCount(paramTypeList ArgumentList, variadicBehavior *VariadicBehavior) int {
+func maxArgumentCount(paramTypeList FuncParameterList, variadicBehavior *VariadicBehavior) int {
 	if variadicBehavior == nil {
 		return len(paramTypeList)
 	}
@@ -294,7 +321,7 @@ type ScalarFunctionVariant struct {
 
 func (s *ScalarFunctionVariant) Name() string                     { return s.name }
 func (s *ScalarFunctionVariant) Description() string              { return s.description }
-func (s *ScalarFunctionVariant) Args() ArgumentList               { return s.impl.Args }
+func (s *ScalarFunctionVariant) Args() FuncParameterList          { return s.impl.Args }
 func (s *ScalarFunctionVariant) Options() map[string]Option       { return s.impl.Options }
 func (s *ScalarFunctionVariant) Variadic() *VariadicBehavior      { return s.impl.Variadic }
 func (s *ScalarFunctionVariant) Deterministic() bool              { return s.impl.Deterministic }
@@ -406,7 +433,7 @@ type AggregateFunctionVariant struct {
 
 func (s *AggregateFunctionVariant) Name() string                     { return s.name }
 func (s *AggregateFunctionVariant) Description() string              { return s.description }
-func (s *AggregateFunctionVariant) Args() ArgumentList               { return s.impl.Args }
+func (s *AggregateFunctionVariant) Args() FuncParameterList          { return s.impl.Args }
 func (s *AggregateFunctionVariant) Options() map[string]Option       { return s.impl.Options }
 func (s *AggregateFunctionVariant) Variadic() *VariadicBehavior      { return s.impl.Variadic }
 func (s *AggregateFunctionVariant) Deterministic() bool              { return s.impl.Deterministic }
@@ -526,7 +553,7 @@ func NewWindowFuncVariantOpts(id ID, opts WindowVariantOpts) *WindowFunctionVari
 
 func (s *WindowFunctionVariant) Name() string                     { return s.name }
 func (s *WindowFunctionVariant) Description() string              { return s.description }
-func (s *WindowFunctionVariant) Args() ArgumentList               { return s.impl.Args }
+func (s *WindowFunctionVariant) Args() FuncParameterList          { return s.impl.Args }
 func (s *WindowFunctionVariant) Options() map[string]Option       { return s.impl.Options }
 func (s *WindowFunctionVariant) Variadic() *VariadicBehavior      { return s.impl.Variadic }
 func (s *WindowFunctionVariant) Deterministic() bool              { return s.impl.Deterministic }

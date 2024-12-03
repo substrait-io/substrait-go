@@ -1212,7 +1212,7 @@ scalar_functions:
 	fv := localRegistry.GetScalarFunctions(LocalFunctionName("func_testvariadic"), 2)
 
 	// one type is int32 and other int64, since concrete type is not consistent so match should fail
-	argTypes := []types.Type{dec38_2, dec38_5}
+	argTypes := []types.Type{dec38_2, dec38_2, dec38_5}
 	require.Len(t, fv, 1)
 	match, err := fv[0].Match(argTypes)
 	require.NoError(t, err)

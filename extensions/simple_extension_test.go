@@ -68,7 +68,7 @@ scalar_functions:
 	assert.IsType(t, extensions.ValueArg{}, f.ScalarFunctions[0].Impls[0].Args[0])
 	arg1 := f.ScalarFunctions[0].Impls[0].Args[0].(extensions.ValueArg)
 	assert.Equal(t, "u!customtype1", arg1.Value.ValueType.String())
-	typ, err := arg1.Value.ValueType.ReturnType()
+	typ, err := arg1.Value.ValueType.ReturnType(nil, nil)
 	assert.NoError(t, err)
 	assert.IsType(t, &types.UserDefinedType{}, typ)
 	assert.Equal(t, proto.Type_NULLABILITY_REQUIRED, typ.GetNullability(), "expected NULLABILITY_REQUIRED")
@@ -77,7 +77,7 @@ scalar_functions:
 	assert.IsType(t, extensions.ValueArg{}, f.ScalarFunctions[1].Impls[0].Args[0])
 	ret := f.ScalarFunctions[1].Impls[0].Return
 	assert.Equal(t, "u!customtype2?", ret.ValueType.String())
-	typ, err = ret.ValueType.ReturnType()
+	typ, err = ret.ValueType.ReturnType(nil, nil)
 	assert.NoError(t, err)
 	assert.IsType(t, &types.UserDefinedType{}, typ)
 	assert.Equal(t, proto.Type_NULLABILITY_NULLABLE, typ.GetNullability(), "expected NULLABILITY_NULLABLE")
