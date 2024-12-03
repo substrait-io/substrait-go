@@ -107,6 +107,8 @@ type Builder interface {
 	NamedDelete(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error)
 	VirtualTableRemap(fields []string, remap []int32, values ...expr.StructLiteralValue) (*VirtualTableReadRel, error)
 	VirtualTable(fields []string, values ...expr.StructLiteralValue) (*VirtualTableReadRel, error)
+	VirtualTableFromExprRemap(fieldNames []string, remap []int32, values ...expr.VirtualTableExpressionValue) (*VirtualTableReadRel, error)
+	VirtualTableFromExpr(fieldNames []string, values ...expr.VirtualTableExpressionValue) (*VirtualTableReadRel, error)
 	SortRemap(input Rel, remap []int32, sorts ...expr.SortField) (*SortRel, error)
 	Sort(input Rel, sorts ...expr.SortField) (*SortRel, error)
 	SetRemap(op SetOp, remap []int32, inputs ...Rel) (*SetRel, error)
@@ -529,6 +531,10 @@ func (b *builder) VirtualTableRemap(fieldNames []string, remap []int32, values .
 		exprs = append(exprs, rowExpr)
 	}
 	return b.VirtualTableFromExprRemap(fieldNames, remap, exprs...)
+}
+
+func (b *builder) VirtualTableFromExpr(fieldNames []string, values ...expr.VirtualTableExpressionValue) (*VirtualTableReadRel, error) {
+	return b.VirtualTableFromExprRemap(fieldNames, nil, values...)
 }
 
 func (b *builder) VirtualTableFromExprRemap(fieldNames []string, remap []int32, values ...expr.VirtualTableExpressionValue) (*VirtualTableReadRel, error) {
