@@ -386,6 +386,52 @@ func (f *fakeRel) Remap(mapping ...int32) (Rel, error) {
 	panic("unused")
 }
 
+func TestVirtualTableReadRelRecordType(t *testing.T) {
+	b := NewBuilderDefault()
+	rel, err := b.VirtualTable([]string{"a", "b"},
+		expr.StructLiteralValue{
+			&expr.PrimitiveLiteral[int64]{Value: 11, Type: &types.Int64Type{}},
+			&expr.PrimitiveLiteral[string]{Value: "12", Type: &types.StringType{}}},
+		expr.StructLiteralValue{
+			&expr.PrimitiveLiteral[int64]{Value: 21, Type: &types.Int64Type{}},
+			&expr.PrimitiveLiteral[string]{Value: "22", Type: &types.StringType{}}})
+	assert.NoError(t, err)
+
+	expected := *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}, &types.StringType{}})
+	result := rel.RecordType()
+	assert.Equal(t, expected, result)
+
+	newRel, err := rel.Remap(0)
+	assert.NoError(t, err)
+	expected = *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}})
+	result = newRel.RecordType()
+	assert.Equal(t, expected, result)
+}
+
+func TestExtensionTableReadRelRecordType(t *testing.T) {
+	// We don't have a way of setting the base schema yet so test with an empty schema.
+	rel := &ExtensionTableReadRel{}
+
+	expected := *types.NewRecordTypeFromTypes(nil)
+	result := rel.RecordType()
+	assert.Equal(t, expected, result)
+
+	_, err := rel.Remap(0)
+	assert.ErrorContains(t, err, "output mapping index out of range")
+}
+
+func TestLocalFileReadRelRecordType(t *testing.T) {
+	// We don't have a way of setting the base schema yet so test with an empty schema.
+	rel := &LocalFileReadRel{}
+
+	expected := *types.NewRecordTypeFromTypes(nil)
+	result := rel.RecordType()
+	assert.Equal(t, expected, result)
+
+	_, err := rel.Remap(0)
+	assert.ErrorContains(t, err, "output mapping index out of range")
+}
+
 func TestProjectRecordType(t *testing.T) {
 	var rel ProjectRel
 	rel.input = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
