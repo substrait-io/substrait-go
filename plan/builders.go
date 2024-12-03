@@ -112,6 +112,8 @@ type Builder interface {
 	NamedScan(tableName []string, schema types.NamedStruct) *NamedTableReadRel
 	// Deprecated: Use NamedWrite(...).Remap() instead.
 	NamedWriteRemap(input Rel, op WriteOp, tableName []string, schema types.NamedStruct, remap []int32) (*NamedTableWriteRel, error)
+	// NamedWrite performs the given write operation from the input relation over a named table.
+	NamedWrite(input Rel, op WriteOp, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error)
 	// NamedInsert inserts data from the input relation into a named table.
 	NamedInsert(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error)
 	// NamedDelete deletes rows from a specified named table based on the
