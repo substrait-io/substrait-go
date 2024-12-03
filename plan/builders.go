@@ -110,7 +110,7 @@ type Builder interface {
 	// Deprecated: Use NamedScan(...).ChangeMapping() instead.
 	NamedScanRemap(tableName []string, schema types.NamedStruct, remap []int32) (*NamedTableReadRel, error)
 	NamedScan(tableName []string, schema types.NamedStruct) *NamedTableReadRel
-	// Deprecated: Use NamedWriteMap(...).ChangeMapping() instead.
+	// Deprecated: Use NamedWrite(...).ChangeMapping() instead.
 	NamedWriteRemap(input Rel, op WriteOp, tableName []string, schema types.NamedStruct, remap []int32) (*NamedTableWriteRel, error)
 	// NamedInsert inserts data from the input relation into a named table.
 	NamedInsert(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error)
@@ -504,12 +504,16 @@ func (b *builder) NamedWriteRemap(input Rel, op WriteOp, tableName []string, sch
 	}, nil
 }
 
+func (b *builder) NamedWrite(input Rel, op WriteOp, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {
+	return b.NamedWriteRemap(input, op, tableName, schema, nil)
+}
+
 func (b *builder) NamedInsert(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {
-	return b.NamedWriteRemap(input, WriteOpInsert, tableName, schema, nil)
+	return b.NamedWrite(input, WriteOpInsert, tableName, schema)
 }
 
 func (b *builder) NamedDelete(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {
-	return b.NamedWriteRemap(input, WriteOpDelete, tableName, schema, nil)
+	return b.NamedWrite(input, WriteOpDelete, tableName, schema)
 }
 
 func (b *builder) NamedScanRemap(tableName []string, schema types.NamedStruct, remap []int32) (*NamedTableReadRel, error) {
