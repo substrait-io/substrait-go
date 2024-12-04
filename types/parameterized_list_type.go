@@ -71,3 +71,13 @@ func (m *ParameterizedListType) ReturnType([]FuncDefArgType, []Type) (Type, erro
 	}
 	return &ListType{Nullability: m.Nullability, Type: elemType}, nil
 }
+
+func (m *ParameterizedListType) WithParameters(params []interface{}) (Type, error) {
+	if len(params) != 1 {
+		return nil, fmt.Errorf("expected 1 parameter, got %d", len(params))
+	}
+	if t, ok := params[0].(Type); ok {
+		return &ListType{Nullability: m.Nullability, Type: t}, nil
+	}
+	return nil, fmt.Errorf("expected parameter to be of type Type, got %T", params[0])
+}

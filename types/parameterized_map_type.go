@@ -81,3 +81,19 @@ func (m *ParameterizedMapType) ReturnType([]FuncDefArgType, []Type) (Type, error
 
 	return &MapType{Nullability: m.Nullability, Key: keyType, Value: valueType}, nil
 }
+
+func (m *ParameterizedMapType) WithParameters(params []interface{}) (Type, error) {
+	if len(params) != 2 {
+		if m.Key.HasParameterizedParam() || m.Value.HasParameterizedParam() {
+			return nil, fmt.Errorf("map type must have 2 parameters")
+		}
+		return m.ReturnType(nil, nil)
+	}
+	if key, ok := params[0].(Type); ok {
+		if value, ok := params[1].(Type); ok {
+			return &MapType{Nullability: m.Nullability, Key: key, Value: value}, nil
+		}
+		return nil, fmt.Errorf("value must be a Type")
+	}
+	return nil, fmt.Errorf("key must be a Type")
+}

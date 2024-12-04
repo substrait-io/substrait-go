@@ -50,6 +50,11 @@ func TestNewPrecisionTimestampType(t *testing.T) {
 			expectedPrecisionTimeStampType := PrecisionTimestampType{Precision: precision, Nullability: nullability}
 			expectedPrecisionTimeStampTzType := PrecisionTimestampTzType{PrecisionTimestampType: expectedPrecisionTimeStampType}
 			expectedFormatString := fmt.Sprintf("%s<%d>", strNullable(&expectedPrecisionTimeStampType), precision.ToProtoVal())
+
+			parameters := expectedPrecisionTimeStampType.GetParameters()
+			assert.Equal(t, parameters, []interface{}{precision})
+			parameters = expectedPrecisionTimeStampTzType.GetParameters()
+			assert.Equal(t, parameters, []interface{}{precision})
 			// verify PrecisionTimestampType
 			createdPrecTimeStampType := NewPrecisionTimestampType(precision).WithNullability(nullability)
 			createdPrecTimeStamp := createdPrecTimeStampType.(*PrecisionTimestampType)

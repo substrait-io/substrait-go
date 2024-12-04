@@ -104,8 +104,8 @@ func TestParseFuncDefArgType(t *testing.T) {
 		{"precision_timestamp_tz<L1>", "precision_timestamp_tz<L1>", "pretstz", &types.ParameterizedPrecisionTimestampTzType{IntegerOption: &variableIntL1, Nullability: types.NullabilityRequired}},
 		{"decimal<P,S>", "decimal<P,S>", "dec", &types.ParameterizedDecimalType{Precision: &variableIntP, Scale: &variableIntS, Nullability: types.NullabilityRequired}},
 		{"decimal<38,S>", "decimal<38,S>", "dec", &types.ParameterizedDecimalType{Precision: &concreteInt38, Scale: &variableIntS, Nullability: types.NullabilityRequired}},
-		{"any", "any", "any", types.AnyType{Name: "any", Nullability: types.NullabilityRequired}},
-		{"any1?", "any1?", "any", types.AnyType{Name: "any1", Nullability: types.NullabilityNullable}},
+		{"any", "any", "any", &types.AnyType{Name: "any", Nullability: types.NullabilityRequired}},
+		{"any1?", "any1?", "any", &types.AnyType{Name: "any1", Nullability: types.NullabilityNullable}},
 		{"list<decimal<P,S>>", "list<decimal<P,S>>", "list", &types.ParameterizedListType{Type: &types.ParameterizedDecimalType{Precision: &variableIntP, Scale: &variableIntS, Nullability: types.NullabilityRequired}, Nullability: types.NullabilityRequired}},
 		{"struct<list?<decimal<P,S>>, i16>", "struct<list?<decimal<P,S>>, i16>", "struct", &types.ParameterizedStructType{Types: []types.FuncDefArgType{&types.ParameterizedListType{Type: &types.ParameterizedDecimalType{Precision: &variableIntP, Scale: &variableIntS, Nullability: types.NullabilityRequired}, Nullability: types.NullabilityNullable}, &types.Int16Type{Nullability: types.NullabilityRequired}}, Nullability: types.NullabilityRequired}},
 		{"map<decimal<P,S>, i16>", "map<decimal<P,S>, i16>", "map", &types.ParameterizedMapType{Key: &types.ParameterizedDecimalType{Precision: &variableIntP, Scale: &variableIntS, Nullability: types.NullabilityRequired}, Value: &types.Int16Type{Nullability: types.NullabilityRequired}, Nullability: types.NullabilityRequired}},
@@ -121,6 +121,7 @@ func TestParseFuncDefArgType(t *testing.T) {
 		t.Run(tt.input, func(t *testing.T) {
 			got, err := ParseType(tt.input)
 			require.NoError(t, err)
+			require.NotNil(t, got)
 			assert.Equal(t, tt.expected, got.String())
 			if tt.shortName != "" {
 				assert.Equal(t, tt.shortName, got.ShortString())

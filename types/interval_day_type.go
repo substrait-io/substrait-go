@@ -73,3 +73,7 @@ func (m *IntervalDayType) GetReturnType(length int32, nullability Nullability) T
 	out.Nullability = nullability
 	return &out
 }
+
+func (m *IntervalDayType) GetParameters() []interface{} {
+	return []interface{}{m.Precision}
+}

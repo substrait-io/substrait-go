@@ -63,6 +63,10 @@ func (m *PrecisionTimestampType) WithNullability(n Nullability) Type {
 	return m.withNullability(n)
 }
 
+func (m *PrecisionTimestampType) GetParameters() []interface{} {
+	return []interface{}{m.Precision}
+}
+
 func (m *PrecisionTimestampType) withNullability(n Nullability) *PrecisionTimestampType {
 	return &PrecisionTimestampType{
 		Precision:   m.Precision,
@@ -158,6 +162,10 @@ func (m *PrecisionTimestampTzType) WithNullability(n Nullability) Type {
 	return &PrecisionTimestampTzType{
 		PrecisionTimestampType: *m.PrecisionTimestampType.withNullability(n),
 	}
+}
+
+func (m *PrecisionTimestampTzType) GetParameters() []interface{} {
+	return []interface{}{m.Precision}
 }
 
 func (m *PrecisionTimestampTzType) Equals(rhs Type) bool {

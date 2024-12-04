@@ -122,6 +122,44 @@ scalar_functions:
 	}, f.ScalarFunctions[0].Impls[0].Options)
 }
 
+func TestUnmarshalSimpleExtensionScalarFunctionWithTypeArg(t *testing.T) {
+	const addDef = `
+scalar_functions:
+  -
+    name: "truncate"
+    description: "truncate a decimal value."
+    impls:
+      - args:
+          - name: a
+            type: decimal<P0, S0>
+          - name: x
+            value: decimal<P1, S1>
+          - name: y
+            value: i32
+        return: i32
+`
+
+	var f extensions.SimpleExtensionFile
+	require.NoError(t, yaml.Unmarshal([]byte(addDef), &f))
+
+	assert.Len(t, f.ScalarFunctions, 1)
+	assert.Len(t, f.ScalarFunctions[0].Impls, 1)
+	assert.Len(t, f.ScalarFunctions[0].Impls[0].Args, 3)
+	assert.IsType(t, extensions.TypeArg{}, f.ScalarFunctions[0].Impls[0].Args[0])
+	assert.IsType(t, extensions.ValueArg{}, f.ScalarFunctions[0].Impls[0].Args[1])
+	assert.IsType(t, extensions.ValueArg{}, f.ScalarFunctions[0].Impls[0].Args[2])
+
+	ta := f.ScalarFunctions[0].Impls[0].Args[0].(extensions.TypeArg)
+	assert.Equal(t, "a", ta.Name)
+	assert.Equal(t, "decimal<P0,S0>", ta.Type.ValueType.String())
+	x := f.ScalarFunctions[0].Impls[0].Args[1].(extensions.ValueArg)
+	assert.Equal(t, "x", x.Name)
+	assert.Equal(t, "decimal<P1,S1>", x.Value.ValueType.String())
+	y := f.ScalarFunctions[0].Impls[0].Args[2].(extensions.ValueArg)
+	assert.Equal(t, "y", y.Name)
+	assert.Equal(t, "i32", y.Value.ValueType.String())
+}
+
 const snippetScalarArithmeticFile = `%YAML 1.2
 ---
 scalar_functions:

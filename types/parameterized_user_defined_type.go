@@ -202,3 +202,22 @@ func (m *ParameterizedUserDefinedType) ReturnType([]FuncDefArgType, []Type) (Typ
 	}
 	return &UserDefinedType{Nullability: m.Nullability, TypeParameters: types}, nil
 }
+
+func (m *ParameterizedUserDefinedType) WithParameters(params []interface{}) (Type, error) {
+	if len(params) != len(m.TypeParameters) {
+		return nil, fmt.Errorf("expected %d parameters, got %d", len(m.TypeParameters), len(params))
+	}
+	var typeParams []TypeParam
+	for i, param := range params {
+		if p, ok := param.(TypeParam); ok {
+			typeParams = append(typeParams, p)
+			continue
+		}
+		return nil, fmt.Errorf("unexpected type %T for parameter %d", param, i)
+	}
+	return &UserDefinedType{
+		Nullability:      m.Nullability,
+		TypeVariationRef: m.TypeVariationRef,
+		TypeParameters:   typeParams,
+	}, nil
+}

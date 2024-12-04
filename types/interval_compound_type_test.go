@@ -19,6 +19,9 @@ func TestNewIntervalCompoundType(t *testing.T) {
 		for _, nullability := range allPossibleNullability {
 			expectedIntervalCompoundType := IntervalCompoundType{precision: precision, nullability: nullability}
 			expectedFormatString := fmt.Sprintf("%s<%d>", strNullable(expectedIntervalCompoundType), precision.ToProtoVal())
+
+			parameters := expectedIntervalCompoundType.GetParameters()
+			assert.Equal(t, parameters, []interface{}{precision})
 			// verify IntervalCompoundType
 			createdIntervalCompoundTypeIfc := NewIntervalCompoundType().WithPrecision(precision).WithTypeVariationRef(0).WithNullability(nullability)
 			createdIntervalCompoundType := createdIntervalCompoundTypeIfc.(IntervalCompoundType)

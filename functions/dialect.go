@@ -237,7 +237,7 @@ func (d *dialectFile) validate() error {
 
 func (d *dialectFile) validateFunction(df *dialectFunction) error {
 	if len(df.Name) == 0 || len(df.SupportedKernels) == 0 {
-		return fmt.Errorf("%w: invalid function", substraitgo.ErrInvalidDialect)
+		return fmt.Errorf("%w: invalid function %v", substraitgo.ErrInvalidDialect, df)
 	}
 	parts := strings.Split(df.Name, ".")
 	if len(parts) != 2 {

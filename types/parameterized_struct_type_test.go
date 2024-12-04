@@ -18,19 +18,23 @@ func TestParameterizedStructType(t *testing.T) {
 		Nullability: types.NullabilityRequired,
 	}
 	int8Type := &types.Int8Type{Nullability: types.NullabilityNullable}
-	listType := &types.ParameterizedListType{Type: decimalType, Nullability: types.NullabilityNullable}
+	listParameterizedType := &types.ParameterizedListType{Type: decimalType, Nullability: types.NullabilityNullable}
+	dec30PS5 := &types.DecimalType{Precision: 30, Scale: 5, Nullability: types.NullabilityRequired}
+	dec30PS9 := &types.DecimalType{Precision: 30, Scale: 9, Nullability: types.NullabilityRequired}
+	listType := &types.ListType{Type: dec30PS9, Nullability: types.NullabilityRequired}
 	for _, td := range []struct {
 		name                           string
 		params                         []types.FuncDefArgType
+		args                           []interface{}
 		expectedNullableString         string
 		expectedNullableRequiredString string
 		expectedHasParameterizedParam  bool
 		expectedParameterizedParams    []interface{}
 		expectedReturnType             types.Type
 	}{
-		{"all parameterized param", []types.FuncDefArgType{decimalType, listType}, "struct?<decimal<P,S>, list?<decimal<P,S>>>", "struct<decimal<P,S>, list?<decimal<P,S>>>", true, []interface{}{decimalType, listType}, nil},
-		{"mix parameterized concrete param", []types.FuncDefArgType{decimalType, int8Type, listType}, "struct?<decimal<P,S>, i8?, list?<decimal<P,S>>>", "struct<decimal<P,S>, i8?, list?<decimal<P,S>>>", true, []interface{}{decimalType, listType}, nil},
-		{"all concrete param", []types.FuncDefArgType{int8Type, int8Type, int8Type}, "struct?<i8?, i8?, i8?>", "struct<i8?, i8?, i8?>", false, nil, &types.StructType{Nullability: types.NullabilityRequired, Types: []types.Type{int8Type, int8Type, int8Type}}},
+		{"all parameterized param", []types.FuncDefArgType{decimalType, listParameterizedType}, []any{dec30PS5, listType}, "struct?<decimal<P,S>, list?<decimal<P,S>>>", "struct<decimal<P,S>, list?<decimal<P,S>>>", true, []interface{}{decimalType, listParameterizedType}, nil},
+		{"mix parameterized concrete param", []types.FuncDefArgType{decimalType, int8Type, listParameterizedType}, []any{dec30PS9, int8Type, listType}, "struct?<decimal<P,S>, i8?, list?<decimal<P,S>>>", "struct<decimal<P,S>, i8?, list?<decimal<P,S>>>", true, []interface{}{decimalType, listParameterizedType}, nil},
+		{"all concrete param", []types.FuncDefArgType{int8Type, int8Type, int8Type}, []any{int8Type, int8Type, int8Type}, "struct?<i8?, i8?, i8?>", "struct<i8?, i8?, i8?>", false, nil, &types.StructType{Nullability: types.NullabilityRequired, Types: []types.Type{int8Type, int8Type, int8Type}}},
 	} {
 		t.Run(td.name, func(t *testing.T) {
 			pd := &types.ParameterizedStructType{Types: td.params}
@@ -46,6 +50,9 @@ func TestParameterizedStructType(t *testing.T) {
 			} else {
 				require.Nil(t, err)
 				require.Equal(t, td.expectedReturnType, retType)
+				got, err := pd.WithParameters(td.args)
+				require.Nil(t, err)
+				require.Equal(t, td.expectedReturnType, got)
 			}
 		})
 	}

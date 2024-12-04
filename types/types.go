@@ -380,6 +380,8 @@ type (
 		// WithNullability returns a copy of this type but with
 		// the nullability set to the passed in value
 		WithNullability(Nullability) Type
+		// GetParameters returns all parameters of this type and will be used in function return type derivation
+		GetParameters() []interface{}
 	}
 
 	// CompositeType this represents a concrete type having components
@@ -417,6 +419,10 @@ type (
 		ShortString() string
 		GetNullability() Nullability
 		ReturnType(funcParameters []FuncDefArgType, argumentTypes []Type) (Type, error)
+
+		// WithParameters returns a new instance of this type with the given parameters.
+		// This is used in function return type derivation
+		WithParameters([]interface{}) (Type, error)
 	}
 
 	FixedType interface {
@@ -467,6 +473,10 @@ func (e *EnumType) WithNullability(n Nullability) Type {
 	out := *e
 	out.Nullability = n
 	return &out
+}
+
+func (e *EnumType) GetParameters() []interface{} {
+	return []interface{}{}
 }
 
 func (e *EnumType) String() string {
@@ -528,6 +538,10 @@ func (e *EnumType) GetNullability() Nullability {
 
 func (e *EnumType) ReturnType(funcParameters []FuncDefArgType, argumentTypes []Type) (Type, error) {
 	return e, nil
+}
+
+func (e *EnumType) WithParameters(params []interface{}) (Type, error) {
+	panic("EnumType.WithParameters not implemented")
 }
 
 // TypeToProto properly constructs the appropriate protobuf message
@@ -642,6 +656,8 @@ func TypeToProto(t Type) *proto.Type {
 		return t.ToProto()
 	case *MapType:
 		return t.ToProto()
+	case *UserDefinedType:
+		return t.ToProto()
 	}
 	panic("unimplemented type")
 }
@@ -726,6 +742,10 @@ func (s *PrimitiveType[T]) WithNullability(n Nullability) Type {
 	return &out
 }
 
+func (s *PrimitiveType[T]) GetParameters() []interface{} {
+	return []interface{}{}
+}
+
 func (s *PrimitiveType[T]) GetType() Type                     { return s }
 func (s *PrimitiveType[T]) GetNullability() Nullability       { return s.Nullability }
 func (s *PrimitiveType[T]) GetTypeVariationReference() uint32 { return s.TypeVariationRef }
@@ -792,6 +812,10 @@ func (s *PrimitiveType[T]) ReturnType([]FuncDefArgType, []Type) (Type, error) {
 	return s, nil
 }
 
+func (s *PrimitiveType[T]) WithParameters([]interface{}) (Type, error) {
+	return s, nil
+}
+
 // create type aliases to the generic structs
 type (
 	BooleanType                           = PrimitiveType[bool]
@@ -833,6 +857,10 @@ func (s *FixedLenType[T]) WithNullability(n Nullability) Type {
 	out := *s
 	out.Nullability = n
 	return &out
+}
+
+func (s *FixedLenType[T]) GetParameters() []interface{} {
+	return []interface{}{int64(s.Length)}
 }
 
 func (s *FixedLenType[T]) GetType() Type                     { return s }
@@ -903,6 +931,10 @@ func (s *DecimalType) WithNullability(n Nullability) Type {
 	return &out
 }
 
+func (s *DecimalType) GetParameters() []interface{} {
+	return []interface{}{int64(s.Precision), int64(s.Scale)}
+}
+
 func (s *DecimalType) GetType() Type                     { return s }
 func (s *DecimalType) GetNullability() Nullability       { return s.Nullability }
 func (s *DecimalType) GetTypeVariationReference() uint32 { return s.TypeVariationRef }
@@ -953,6 +985,14 @@ func (s *StructType) WithNullability(n Nullability) Type {
 	out := *s
 	out.Nullability = n
 	return &out
+}
+
+func (s *StructType) GetParameters() []interface{} {
+	params := make([]interface{}, len(s.Types))
+	for i, p := range s.Types {
+		params[i] = p
+	}
+	return params
 }
 
 func (s *StructType) GetType() Type                     { return s }
@@ -1044,6 +1084,10 @@ func (s *ListType) WithNullability(n Nullability) Type {
 	return &out
 }
 
+func (s *ListType) GetParameters() []interface{} {
+	return []interface{}{s.Type}
+}
+
 func (s *ListType) GetType() Type                     { return s }
 func (s *ListType) GetNullability() Nullability       { return s.Nullability }
 func (s *ListType) GetTypeVariationReference() uint32 { return s.TypeVariationRef }
@@ -1100,6 +1144,10 @@ func (s *MapType) WithNullability(n Nullability) Type {
 	out := *s
 	out.Nullability = n
 	return &out
+}
+
+func (s *MapType) GetParameters() []interface{} {
+	return []interface{}{s.Key, s.Value}
 }
 
 func (s *MapType) GetType() Type                     { return s }
@@ -1237,9 +1285,13 @@ func (p EnumParameter) ToProto() *proto.Type_Parameter {
 // StringParameter is a type parameter which is a string value
 type StringParameter string
 
-func (b StringParameter) Equals(p TypeParam) bool {
-	if rhs, ok := p.(StringParameter); ok {
-		return b == rhs
+func (p StringParameter) String() string {
+	return string(p)
+}
+
+func (p StringParameter) Equals(o TypeParam) bool {
+	if rhs, ok := o.(StringParameter); ok {
+		return p == rhs
 	}
 	return false
 }
@@ -1247,6 +1299,13 @@ func (b StringParameter) Equals(p TypeParam) bool {
 func (p StringParameter) ToProto() *proto.Type_Parameter {
 	return &proto.Type_Parameter{Parameter: &proto.Type_Parameter_String_{
 		String_: string(p)}}
+}
+
+func (p StringParameter) Evaluate(symbolTable map[string]any) (any, error) {
+	if v, ok := symbolTable[string(p)]; ok {
+		return v, nil
+	}
+	return nil, fmt.Errorf("symbol not found: stringParameter %s", p)
 }
 
 // TypeParamFromProto converts a protobuf Type_Parameter message to
@@ -1281,6 +1340,14 @@ func (s *UserDefinedType) WithNullability(n Nullability) Type {
 	out := *s
 	out.Nullability = n
 	return &out
+}
+
+func (s *UserDefinedType) GetParameters() []interface{} {
+	params := make([]interface{}, len(s.TypeParameters))
+	for i, p := range s.TypeParameters {
+		params[i] = p
+	}
+	return params
 }
 
 func (s *UserDefinedType) GetType() Type                     { return s }

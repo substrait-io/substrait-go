@@ -14,41 +14,60 @@ type AnyType struct {
 	Nullability      Nullability
 }
 
-func (t AnyType) SetNullability(n Nullability) FuncDefArgType {
-	t.Nullability = n
-	return t
+func (m *AnyType) SetNullability(n Nullability) FuncDefArgType {
+	m.Nullability = n
+	return m
 }
 
-func (t AnyType) String() string {
-	return fmt.Sprintf("%s%s", t.Name, strFromNullability(t.Nullability))
+func (m *AnyType) String() string {
+	return fmt.Sprintf("%s%s", m.Name, strFromNullability(m.Nullability))
 }
 
-func (s AnyType) HasParameterizedParam() bool {
+func (m *AnyType) HasParameterizedParam() bool {
 	// primitive type doesn't have abstract parameters
 	return false
 }
 
-func (s AnyType) GetParameterizedParams() []interface{} {
+func (m *AnyType) GetParameterizedParams() []interface{} {
 	// any type doesn't have any abstract parameters
 	return nil
 }
 
-func (m AnyType) MatchWithNullability(ot Type) bool {
+func (m *AnyType) MatchWithNullability(ot Type) bool {
 	return m.Nullability == ot.GetNullability()
 }
 
-func (m AnyType) MatchWithoutNullability(ot Type) bool {
+func (m *AnyType) MatchWithoutNullability(ot Type) bool {
 	return true
 }
 
-func (m AnyType) GetNullability() Nullability {
+func (m *AnyType) GetNullability() Nullability {
 	return m.Nullability
 }
 
-func (m AnyType) ShortString() string {
+func (m *AnyType) ShortString() string {
 	return "any"
 }
 
-func (m AnyType) ReturnType([]FuncDefArgType, []Type) (Type, error) {
-	return nil, nil
+func (m *AnyType) ReturnType(funcParameters []FuncDefArgType, argumentTypes []Type) (Type, error) {
+	index := -1
+	for i, param := range funcParameters {
+		if anyArg, ok := param.(*AnyType); ok {
+			if anyArg.Name == m.Name {
+				index = i
+				break
+			}
+		}
+	}
+	if index == -1 {
+		return nil, fmt.Errorf("no matching any type found in function parameters")
+	}
+	if index >= len(argumentTypes) {
+		return nil, fmt.Errorf("no matching argument found for any type")
+	}
+	return argumentTypes[index], nil
+}
+
+func (m *AnyType) WithParameters([]interface{}) (Type, error) {
+	return nil, fmt.Errorf("any type doesn't have any parameters")
 }

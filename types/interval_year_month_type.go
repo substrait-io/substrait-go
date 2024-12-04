@@ -58,3 +58,7 @@ func (IntervalYearToMonthType) ShortString() string { return "intrytm" }
 func (m IntervalYearToMonthType) String() string {
 	return fmt.Sprintf("intervalyeartomonth%s", strNullable(m))
 }
+
+func (m IntervalYearToMonthType) GetParameters() []interface{} {
+	return nil
+}

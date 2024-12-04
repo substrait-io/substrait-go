@@ -222,6 +222,10 @@ func (v *VariadicBehavior) IsValidArgumentCount(count int) bool {
 	return v != nil && count >= v.Min && (count <= v.Max || v.Max == 0)
 }
 
+func (v *VariadicBehavior) IsValidArgumentPosition(index int) bool {
+	return v != nil && index >= 0 && (index <= v.Max || v.Max == 0)
+}
+
 type Function interface {
 	ResolveURI(uri string) []FunctionVariant
 }

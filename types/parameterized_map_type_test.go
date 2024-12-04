@@ -18,21 +18,25 @@ func TestParameterizedMapType(t *testing.T) {
 		Nullability: types.NullabilityRequired,
 	}
 	int8Type := &types.Int8Type{Nullability: types.NullabilityNullable}
-	listType := &types.ParameterizedListType{Type: decimalType, Nullability: types.NullabilityNullable}
+	listParametrizedType := &types.ParameterizedListType{Type: decimalType, Nullability: types.NullabilityNullable}
+	dec30PS5 := &types.DecimalType{Precision: 30, Scale: 5, Nullability: types.NullabilityRequired}
+	dec30PS9 := &types.DecimalType{Precision: 30, Scale: 9, Nullability: types.NullabilityRequired}
+	listType := &types.ListType{Type: dec30PS9, Nullability: types.NullabilityRequired}
 	for _, td := range []struct {
 		name                           string
 		Key                            types.FuncDefArgType
 		Value                          types.FuncDefArgType
+		args                           []interface{}
 		expectedNullableString         string
 		expectedNullableRequiredString string
 		expectedHasParameterizedParam  bool
 		expectedParameterizedParams    []interface{}
 		expectedReturnType             types.Type
 	}{
-		{"parameterized kv", decimalType, listType, "map?<decimal<P,S>, list?<decimal<P,S>>>", "map<decimal<P,S>, list?<decimal<P,S>>>", true, []interface{}{decimalType, listType}, nil},
-		{"concrete key", int8Type, listType, "map?<i8?, list?<decimal<P,S>>>", "map<i8?, list?<decimal<P,S>>>", true, []interface{}{listType}, nil},
-		{"concrete value", decimalType, int8Type, "map?<decimal<P,S>, i8?>", "map<decimal<P,S>, i8?>", true, []interface{}{decimalType}, nil},
-		{"no parameterized param", int8Type, int8Type, "map?<i8?, i8?>", "map<i8?, i8?>", false, nil, &types.MapType{Nullability: types.NullabilityRequired, Key: int8Type, Value: int8Type}},
+		{"parameterized kv", decimalType, listParametrizedType, []any{dec30PS5, listType}, "map?<decimal<P,S>, list?<decimal<P,S>>>", "map<decimal<P,S>, list?<decimal<P,S>>>", true, []interface{}{decimalType, listParametrizedType}, &types.MapType{Nullability: types.NullabilityRequired, Key: dec30PS5, Value: listType}},
+		{"concrete key", int8Type, listParametrizedType, []any{int8Type, listType}, "map?<i8?, list?<decimal<P,S>>>", "map<i8?, list?<decimal<P,S>>>", true, []interface{}{listParametrizedType}, &types.MapType{Nullability: types.NullabilityRequired, Key: int8Type, Value: listType}},
+		{"concrete value", decimalType, int8Type, []any{dec30PS9, int8Type}, "map?<decimal<P,S>, i8?>", "map<decimal<P,S>, i8?>", true, []interface{}{decimalType}, &types.MapType{Nullability: types.NullabilityRequired, Key: dec30PS9, Value: int8Type}},
+		{"no parameterized param", int8Type, int8Type, []any{}, "map?<i8?, i8?>", "map<i8?, i8?>", false, nil, &types.MapType{Nullability: types.NullabilityRequired, Key: int8Type, Value: int8Type}},
 	} {
 		t.Run(td.name, func(t *testing.T) {
 			pd := &types.ParameterizedMapType{Key: td.Key, Value: td.Value}
@@ -43,14 +47,18 @@ func TestParameterizedMapType(t *testing.T) {
 			assert.Equal(t, types.NullabilityRequired, pd.GetNullability())
 			require.Equal(t, td.expectedHasParameterizedParam, pd.HasParameterizedParam())
 			require.Equal(t, td.expectedParameterizedParams, pd.GetParameterizedParams())
+			assert.Equal(t, "map", pd.ShortString())
 			retType, err := pd.ReturnType(nil, nil)
-			if td.expectedReturnType == nil {
+			if td.expectedHasParameterizedParam {
 				assert.Error(t, err)
 				require.True(t, pd.HasParameterizedParam())
 			} else {
 				require.Nil(t, err)
 				require.Equal(t, td.expectedReturnType, retType)
 			}
+			resultType, err := pd.WithParameters(td.args)
+			require.Nil(t, err)
+			require.Equal(t, td.expectedReturnType, resultType)
 		})
 	}
 }

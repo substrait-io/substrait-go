@@ -39,12 +39,8 @@ func (m *ParameterizedDecimalType) GetParameterizedParams() []interface{} {
 		return nil
 	}
 	var params []interface{}
-	if p, ok := m.Precision.(*integer_parameters.VariableIntParam); ok {
-		params = append(params, p)
-	}
-	if p, ok := m.Scale.(*integer_parameters.VariableIntParam); ok {
-		params = append(params, p)
-	}
+	params = append(params, m.Precision)
+	params = append(params, m.Scale)
 	return params
 }
 
@@ -79,4 +75,22 @@ func (m *ParameterizedDecimalType) ReturnType([]FuncDefArgType, []Type) (Type, e
 		return nil, fmt.Errorf("precision and scale must be concrete integer parameters")
 	}
 	return &DecimalType{Nullability: m.Nullability, Precision: int32(*precision), Scale: int32(*scale)}, nil
+}
+
+func (m *ParameterizedDecimalType) WithParameters(params []interface{}) (Type, error) {
+	if len(params) != 2 {
+		p, pOk := m.Precision.(*integer_parameters.ConcreteIntParam)
+		s, sOk := m.Scale.(*integer_parameters.ConcreteIntParam)
+		if pOk && sOk {
+			return &DecimalType{Nullability: m.Nullability, Precision: int32(*p), Scale: int32(*s)}, nil
+		}
+		return nil, fmt.Errorf("decimal type must have 2 parameters")
+	}
+	if precision, ok := params[0].(int64); ok {
+		if scale, ok := params[1].(int64); ok {
+			return &DecimalType{Nullability: m.Nullability, Precision: int32(precision), Scale: int32(scale)}, nil
+		}
+		return nil, fmt.Errorf("scale must be an integer")
+	}
+	return nil, fmt.Errorf("precision must be an integer, but got %t", params[0])
 }

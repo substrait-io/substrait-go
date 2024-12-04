@@ -108,3 +108,22 @@ func (m *ParameterizedStructType) ReturnType([]FuncDefArgType, []Type) (Type, er
 	}
 	return &StructType{Nullability: m.Nullability, Types: types}, nil
 }
+
+func (m *ParameterizedStructType) WithParameters(params []interface{}) (Type, error) {
+	if len(params) != len(m.Types) {
+		return nil, fmt.Errorf("expected %d parameters, got %d", len(m.Types), len(params))
+	}
+	var types []Type
+	for i, typ := range m.Types {
+		t, ok := params[i].(Type)
+		if !ok {
+			return nil, fmt.Errorf("expected parameter to be of type Type, got %T", params[i])
+		}
+		itype, err := typ.WithParameters(t.GetParameters())
+		if err != nil {
+			return nil, err
+		}
+		types = append(types, itype)
+	}
+	return &StructType{Nullability: m.Nullability, Types: types}, nil
+}

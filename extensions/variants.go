@@ -188,7 +188,7 @@ func matchArgumentAtCommon(actualType types.Type, argPos int, nullability Nullab
 	// check if argument out of range
 	if variadicBehavior == nil && argPos >= len(funcDefArgList) {
 		return false, nil
-	} else if variadicBehavior != nil && !variadicBehavior.IsValidArgumentCount(argPos+1) {
+	} else if variadicBehavior != nil && !variadicBehavior.IsValidArgumentPosition(argPos) {
 		// this argument position can't be more than the max allowed by the variadic behavior
 		return false, nil
 	}
