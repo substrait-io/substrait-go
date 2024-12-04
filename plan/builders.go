@@ -123,6 +123,10 @@ type Builder interface {
 	// that may be in use with this plan for advanced extensions, optimizations,
 	// and so on.
 	PlanWithTypes(root Rel, rootNames []string, expectedTypeURLs []string, others ...Rel) (*Plan, error)
+
+	// GetExprBuilder returns an expr.ExprBuilder that shares the extension
+	// registry that this Builder uses.
+	GetExprBuilder() *expr.ExprBuilder
 }
 
 const FETCH_COUNT_ALL_RECORDS = -1
@@ -150,6 +154,13 @@ type builder struct {
 	extSet extensions.Set
 
 	reg expr.ExtensionRegistry
+}
+
+func (b *builder) GetExprBuilder() *expr.ExprBuilder {
+	return &expr.ExprBuilder{
+		Reg:        b.reg,
+		BaseSchema: nil,
+	}
 }
 
 func (b *builder) GetFunctionRef(nameSpace, key string) types.FunctionRef {

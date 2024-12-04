@@ -1115,6 +1115,9 @@ func TestProjectExpressions(t *testing.T) {
 								}
 							}
 							],
+							"options":  [
+							  {}
+							],
 							"outputType": {
 							"fp32": {
 								"nullability": "NULLABILITY_REQUIRED"
@@ -1144,7 +1147,10 @@ func TestProjectExpressions(t *testing.T) {
 	abs, err := b.ScalarFn(arithmeticURI, "abs", nil, ref)
 	require.NoError(t, err)
 
-	add, err := b.ScalarFn(arithmeticURI, "add", nil, abs, ref)
+	add, err := b.GetExprBuilder().ScalarFunc(
+		extensions.ID{URI: arithmeticURI, Name: "add"}, nil).Args(
+		b.GetExprBuilder().Expression(abs),
+		b.GetExprBuilder().Expression(ref)).Build()
 	require.NoError(t, err)
 
 	project, err := b.Project(scan, add)
