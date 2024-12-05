@@ -18,7 +18,7 @@ func TestParameterizedSingleIntegerType(t *testing.T) {
 	for _, td := range []struct {
 		name                           string
 		typ                            types.FuncDefArgType
-		args                           []interface{}
+		typeParams                     []interface{}
 		expectedNullableString         string
 		expectedNullableRequiredString string
 		expectedShortString            string
@@ -49,11 +49,14 @@ func TestParameterizedSingleIntegerType(t *testing.T) {
 			if td.expectedIsParameterized {
 				require.Error(t, err)
 				require.True(t, td.typ.HasParameterizedParam())
+				retType, err = td.typ.ReturnType([]types.FuncDefArgType{td.typ}, []types.Type{td.expectedReturnType})
+				require.NoError(t, err)
+				require.Equal(t, td.expectedReturnType, retType)
 			} else {
 				require.Nil(t, err)
 				require.Equal(t, td.expectedReturnType, retType)
 			}
-			resultType, err := td.typ.WithParameters(td.args)
+			resultType, err := td.typ.WithParameters(td.typeParams)
 			require.Nil(t, err)
 			require.Equal(t, td.expectedReturnType, resultType)
 		})

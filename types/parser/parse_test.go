@@ -213,3 +213,33 @@ func TestTypeExpression_UnmarshalYAML1(t1 *testing.T) {
 		})
 	}
 }
+
+func TestParseOutputDerivation(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		finalType types.FuncDefArgType
+	}{
+		{"decimal", "P1 = 38\ndecimal<P1,5>", &types.ParameterizedDecimalType{Precision: integer_parameters.NewVariableIntParam("P1"), Scale: integer_parameters.NewConcreteIntParam(5), Nullability: types.NullabilityRequired}},
+		{"+varchar", "x = (1 + 2)\nvarchar<x>", &types.ParameterizedVarCharType{IntegerOption: integer_parameters.NewVariableIntParam("x"), Nullability: types.NullabilityRequired}},
+		{"+decimal", "P1 = (30 / 2)\nS1 = 3\ndecimal?<P1,S1>", &types.ParameterizedDecimalType{Precision: integer_parameters.NewVariableIntParam("P1"), Scale: integer_parameters.NewVariableIntParam("S1"), Nullability: types.NullabilityNullable}},
+		{"-varchar", "L1 = 9\nL2 = 4\nL3 = (L1 - L2)\nvarchar<L3>", &types.ParameterizedVarCharType{IntegerOption: integer_parameters.NewVariableIntParam("L3"), Nullability: types.NullabilityRequired}},
+		{"*varchar", "l2 = 5\nl3 = 6\nl4 = (l2 * l3)\nvarchar<l4>", &types.ParameterizedVarCharType{IntegerOption: integer_parameters.NewVariableIntParam("l4"), Nullability: types.NullabilityRequired}},
+		{"max", "x = max(1, 2)\nvarchar<x>", &types.ParameterizedVarCharType{IntegerOption: integer_parameters.NewVariableIntParam("x"), Nullability: types.NullabilityRequired}},
+		{"min", "L1 = min(3, 4)\nvarchar<L1>", &types.ParameterizedVarCharType{IntegerOption: integer_parameters.NewVariableIntParam("L1"), Nullability: types.NullabilityRequired}},
+		{"abs", "l2 = abs(-5)\nvarchar?<l2>", &types.ParameterizedVarCharType{IntegerOption: integer_parameters.NewVariableIntParam("l2"), Nullability: types.NullabilityNullable}},
+		{"if", "x = 1\ny = 2\nz = if !(x > y) then x else y\nvarchar<z>", &types.ParameterizedVarCharType{IntegerOption: integer_parameters.NewVariableIntParam("z"), Nullability: types.NullabilityRequired}},
+		{"?ternary", "x = 1\ny = 2\nz = ((x < y) and (x > y)) ? (x * 3) : (y * 4)\nvarchar<z>", &types.ParameterizedVarCharType{IntegerOption: integer_parameters.NewVariableIntParam("z"), Nullability: types.NullabilityRequired}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseType(tt.input)
+			require.NoError(t, err)
+			derivation, ok := got.(*types.OutputDerivation)
+			require.True(t, ok)
+			assert.Equal(t, tt.finalType, derivation.FinalType)
+			assert.Equal(t, tt.input, got.String())
+		})
+	}
+}

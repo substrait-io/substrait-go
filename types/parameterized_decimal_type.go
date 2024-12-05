@@ -68,11 +68,12 @@ func (m *ParameterizedDecimalType) ShortString() string {
 	return "dec"
 }
 
-func (m *ParameterizedDecimalType) ReturnType([]FuncDefArgType, []Type) (Type, error) {
+func (m *ParameterizedDecimalType) ReturnType(parameters []FuncDefArgType, argumentTypes []Type) (Type, error) {
 	precision, perr := m.Precision.(*integer_parameters.ConcreteIntParam)
 	scale, serr := m.Scale.(*integer_parameters.ConcreteIntParam)
 	if !perr || !serr {
-		return nil, fmt.Errorf("precision and scale must be concrete integer parameters")
+		derivation := OutputDerivation{FinalType: m}
+		return derivation.ReturnType(parameters, argumentTypes)
 	}
 	return &DecimalType{Nullability: m.Nullability, Precision: int32(*precision), Scale: int32(*scale)}, nil
 }

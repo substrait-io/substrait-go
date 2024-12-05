@@ -1,10 +1,9 @@
-package parser
+package types
 
 import (
 	"fmt"
 	"strings"
 
-	"github.com/substrait-io/substrait-go/types"
 	"github.com/substrait-io/substrait-go/types/integer_parameters"
 )
 
@@ -74,7 +73,7 @@ func (b BinaryOp) String() string {
 	}
 }
 
-func getBinaryOpType(op string) BinaryOp {
+func GetBinaryOpType(op string) BinaryOp {
 	op = strings.ToLower(op)
 	switch op {
 	case "+":
@@ -259,10 +258,10 @@ func (a Assignment) String() string {
 
 type OutputDerivation struct {
 	Assignments []Assignment
-	FinalType   types.FuncDefArgType
+	FinalType   FuncDefArgType
 }
 
-func (m *OutputDerivation) SetNullability(n types.Nullability) types.FuncDefArgType {
+func (m *OutputDerivation) SetNullability(n Nullability) FuncDefArgType {
 	m.FinalType.SetNullability(n)
 	return m
 }
@@ -284,18 +283,18 @@ func (m *OutputDerivation) GetParameterizedParams() []interface{} {
 	return m.FinalType.GetParameterizedParams()
 }
 
-func (m *OutputDerivation) MatchWithNullability(ot types.Type) bool {
+func (m *OutputDerivation) MatchWithNullability(ot Type) bool {
 	if m.FinalType.GetNullability() != ot.GetNullability() {
 		return false
 	}
 	return m.MatchWithoutNullability(ot)
 }
 
-func (m *OutputDerivation) MatchWithoutNullability(ot types.Type) bool {
+func (m *OutputDerivation) MatchWithoutNullability(ot Type) bool {
 	return m.FinalType.MatchWithoutNullability(ot)
 }
 
-func (m *OutputDerivation) GetNullability() types.Nullability {
+func (m *OutputDerivation) GetNullability() Nullability {
 	return m.FinalType.GetNullability()
 }
 
@@ -308,7 +307,7 @@ type SymbolInfo struct {
 	Value any
 }
 
-func (m *OutputDerivation) ReturnType(funcParameters []types.FuncDefArgType, argumentTypes []types.Type) (types.Type, error) {
+func (m *OutputDerivation) ReturnType(funcParameters []FuncDefArgType, argumentTypes []Type) (Type, error) {
 	// Add parameterized parameters of arguments to symbol table
 	symbolTable := make(map[string]any)
 	for i, p := range funcParameters {
@@ -357,6 +356,6 @@ func (m *OutputDerivation) ReturnType(funcParameters []types.FuncDefArgType, arg
 	return m.FinalType.WithParameters(params)
 }
 
-func (m *OutputDerivation) WithParameters([]interface{}) (types.Type, error) {
+func (m *OutputDerivation) WithParameters([]interface{}) (Type, error) {
 	panic("WithParameters not to be called")
 }

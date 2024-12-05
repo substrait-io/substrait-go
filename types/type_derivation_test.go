@@ -1,4 +1,4 @@
-package parser
+package types_test
 
 import (
 	"fmt"
@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/types"
+	"github.com/substrait-io/substrait-go/types/parser"
 )
 
 type testcase struct {
@@ -17,10 +18,10 @@ type testcase struct {
 }
 
 func parseAndTestTypeDerivation(t *testing.T, tt *testcase) {
-	resultType, err := ParseType(tt.expr)
+	resultType, err := parser.ParseType(tt.expr)
 	require.NoError(t, err)
 	require.NotNil(t, resultType)
-	derivation, ok := resultType.(*OutputDerivation)
+	derivation, ok := resultType.(*types.OutputDerivation)
 	require.True(t, ok)
 	got, err := derivation.ReturnType(nil, nil)
 	if !tt.wantErr(t, err, fmt.Sprintf("Evaluate(%v)", tt.expr)) {
@@ -160,12 +161,12 @@ decimal<prec,scale>`
 		t.Run(tt.name, func(t *testing.T) {
 			funcParameters := parseFuncParameters(t, tt.parameters)
 			funcArguments := parseFuncArguments(t, tt.args)
-			resultType, err := ParseType(tt.expr)
+			resultType, err := parser.ParseType(tt.expr)
 			require.NoError(t, err)
 			require.NotNil(t, resultType)
-			derivation, ok := resultType.(*OutputDerivation)
+			derivation, ok := resultType.(*types.OutputDerivation)
 			if !ok {
-				derivation = &OutputDerivation{FinalType: resultType}
+				derivation = &types.OutputDerivation{FinalType: resultType}
 			}
 			require.NotNil(t, derivation)
 			got, err := derivation.ReturnType(funcParameters, funcArguments)
@@ -189,7 +190,7 @@ func parseFuncParameters(t *testing.T, params []string) []types.FuncDefArgType {
 	result := make([]types.FuncDefArgType, len(params))
 	for i, p := range params {
 		var err error
-		result[i], err = ParseType(p)
+		result[i], err = parser.ParseType(p)
 		require.NoError(t, err)
 	}
 	return result
@@ -198,7 +199,7 @@ func parseFuncParameters(t *testing.T, params []string) []types.FuncDefArgType {
 func parseFuncArguments(t *testing.T, args []string) []types.Type {
 	result := make([]types.Type, len(args))
 	for i, a := range args {
-		funcDefArgType, err := ParseType(a)
+		funcDefArgType, err := parser.ParseType(a)
 		require.NoError(t, err)
 		result[i], err = funcDefArgType.WithParameters(nil)
 		require.NoError(t, err)
@@ -209,24 +210,24 @@ func parseFuncArguments(t *testing.T, args []string) []types.Type {
 func Test_getBinaryOpType(t *testing.T) {
 	tests := []struct {
 		name string
-		want BinaryOp
+		want types.BinaryOp
 	}{
-		{"and", And},
-		{"or", Or},
-		{"+", Plus},
-		{"-", Minus},
-		{"*", Multiply},
-		{"/", Divide},
-		{"<", LT},
-		{">", GT},
-		{"<=", LTE},
-		{">=", GTE},
-		{"=", EQ},
-		{"!=", NEQ},
+		{"and", types.And},
+		{"or", types.Or},
+		{"+", types.Plus},
+		{"-", types.Minus},
+		{"*", types.Multiply},
+		{"/", types.Divide},
+		{"<", types.LT},
+		{">", types.GT},
+		{"<=", types.LTE},
+		{">=", types.GTE},
+		{"=", types.EQ},
+		{"!=", types.NEQ},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equalf(t, tt.want, getBinaryOpType(tt.name), "getBinaryOpType(%v)", tt.name)
+			assert.Equalf(t, tt.want, types.GetBinaryOpType(tt.name), "GetBinaryOpType(%v)", tt.name)
 			assert.Equalf(t, tt.name, tt.want.String(), "getBinaryOpType(%v)", tt.name)
 		})
 	}

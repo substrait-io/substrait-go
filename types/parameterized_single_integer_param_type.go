@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"reflect"
 
-	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/types/integer_parameters"
 )
 
@@ -98,10 +97,11 @@ func (m *parameterizedTypeSingleIntegerParam[T]) getNewInstance() T {
 	return reflect.New(tType).Interface().(T)
 }
 
-func (m *parameterizedTypeSingleIntegerParam[T]) ReturnType([]FuncDefArgType, []Type) (Type, error) {
+func (m *parameterizedTypeSingleIntegerParam[T]) ReturnType(params []FuncDefArgType, argumentTypes []Type) (Type, error) {
 	concreteIntParam, ok := m.IntegerOption.(*integer_parameters.ConcreteIntParam)
 	if !ok {
-		return nil, substraitgo.ErrNotImplemented
+		derivation := OutputDerivation{FinalType: m}
+		return derivation.ReturnType(params, argumentTypes)
 	}
 	t := m.getNewInstance()
 	return t.GetReturnType(int32(*concreteIntParam), m.Nullability), nil
@@ -114,9 +114,14 @@ func (m *parameterizedTypeSingleIntegerParam[T]) WithParameters(params []interfa
 		}
 		return nil, fmt.Errorf("type must have 1 parameter")
 	}
-	if length, ok := params[0].(int64); ok {
-		t := m.getNewInstance()
-		return t.GetReturnType(int32(length), m.Nullability), nil
+	switch params[0].(type) {
+	case int64:
+		return m.getNewInstance().GetReturnType(int32(params[0].(int64)), m.Nullability), nil
+	case int32:
+		return m.getNewInstance().GetReturnType(params[0].(int32), m.Nullability), nil
+	case TimePrecision:
+		return m.getNewInstance().GetReturnType(int32(params[0].(TimePrecision)), m.Nullability), nil
+	default:
+		return nil, fmt.Errorf("unknown parameter type for integer parameter")
 	}
-	return nil, fmt.Errorf("length must be an integer")
 }
