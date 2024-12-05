@@ -256,8 +256,7 @@ type RewriteFunc func(expr.Expression) (expr.Expression, error)
 // and should be type switched to determine which relation type it actually
 // is for evaluation.
 //
-// All methods in this interface should be considered constant (i.e.
-// immutable).
+// All the exported methods in this interface should be considered constant.
 type Rel interface {
 	// Hint returns a set of changes to the operation which can influence
 	// efficiency and performance but should not impact correctness.
