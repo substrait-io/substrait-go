@@ -48,47 +48,47 @@ func (v *TypeVisitor) VisitLiteralNumber(ctx *baseparser2.LiteralNumberContext) 
 		v.ErrorListener.ReportVisitError(fmt.Errorf("error parsing number: %s", err))
 		return 0
 	}
-	return &LiteralNumber{Value: num}
+	return &types.LiteralNumber{Value: num}
 }
 
 func (v *TypeVisitor) VisitFunctionCall(ctx *baseparser2.FunctionCallContext) interface{} {
-	args := make([]Expr, 0, len(ctx.AllExpr()))
+	args := make([]types.Expr, 0, len(ctx.AllExpr()))
 	for _, expr := range ctx.AllExpr() {
-		args = append(args, v.Visit(expr).(Expr))
+		args = append(args, v.Visit(expr).(types.Expr))
 	}
-	return &FunctionCallExpr{
+	return &types.FunctionCallExpr{
 		Name: strings.ToLower(ctx.Identifier().GetText()),
 		Args: args,
 	}
 }
 
 func (v *TypeVisitor) VisitBinaryExpr(ctx *baseparser2.BinaryExprContext) interface{} {
-	return &BinaryExpr{
-		Op:    getBinaryOpType(ctx.GetOp().GetText()),
-		Left:  v.Visit(ctx.GetLeft()).(Expr),
-		Right: v.Visit(ctx.GetRight()).(Expr),
+	return &types.BinaryExpr{
+		Op:    types.GetBinaryOpType(ctx.GetOp().GetText()),
+		Left:  v.Visit(ctx.GetLeft()).(types.Expr),
+		Right: v.Visit(ctx.GetRight()).(types.Expr),
 	}
 }
 
 func (v *TypeVisitor) VisitIfExpr(ctx *baseparser2.IfExprContext) interface{} {
-	return &IfExpr{
-		Condition: v.Visit(ctx.GetIfExpr()).(Expr),
-		Then:      v.Visit(ctx.GetThenExpr()).(Expr),
-		Else:      v.Visit(ctx.GetElseExpr()).(Expr),
+	return &types.IfExpr{
+		Condition: v.Visit(ctx.GetIfExpr()).(types.Expr),
+		Then:      v.Visit(ctx.GetThenExpr()).(types.Expr),
+		Else:      v.Visit(ctx.GetElseExpr()).(types.Expr),
 	}
 }
 
 func (v *TypeVisitor) VisitNotExpr(ctx *baseparser2.NotExprContext) interface{} {
-	return &NotExpr{
-		Expr: v.Visit(ctx.Expr()).(Expr),
+	return &types.NotExpr{
+		Expr: v.Visit(ctx.Expr()).(types.Expr),
 	}
 }
 
 func (v *TypeVisitor) VisitTernary(ctx *baseparser2.TernaryContext) interface{} {
-	return &IfExpr{
-		Condition: v.Visit(ctx.GetIfExpr()).(Expr),
-		Then:      v.Visit(ctx.GetThenExpr()).(Expr),
-		Else:      v.Visit(ctx.GetElseExpr()).(Expr),
+	return &types.IfExpr{
+		Condition: v.Visit(ctx.GetIfExpr()).(types.Expr),
+		Then:      v.Visit(ctx.GetThenExpr()).(types.Expr),
+		Else:      v.Visit(ctx.GetElseExpr()).(types.Expr),
 		IsTernary: true,
 	}
 }
@@ -196,7 +196,7 @@ func (v *TypeVisitor) VisitUserDefined(ctx *baseparser2.UserDefinedContext) inte
 		switch param := paramExpr.(type) {
 		case types.FuncDefArgType:
 			params = append(params, &types.DataTypeUDTParam{Type: param})
-		case *LiteralNumber:
+		case *types.LiteralNumber:
 			params = append(params, &types.IntegerUDTParam{Integer: int32(param.Value)})
 		case types.StringParameter:
 			params = append(params, &types.StringUDTParam{StringVal: string(param)})
@@ -343,16 +343,16 @@ func (v *TypeVisitor) VisitNumericExpression(ctx *baseparser2.NumericExpressionC
 }
 
 func (v *TypeVisitor) VisitMultilineDefinition(ctx *baseparser2.MultilineDefinitionContext) interface{} {
-	assignments := make([]Assignment, 0)
+	assignments := make([]types.Assignment, 0)
 	for i, expr := range ctx.AllExpr() {
 		parsedExpr := v.Visit(expr)
-		assignment := Assignment{
+		assignment := types.Assignment{
 			Name:  ctx.Identifier(i).GetText(),
-			Value: parsedExpr.(Expr),
+			Value: parsedExpr.(types.Expr),
 		}
 		assignments = append(assignments, assignment)
 	}
-	return &OutputDerivation{
+	return &types.OutputDerivation{
 		Assignments: assignments,
 		FinalType:   v.Visit(ctx.GetFinalType()).(types.FuncDefArgType),
 	}

@@ -44,6 +44,9 @@ func TestParameterizedDecimalType(t *testing.T) {
 			if td.expectedHasParameterizedParam {
 				require.Error(t, err)
 				require.True(t, pd.HasParameterizedParam())
+				retType, err = pd.ReturnType([]types.FuncDefArgType{pd}, []types.Type{td.expectedReturnType})
+				require.NoError(t, err)
+				require.Equal(t, td.expectedReturnType, retType)
 			} else {
 				require.Nil(t, err)
 				require.Equal(t, td.expectedReturnType, retType)

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"reflect"
 
-	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/types/integer_parameters"
 )
 
@@ -98,10 +97,11 @@ func (m *parameterizedTypeSingleIntegerParam[T]) getNewInstance() T {
 	return reflect.New(tType).Interface().(T)
 }
 
-func (m *parameterizedTypeSingleIntegerParam[T]) ReturnType([]FuncDefArgType, []Type) (Type, error) {
+func (m *parameterizedTypeSingleIntegerParam[T]) ReturnType(params []FuncDefArgType, argumentTypes []Type) (Type, error) {
 	concreteIntParam, ok := m.IntegerOption.(*integer_parameters.ConcreteIntParam)
 	if !ok {
-		return nil, substraitgo.ErrNotImplemented
+		derivation := OutputDerivation{FinalType: m}
+		return derivation.ReturnType(params, argumentTypes)
 	}
 	t := m.getNewInstance()
 	return t.GetReturnType(int32(*concreteIntParam), m.Nullability), nil
