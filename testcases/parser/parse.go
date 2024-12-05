@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"embed"
 	"fmt"
 	"io"
 	"io/fs"
@@ -11,7 +10,7 @@ import (
 	"github.com/substrait-io/substrait-go/types/parser/util"
 )
 
-func ParseTestCaseFileFromFS(fs embed.FS, s string) (*TestFile, error) {
+func ParseTestCaseFileFromFS(fs fs.FS, s string) (*TestFile, error) {
 	file, err := fs.Open(s)
 	if err != nil {
 		return nil, err
