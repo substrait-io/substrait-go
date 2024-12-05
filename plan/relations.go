@@ -152,32 +152,31 @@ func (b *baseReadRel) updateFilters(filters []expr.Expression) {
 	b.filter, b.bestEffortFilter = filters[0], filters[1]
 }
 
-type MappableRel interface {
-	RecordType() types.RecordType
-	OutputMapping() []int32
-}
-
 // RemapHelper implements the core functionality of RemapHelper for relations.
-// It returns the relation's existing mapping or an error to ease being called.
-func RemapHelper(r MappableRel, mapping []int32) ([]int32, error) {
+func RemapHelper(r Rel, mapping []int32) (Rel, error) {
+	newRel, err := r.Copy(r.GetInputs()...)
+	if err != nil {
+		return nil, err
+	}
 	if len(mapping) == 0 {
-		return []int32{}, nil
+		newRel.setMapping([]int32{})
+		return newRel, nil
 	}
 	nOutput := r.RecordType().FieldCount()
 	oldMapping := r.OutputMapping()
 	newMapping := make([]int32, 0, len(mapping))
 	for _, idx := range mapping {
 		if idx < 0 || idx >= nOutput {
-			return r.OutputMapping(), errOutputMappingOutOfRange
+			return nil, errOutputMappingOutOfRange
 		}
 		if len(oldMapping) > 0 {
 			newMapping = append(newMapping, oldMapping[idx])
+		} else {
+			newMapping = append(newMapping, idx)
 		}
 	}
-	if len(oldMapping) > 0 {
-		return newMapping, nil
-	}
-	return mapping, nil
+	newRel.setMapping(newMapping)
+	return newRel, nil
 }
 
 // NamedTableReadRel is a named scan of a base table. The list of strings
@@ -241,10 +240,7 @@ func (n *NamedTableReadRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, _
 }
 
 func (n *NamedTableReadRel) Remap(mapping ...int32) (Rel, error) {
-	newMapping, err := RemapHelper(n, mapping)
-	newRel := *n
-	newRel.mapping = newMapping
-	return &newRel, err
+	return RemapHelper(n, mapping)
 }
 
 // VirtualTableReadRel represents a table composed of literals.
@@ -303,10 +299,7 @@ func (v *VirtualTableReadRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc,
 }
 
 func (v *VirtualTableReadRel) Remap(mapping ...int32) (Rel, error) {
-	newMapping, err := RemapHelper(v, mapping)
-	newRel := *v
-	newRel.mapping = newMapping
-	return &newRel, err
+	return RemapHelper(v, mapping)
 }
 
 // ExtensionTableReadRel is a stub type that can be used to extend
@@ -360,10 +353,7 @@ func (e *ExtensionTableReadRel) CopyWithExpressionRewrite(rewriteFunc RewriteFun
 }
 
 func (e *ExtensionTableReadRel) Remap(mapping ...int32) (Rel, error) {
-	newMapping, err := RemapHelper(e, mapping)
-	newRel := *e
-	newRel.mapping = newMapping
-	return &newRel, err
+	return RemapHelper(e, mapping)
 }
 
 // PathType is the type of a LocalFileReadRel's uris.
@@ -550,10 +540,7 @@ func (lf *LocalFileReadRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, _
 }
 
 func (lf *LocalFileReadRel) Remap(mapping ...int32) (Rel, error) {
-	newMapping, err := RemapHelper(lf, mapping)
-	newRel := *lf
-	newRel.mapping = newMapping
-	return &newRel, err
+	return RemapHelper(lf, mapping)
 }
 
 // ProjectRel represents calculated expressions of fields (e.g. a+b),
@@ -646,10 +633,7 @@ func (p *ProjectRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInput
 }
 
 func (p *ProjectRel) Remap(mapping ...int32) (Rel, error) {
-	newMapping, err := RemapHelper(p, mapping)
-	newRel := *p
-	newRel.mapping = newMapping
-	return &newRel, err
+	return RemapHelper(p, mapping)
 }
 
 var defFilter = expr.NewPrimitiveLiteral(true, false)
@@ -805,10 +789,7 @@ func (j *JoinRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs .
 }
 
 func (j *JoinRel) Remap(mapping ...int32) (Rel, error) {
-	newMapping, err := RemapHelper(j, mapping)
-	newRel := *j
-	newRel.mapping = newMapping
-	return &newRel, err
+	return RemapHelper(j, mapping)
 }
 
 // CrossRel is a cartesian product relational operator of two tables.
@@ -873,10 +854,7 @@ func (c *CrossRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (R
 }
 
 func (c *CrossRel) Remap(mapping ...int32) (Rel, error) {
-	newMapping, err := RemapHelper(c, mapping)
-	newRel := *c
-	newRel.mapping = newMapping
-	return &newRel, err
+	return RemapHelper(c, mapping)
 }
 
 // FetchRel is a relational operator representing LIMIT/OFFSET or
@@ -946,10 +924,7 @@ func (f *FetchRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (R
 }
 
 func (f *FetchRel) Remap(mapping ...int32) (Rel, error) {
-	newMapping, err := RemapHelper(f, mapping)
-	newRel := *f
-	newRel.mapping = newMapping
-	return &newRel, err
+	return RemapHelper(f, mapping)
 }
 
 type AggRelMeasure struct {
@@ -1101,10 +1076,7 @@ func (ar *AggregateRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newIn
 }
 
 func (ar *AggregateRel) Remap(mapping ...int32) (Rel, error) {
-	newMapping, err := RemapHelper(ar, mapping)
-	newRel := *ar
-	newRel.mapping = newMapping
-	return &newRel, err
+	return RemapHelper(ar, mapping)
 }
 
 // SortRel is an ORDER BY relational operator, describing a base relation,
@@ -1189,10 +1161,7 @@ func (sr *SortRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs 
 }
 
 func (sr *SortRel) Remap(mapping ...int32) (Rel, error) {
-	newMapping, err := RemapHelper(sr, mapping)
-	newRel := *sr
-	newRel.mapping = newMapping
-	return &newRel, err
+	return RemapHelper(sr, mapping)
 }
 
 // FilterRel is a relational operator capturing simple filters (
@@ -1267,10 +1236,7 @@ func (fr *FilterRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInput
 }
 
 func (fr *FilterRel) Remap(mapping ...int32) (Rel, error) {
-	newMapping, err := RemapHelper(fr, mapping)
-	newRel := *fr
-	newRel.mapping = newMapping
-	return &newRel, err
+	return RemapHelper(fr, mapping)
 }
 
 type SetOp = proto.SetRel_SetOp
@@ -1347,10 +1313,7 @@ func (s *SetRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (Rel
 }
 
 func (s *SetRel) Remap(mapping ...int32) (Rel, error) {
-	newMapping, err := RemapHelper(s, mapping)
-	newRel := *s
-	newRel.mapping = newMapping
-	return &newRel, err
+	return RemapHelper(s, mapping)
 }
 
 // ExtensionSingleRel is a stub to support extensions with a single input.
@@ -1411,10 +1374,7 @@ func (es *ExtensionSingleRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs
 }
 
 func (es *ExtensionSingleRel) Remap(mapping ...int32) (Rel, error) {
-	newMapping, err := RemapHelper(es, mapping)
-	newRel := *es
-	newRel.mapping = newMapping
-	return &newRel, err
+	return RemapHelper(es, mapping)
 }
 
 // ExtensionLeafRel is a stub to support extensions with zero inputs.
@@ -1462,10 +1422,7 @@ func (el *ExtensionLeafRel) CopyWithExpressionRewrite(_ RewriteFunc, _ ...Rel) (
 }
 
 func (el *ExtensionLeafRel) Remap(mapping ...int32) (Rel, error) {
-	newMapping, err := RemapHelper(el, mapping)
-	newRel := *el
-	newRel.mapping = newMapping
-	return &newRel, err
+	return RemapHelper(el, mapping)
 }
 
 // ExtensionMultiRel is a stub to support extensions with multiple inputs.
@@ -1525,10 +1482,7 @@ func (em *ExtensionMultiRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs 
 }
 
 func (em *ExtensionMultiRel) Remap(mapping ...int32) (Rel, error) {
-	newMapping, err := RemapHelper(em, mapping)
-	newRel := *em
-	newRel.mapping = newMapping
-	return &newRel, err
+	return RemapHelper(em, mapping)
 }
 
 type HashMergeJoinType int8
@@ -1650,10 +1604,7 @@ func (hr *HashJoinRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInp
 }
 
 func (hr *HashJoinRel) Remap(mapping ...int32) (Rel, error) {
-	newMapping, err := RemapHelper(hr, mapping)
-	newRel := *hr
-	newRel.mapping = newMapping
-	return &newRel, err
+	return RemapHelper(hr, mapping)
 }
 
 // MergeJoinRel represents a join done by taking advantage of two sets
@@ -1761,10 +1712,7 @@ func (mr *MergeJoinRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newIn
 }
 
 func (mr *MergeJoinRel) Remap(mapping ...int32) (Rel, error) {
-	newMapping, err := RemapHelper(mr, mapping)
-	newRel := *mr
-	newRel.mapping = newMapping
-	return &newRel, err
+	return RemapHelper(mr, mapping)
 }
 
 type WriteOp = proto.WriteRel_WriteOp
@@ -1879,10 +1827,7 @@ func (wr *NamedTableWriteRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs
 }
 
 func (wr *NamedTableWriteRel) Remap(mapping ...int32) (Rel, error) {
-	newMapping, err := RemapHelper(wr, mapping)
-	newRel := *wr
-	newRel.mapping = newMapping
-	return &newRel, err
+	return RemapHelper(wr, mapping)
 }
 
 var (

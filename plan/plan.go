@@ -284,6 +284,11 @@ type Rel interface {
 	// If any column numbers specified are outside the currently available
 	// input range an error is returned and the mapping is left unchanged.
 	Remap(mapping ...int32) (Rel, error)
+
+	// setMapping sets the current mapping and is for internal use.
+	// It performs no checks.  End users should call Remap() instead.
+	setMapping(mapping []int32)
+
 	// directOutputSchema returns the output record type of the underlying
 	// relation as a struct type.  Mapping is not applied.
 	directOutputSchema() types.RecordType

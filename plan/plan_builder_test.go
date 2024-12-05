@@ -141,9 +141,8 @@ func TestFailedMappingOfMapping(t *testing.T) {
 	newRel, err := ns.Remap(1, 0)
 	assert.NoError(t, err)
 	assert.Equal(t, "struct<fp32, string>", newRel.RecordType().String())
-	newRel2, err := newRel.Remap(-1)
+	_, err = newRel.Remap(-1)
 	assert.ErrorContains(t, err, "output mapping index out of range")
-	assert.Equal(t, "struct<fp32, string>", newRel2.RecordType().String())
 }
 
 func checkRoundTrip(t *testing.T, expectedJSON string, p *plan.Plan) {
