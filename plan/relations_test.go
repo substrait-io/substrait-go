@@ -382,19 +382,69 @@ func (f *fakeRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs .
 	panic("unused")
 }
 
+func (f *fakeRel) Remap(mapping ...int32) (Rel, error) {
+	panic("unused")
+}
+
+func TestVirtualTableReadRelRecordType(t *testing.T) {
+	b := NewBuilderDefault()
+	rel, err := b.VirtualTable([]string{"a", "b"},
+		expr.StructLiteralValue{
+			&expr.PrimitiveLiteral[int64]{Value: 11, Type: &types.Int64Type{}},
+			&expr.PrimitiveLiteral[string]{Value: "12", Type: &types.StringType{}}},
+		expr.StructLiteralValue{
+			&expr.PrimitiveLiteral[int64]{Value: 21, Type: &types.Int64Type{}},
+			&expr.PrimitiveLiteral[string]{Value: "22", Type: &types.StringType{}}})
+	assert.NoError(t, err)
+
+	expected := *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}, &types.StringType{}})
+	result := rel.RecordType()
+	assert.Equal(t, expected, result)
+
+	newRel, err := rel.Remap(0)
+	assert.NoError(t, err)
+	expected = *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}})
+	result = newRel.RecordType()
+	assert.Equal(t, expected, result)
+}
+
+func TestExtensionTableReadRelRecordType(t *testing.T) {
+	// We don't have a way of setting the base schema yet so test with an empty schema.
+	rel := &ExtensionTableReadRel{}
+
+	expected := *types.NewRecordTypeFromTypes(nil)
+	result := rel.RecordType()
+	assert.Equal(t, expected, result)
+
+	_, err := rel.Remap(0)
+	assert.ErrorContains(t, err, "output mapping index out of range")
+}
+
+func TestLocalFileReadRelRecordType(t *testing.T) {
+	// We don't have a way of setting the base schema yet so test with an empty schema.
+	rel := &LocalFileReadRel{}
+
+	expected := *types.NewRecordTypeFromTypes(nil)
+	result := rel.RecordType()
+	assert.Equal(t, expected, result)
+
+	_, err := rel.Remap(0)
+	assert.ErrorContains(t, err, "output mapping index out of range")
+}
+
 func TestProjectRecordType(t *testing.T) {
 	var rel ProjectRel
 	rel.input = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
 		[]types.Type{&types.Int64Type{}, &types.Int64Type{}})}
 
-	rel.mapping = nil
 	expected := *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}, &types.Int64Type{}})
 	result := rel.RecordType()
 	assert.Equal(t, expected, result)
 
-	rel.mapping = []int32{0}
+	newRel, err := rel.Remap(0)
+	assert.NoError(t, err)
 	expected = *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}})
-	result = rel.RecordType()
+	result = newRel.RecordType()
 	assert.Equal(t, expected, result)
 }
 
@@ -403,15 +453,37 @@ func TestExtensionSingleRecordType(t *testing.T) {
 	rel.input = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
 		[]types.Type{&types.Int64Type{}, &types.Int64Type{}})}
 
-	rel.mapping = nil
 	expected := *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}, &types.Int64Type{}})
 	result := rel.RecordType()
 	assert.Equal(t, expected, result)
 
-	rel.mapping = []int32{0}
+	newRel, err := rel.Remap(0)
+	assert.NoError(t, err)
 	expected = *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}})
-	result = rel.RecordType()
+	result = newRel.RecordType()
 	assert.Equal(t, expected, result)
+}
+
+func TestExtensionLeafRecordType(t *testing.T) {
+	var rel ExtensionLeafRel
+
+	expected := *types.NewRecordTypeFromTypes(nil)
+	result := rel.RecordType()
+	assert.Equal(t, expected, result)
+
+	_, err := rel.Remap(0)
+	assert.ErrorContains(t, err, "output mapping index out of range")
+}
+
+func TestExtensionMultiRecordType(t *testing.T) {
+	var rel ExtensionMultiRel
+
+	expected := *types.NewRecordTypeFromTypes(nil)
+	result := rel.RecordType()
+	assert.Equal(t, expected, result)
+
+	_, err := rel.Remap(0)
+	assert.ErrorContains(t, err, "output mapping index out of range")
 }
 
 func TestHashJoinRecordType(t *testing.T) {
@@ -421,15 +493,15 @@ func TestHashJoinRecordType(t *testing.T) {
 	rel.right = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
 		[]types.Type{&types.StringType{}, &types.StringType{}})}
 
-	rel.mapping = nil
 	expected := *types.NewRecordTypeFromTypes(
 		[]types.Type{&types.Int64Type{}, &types.Int64Type{}, &types.StringType{}, &types.StringType{}})
 	result := rel.RecordType()
 	assert.Equal(t, expected, result)
 
-	rel.mapping = []int32{0}
+	newRel, err := rel.Remap(0)
+	assert.NoError(t, err)
 	expected = *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}})
-	result = rel.RecordType()
+	result = newRel.RecordType()
 	assert.Equal(t, expected, result)
 }
 
@@ -440,15 +512,29 @@ func TestMergeJoinRecordType(t *testing.T) {
 	rel.right = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
 		[]types.Type{&types.StringType{}, &types.StringType{}})}
 
-	rel.mapping = nil
 	expected := *types.NewRecordTypeFromTypes(
 		[]types.Type{&types.Int64Type{}, &types.Int64Type{}, &types.StringType{}, &types.StringType{}})
 	result := rel.RecordType()
 	assert.Equal(t, expected, result)
 
-	rel.mapping = []int32{0}
+	newRel, err := rel.Remap(0)
+	assert.NoError(t, err)
 	expected = *types.NewRecordTypeFromTypes(
 		[]types.Type{&types.Int64Type{}})
-	result = rel.RecordType()
+	result = newRel.RecordType()
 	assert.Equal(t, expected, result)
+}
+
+func TestNamedTableWriteRecordType(t *testing.T) {
+	var rel NamedTableWriteRel
+	rel.input = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
+		[]types.Type{&types.Int64Type{}, &types.StringType{}})}
+	rel.outputMode = proto.WriteRel_OUTPUT_MODE_MODIFIED_RECORDS
+
+	expected := *types.NewRecordTypeFromTypes(nil)
+	result := rel.RecordType()
+	assert.Equal(t, expected, result)
+
+	_, err := rel.Remap(0)
+	assert.ErrorContains(t, err, "output mapping index out of range")
 }

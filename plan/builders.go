@@ -71,13 +71,18 @@ type Builder interface {
 	// from the output.
 
 	Project(input Rel, exprs ...expr.Expression) (*ProjectRel, error)
+	// Deprecated: Use Project(...).Remap() instead.
 	ProjectRemap(input Rel, remap []int32, exprs ...expr.Expression) (*ProjectRel, error)
+	// Deprecated: Use AggregateColumns(...).Remap() instead.
 	AggregateColumnsRemap(input Rel, remap []int32, measures []AggRelMeasure, groupByCols ...int32) (*AggregateRel, error)
 	AggregateColumns(input Rel, measures []AggRelMeasure, groupByCols ...int32) (*AggregateRel, error)
+	// Deprecated: Use AggregateExprs(...).Remap() instead.
 	AggregateExprsRemap(input Rel, remap []int32, measures []AggRelMeasure, groups ...[]expr.Expression) (*AggregateRel, error)
 	AggregateExprs(input Rel, measures []AggRelMeasure, groups ...[]expr.Expression) (*AggregateRel, error)
+	// Deprecated: Use CreateTableAsSelect(...).Remap() instead.
 	CreateTableAsSelectRemap(input Rel, remap []int32, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error)
 	CreateTableAsSelect(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error)
+	// Deprecated: Use Cross(...).Remap() instead.
 	CrossRemap(left, right Rel, remap []int32) (*CrossRel, error)
 	Cross(left, right Rel) (*CrossRel, error)
 	// FetchRemap constructs a fetch relation providing an offset (skipping some
@@ -85,32 +90,46 @@ type Builder interface {
 	// rows).  If count is FETCH_COUNT_ALL_RECORDS (-1) all records will be
 	// returned.  Similar to Fetch but allows for reordering and restricting the
 	// returned columns.
+	//
+	// Deprecated: Use Fetch(...).Remap() instead.
 	FetchRemap(input Rel, offset, count int64, remap []int32) (*FetchRel, error)
 	// Fetch constructs a fetch relation providing an offset (skipping some number of
 	// rows) and a count (restricting output to a maximum number of rows).  If count
 	// is FETCH_COUNT_ALL_RECORDS (-1) all records will be returned.
 	Fetch(input Rel, offset, count int64) (*FetchRel, error)
+	// Deprecated: Use Filter(...).Remap() instead.
 	FilterRemap(input Rel, condition expr.Expression, remap []int32) (*FilterRel, error)
 	Filter(input Rel, condition expr.Expression) (*FilterRel, error)
+	// Deprecated: Use JoinAndFilter(...).Remap() instead.
 	JoinAndFilterRemap(left, right Rel, condition, postJoinFilter expr.Expression, joinType JoinType, remap []int32) (*JoinRel, error)
+	// Deprecated: Use Fetch(...).Remap() instead.
 	JoinAndFilter(left, right Rel, condition, postJoinFilter expr.Expression, joinType JoinType) (*JoinRel, error)
+	// Deprecated: Use Join(...).Remap() instead.
 	JoinRemap(left, right Rel, condition expr.Expression, joinType JoinType, remap []int32) (*JoinRel, error)
 	Join(left, right Rel, condition expr.Expression, joinType JoinType) (*JoinRel, error)
+	// Deprecated: Use NamedScan(...).Remap() instead.
 	NamedScanRemap(tableName []string, schema types.NamedStruct, remap []int32) (*NamedTableReadRel, error)
 	NamedScan(tableName []string, schema types.NamedStruct) *NamedTableReadRel
+	// Deprecated: Use NamedWrite(...).Remap() instead.
 	NamedWriteRemap(input Rel, op WriteOp, tableName []string, schema types.NamedStruct, remap []int32) (*NamedTableWriteRel, error)
+	// NamedWrite performs the given write operation from the input relation over a named table.
+	NamedWrite(input Rel, op WriteOp, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error)
 	// NamedInsert inserts data from the input relation into a named table.
 	NamedInsert(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error)
 	// NamedDelete deletes rows from a specified named table based on the
 	// provided input relation, which typically includes conditions that filter
 	// the rows to delete.
 	NamedDelete(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error)
+	// Deprecated: Use VirtualTable(...).Remap() instead.
 	VirtualTableRemap(fields []string, remap []int32, values ...expr.StructLiteralValue) (*VirtualTableReadRel, error)
 	VirtualTable(fields []string, values ...expr.StructLiteralValue) (*VirtualTableReadRel, error)
+	// Deprecated: Use VirtualTableFromExpr(...).Remap() instead.
 	VirtualTableFromExprRemap(fieldNames []string, remap []int32, values ...expr.VirtualTableExpressionValue) (*VirtualTableReadRel, error)
 	VirtualTableFromExpr(fieldNames []string, values ...expr.VirtualTableExpressionValue) (*VirtualTableReadRel, error)
+	// Deprecated: Use Sort(...).Remap() instead.
 	SortRemap(input Rel, remap []int32, sorts ...expr.SortField) (*SortRel, error)
 	Sort(input Rel, sorts ...expr.SortField) (*SortRel, error)
+	// Deprecated: Use Set(...).Remap() instead.
 	SetRemap(op SetOp, remap []int32, inputs ...Rel) (*SetRel, error)
 	Set(op SetOp, inputs ...Rel) (*SetRel, error)
 
@@ -498,12 +517,16 @@ func (b *builder) NamedWriteRemap(input Rel, op WriteOp, tableName []string, sch
 	}, nil
 }
 
+func (b *builder) NamedWrite(input Rel, op WriteOp, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {
+	return b.NamedWriteRemap(input, op, tableName, schema, nil)
+}
+
 func (b *builder) NamedInsert(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {
-	return b.NamedWriteRemap(input, WriteOpInsert, tableName, schema, nil)
+	return b.NamedWrite(input, WriteOpInsert, tableName, schema)
 }
 
 func (b *builder) NamedDelete(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {
-	return b.NamedWriteRemap(input, WriteOpDelete, tableName, schema, nil)
+	return b.NamedWrite(input, WriteOpDelete, tableName, schema)
 }
 
 func (b *builder) NamedScanRemap(tableName []string, schema types.NamedStruct, remap []int32) (*NamedTableReadRel, error) {

@@ -255,6 +255,8 @@ type RewriteFunc func(expr.Expression) (expr.Expression, error)
 // It contains the common functionality between the different relations
 // and should be type switched to determine which relation type it actually
 // is for evaluation.
+//
+// All the exported methods in this interface should be considered constant.
 type Rel interface {
 	// Hint returns a set of changes to the operation which can influence
 	// efficiency and performance but should not impact correctness.
@@ -271,6 +273,21 @@ type Rel interface {
 	// result should be 3 columns consisting of the 5th, 2nd and 1st
 	// output columns from the underlying relation.
 	OutputMapping() []int32
+
+	// Remap modifies the current relation by applying the provided
+	// mapping to the current relation.  Typically used to remove any
+	// unneeded columns or provide them in a different order.  If there
+	// already is a mapping on this relation, this provides mapping over
+	// the current mapping.
+	//
+	// If any column numbers specified are outside the currently available
+	// input range an error is returned and the mapping is left unchanged.
+	Remap(mapping ...int32) (Rel, error)
+
+	// setMapping sets the current mapping and is for internal use.
+	// It performs no checks.  End users should call Remap() instead.
+	setMapping(mapping []int32)
+
 	// directOutputSchema returns the output record type of the underlying
 	// relation as a struct type.  Mapping is not applied.
 	directOutputSchema() types.RecordType

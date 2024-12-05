@@ -152,6 +152,33 @@ func (b *baseReadRel) updateFilters(filters []expr.Expression) {
 	b.filter, b.bestEffortFilter = filters[0], filters[1]
 }
 
+// RemapHelper implements the core functionality of RemapHelper for relations.
+func RemapHelper(r Rel, mapping []int32) (Rel, error) {
+	newRel, err := r.Copy(r.GetInputs()...)
+	if err != nil {
+		return nil, err
+	}
+	if len(mapping) == 0 {
+		newRel.setMapping([]int32{})
+		return newRel, nil
+	}
+	nOutput := r.RecordType().FieldCount()
+	oldMapping := r.OutputMapping()
+	newMapping := make([]int32, 0, len(mapping))
+	for _, idx := range mapping {
+		if idx < 0 || idx >= nOutput {
+			return nil, errOutputMappingOutOfRange
+		}
+		if len(oldMapping) > 0 {
+			newMapping = append(newMapping, oldMapping[idx])
+		} else {
+			newMapping = append(newMapping, idx)
+		}
+	}
+	newRel.setMapping(newMapping)
+	return newRel, nil
+}
+
 // NamedTableReadRel is a named scan of a base table. The list of strings
 // that make up the names are to represent namespacing (e.g. mydb.mytable).
 // This assumes a shared catalog between systems exchanging a message.
@@ -212,6 +239,10 @@ func (n *NamedTableReadRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, _
 	return &nt, nil
 }
 
+func (n *NamedTableReadRel) Remap(mapping ...int32) (Rel, error) {
+	return RemapHelper(n, mapping)
+}
+
 // VirtualTableReadRel represents a table composed of literals.
 type VirtualTableReadRel struct {
 	baseReadRel
@@ -267,6 +298,10 @@ func (v *VirtualTableReadRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc,
 	return &vtr, nil
 }
 
+func (v *VirtualTableReadRel) Remap(mapping ...int32) (Rel, error) {
+	return RemapHelper(v, mapping)
+}
+
 // ExtensionTableReadRel is a stub type that can be used to extend
 // and introduce new table types outside the specification by utilizing
 // protobuf Any type.
@@ -315,6 +350,10 @@ func (e *ExtensionTableReadRel) CopyWithExpressionRewrite(rewriteFunc RewriteFun
 	etr := *e
 	etr.updateFilters(newExprs)
 	return &etr, nil
+}
+
+func (e *ExtensionTableReadRel) Remap(mapping ...int32) (Rel, error) {
+	return RemapHelper(e, mapping)
 }
 
 // PathType is the type of a LocalFileReadRel's uris.
@@ -500,6 +539,10 @@ func (lf *LocalFileReadRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, _
 	return &lfr, nil
 }
 
+func (lf *LocalFileReadRel) Remap(mapping ...int32) (Rel, error) {
+	return RemapHelper(lf, mapping)
+}
+
 // ProjectRel represents calculated expressions of fields (e.g. a+b),
 // the OutputMapping will be used to represent classical relational
 // projections.
@@ -587,6 +630,10 @@ func (p *ProjectRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInput
 	proj.input = newInputs[0]
 	proj.exprs = exprs
 	return &proj, nil
+}
+
+func (p *ProjectRel) Remap(mapping ...int32) (Rel, error) {
+	return RemapHelper(p, mapping)
 }
 
 var defFilter = expr.NewPrimitiveLiteral(true, false)
@@ -741,6 +788,10 @@ func (j *JoinRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs .
 	return &join, nil
 }
 
+func (j *JoinRel) Remap(mapping ...int32) (Rel, error) {
+	return RemapHelper(j, mapping)
+}
+
 // CrossRel is a cartesian product relational operator of two tables.
 type CrossRel struct {
 	RelCommon
@@ -800,6 +851,10 @@ func (c *CrossRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (R
 		return c, nil
 	}
 	return c.Copy(newInputs...)
+}
+
+func (c *CrossRel) Remap(mapping ...int32) (Rel, error) {
+	return RemapHelper(c, mapping)
 }
 
 // FetchRel is a relational operator representing LIMIT/OFFSET or
@@ -866,6 +921,10 @@ func (f *FetchRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (R
 		return f, nil
 	}
 	return f.Copy(newInputs...)
+}
+
+func (f *FetchRel) Remap(mapping ...int32) (Rel, error) {
+	return RemapHelper(f, mapping)
 }
 
 type AggRelMeasure struct {
@@ -1016,6 +1075,10 @@ func (ar *AggregateRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newIn
 	return &aggregate, nil
 }
 
+func (ar *AggregateRel) Remap(mapping ...int32) (Rel, error) {
+	return RemapHelper(ar, mapping)
+}
+
 // SortRel is an ORDER BY relational operator, describing a base relation,
 // it includes a list of fields to sort on.
 type SortRel struct {
@@ -1097,6 +1160,10 @@ func (sr *SortRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs 
 	return &sort, nil
 }
 
+func (sr *SortRel) Remap(mapping ...int32) (Rel, error) {
+	return RemapHelper(sr, mapping)
+}
+
 // FilterRel is a relational operator capturing simple filters (
 // as in the WHERE clause of a SQL query).
 type FilterRel struct {
@@ -1166,6 +1233,10 @@ func (fr *FilterRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInput
 	filter.input = newInputs[0]
 	filter.cond = cond
 	return &filter, nil
+}
+
+func (fr *FilterRel) Remap(mapping ...int32) (Rel, error) {
+	return RemapHelper(fr, mapping)
 }
 
 type SetOp = proto.SetRel_SetOp
@@ -1241,6 +1312,10 @@ func (s *SetRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (Rel
 	return s.Copy(newInputs...)
 }
 
+func (s *SetRel) Remap(mapping ...int32) (Rel, error) {
+	return RemapHelper(s, mapping)
+}
+
 // ExtensionSingleRel is a stub to support extensions with a single input.
 type ExtensionSingleRel struct {
 	RelCommon
@@ -1298,6 +1373,10 @@ func (es *ExtensionSingleRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs
 	return es.Copy(newInputs...)
 }
 
+func (es *ExtensionSingleRel) Remap(mapping ...int32) (Rel, error) {
+	return RemapHelper(es, mapping)
+}
+
 // ExtensionLeafRel is a stub to support extensions with zero inputs.
 type ExtensionLeafRel struct {
 	RelCommon
@@ -1340,6 +1419,10 @@ func (el *ExtensionLeafRel) Copy(_ ...Rel) (Rel, error) {
 
 func (el *ExtensionLeafRel) CopyWithExpressionRewrite(_ RewriteFunc, _ ...Rel) (Rel, error) {
 	return el, nil
+}
+
+func (el *ExtensionLeafRel) Remap(mapping ...int32) (Rel, error) {
+	return RemapHelper(el, mapping)
 }
 
 // ExtensionMultiRel is a stub to support extensions with multiple inputs.
@@ -1396,6 +1479,10 @@ func (em *ExtensionMultiRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs 
 		return em, nil
 	}
 	return em.Copy(newInputs...)
+}
+
+func (em *ExtensionMultiRel) Remap(mapping ...int32) (Rel, error) {
+	return RemapHelper(em, mapping)
 }
 
 type HashMergeJoinType int8
@@ -1516,6 +1603,10 @@ func (hr *HashJoinRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInp
 	return &join, nil
 }
 
+func (hr *HashJoinRel) Remap(mapping ...int32) (Rel, error) {
+	return RemapHelper(hr, mapping)
+}
+
 // MergeJoinRel represents a join done by taking advantage of two sets
 // that are sorted on the join keys. This allows the join operation to
 // be done in a streaming fashion.
@@ -1620,6 +1711,10 @@ func (mr *MergeJoinRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newIn
 	return &merge, nil
 }
 
+func (mr *MergeJoinRel) Remap(mapping ...int32) (Rel, error) {
+	return RemapHelper(mr, mapping)
+}
+
 type WriteOp = proto.WriteRel_WriteOp
 
 const (
@@ -1670,9 +1765,9 @@ func (wr *NamedTableWriteRel) RecordType() types.RecordType {
 	return wr.remap(wr.directOutputSchema())
 }
 
-func (n *NamedTableWriteRel) Names() []string { return n.names }
-func (n *NamedTableWriteRel) NamedTableAdvancedExtension() *extensions.AdvancedExtension {
-	return n.advExtension
+func (wr *NamedTableWriteRel) Names() []string { return wr.names }
+func (wr *NamedTableWriteRel) NamedTableAdvancedExtension() *extensions.AdvancedExtension {
+	return wr.advExtension
 }
 
 func (wr *NamedTableWriteRel) TableSchema() types.NamedStruct {
@@ -1729,6 +1824,10 @@ func (wr *NamedTableWriteRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs
 		return wr, nil
 	}
 	return wr.Copy(newInputs...)
+}
+
+func (wr *NamedTableWriteRel) Remap(mapping ...int32) (Rel, error) {
+	return RemapHelper(wr, mapping)
 }
 
 var (
