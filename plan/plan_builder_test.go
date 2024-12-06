@@ -135,6 +135,18 @@ func TestMappingOfMapping(t *testing.T) {
 	assert.Equal(t, "struct<string>", newRel2.RecordType().String())
 }
 
+func TestMappingOfMappingResultingInDirectOrder(t *testing.T) {
+	b := plan.NewBuilderDefault()
+	ns := b.NamedScan([]string{"mystring, myfloat"}, baseSchema)
+	newRel, err := ns.Remap(1, 0)
+	assert.NoError(t, err)
+	assert.Equal(t, "struct<fp32, string>", newRel.RecordType().String())
+	newRel2, err := newRel.Remap(1, 0)
+	assert.NoError(t, err)
+	assert.Equal(t, "struct<string, fp32>", newRel2.RecordType().String())
+	assert.Equal(t, []int32(nil), newRel2.OutputMapping())
+}
+
 func TestFailedMappingOfMapping(t *testing.T) {
 	b := plan.NewBuilderDefault()
 	ns := b.NamedScan([]string{"test"}, baseSchema)

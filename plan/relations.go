@@ -152,6 +152,17 @@ func (b *baseReadRel) updateFilters(filters []expr.Expression) {
 	b.filter, b.bestEffortFilter = filters[0], filters[1]
 }
 
+// isSequentialFromZero checks if the given slice of integers is a sequence starting from zero
+// where each element in the slice is equal to its index.
+func isSequentialFromZero(order []int32) bool {
+	for x, i := range order {
+		if i != int32(x) {
+			return false
+		}
+	}
+	return true
+}
+
 // RemapHelper implements the core functionality of RemapHelper for relations.
 func RemapHelper(r Rel, mapping []int32) (Rel, error) {
 	newRel, err := r.Copy(r.GetInputs()...)
@@ -175,7 +186,11 @@ func RemapHelper(r Rel, mapping []int32) (Rel, error) {
 			newMapping = append(newMapping, idx)
 		}
 	}
-	newRel.setMapping(newMapping)
+	if len(newMapping) == int(r.directOutputSchema().FieldCount()) && isSequentialFromZero(newMapping) {
+		newRel.setMapping(nil)
+	} else {
+		newRel.setMapping(newMapping)
+	}
 	return newRel, nil
 }
 
