@@ -44,33 +44,31 @@ func (d *dialectImpl) Name() string {
 	return d.name
 }
 
-func appendVariants[T extensions.FunctionVariant](variants []extensions.FunctionVariant, m map[FunctionName][]T) []extensions.FunctionVariant {
-	for _, structs := range m {
-		for _, s := range structs {
-			variants = append(variants, s)
-		}
+func appendVariants[T extensions.FunctionVariant](variants []extensions.FunctionVariant, s []T) []extensions.FunctionVariant {
+	for _, fv := range s {
+		variants = append(variants, fv)
 	}
 	return variants
 }
 
 func (d *dialectImpl) LocalizeFunctionRegistry(registry FunctionRegistry) (LocalFunctionRegistry, error) {
-	scalarFunctions, err := makeLocalFunctionVariantMap(d.localScalarFunctions, registry.GetScalarFunctionsByName, newLocalScalarFunctionVariant)
+	scalarFunctions, scalarVariantSlice, err := makeLocalFunctionVariantMap(d.localScalarFunctions, registry.GetScalarFunctionsByName, newLocalScalarFunctionVariant)
 	if err != nil {
 		return nil, err
 	}
-	aggregateFunctions, err := makeLocalFunctionVariantMap(d.localAggregateFunctions, registry.GetAggregateFunctionsByName, newLocalAggregateFunctionVariant)
+	aggregateFunctions, aggregateVariantSlice, err := makeLocalFunctionVariantMap(d.localAggregateFunctions, registry.GetAggregateFunctionsByName, newLocalAggregateFunctionVariant)
 	if err != nil {
 		return nil, err
 	}
-	windowFunctions, err := makeLocalFunctionVariantMap(d.localWindowFunctions, registry.GetWindowFunctionsByName, newLocalWindowFunctionVariant)
+	windowFunctions, windowVariantsSlice, err := makeLocalFunctionVariantMap(d.localWindowFunctions, registry.GetWindowFunctionsByName, newLocalWindowFunctionVariant)
 	if err != nil {
 		return nil, err
 	}
 
 	var allVariants []extensions.FunctionVariant
-	allVariants = appendVariants(allVariants, scalarFunctions)
-	allVariants = appendVariants(allVariants, aggregateFunctions)
-	allVariants = appendVariants(allVariants, windowFunctions)
+	allVariants = appendVariants(allVariants, scalarVariantSlice)
+	allVariants = appendVariants(allVariants, aggregateVariantSlice)
+	allVariants = appendVariants(allVariants, windowVariantsSlice)
 
 	return &localFunctionRegistryImpl{
 		dialect:            d,
@@ -85,13 +83,14 @@ type withID interface {
 	ID() extensions.ID
 }
 
-func makeLocalFunctionVariantMap[T withID, V any](dialectFunctionInfos map[extensions.ID]*dialectFunctionInfo, getFunctionVariants func(string) []T, createLocalVariant func(T, *dialectFunctionInfo) *V) (map[FunctionName][]*V, error) {
+func makeLocalFunctionVariantMap[T withID, V any](dialectFunctionInfos map[extensions.ID]*dialectFunctionInfo, getFunctionVariants func(string) []T, createLocalVariant func(T, *dialectFunctionInfo) *V) (map[FunctionName][]*V, []*V, error) {
 	processedFunctions := make(map[extensions.ID]bool)
 	localFunctionVariants := make(map[FunctionName][]*V)
+	allVariants := make([]*V, 0)
 	for _, dfi := range dialectFunctionInfos {
 		if _, nameAlreadyProcessed := localFunctionVariants[LocalFunctionName(dfi.Name)]; nameAlreadyProcessed {
 			if _, ok := processedFunctions[dfi.ID]; !ok {
-				return nil, fmt.Errorf("%w: no function variant found for '%s'", substraitgo.ErrInvalidDialect, dfi.ID)
+				return nil, nil, fmt.Errorf("%w: no function variant found for '%s'", substraitgo.ErrInvalidDialect, dfi.ID)
 			}
 			continue
 		}
@@ -104,17 +103,25 @@ func makeLocalFunctionVariantMap[T withID, V any](dialectFunctionInfos map[exten
 			}
 		}
 		if _, ok := processedFunctions[dfi.ID]; !ok {
-			return nil, fmt.Errorf("%w: no function variant found for '%s'", substraitgo.ErrInvalidDialect, dfi.ID)
+			return nil, nil, fmt.Errorf("%w: no function variant found for '%s'", substraitgo.ErrInvalidDialect, dfi.ID)
 		}
 		if len(localVariantArray) > 0 {
-			localFunctionVariants[SubstraitFunctionName(dfi.Name)] = localVariantArray
-			localFunctionVariants[LocalFunctionName(dfi.LocalName)] = localVariantArray
+			addToSliceMap(localFunctionVariants, SubstraitFunctionName(dfi.Name), localVariantArray)
+			addToSliceMap(localFunctionVariants, LocalFunctionName(dfi.LocalName), localVariantArray)
+			allVariants = append(allVariants, localVariantArray...)
 		}
 	}
-	return localFunctionVariants, nil
+	return localFunctionVariants, allVariants, nil
 }
 
-func (d *dialectImpl) LocalizeTypeRegistry(registry TypeRegistry) (LocalTypeRegistry, error) {
+func addToSliceMap[K FunctionName, V any](m map[FunctionName][]*V, key K, value []*V) {
+	if _, ok := m[key]; !ok {
+		m[key] = make([]*V, 0)
+	}
+	m[key] = append(m[key], value...)
+}
+
+func (d *dialectImpl) LocalizeTypeRegistry(TypeRegistry) (LocalTypeRegistry, error) {
 	typeInfos := make([]typeInfo, 0, len(d.toLocalTypeMap))
 	for name, info := range d.toLocalTypeMap {
 		// TODO use registry.GetTypeClasses
