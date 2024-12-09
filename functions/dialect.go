@@ -83,6 +83,11 @@ type withID interface {
 	ID() extensions.ID
 }
 
+// makeLocalFunctionVariantMap creates a map of function names to their variants and a slice of all variants
+// It returns
+// 1. a map of function names to their variants. The map is indexed by both the SubstraitFunctionName and the LocalFunctionName
+// 2. a slice of all variants
+// 3. an error if a function variant is not found for a dialect function
 func makeLocalFunctionVariantMap[T withID, V any](dialectFunctionInfos map[extensions.ID]*dialectFunctionInfo, getFunctionVariants func(string) []T, createLocalVariant func(T, *dialectFunctionInfo) *V) (map[FunctionName][]*V, []*V, error) {
 	processedFunctions := make(map[extensions.ID]bool)
 	localFunctionVariants := make(map[FunctionName][]*V)
