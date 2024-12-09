@@ -253,7 +253,7 @@ func getLocalFunctionRegistry(t *testing.T, dialectYaml string, substraitFuncReg
 	dialect, err := LoadDialect(t.Name(), strings.NewReader(dialectYaml))
 	require.NoError(t, err)
 	localRegistry, err := dialect.LocalizeFunctionRegistry(substraitFuncRegistry)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	return localRegistry
 }
 
@@ -1537,5 +1537,136 @@ scalar_functions:
 				assert.Contains(t, allFunctions, f)
 			}
 		})
+	}
+}
+
+func TestScalarFunctionsWithVariantsWithSameFuncName(t *testing.T) {
+	const arithmeticUri = "http://localhost/functions_arithmetic.yaml"
+	const decimalUri = "http://localhost/functions_arithmetic_decimal.yaml"
+	const arithmeticYaml = `---
+scalar_functions:
+  -
+    name: "sqrt"
+    description: "Square root of the value"
+    impls:
+      - args:
+          - name: x
+            value: i64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, ERROR ]
+        return: fp64
+      - args:
+          - name: x
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, ERROR ]
+        return: fp32
+      - args:
+          - name: x
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, ERROR ]
+        return: fp64
+`
+	const decimalYaml = `---
+scalar_functions:
+  - name: "sqrt"
+    description: Square root of the value. Sqrt of 0 is 0 and sqrt of negative values will raise an error.
+    impls:
+      - args:
+          - name: x
+            value: "DECIMAL<P,S>"
+      return: fp64
+`
+
+	dialectYaml := `
+name: test
+type: sql
+dependencies:
+  arithmetic: 
+    http://localhost/functions_arithmetic.yaml
+  decimal_arithmetic: 
+    http://localhost/functions_arithmetic_decimal.yaml
+supported_types:
+  dec:
+    sql_type_name: numeric
+    supported_as_column: true
+  fp32:
+    sql_type_name: FLOAT
+    supported_as_column: true
+  fp64:
+    sql_type_name: DOUBLE
+    supported_as_column: true
+scalar_functions:
+- name: arithmetic.sqrt
+  local_name: sqrt
+  required_options:
+    on_domain_error: ERROR
+    rounding: TIE_TO_EVEN
+  supported_kernels:
+  - fp32
+  - fp64
+- name: decimal_arithmetic.sqrt
+  supported_kernels:
+  - dec
+`
+	// get substrait function registry
+	var c extensions.Collection
+	require.NoError(t, c.Load(arithmeticUri, strings.NewReader(arithmeticYaml)))
+	require.NoError(t, c.Load(decimalUri, strings.NewReader(decimalYaml)))
+	funcRegistry := NewFunctionRegistry(&c)
+	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
+	allFunctions := funcRegistry.GetAllFunctions()
+
+	var fv []*LocalScalarFunctionVariant
+	fv = localRegistry.GetScalarFunctions(LocalFunctionName("sqrt"), 1)
+
+	expectedUris := []string{arithmeticUri, decimalUri}
+	expectedNames := []string{"sqrt:fp64", "sqrt:fp32", "sqrt:dec"}
+	assert.Equal(t, len(fv), 3)
+
+	urisFound := make(map[string]bool)
+	for _, f := range fv {
+		assert.Equal(t, "sqrt", f.LocalName())
+		assert.Equal(t, "sqrt", f.Name())
+		assert.Contains(t, expectedUris, f.URI())
+		urisFound[f.URI()] = true
+	}
+	checkCompoundNames(t, getScalarCompoundNames(fv), expectedNames)
+	assert.Len(t, urisFound, len(expectedUris))
+	for k, _ := range urisFound {
+		assert.Contains(t, expectedUris, k)
+	}
+
+	urisFound = make(map[string]bool)
+	fv = localRegistry.GetScalarFunctions(SubstraitFunctionName("sqrt"), 1)
+	assert.Equal(t, len(fv), 3)
+	for _, f := range fv {
+		assert.Equal(t, "sqrt", f.LocalName())
+		assert.Equal(t, "sqrt", f.Name())
+		assert.Contains(t, expectedUris, f.URI())
+		urisFound[f.URI()] = true
+	}
+	assert.Len(t, urisFound, len(expectedUris))
+	checkCompoundNames(t, getScalarCompoundNames(fv), []string{})
+
+	scalarFunctions := funcRegistry.GetScalarFunctions("sqrt", 1)
+	assert.Greater(t, len(scalarFunctions), 0)
+	for _, f := range scalarFunctions {
+		assert.Contains(t, allFunctions, f)
+	}
+	scalarFunctions = funcRegistry.GetScalarFunctionsByName("sqrt")
+	assert.Greater(t, len(scalarFunctions), 0)
+	for _, f := range scalarFunctions {
+		assert.Contains(t, allFunctions, f)
 	}
 }
