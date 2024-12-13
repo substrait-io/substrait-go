@@ -93,7 +93,7 @@ type mapAndSlice[V extensions.FunctionVariant] struct {
 // It returns
 // 1. a mapAndSlice of LocalFunctionVariants
 // 2. an error if a function variant is not found for a dialect function
-func makeLocalFunctionVariantMapAndSlice[T withID, V extensions.FunctionVariant](
+func makeLocalFunctionVariantMapAndSlice[T withID, V localFunctionVariant](
 	dialectFunctionInfos map[extensions.ID]*dialectFunctionInfo, getFunctionVariants func(string) []T,
 	createLocalVariant func(T, *dialectFunctionInfo) V) (*mapAndSlice[V], error) {
 
@@ -110,9 +110,11 @@ func makeLocalFunctionVariantMapAndSlice[T withID, V extensions.FunctionVariant]
 
 		localVariantArray := make([]V, 0)
 		for _, f := range getFunctionVariants(dfi.Name) {
-			if dfi, ok := dialectFunctionInfos[f.ID()]; ok {
-				localVariantArray = append(localVariantArray, createLocalVariant(f, dfi))
-				processedFunctions[f.ID()] = true
+			if _, alreadyProcessed := processedFunctions[f.ID()]; !alreadyProcessed {
+				if dfi1, ok := dialectFunctionInfos[f.ID()]; ok {
+					localVariantArray = append(localVariantArray, createLocalVariant(f, dfi1))
+					processedFunctions[f.ID()] = true
+				}
 			}
 		}
 		if _, ok := processedFunctions[dfi.ID]; !ok {
@@ -120,7 +122,7 @@ func makeLocalFunctionVariantMapAndSlice[T withID, V extensions.FunctionVariant]
 		}
 		if len(localVariantArray) > 0 {
 			addToSliceMap(variantsMap, SubstraitFunctionName(dfi.Name), localVariantArray)
-			addToSliceMap(variantsMap, LocalFunctionName(dfi.LocalName), localVariantArray)
+			addToSliceMapWithLocalKey(variantsMap, localVariantArray)
 			variantsSlice = append(variantsSlice, localVariantArray...)
 		}
 	}
@@ -135,6 +137,17 @@ func addToSliceMap[K FunctionName, V extensions.FunctionVariant](m map[FunctionN
 		m[key] = make([]V, 0)
 	}
 	m[key] = append(m[key], value...)
+}
+
+func addToSliceMapWithLocalKey[V localFunctionVariant](m map[FunctionName][]V, value []V) {
+	for _, v := range value {
+		// localFunctionName for some variants can be different even though substraitFunctionName is same
+		key := LocalFunctionName(v.LocalName())
+		if _, ok := m[key]; !ok {
+			m[key] = make([]V, 0)
+		}
+		m[key] = append(m[key], v)
+	}
 }
 
 func (d *dialectImpl) LocalizeTypeRegistry(TypeRegistry) (LocalTypeRegistry, error) {
