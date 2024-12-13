@@ -59,8 +59,12 @@ func (v *TestCaseVisitor) VisitDoc(ctx *baseparser.DocContext) interface{} {
 func (v *TestCaseVisitor) VisitHeader(ctx *baseparser.HeaderContext) interface{} {
 	return TestFileHeader{
 		Version:     ctx.Version().GetText(),
-		IncludedURI: ctx.Include().GetText(),
+		IncludedURI: v.Visit(ctx.Include()).(string),
 	}
+}
+
+func (v *TestCaseVisitor) VisitInclude(ctx *baseparser.IncludeContext) interface{} {
+	return getRawStringFromStringLiteral(ctx.StringLiteral(0).GetText())
 }
 
 type TestGroup struct {
