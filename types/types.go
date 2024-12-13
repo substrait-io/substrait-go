@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	substraitgo "github.com/substrait-io/substrait-go"
-	"github.com/substrait-io/substrait-go/proto"
+	substraitgo "github.com/substrait-io/substrait-go/v3"
+	"github.com/substrait-io/substrait-go/v3/proto"
 )
 
 type Version = proto.Version

@@ -9,12 +9,12 @@ import (
 	"runtime/debug"
 	"strings"
 
-	substraitgo "github.com/substrait-io/substrait-go"
-	"github.com/substrait-io/substrait-go/expr"
-	"github.com/substrait-io/substrait-go/extensions"
-	"github.com/substrait-io/substrait-go/plan/internal"
-	"github.com/substrait-io/substrait-go/proto"
-	"github.com/substrait-io/substrait-go/types"
+	substraitgo "github.com/substrait-io/substrait-go/v3"
+	"github.com/substrait-io/substrait-go/v3/expr"
+	"github.com/substrait-io/substrait-go/v3/extensions"
+	"github.com/substrait-io/substrait-go/v3/plan/internal"
+	"github.com/substrait-io/substrait-go/v3/proto"
+	"github.com/substrait-io/substrait-go/v3/types"
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/anypb"
 )
@@ -29,7 +29,7 @@ var CurrentVersion = types.Version{
 func init() {
 	if info, ok := debug.ReadBuildInfo(); ok {
 		for _, dep := range info.Deps {
-			if strings.HasPrefix(dep.Path, "github.com/substrait-io/substrait-go") {
+			if strings.HasPrefix(dep.Path, "github.com/substrait-io/substrait-go/v3") {
 				CurrentVersion.Producer += " " + dep.Version
 				break
 			}

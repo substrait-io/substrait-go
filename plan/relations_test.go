@@ -4,9 +4,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/substrait-io/substrait-go/expr"
-	"github.com/substrait-io/substrait-go/proto"
-	"github.com/substrait-io/substrait-go/types"
+	"github.com/substrait-io/substrait-go/v3/expr"
+	"github.com/substrait-io/substrait-go/v3/proto"
+	"github.com/substrait-io/substrait-go/v3/types"
 )
 
 func noOpRewrite(e expr.Expression) (expr.Expression, error) {

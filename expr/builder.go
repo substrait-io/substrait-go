@@ -3,8 +3,8 @@
 package expr
 
 import (
-	"github.com/substrait-io/substrait-go/extensions"
-	"github.com/substrait-io/substrait-go/types"
+	"github.com/substrait-io/substrait-go/v3/extensions"
+	"github.com/substrait-io/substrait-go/v3/types"
 )
 
 // Builder is a basic interface for any type which can construct

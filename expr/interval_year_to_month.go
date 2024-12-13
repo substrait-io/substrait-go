@@ -3,8 +3,8 @@ package expr
 import (
 	"fmt"
 
-	"github.com/substrait-io/substrait-go/proto"
-	"github.com/substrait-io/substrait-go/types"
+	"github.com/substrait-io/substrait-go/v3/proto"
+	"github.com/substrait-io/substrait-go/v3/types"
 )
 
 // IntervalYearToMonthLiteral implements Literal interface for interval year to month type

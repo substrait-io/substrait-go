@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait"
-	"github.com/substrait-io/substrait-go/expr"
-	"github.com/substrait-io/substrait-go/literal"
-	"github.com/substrait-io/substrait-go/types"
+	"github.com/substrait-io/substrait-go/v3/expr"
+	"github.com/substrait-io/substrait-go/v3/literal"
+	"github.com/substrait-io/substrait-go/v3/types"
 )
 
 func makeHeader(version, include string) string {

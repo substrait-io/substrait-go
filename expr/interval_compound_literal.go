@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/substrait-io/substrait-go/proto"
-	"github.com/substrait-io/substrait-go/types"
+	"github.com/substrait-io/substrait-go/v3/proto"
+	"github.com/substrait-io/substrait-go/v3/types"
 )
 
 // IntervalCompoundLiteral creates an interval compound literal

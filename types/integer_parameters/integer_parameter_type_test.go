@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/types/integer_parameters"
+	"github.com/substrait-io/substrait-go/v3/types/integer_parameters"
 )
 
 func TestConcreteParameterType(t *testing.T) {

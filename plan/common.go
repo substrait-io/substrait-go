@@ -3,9 +3,9 @@
 package plan
 
 import (
-	"github.com/substrait-io/substrait-go/extensions"
-	"github.com/substrait-io/substrait-go/proto"
-	"github.com/substrait-io/substrait-go/types"
+	"github.com/substrait-io/substrait-go/v3/extensions"
+	"github.com/substrait-io/substrait-go/v3/proto"
+	"github.com/substrait-io/substrait-go/v3/types"
 )
 
 type (

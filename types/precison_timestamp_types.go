@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/substrait-io/substrait-go/proto"
+	"github.com/substrait-io/substrait-go/v3/proto"
 )
 
 // TimePrecision is used to represent the precision of a timestamp

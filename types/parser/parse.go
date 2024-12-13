@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/antlr4-go/antlr/v4"
-	substraitgo "github.com/substrait-io/substrait-go"
-	"github.com/substrait-io/substrait-go/types"
-	baseparser2 "github.com/substrait-io/substrait-go/types/parser/baseparser"
-	"github.com/substrait-io/substrait-go/types/parser/util"
+	substraitgo "github.com/substrait-io/substrait-go/v3"
+	"github.com/substrait-io/substrait-go/v3/types"
+	baseparser2 "github.com/substrait-io/substrait-go/v3/types/parser/baseparser"
+	"github.com/substrait-io/substrait-go/v3/types/parser/util"
 )
 
 type TypeExpression struct {
