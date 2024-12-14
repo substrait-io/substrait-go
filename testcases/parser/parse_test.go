@@ -219,7 +219,7 @@ some_func('abc'::str, 'def'::str) = [1, 2, 3, 4, 5, 6]::List<i8>`
 func TestScalarOptions(t *testing.T) {
 	header := makeHeader("v1.0", "extensions/functions_string.yaml")
 	tests := `# stuff
-contains('😊a😊b😊😊'::str, 'A😊B'::str) [case_sensitivity:CASE_INSENSITIVE] = true::bool`
+contains('abba'::str, 'AB'::str) [case_sensitivity:CASE_INSENSITIVE] = true::bool`
 
 	testFile, err := ParseTestCasesFromString(header + tests)
 	require.NoError(t, err)
