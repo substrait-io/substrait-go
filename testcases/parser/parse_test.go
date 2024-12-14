@@ -216,6 +216,33 @@ some_func('abc'::str, 'def'::str) = [1, 2, 3, 4, 5, 6]::List<i8>`
 	assert.Equal(t, i8List, testFile.TestCases[0].Result.Type)
 }
 
+func TestScalarOptions(t *testing.T) {
+	header := makeHeader("v1.0", "extensions/functions_string.yaml")
+	tests := `# stuff
+contains('😊a😊b😊😊'::str, 'A😊B'::str) [case_sensitivity:CASE_INSENSITIVE] = true::bool`
+
+	testFile, err := ParseTestCasesFromString(header + tests)
+	require.NoError(t, err)
+	require.NotNil(t, testFile)
+	assert.Len(t, testFile.TestCases, 1)
+	assert.Len(t, testFile.TestCases[0].Options, 1)
+	assert.Equal(t, "CASE_INSENSITIVE", testFile.TestCases[0].Options["case_sensitivity"])
+}
+
+func TestMultipleScalarOptions(t *testing.T) {
+	header := makeHeader("v1.0", "extensions/functions_arithmetic.yaml")
+	tests := `# stuff
+add(2::fp64, 2::fp64) [overflow:ERROR, rounding:TIE_TO_EVEN] = 4::fp64`
+
+	testFile, err := ParseTestCasesFromString(header + tests)
+	require.NoError(t, err)
+	require.NotNil(t, testFile)
+	assert.Len(t, testFile.TestCases, 1)
+	assert.Len(t, testFile.TestCases[0].Options, 2)
+	assert.Equal(t, "ERROR", testFile.TestCases[0].Options["overflow"])
+	assert.Equal(t, "TIE_TO_EVEN", testFile.TestCases[0].Options["rounding"])
+}
+
 func TestParseAggregateFunc(t *testing.T) {
 	header := makeAggregateTestHeader("v1.0", "extensions/functions_arithmetic.yaml")
 	tests := `# basic
