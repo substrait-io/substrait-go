@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait"
 	"github.com/substrait-io/substrait-go/expr"
+	"github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/literal"
 	"github.com/substrait-io/substrait-go/types"
 )
@@ -33,6 +34,19 @@ add(120::i8, 10::i8) [overflow:ERROR] = <!ERROR>
 	testFile, err := ParseTestCasesFromString(header + tests)
 	require.NoError(t, err)
 	assert.Len(t, testFile.TestCases, 3)
+
+	arithURI := "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	ids := []string{"add:i8_i8", "add:i16_i16", "add:i8_i8"}
+	reg := expr.NewEmptyExtensionRegistry(&extensions.DefaultCollection)
+	for i, tc := range testFile.TestCases {
+		assert.Equal(t, extensions.ID{URI: arithURI, Name: ids[i]}, tc.ID())
+		scalarFunc, err1 := tc.GetScalarFunctionInvocation(&reg)
+		require.NoError(t, err1)
+		assert.Equal(t, tc.FuncName, scalarFunc.Name())
+		require.Equal(t, 2, scalarFunc.NArgs())
+		assert.Equal(t, tc.Args[0].Value, scalarFunc.Arg(0))
+		assert.Equal(t, tc.Args[1].Value, scalarFunc.Arg(1))
+	}
 }
 
 func TestParseDataTimeExample(t *testing.T) {
@@ -245,18 +259,19 @@ add(2::fp64, 2::fp64) [overflow:ERROR, rounding:TIE_TO_EVEN] = 4::fp64`
 }
 
 func TestParseAggregateFunc(t *testing.T) {
-	header := makeAggregateTestHeader("v1.0", "extensions/functions_arithmetic.yaml")
+	header := makeAggregateTestHeader("v1.0", "/extensions/functions_arithmetic.yaml")
 	tests := `# basic
 avg((1,2,3)::fp32) = 2::fp64
 sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ERROR>`
 
+	arithUri := "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
 	testFile, err := ParseTestCasesFromString(header + tests)
 	require.NoError(t, err)
 	require.NotNil(t, testFile)
 	assert.Len(t, testFile.TestCases, 2)
 	assert.Equal(t, "avg", testFile.TestCases[0].FuncName)
 	assert.Contains(t, testFile.TestCases[0].GroupDesc, "basic")
-	assert.Equal(t, testFile.TestCases[0].BaseURI, "extensions/functions_arithmetic.yaml")
+	assert.Equal(t, testFile.TestCases[0].BaseURI, "/extensions/functions_arithmetic.yaml")
 	assert.Len(t, testFile.TestCases[0].Args, 0)
 	assert.Len(t, testFile.TestCases[0].AggregateArgs, 1)
 	assert.Equal(t, "fp32", testFile.TestCases[0].AggregateArgs[0].ColumnType.String())
@@ -269,16 +284,20 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 	assert.Equal(t, "fp64", testFile.TestCases[0].Result.Type.String())
 	assert.Equal(t, literal.NewFloat64(2), testFile.TestCases[0].Result.Value)
 	assert.Equal(t, AggregateFuncType, testFile.TestCases[0].FuncType)
+	assert.Equal(t, extensions.ID{URI: arithUri, Name: "avg:fp32"}, testFile.TestCases[0].ID())
+	_, err = testFile.TestCases[0].GetScalarFunctionInvocation(nil)
+	require.Error(t, err)
 
 	assert.Equal(t, "sum", testFile.TestCases[1].FuncName)
 	assert.Contains(t, testFile.TestCases[1].GroupDesc, "basic")
-	assert.Equal(t, testFile.TestCases[1].BaseURI, "extensions/functions_arithmetic.yaml")
+	assert.Equal(t, testFile.TestCases[1].BaseURI, "/extensions/functions_arithmetic.yaml")
 	assert.Len(t, testFile.TestCases[1].Args, 0)
 	assert.Len(t, testFile.TestCases[1].AggregateArgs, 1)
 	assert.Equal(t, AggregateFuncType, testFile.TestCases[1].FuncType)
 	assert.Equal(t, "i64", testFile.TestCases[1].AggregateArgs[0].ColumnType.String())
 	assert.Equal(t, newInt64List(9223372036854775806, 1, 1, 1, 1, 10000000000), testFile.TestCases[1].AggregateArgs[0].Argument.Value)
 	assert.Equal(t, "ERROR", testFile.TestCases[1].Options["overflow"])
+	assert.Equal(t, extensions.ID{URI: arithUri, Name: "sum:i64"}, testFile.TestCases[1].ID())
 }
 
 func newInt64List(values ...int64) interface{} {
@@ -308,7 +327,7 @@ func newFloat32Values(values ...float32) []expr.Literal {
 }
 
 func TestParseAggregateFuncCompact(t *testing.T) {
-	header := makeAggregateTestHeader("v1.0", "extensions/functions_arithmetic.yaml")
+	header := makeAggregateTestHeader("v1.0", "/extensions/functions_arithmetic.yaml")
 	tests := `# basic
 ((20, 20), (-3, -3), (1, 1), (10,10), (5,5)) corr(col0::fp32, col1::fp32) = 1::fp64
 `
@@ -319,7 +338,7 @@ func TestParseAggregateFuncCompact(t *testing.T) {
 	assert.Len(t, testFile.TestCases, 1)
 	assert.Equal(t, "corr", testFile.TestCases[0].FuncName)
 	assert.Contains(t, testFile.TestCases[0].GroupDesc, "basic")
-	assert.Equal(t, testFile.TestCases[0].BaseURI, "extensions/functions_arithmetic.yaml")
+	assert.Equal(t, testFile.TestCases[0].BaseURI, "/extensions/functions_arithmetic.yaml")
 	assert.Len(t, testFile.TestCases[0].Args, 0)
 	assert.Len(t, testFile.TestCases[0].AggregateArgs, 2)
 	assert.Equal(t, newFloat32Values(20, -3, 1, 10, 5), testFile.TestCases[0].Columns[0])
@@ -341,7 +360,7 @@ func createAggregateArg(t *testing.T, tableName, columnName string, columnType t
 }
 
 func TestParseAggregateFuncWithMultipleArgs(t *testing.T) {
-	header := makeAggregateTestHeader("v1.0", "extensions/functions_arithmetic.yaml")
+	header := makeAggregateTestHeader("v1.0", "/extensions/functions_arithmetic.yaml")
 	tests := `# basic
 DEFINE t1(fp32, fp32) = ((20, 20), (-3, -3), (1, 1), (10,10), (5,5.5))
 corr(t1.col0, t1.col1) = 1::fp64
@@ -355,7 +374,7 @@ corr(t1.col1, t1.col0) = 1::fp64
 	assert.Len(t, testFile.TestCases, 2)
 	assert.Equal(t, "corr", testFile.TestCases[0].FuncName)
 	assert.Contains(t, testFile.TestCases[0].GroupDesc, "basic")
-	assert.Equal(t, testFile.TestCases[0].BaseURI, "extensions/functions_arithmetic.yaml")
+	assert.Equal(t, testFile.TestCases[0].BaseURI, "/extensions/functions_arithmetic.yaml")
 	assert.Len(t, testFile.TestCases[0].Args, 0)
 	assert.Len(t, testFile.TestCases[0].AggregateArgs, 2)
 	assert.Equal(t, newFloat32Values(20, -3, 1, 10, 5), testFile.TestCases[0].Columns[0])
@@ -365,7 +384,7 @@ corr(t1.col1, t1.col0) = 1::fp64
 
 	assert.Equal(t, "corr", testFile.TestCases[1].FuncName)
 	assert.Contains(t, testFile.TestCases[1].GroupDesc, "basic")
-	assert.Equal(t, testFile.TestCases[1].BaseURI, "extensions/functions_arithmetic.yaml")
+	assert.Equal(t, testFile.TestCases[1].BaseURI, "/extensions/functions_arithmetic.yaml")
 	assert.Len(t, testFile.TestCases[1].Args, 0)
 	assert.Len(t, testFile.TestCases[1].AggregateArgs, 2)
 	assert.Equal(t, newInt64Values(20, -3, 1, 10, 5), testFile.TestCases[1].Columns[0])
@@ -375,7 +394,7 @@ corr(t1.col1, t1.col0) = 1::fp64
 }
 
 func TestParseAggregateFuncWithVariousTypes(t *testing.T) {
-	header := makeAggregateTestHeader("v1.0", "extensions/functions_arithmetic.yaml")
+	header := makeAggregateTestHeader("v1.0", "/extensions/functions_arithmetic.yaml")
 	header += "# basic\n"
 
 	tests := []struct {
@@ -394,7 +413,7 @@ func TestParseAggregateFuncWithVariousTypes(t *testing.T) {
 }
 
 func TestParseAggregateFuncWithMixedArgs(t *testing.T) {
-	header := makeAggregateTestHeader("v1.0", "extensions/functions_arithmetic.yaml")
+	header := makeAggregateTestHeader("v1.0", "/extensions/functions_arithmetic.yaml")
 	tests := `# basic
 ((20), (-3), (1), (10)) LIST_AGG(col0::fp32, ','::string) = 1::fp64
 DEFINE t1(fp32) = ((20), (-3), (1), (10))
