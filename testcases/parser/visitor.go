@@ -299,10 +299,16 @@ func (v *TestCaseVisitor) VisitTestGroupDescription(ctx *baseparser.TestGroupDes
 }
 
 func (v *TestCaseVisitor) VisitTestCase(ctx *baseparser.TestCaseContext) interface{} {
+	var options FuncOptions
+	if ctx.FuncOptions() != nil {
+		options = v.Visit(ctx.FuncOptions()).(FuncOptions)
+	}
+
 	return &TestCase{
 		FuncName: ctx.Identifier().GetText(),
 		Args:     v.Visit(ctx.Arguments()).([]*CaseLiteral),
 		Result:   v.Visit(ctx.Result()).(*CaseLiteral),
+		Options:  options,
 	}
 }
 
