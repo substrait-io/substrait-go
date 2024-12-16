@@ -17,6 +17,7 @@ type TestCaseVisitor struct {
 	baseparser.FuncTestCaseParserVisitor
 	ErrorListener        util.VisitErrorListener
 	literalTypeInContext types.Type
+	testFuncType         TestFuncType
 }
 
 func (v *TestCaseVisitor) getLiteralTypeInContext() types.Type {
@@ -41,7 +42,7 @@ func (v *TestCaseVisitor) Visit(tree antlr.ParseTree) interface{} {
 }
 
 func (v *TestCaseVisitor) VisitDoc(ctx *baseparser.DocContext) interface{} {
-	header := v.Visit(ctx.Header()).(TestFileHeader)
+	header := v.Visit(ctx.Header()).(*TestFileHeader)
 	testcases := make([]*TestCase, 0, len(ctx.AllTestGroup()))
 	for _, testGroup := range ctx.AllTestGroup() {
 		groupTestCases := v.Visit(testGroup).([]*TestCase)
@@ -57,9 +58,20 @@ func (v *TestCaseVisitor) VisitDoc(ctx *baseparser.DocContext) interface{} {
 }
 
 func (v *TestCaseVisitor) VisitHeader(ctx *baseparser.HeaderContext) interface{} {
-	return TestFileHeader{
-		Version:     ctx.Version().GetText(),
-		IncludedURI: v.Visit(ctx.Include()).(string),
+	header := v.Visit(ctx.Version()).(*TestFileHeader)
+	header.IncludedURI = v.Visit(ctx.Include()).(string)
+	return header
+}
+
+func (v *TestCaseVisitor) VisitVersion(ctx *baseparser.VersionContext) interface{} {
+	testFuncType := ScalarFuncType
+	if ctx.SubstraitAggregateTest() != nil {
+		testFuncType = AggregateFuncType
+	}
+	v.testFuncType = testFuncType
+	return &TestFileHeader{
+		Version:  ctx.FormatVersion().GetText(),
+		FuncType: testFuncType,
 	}
 }
 
@@ -67,17 +79,17 @@ func (v *TestCaseVisitor) VisitInclude(ctx *baseparser.IncludeContext) interface
 	return getRawStringFromStringLiteral(ctx.StringLiteral(0).GetText())
 }
 
-type TestGroup struct {
-	Description string
-	TestCases   []*TestCase
-}
-
 func (v *TestCaseVisitor) VisitScalarFuncTestGroup(ctx *baseparser.ScalarFuncTestGroupContext) interface{} {
 	groupDesc := v.Visit(ctx.TestGroupDescription()).(string)
 	groupTestCases := make([]*TestCase, 0, len(ctx.AllTestCase()))
+	if v.testFuncType != ScalarFuncType {
+		v.ErrorListener.ReportVisitError(fmt.Errorf("expected %v testcase based on test file header, but got scalar function testcase", v.testFuncType))
+		return groupTestCases
+	}
 	for _, tc := range ctx.AllTestCase() {
 		testcase := v.Visit(tc).(*TestCase)
 		testcase.GroupDesc = groupDesc
+		testcase.FuncType = ScalarFuncType
 		groupTestCases = append(groupTestCases, testcase)
 	}
 	return groupTestCases
@@ -86,9 +98,14 @@ func (v *TestCaseVisitor) VisitScalarFuncTestGroup(ctx *baseparser.ScalarFuncTes
 func (v *TestCaseVisitor) VisitAggregateFuncTestGroup(ctx *baseparser.AggregateFuncTestGroupContext) interface{} {
 	groupDesc := v.Visit(ctx.TestGroupDescription()).(string)
 	groupTestCases := make([]*TestCase, 0, len(ctx.AllAggFuncTestCase()))
+	if v.testFuncType != AggregateFuncType {
+		v.ErrorListener.ReportVisitError(fmt.Errorf("expected %v testcase based on test file header, but got aggregate function testcase", v.testFuncType))
+		return groupTestCases
+	}
 	for _, tc := range ctx.AllAggFuncTestCase() {
 		testcase := v.Visit(tc).(*TestCase)
 		testcase.GroupDesc = groupDesc
+		testcase.FuncType = AggregateFuncType
 		groupTestCases = append(groupTestCases, testcase)
 	}
 	return groupTestCases

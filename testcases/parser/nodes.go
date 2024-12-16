@@ -8,6 +8,14 @@ import (
 	"github.com/substrait-io/substrait-go/types"
 )
 
+type TestFuncType string
+
+const (
+	ScalarFuncType    TestFuncType = "scalar"
+	AggregateFuncType TestFuncType = "aggregate"
+	WindowFuncType    TestFuncType = "window"
+)
+
 type CaseLiteral struct {
 	Type           types.Type
 	ValueText      string
@@ -17,6 +25,7 @@ type CaseLiteral struct {
 
 type TestFileHeader struct {
 	Version     string
+	FuncType    TestFuncType
 	IncludedURI string
 }
 
@@ -31,10 +40,16 @@ type TestCase struct {
 	Columns       [][]expr.Literal
 	TableName     string
 	ColumnTypes   []types.Type
+	FuncType      TestFuncType
+}
+
+type TestGroup struct {
+	Description string
+	TestCases   []*TestCase
 }
 
 type TestFile struct {
-	Header    TestFileHeader
+	Header    *TestFileHeader
 	TestCases []*TestCase
 }
 
