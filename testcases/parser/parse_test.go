@@ -402,7 +402,7 @@ func TestParseTestWithBadScalarTests(t *testing.T) {
 		{"add(123::fp32, 2.5E::fp32) = 123::fp32", 18, "no viable alternative at input '2.5E'"},
 		{"add(123::fp32, 1.4E+::fp32) = 123::fp32", 18, "no viable alternative at input '1.4E'"},
 		{"add(123::fp32, 3.E.5::fp32) = 123::fp32", 17, "no viable alternative at input '3.E'"},
-		{"f1((1, 2, 3, 4)::i64) = 10::fp64", 0, "expected scalar test case, got aggregate"},
+		{"f1((1, 2, 3, 4)::i64) = 10::fp64", 0, "expected scalar testcase based on test file header, but got aggregate function testcase"},
 	}
 	for _, test := range tests {
 		t.Run(test.testCaseStr, func(t *testing.T) {
@@ -432,7 +432,7 @@ corr(t1.col0, t2.col1) = 1::fp64`,
 		},
 		{"((20, 20), (-3, -3), (1, 1), (10,10), (5,5)) corr(my_col::fp32, col0::fp32) = 1::fp64", "mismatched input 'my_col'"},
 		{"((20, 20), (-3, -3), (1, 1), (10,10), (5,5)) corr(col0::fp32, column1::fp32) = 1::fp64", "mismatched input 'column1'"},
-		{"f8('13:01:01.234'::time) = 123::i32", "expected aggregate test case, got scalar"},
+		{"f8('13:01:01.234'::time) = 123::i32", "expected aggregate testcase based on test file header, but got scalar function testcase"},
 	}
 	for _, test := range tests {
 		t.Run(test.testCaseStr, func(t *testing.T) {

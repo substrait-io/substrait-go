@@ -83,7 +83,7 @@ func (v *TestCaseVisitor) VisitScalarFuncTestGroup(ctx *baseparser.ScalarFuncTes
 	groupDesc := v.Visit(ctx.TestGroupDescription()).(string)
 	groupTestCases := make([]*TestCase, 0, len(ctx.AllTestCase()))
 	if v.testFuncType != ScalarFuncType {
-		v.ErrorListener.ReportVisitError(fmt.Errorf("expected %v test case, got scalar", v.testFuncType))
+		v.ErrorListener.ReportVisitError(fmt.Errorf("expected %v testcase based on test file header, but got scalar function testcase", v.testFuncType))
 		return groupTestCases
 	}
 	for _, tc := range ctx.AllTestCase() {
@@ -99,7 +99,7 @@ func (v *TestCaseVisitor) VisitAggregateFuncTestGroup(ctx *baseparser.AggregateF
 	groupDesc := v.Visit(ctx.TestGroupDescription()).(string)
 	groupTestCases := make([]*TestCase, 0, len(ctx.AllAggFuncTestCase()))
 	if v.testFuncType != AggregateFuncType {
-		v.ErrorListener.ReportVisitError(fmt.Errorf("expected %v test case, got aggregate", v.testFuncType))
+		v.ErrorListener.ReportVisitError(fmt.Errorf("expected %v testcase based on test file header, but got aggregate function testcase", v.testFuncType))
 		return groupTestCases
 	}
 	for _, tc := range ctx.AllAggFuncTestCase() {
