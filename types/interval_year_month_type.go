@@ -3,7 +3,7 @@ package types
 import (
 	"fmt"
 
-	"github.com/substrait-io/substrait-go/proto"
+	"github.com/substrait-io/substrait-go/v3/proto"
 )
 
 // IntervalYearToMonthType this is used to represent a type of interval which represents YearToMonth.

@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	substraitgo "github.com/substrait-io/substrait-go"
-	"github.com/substrait-io/substrait-go/types"
+	substraitgo "github.com/substrait-io/substrait-go/v3"
+	"github.com/substrait-io/substrait-go/v3/types"
 )
 
 var (

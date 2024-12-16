@@ -12,8 +12,8 @@ import (
 	"github.com/creasty/defaults"
 	"github.com/goccy/go-yaml"
 	substrait "github.com/substrait-io/substrait"
-	substraitgo "github.com/substrait-io/substrait-go"
-	"github.com/substrait-io/substrait-go/proto/extensions"
+	substraitgo "github.com/substrait-io/substrait-go/v3"
+	"github.com/substrait-io/substrait-go/v3/proto/extensions"
 )
 
 type AdvancedExtension = extensions.AdvancedExtension

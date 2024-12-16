@@ -6,8 +6,8 @@ import (
 	"io/fs"
 
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/substrait-io/substrait-go/testcases/parser/baseparser"
-	"github.com/substrait-io/substrait-go/types/parser/util"
+	"github.com/substrait-io/substrait-go/v3/testcases/parser/baseparser"
+	"github.com/substrait-io/substrait-go/v3/types/parser/util"
 )
 
 func ParseTestCaseFileFromFS(fs fs.FS, s string) (*TestFile, error) {

@@ -1,7 +1,7 @@
 package functions
 
 import (
-	"github.com/substrait-io/substrait-go/extensions"
+	"github.com/substrait-io/substrait-go/v3/extensions"
 )
 
 type functionRegistryImpl struct {

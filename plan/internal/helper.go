@@ -1,8 +1,8 @@
 package internal
 
 import (
-	"github.com/substrait-io/substrait-go/expr"
-	"github.com/substrait-io/substrait-go/proto"
+	"github.com/substrait-io/substrait-go/v3/expr"
+	"github.com/substrait-io/substrait-go/v3/proto"
 )
 
 func VirtualTableExpressionFromProto(s *proto.Expression_Nested_Struct, reg expr.ExtensionRegistry) (expr.VirtualTableExpressionValue, error) {
