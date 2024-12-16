@@ -3,8 +3,10 @@ package parser
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/substrait-io/substrait-go/expr"
+	"github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/types"
 )
 
@@ -43,6 +45,81 @@ type TestCase struct {
 	FuncType      TestFuncType
 }
 
+func (tc *TestCase) GetFunctionOptions() []*types.FunctionOption {
+	if len(tc.Options) == 0 {
+		return nil
+	}
+	funcOptions := make([]*types.FunctionOption, 0)
+	for key, value := range tc.Options {
+		funcOptions = append(funcOptions, &types.FunctionOption{
+			Name:       key,
+			Preference: []string{value},
+		})
+	}
+	return funcOptions
+}
+
+func (tc *TestCase) scalarSignatureKey() string {
+	var b strings.Builder
+	for i, a := range tc.Args {
+		if i != 0 {
+			b.WriteByte('_')
+		}
+		b.WriteString(a.Type.ShortString())
+	}
+	return b.String()
+}
+
+func (tc *TestCase) aggregateSignatureKey() string {
+	var b strings.Builder
+	for i, a := range tc.AggregateArgs {
+		if i != 0 {
+			b.WriteByte('_')
+		}
+		b.WriteString(a.ColumnType.ShortString())
+	}
+	return b.String()
+}
+
+func (tc *TestCase) signatureKey() string {
+	switch tc.FuncType {
+	case ScalarFuncType:
+		return tc.scalarSignatureKey()
+	case AggregateFuncType:
+		return tc.aggregateSignatureKey()
+	default:
+		panic(fmt.Sprintf("unsupported function type: %s", tc.FuncType))
+	}
+}
+
+func (tc *TestCase) CompoundFunctionName() string {
+	return tc.FuncName + ":" + tc.signatureKey()
+}
+
+func (tc *TestCase) ID() extensions.ID {
+	baseURI := tc.BaseURI
+	if strings.HasPrefix(baseURI, "/") {
+		baseURI = "https://github.com/substrait-io/substrait/blob/main" + tc.BaseURI
+	}
+	return extensions.ID{
+		URI:  baseURI,
+		Name: tc.CompoundFunctionName(),
+	}
+}
+
+func (tc *TestCase) GetScalarFunctionInvocation(reg *expr.ExtensionRegistry) (*expr.ScalarFunction, error) {
+	if tc.FuncType != ScalarFuncType {
+		return nil, fmt.Errorf("not a scalar function testcase")
+	}
+	id := tc.ID()
+	args := make([]types.FuncArg, len(tc.Args))
+	for i, arg := range tc.Args {
+		args[i] = arg.Value
+	}
+
+	return expr.NewScalarFunc(*reg, id, tc.GetFunctionOptions(), args...)
+}
+
 type TestGroup struct {
 	Description string
 	TestCases   []*TestCase
@@ -69,7 +146,7 @@ func newAggregateArgument(tableName string, columnName string, columnType types.
 		return nil, err
 	}
 	if index < 0 {
-		return nil, fmt.Errorf("Column index must be greater than or equal to 0")
+		return nil, fmt.Errorf("column index must be greater than or equal to 0")
 	}
 	return &AggregateArgument{
 		TableName:   tableName,
