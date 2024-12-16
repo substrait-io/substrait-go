@@ -82,10 +82,14 @@ func (tc *TestCase) aggregateSignatureKey() string {
 }
 
 func (tc *TestCase) signatureKey() string {
-	if tc.FuncType == ScalarFuncType {
+	switch tc.FuncType {
+	case ScalarFuncType:
 		return tc.scalarSignatureKey()
+	case AggregateFuncType:
+		return tc.aggregateSignatureKey()
+	default:
+		panic(fmt.Sprintf("unsupported function type: %s", tc.FuncType))
 	}
-	return tc.aggregateSignatureKey()
 }
 
 func (tc *TestCase) CompoundFunctionName() string {
@@ -94,7 +98,7 @@ func (tc *TestCase) CompoundFunctionName() string {
 
 func (tc *TestCase) ID() extensions.ID {
 	baseURI := tc.BaseURI
-	if !strings.HasPrefix(baseURI, "https") || !strings.HasPrefix(baseURI, "http") {
+	if strings.HasPrefix(baseURI, "/") {
 		baseURI = "https://github.com/substrait-io/substrait/blob/main" + tc.BaseURI
 	}
 	return extensions.ID{
