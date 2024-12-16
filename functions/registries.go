@@ -95,6 +95,13 @@ const (
 	POSTFIX
 )
 
+type localFunctionVariant interface {
+	extensions.FunctionVariant
+	LocalName() string
+	Notation() FunctionNotation
+	IsOptionSupported(name string, value string) bool
+}
+
 type LocalFunctionVariant struct {
 	localName        string
 	supportedOptions map[string]extensions.Option
