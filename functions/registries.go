@@ -61,13 +61,19 @@ func (LocalFunctionName) functionName()     {}
 func (SubstraitFunctionName) functionName() {}
 
 type functionRegistryBase[L any, S extensions.FunctionVariant, A extensions.FunctionVariant, W extensions.FunctionVariant] interface {
-	// GetScalarFunctions returns a slice of zero or more scalar function variants that match the provided name & numArgs
+	// GetScalarFunctions returns a slice of zero or more scalar function variants that match the provided name & numArgs.
+	// Use SubstraitFunctionName as the name's type if you want to search by substrait name and LocalFunctionName as the name's
+	// type if you want to search by the local name.
 	GetScalarFunctions(name L, numArgs int) []S
 
-	// GetAggregateFunctions returns a slice of zero or more aggregate function variants that match the provided name & numArgs
+	// GetAggregateFunctions returns a slice of zero or more aggregate function variants that match the provided name & numArgs.
+	// Use SubstraitFunctionName as the name's type if you want to search by substrait name and LocalFunctionName as the name's
+	// type if you want to search by the local name.
 	GetAggregateFunctions(name L, numArgs int) []A
 
-	// GetWindowFunctions returns a slice of zero or more window function variants that match the provided name & numArgs
+	// GetWindowFunctions returns a slice of zero or more window function variants that match the provided name & numArgs.
+	// Use SubstraitFunctionName as the name's type if you want to search by substrait name and LocalFunctionName as the name's
+	// type if you want to search by the local name.
 	GetWindowFunctions(name L, numArgs int) []W
 
 	// GetAllFunctions returns all function variants in the registry
