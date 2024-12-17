@@ -170,6 +170,9 @@ func matchArguments(nullability NullabilityHandling, paramTypeList FuncParameter
 			return false, nil
 		}
 	}
+	if HasSyncParams(funcDefArgList) {
+		return types.AreSyncTypeParametersMatching(funcDefArgList, actualTypes), nil
+	}
 	return true, nil
 }
 
@@ -193,9 +196,6 @@ func matchArgumentAtCommon(actualType types.Type, argPos int, nullability Nullab
 		return false, nil
 	}
 
-	if HasSyncParams(funcDefArgList) {
-		return false, fmt.Errorf("%w: function has sync params", substraitgo.ErrNotImplemented)
-	}
 	// if argPos is >= len(funcDefArgList) than last funcDefArg type should be considered for type match
 	// already checked for parameter in range above (considering variadic) so no need to check again for variadic
 	var funcDefArg types.FuncDefArgType

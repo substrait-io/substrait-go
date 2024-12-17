@@ -7,7 +7,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/substrait-io/substrait"
+	"github.com/substrait-io/substrait-go/v3/expr"
 	"github.com/substrait-io/substrait-go/v3/extensions"
+	parser2 "github.com/substrait-io/substrait-go/v3/testcases/parser"
 	"github.com/substrait-io/substrait-go/v3/types"
 	"github.com/substrait-io/substrait-go/v3/types/integer_parameters"
 	"github.com/substrait-io/substrait-go/v3/types/parser"
@@ -204,5 +207,29 @@ func TestHasSyncParams(t *testing.T) {
 				require.False(t, extensions.HasSyncParams(td.params))
 			}
 		})
+	}
+}
+
+func TestMatchWithSyncParams(t *testing.T) {
+	testFiles := []string{
+		"tests/cases/arithmetic_decimal/bitwise_or.test",
+		"tests/cases/arithmetic_decimal/bitwise_xor.test",
+		"tests/cases/arithmetic_decimal/bitwise_and.test",
+	}
+	for _, testFile := range testFiles {
+		fs := substrait.GetSubstraitTestsFS()
+		testFile, err := parser2.ParseTestCaseFileFromFS(fs, testFile)
+		require.NoError(t, err)
+		require.NotNil(t, testFile)
+		assert.Len(t, testFile.TestCases, 14)
+
+		reg := expr.NewEmptyExtensionRegistry(&extensions.DefaultCollection)
+		for _, tc := range testFile.TestCases {
+			t.Run(tc.FuncName, func(t *testing.T) {
+				invocation, err := tc.GetScalarFunctionInvocation(&reg)
+				require.NoError(t, err)
+				require.Equal(t, tc.ID(), invocation.ID())
+			})
+		}
 	}
 }

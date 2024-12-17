@@ -592,7 +592,7 @@ dependencies:
     http://localhost/sample.yaml
 supported_types:
   dec:
-    sql_type_name: INTEGER
+    sql_type_name: NUMBER
 scalar_functions:
 - name: arithmetic.func_testsync
   supported_kernels:
@@ -604,21 +604,29 @@ scalar_functions:
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
-	int32Nullable := &types.Int32Type{Nullability: types.NullabilityNullable}
+	argTypes := []types.Type{
+		&types.DecimalType{Nullability: types.NullabilityNullable, Precision: 10, Scale: 2},
+		&types.DecimalType{Nullability: types.NullabilityNullable, Precision: 10, Scale: 2},
+	}
+	argTypesWithMismatchedParams := []types.Type{
+		&types.DecimalType{Nullability: types.NullabilityNullable, Precision: 20, Scale: 2},
+		&types.DecimalType{Nullability: types.NullabilityNullable, Precision: 10, Scale: 2},
+	}
 
 	fv := localRegistry.GetScalarFunctions(LocalFunctionName("func_testsync"), 2)
 
-	argTypes := []types.Type{int32Nullable, int32Nullable}
 	require.Len(t, fv, 1)
-	_, err := fv[0].Match(argTypes)
-	require.Error(t, err)
-	require.ErrorContains(t, err, "function has sync param")
+	isMatch, err := fv[0].Match(argTypes)
+	require.NoError(t, err)
+	require.True(t, isMatch)
+	isMatch, err = fv[0].Match(argTypesWithMismatchedParams)
+	require.NoError(t, err)
+	require.False(t, isMatch)
 
 	// test MatchAt
 	for pos, typ := range argTypes {
 		_, err = fv[0].MatchAt(typ, pos)
-		require.Error(t, err)
-		require.ErrorContains(t, err, "function has sync param")
+		require.NoError(t, err)
 	}
 }
 
