@@ -211,24 +211,37 @@ func TestHasSyncParams(t *testing.T) {
 }
 
 func TestMatchWithSyncParams(t *testing.T) {
-	testFiles := []string{
-		"tests/cases/arithmetic_decimal/bitwise_or.test",
-		"tests/cases/arithmetic_decimal/bitwise_xor.test",
-		"tests/cases/arithmetic_decimal/bitwise_and.test",
+	testFileInfos := []struct {
+		path     string
+		funcType parser2.TestFuncType
+		numTests int
+	}{
+		{"tests/cases/arithmetic_decimal/bitwise_or.test", parser2.ScalarFuncType, 14},
+		{"tests/cases/arithmetic_decimal/bitwise_xor.test", parser2.ScalarFuncType, 14},
+		{"tests/cases/arithmetic_decimal/bitwise_and.test", parser2.ScalarFuncType, 14},
+		{"tests/cases/arithmetic_decimal/sqrt_decimal.test", parser2.ScalarFuncType, 14},
+		{"tests/cases/arithmetic_decimal/sum_decimal.test", parser2.ScalarFuncType, 8},
 	}
-	for _, testFile := range testFiles {
+	for _, testFileInfo := range testFileInfos {
 		fs := substrait.GetSubstraitTestsFS()
-		testFile, err := parser2.ParseTestCaseFileFromFS(fs, testFile)
+		testFile, err := parser2.ParseTestCaseFileFromFS(fs, testFileInfo.path)
 		require.NoError(t, err)
 		require.NotNil(t, testFile)
-		assert.Len(t, testFile.TestCases, 14)
+		assert.Len(t, testFile.TestCases, testFileInfo.numTests)
 
 		reg := expr.NewEmptyExtensionRegistry(&extensions.DefaultCollection)
 		for _, tc := range testFile.TestCases {
 			t.Run(tc.FuncName, func(t *testing.T) {
-				invocation, err := tc.GetScalarFunctionInvocation(&reg)
-				require.NoError(t, err)
-				require.Equal(t, tc.ID(), invocation.ID())
+				switch tc.FuncType {
+				case parser2.ScalarFuncType:
+					invocation, err := tc.GetScalarFunctionInvocation(&reg)
+					require.NoError(t, err)
+					require.Equal(t, tc.ID(), invocation.ID())
+				case parser2.AggregateFuncType:
+					invocation, err := tc.GetAggregateFunctionInvocation(&reg)
+					require.NoError(t, err)
+					require.Equal(t, tc.ID(), invocation.ID())
+				}
 			})
 		}
 	}
