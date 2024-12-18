@@ -60,33 +60,33 @@ func (tc *TestCase) GetFunctionOptions() []*types.FunctionOption {
 }
 
 func (tc *TestCase) getScalarFuncArgTypes() []types.Type {
-	types := make([]types.Type, len(tc.Args))
+	argTypes := make([]types.Type, len(tc.Args))
 	for i, arg := range tc.Args {
-		types[i] = arg.Type
+		argTypes[i] = arg.Type
 	}
-	return types
+	return argTypes
 }
 
 func (tc *TestCase) getAggregateFuncArgTypes() []types.Type {
-	types := make([]types.Type, len(tc.AggregateArgs))
+	argTypes := make([]types.Type, len(tc.AggregateArgs))
 	for i, arg := range tc.AggregateArgs {
 		if arg.IsScalar {
-			types[i] = arg.Argument.Type
+			argTypes[i] = arg.Argument.Type
 			continue
 		}
-		types[i] = arg.ColumnType
+		argTypes[i] = arg.ColumnType
 	}
-	return types
+	return argTypes
 }
 
 func (tc *TestCase) getAggregateFuncTableSchema() []types.Type {
-	types := make([]types.Type, len(tc.AggregateArgs))
+	schemaTypes := make([]types.Type, len(tc.AggregateArgs))
 	for i, arg := range tc.AggregateArgs {
 		if !arg.IsScalar {
-			types[i] = arg.ColumnType
+			schemaTypes[i] = arg.ColumnType
 		}
 	}
-	return types
+	return schemaTypes
 }
 
 func (tc *TestCase) GetArgTypes() []types.Type {
