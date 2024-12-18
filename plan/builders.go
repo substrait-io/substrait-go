@@ -79,9 +79,7 @@ type Builder interface {
 	AggregateColumns(input Rel, measures []AggRelMeasure, groupByCols ...int32) (*AggregateRel, error)
 	// Deprecated: Use AggregateExprs(...).Remap() instead.
 	AggregateExprsRemap(input Rel, remap []int32, measures []AggRelMeasure, groups ...[]expr.Expression) (*AggregateRel, error)
-	// Deprecated: Use Aggregate(...) instead.
 	AggregateExprs(input Rel, measures []AggRelMeasure, groups ...[]expr.Expression) (*AggregateRel, error)
-	Aggregate(input Rel, measures []AggRelMeasure, groupingExpressions []expr.Expression, groupings [][]uint32) (*AggregateRel, error)
 	// Deprecated: Use CreateTableAsSelect(...).Remap() instead.
 	CreateTableAsSelectRemap(input Rel, remap []int32, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error)
 	CreateTableAsSelect(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error)

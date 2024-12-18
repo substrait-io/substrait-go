@@ -274,7 +274,7 @@ func TestAggregateRelPlan(t *testing.T) {
 	require.NoError(t, err)
 	exprs := make([]expr.Expression, 0)
 	exprs = append(exprs, ref)
-	root, err = b.Aggregate(scan, []plan.AggRelMeasure{b.Measure(aggCount, nil)}, exprs, [][]uint32{{0}})
+	root, err = b.AggregateExprs(scan, []plan.AggRelMeasure{b.Measure(aggCount, nil)}, [][]expr.Expression{exprs}...)
 	require.NoError(t, err)
 
 	p, err = b.Plan(root, []string{"val", "cnt"})
