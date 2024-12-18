@@ -969,17 +969,19 @@ func (am *AggRelMeasure) ToProto() *proto.AggregateRel_Measure {
 type AggregateRel struct {
 	RelCommon
 
-	input        Rel
-	groups       [][]expr.Expression
-	measures     []AggRelMeasure
-	advExtension *extensions.AdvancedExtension
+	input               Rel
+	measures            []AggRelMeasure
+	groupingExpressions []expr.Expression
+	groupingReferences  [][]uint32
+	advExtension        *extensions.AdvancedExtension
 }
 
 func (ar *AggregateRel) directOutputSchema() types.RecordType {
-	groupTypes := make([]types.Type, 0, len(ar.groups)+len(ar.measures))
-	for _, g := range ar.groups {
+	groupTypes := make([]types.Type, 0, len(ar.groupingReferences)+len(ar.measures))
+	for _, g := range ar.groupingReferences {
 		for _, e := range g {
-			groupTypes = append(groupTypes, e.GetType())
+			expression := ar.groupingExpressions[e]
+			groupTypes = append(groupTypes, expression.GetType())
 		}
 	}
 
@@ -996,23 +998,23 @@ func (ar *AggregateRel) RecordType() types.RecordType {
 
 func (ar *AggregateRel) Input() Rel { return ar.input }
 
-// Groupings is a list of expression groupings that the aggregation measures should
-// be calculated for.
-func (ar *AggregateRel) Groupings() [][]expr.Expression { return ar.groups }
-func (ar *AggregateRel) Measures() []AggRelMeasure      { return ar.measures }
+func (ar *AggregateRel) GroupingExpressions() []expr.Expression { return ar.groupingExpressions }
+func (ar *AggregateRel) GroupingReferences() [][]uint32         { return ar.groupingReferences }
+func (ar *AggregateRel) Measures() []AggRelMeasure              { return ar.measures }
 func (ar *AggregateRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return ar.advExtension
 }
 
 func (ar *AggregateRel) ToProto() *proto.Rel {
-	groupings := make([]*proto.AggregateRel_Grouping, len(ar.groups))
-	for i, ex := range ar.groups {
-		groupExprs := make([]*proto.Expression, len(ex))
-		for j, e := range ex {
-			groupExprs[j] = e.ToProto()
-		}
+	groupingExpressionsProto := make([]*proto.Expression, len(ar.groupingExpressions))
+	for i, e := range ar.groupingExpressions {
+		groupingExpressionsProto[i] = e.ToProto()
+	}
+
+	groupings := make([]*proto.AggregateRel_Grouping, len(ar.groupingReferences))
+	for i, _ := range ar.groupingReferences {
 		groupings[i] = &proto.AggregateRel_Grouping{
-			GroupingExpressions: groupExprs,
+			ExpressionReferences: ar.groupingReferences[i],
 		}
 	}
 
@@ -1024,11 +1026,12 @@ func (ar *AggregateRel) ToProto() *proto.Rel {
 	return &proto.Rel{
 		RelType: &proto.Rel_Aggregate{
 			Aggregate: &proto.AggregateRel{
-				Common:            ar.toProto(),
-				Input:             ar.input.ToProto(),
-				Groupings:         groupings,
-				Measures:          measures,
-				AdvancedExtension: ar.advExtension,
+				Common:              ar.toProto(),
+				Input:               ar.input.ToProto(),
+				GroupingExpressions: groupingExpressionsProto,
+				Groupings:           groupings,
+				Measures:            measures,
+				AdvancedExtension:   ar.advExtension,
 			},
 		},
 	}
@@ -1061,17 +1064,13 @@ func (ar *AggregateRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newIn
 	}
 	var err error
 	groupsAreEqual := true
-	newGroups := make([][]expr.Expression, len(ar.groups))
-	for i, g := range ar.groups {
-		newGroups[i] = make([]expr.Expression, len(g))
-		for j, e := range g {
-			if newGroups[i][j], err = rewriteFunc(e); err != nil {
-				return nil, err
-			}
-			groupsAreEqual = groupsAreEqual && newGroups[i][j] == e
+	newGroupingExpressions := make([]expr.Expression, len(ar.groupingExpressions))
+	for i, e := range ar.groupingExpressions {
+		if newGroupingExpressions[i], err = rewriteFunc(e); err != nil {
+			return nil, err
 		}
+		groupsAreEqual = groupsAreEqual && newGroupingExpressions[i] == e
 	}
-
 	measuresAreEqual := true
 	newMeasures := make([]AggRelMeasure, len(ar.measures))
 	for i, m := range ar.measures {
@@ -1086,7 +1085,8 @@ func (ar *AggregateRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newIn
 	}
 	aggregate := *ar
 	aggregate.input = newInputs[0]
-	aggregate.groups = newGroups
+	aggregate.groupingExpressions = newGroupingExpressions
+	aggregate.measures = newMeasures
 	return &aggregate, nil
 }
 

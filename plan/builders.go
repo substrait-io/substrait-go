@@ -75,10 +75,13 @@ type Builder interface {
 	ProjectRemap(input Rel, remap []int32, exprs ...expr.Expression) (*ProjectRel, error)
 	// Deprecated: Use AggregateColumns(...).Remap() instead.
 	AggregateColumnsRemap(input Rel, remap []int32, measures []AggRelMeasure, groupByCols ...int32) (*AggregateRel, error)
+	// Deprecated: Use Aggregate(...) instead.
 	AggregateColumns(input Rel, measures []AggRelMeasure, groupByCols ...int32) (*AggregateRel, error)
 	// Deprecated: Use AggregateExprs(...).Remap() instead.
 	AggregateExprsRemap(input Rel, remap []int32, measures []AggRelMeasure, groups ...[]expr.Expression) (*AggregateRel, error)
+	// Deprecated: Use Aggregate(...) instead.
 	AggregateExprs(input Rel, measures []AggRelMeasure, groups ...[]expr.Expression) (*AggregateRel, error)
+	Aggregate(input Rel, measures []AggRelMeasure, groupingExpressions []expr.Expression, groupings [][]uint32) (*AggregateRel, error)
 	// Deprecated: Use CreateTableAsSelect(...).Remap() instead.
 	CreateTableAsSelectRemap(input Rel, remap []int32, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error)
 	CreateTableAsSelect(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error)
@@ -286,11 +289,13 @@ func (b *builder) AggregateColumnsRemap(input Rel, remap []int32, measures []Agg
 		}
 	}
 
+	groupingExpressions, groupingReferences := groupingExprs(exprs)
 	return &AggregateRel{
-		RelCommon: RelCommon{mapping: remap},
-		input:     input,
-		groups:    exprs,
-		measures:  measures,
+		RelCommon:           RelCommon{mapping: remap},
+		input:               input,
+		measures:            measures,
+		groupingReferences:  groupingReferences,
+		groupingExpressions: groupingExpressions,
 	}, nil
 }
 
@@ -321,16 +326,51 @@ func (b *builder) AggregateExprsRemap(input Rel, remap []int32, measures []AggRe
 		}
 	}
 
+	groupingExpressions, groupingReferences := groupingExprs(groups)
 	return &AggregateRel{
-		RelCommon: RelCommon{mapping: remap},
-		input:     input,
-		groups:    groups,
-		measures:  measures,
+		RelCommon:           RelCommon{mapping: remap},
+		input:               input,
+		measures:            measures,
+		groupingReferences:  groupingReferences,
+		groupingExpressions: groupingExpressions,
 	}, nil
 }
 
 func (b *builder) AggregateExprs(input Rel, measures []AggRelMeasure, groups ...[]expr.Expression) (*AggregateRel, error) {
 	return b.AggregateExprsRemap(input, nil, measures, groups...)
+}
+
+func (b *builder) Aggregate(input Rel, measures []AggRelMeasure, groupingExpressions []expr.Expression, groupingReferences [][]uint32) (*AggregateRel, error) {
+	if input == nil {
+		return nil, errNilInputRel
+	}
+
+	if (len(measures) + len(groupingExpressions)) == 0 {
+		return nil, fmt.Errorf("%w: must have at least one grouping expression or measure for AggregateRel", substraitgo.ErrInvalidRel)
+	}
+
+	if slices.ContainsFunc(groupingExpressions, func(expr expr.Expression) bool {
+		return expr == nil
+	}) {
+		return nil, fmt.Errorf("%w: groupings cannot contain empty expression list or nil expression", substraitgo.ErrInvalidRel)
+	}
+
+	// Validate groupingReferences indices.
+	for _, refList := range groupingReferences {
+		for _, ref := range refList {
+			if ref >= uint32(len(groupingExpressions)) {
+				return nil, fmt.Errorf("%w: groupingReferences contains invalid indices", substraitgo.ErrInvalidRel)
+			}
+		}
+	}
+
+	return &AggregateRel{
+		RelCommon:           RelCommon{},
+		input:               input,
+		measures:            measures,
+		groupingReferences:  groupingReferences,
+		groupingExpressions: groupingExpressions,
+	}, nil
 }
 
 func (b *builder) CreateTableAsSelectRemap(input Rel, remap []int32, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {

@@ -218,15 +218,18 @@ func TestAggregateRelPlan(t *testing.T) {
 									"namedTable": { "names": [ "test" ]}
 								}
 							},
+							"groupingExpressions": [
+								{
+									"selection": {
+										"rootReference": {},
+										"directReference": { "structField": { "field": 0 }}
+									}
+								}
+							],
 							"groupings": [
 								{
-									"groupingExpressions": [
-										{
-											"selection": {
-												"rootReference": {},
-												"directReference": { "structField": { "field": 0 }}
-											}
-										}
+									"expressionReferences": [
+										0
 									]
 								}
 							],
@@ -261,6 +264,20 @@ func TestAggregateRelPlan(t *testing.T) {
 	require.NoError(t, err)
 
 	p, err := b.Plan(root, []string{"val", "cnt"})
+	require.NoError(t, err)
+	assert.Equal(t, "NSTRUCT<val: string, cnt: i64>", p.GetRoots()[0].RecordType().String())
+
+	checkRoundTrip(t, expectedJSON, p)
+
+	// Test with grouping expressions and references
+	ref, err := b.RootFieldRef(scan, 0)
+	require.NoError(t, err)
+	exprs := make([]expr.Expression, 0)
+	exprs = append(exprs, ref)
+	root, err = b.Aggregate(scan, []plan.AggRelMeasure{b.Measure(aggCount, nil)}, exprs, [][]uint32{{0}})
+	require.NoError(t, err)
+
+	p, err = b.Plan(root, []string{"val", "cnt"})
 	require.NoError(t, err)
 	assert.Equal(t, "NSTRUCT<val: string, cnt: i64>", p.GetRoots()[0].RecordType().String())
 
