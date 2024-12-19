@@ -136,7 +136,7 @@ func (v *TestCaseVisitor) VisitCompactAggregateFuncCall(ctx *baseparser.CompactA
 		args = v.Visit(ctx.AggregateFuncArgs()).([]*AggregateArgument)
 	}
 
-	numberOfColumns := len(rows[0])
+	numberOfColumns := int32(len(rows[0]))
 	columnTypes := make([]types.Type, numberOfColumns)
 	for _, arg := range args {
 		if arg.ColumnIndex >= numberOfColumns {
@@ -168,6 +168,9 @@ func (v *TestCaseVisitor) VisitMultiArgAggregateFuncCall(ctx *baseparser.MultiAr
 				v.ErrorListener.ReportVisitError(err)
 			}
 		}
+		if !arg.IsScalar {
+			arg.ColumnType = testcase.ColumnTypes[arg.ColumnIndex]
+		}
 	}
 	return testcase
 }
@@ -184,6 +187,7 @@ func (v *TestCaseVisitor) VisitQualifiedAggregateFuncArg(ctx *baseparser.Qualifi
 	if ctx.Argument() != nil {
 		return &AggregateArgument{
 			Argument: v.Visit(ctx.Argument()).(*CaseLiteral),
+			IsScalar: true,
 		}
 	}
 	arg, err := newAggregateArgument(ctx.Identifier().GetText(), ctx.ColumnName().GetText(), nil)
@@ -271,6 +275,7 @@ func (v *TestCaseVisitor) VisitAggregateFuncArg(ctx *baseparser.AggregateFuncArg
 	if ctx.Argument() != nil {
 		return &AggregateArgument{
 			Argument: v.Visit(ctx.Argument()).(*CaseLiteral),
+			IsScalar: true,
 		}
 	}
 	argType := v.Visit(ctx.DataType()).(types.Type)

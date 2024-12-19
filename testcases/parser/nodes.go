@@ -59,6 +59,47 @@ func (tc *TestCase) GetFunctionOptions() []*types.FunctionOption {
 	return funcOptions
 }
 
+func (tc *TestCase) getScalarFuncArgTypes() []types.Type {
+	argTypes := make([]types.Type, len(tc.Args))
+	for i, arg := range tc.Args {
+		argTypes[i] = arg.Type
+	}
+	return argTypes
+}
+
+func (tc *TestCase) getAggregateFuncArgTypes() []types.Type {
+	argTypes := make([]types.Type, len(tc.AggregateArgs))
+	for i, arg := range tc.AggregateArgs {
+		if arg.IsScalar {
+			argTypes[i] = arg.Argument.Type
+			continue
+		}
+		argTypes[i] = arg.ColumnType
+	}
+	return argTypes
+}
+
+func (tc *TestCase) getAggregateFuncTableSchema() []types.Type {
+	schemaTypes := make([]types.Type, len(tc.AggregateArgs))
+	for i, arg := range tc.AggregateArgs {
+		if !arg.IsScalar {
+			schemaTypes[i] = arg.ColumnType
+		}
+	}
+	return schemaTypes
+}
+
+func (tc *TestCase) GetArgTypes() []types.Type {
+	switch tc.FuncType {
+	case ScalarFuncType:
+		return tc.getScalarFuncArgTypes()
+	case AggregateFuncType:
+		return tc.getAggregateFuncArgTypes()
+	default:
+		panic(fmt.Sprintf("unsupported function type: %s", tc.FuncType))
+	}
+}
+
 func (tc *TestCase) scalarSignatureKey() string {
 	var b strings.Builder
 	for i, a := range tc.Args {
@@ -76,7 +117,7 @@ func (tc *TestCase) aggregateSignatureKey() string {
 		if i != 0 {
 			b.WriteByte('_')
 		}
-		b.WriteString(a.ColumnType.ShortString())
+		b.WriteString(a.GetType().ShortString())
 	}
 	return b.String()
 }
@@ -120,6 +161,27 @@ func (tc *TestCase) GetScalarFunctionInvocation(reg *expr.ExtensionRegistry) (*e
 	return expr.NewScalarFunc(*reg, id, tc.GetFunctionOptions(), args...)
 }
 
+func (tc *TestCase) GetAggregateFunctionInvocation(reg *expr.ExtensionRegistry) (*expr.AggregateFunction, error) {
+	id := tc.ID()
+	args := make([]types.FuncArg, len(tc.AggregateArgs))
+	baseSchema := types.NewRecordTypeFromTypes(tc.getAggregateFuncTableSchema())
+	for i, arg := range tc.AggregateArgs {
+		if arg.IsScalar {
+			args[i] = arg.Argument.Value
+			continue
+		}
+
+		fieldRef, err := expr.NewFieldRef(expr.RootReference, expr.NewStructFieldRef(arg.ColumnIndex), baseSchema)
+		if err != nil {
+			return nil, err
+		}
+		args[i] = fieldRef
+	}
+
+	return expr.NewAggregateFunc(*reg, id, tc.GetFunctionOptions(),
+		types.AggInvocationAll, types.AggPhaseInitialToResult, nil, args...)
+}
+
 type TestGroup struct {
 	Description string
 	TestCases   []*TestCase
@@ -133,11 +195,19 @@ type TestFile struct {
 type FuncOptions map[string]string
 
 type AggregateArgument struct {
-	Argument    *CaseLiteral
+	Argument    *CaseLiteral // This is used to store either a ScalarArgument or a ColumnArgument as List in the Value
 	TableName   string
 	ColumnName  string
 	ColumnType  types.Type
-	ColumnIndex int
+	ColumnIndex int32
+	IsScalar    bool
+}
+
+func (a *AggregateArgument) GetType() types.Type {
+	if a.IsScalar {
+		return a.Argument.Type
+	}
+	return a.ColumnType
 }
 
 func newAggregateArgument(tableName string, columnName string, columnType types.Type) (*AggregateArgument, error) {
@@ -152,7 +222,7 @@ func newAggregateArgument(tableName string, columnName string, columnType types.
 		TableName:   tableName,
 		ColumnName:  columnName,
 		ColumnType:  columnType,
-		ColumnIndex: int(index),
+		ColumnIndex: int32(index),
 	}, nil
 }
 
