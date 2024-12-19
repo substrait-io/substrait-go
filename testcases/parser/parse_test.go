@@ -459,7 +459,7 @@ LIST_AGG(t1.col0, ','::string) = 1::fp64
 	for i, tc := range testFile.TestCases {
 		assert.Equal(t, AggregateFuncType, tc.FuncType)
 		assert.Equal(t, expectedArgTypes, tc.GetArgTypes(), "unexpected arg types in test case %d", i)
-		assert.Equal(t, "list_agg:fp32_str", tc.ID().Name)
+		assert.Equal(t, "LIST_AGG:fp32_str", tc.ID().Name)
 	}
 
 	header = makeAggregateTestHeader("v1.0", "/extensions/functions_string.yaml")

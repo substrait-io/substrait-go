@@ -123,7 +123,7 @@ func (v *TestCaseVisitor) VisitAggFuncTestCase(ctx *baseparser.AggFuncTestCaseCo
 func (v *TestCaseVisitor) VisitSingleArgAggregateFuncCall(ctx *baseparser.SingleArgAggregateFuncCallContext) interface{} {
 	arg := v.Visit(ctx.DataColumn()).(*CaseLiteral)
 	return &TestCase{
-		FuncName:      strings.ToLower(ctx.Identifier().GetText()),
+		FuncName:      ctx.Identifier().GetText(),
 		AggregateArgs: []*AggregateArgument{{Argument: arg, ColumnType: arg.Type}},
 		Result:        &CaseLiteral{SubstraitError: &SubstraitError{Error: "uninitialized"}},
 	}
@@ -147,7 +147,7 @@ func (v *TestCaseVisitor) VisitCompactAggregateFuncCall(ctx *baseparser.CompactA
 	}
 	columns := v.getColumnsFromRows(rows, columnTypes)
 	return &TestCase{
-		FuncName:      strings.ToLower(ctx.Identifier().GetText()),
+		FuncName:      ctx.Identifier().GetText(),
 		Columns:       columns,
 		AggregateArgs: args,
 	}
@@ -159,7 +159,7 @@ func (v *TestCaseVisitor) VisitMultiArgAggregateFuncCall(ctx *baseparser.MultiAr
 	if ctx.QualifiedAggregateFuncArgs() != nil {
 		args = v.Visit(ctx.QualifiedAggregateFuncArgs()).([]*AggregateArgument)
 	}
-	testcase.FuncName = strings.ToLower(ctx.Identifier().GetText())
+	testcase.FuncName = ctx.Identifier().GetText()
 	testcase.AggregateArgs = args
 	for _, arg := range args {
 		if arg.TableName != "" {
@@ -310,7 +310,7 @@ func (v *TestCaseVisitor) VisitTestCase(ctx *baseparser.TestCaseContext) interfa
 	}
 
 	return &TestCase{
-		FuncName: strings.ToLower(ctx.Identifier().GetText()),
+		FuncName: ctx.Identifier().GetText(),
 		Args:     v.Visit(ctx.Arguments()).([]*CaseLiteral),
 		Result:   v.Visit(ctx.Result()).(*CaseLiteral),
 		Options:  options,
