@@ -1,7 +1,9 @@
 package parser
 
 import (
+	"embed"
 	"fmt"
+	"io/fs"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -613,4 +615,58 @@ func TestParseTestCaseFile(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, testFile)
 	assert.Len(t, testFile.TestCases, 13)
+}
+
+func TestLoadAllSubstraitTestFiles(t *testing.T) {
+	got := substrait.GetSubstraitTestsFS()
+	filePaths, err := listFiles(got, ".")
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(filePaths), 107)
+
+	for _, filePath := range filePaths {
+		t.Run(filePath, func(t *testing.T) {
+			switch filePath {
+			case "tests/cases/boolean/bool_and.test":
+				t.Skip("Skipping bool_and.test")
+			case "tests/cases/datetime/extract.test":
+				// TODO deal with enum arguments in testcase
+				t.Skip("Skipping extract.test")
+			}
+
+			testFile, err := ParseTestCaseFileFromFS(got, filePath)
+			require.NoError(t, err)
+			require.NotNil(t, testFile)
+			reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(&extensions.DefaultCollection)
+			for _, tc := range testFile.TestCases {
+				testGetFunctionInvocation(t, tc, &reg, funcRegistry)
+			}
+		})
+	}
+}
+
+func testGetFunctionInvocation(t *testing.T, tc *TestCase, reg *expr.ExtensionRegistry, registry functions.FunctionRegistry) {
+	switch tc.FuncType {
+	case ScalarFuncType:
+		invocation, err := tc.GetScalarFunctionInvocation(reg, registry)
+		require.NoError(t, err, "GetScalarFunctionInvocation failed with error in test case: %s", tc.CompoundFunctionName())
+		require.Equal(t, tc.ID().URI, invocation.ID().URI)
+	case AggregateFuncType:
+		invocation, err := tc.GetAggregateFunctionInvocation(reg, registry)
+		require.NoError(t, err)
+		require.Equal(t, tc.ID().URI, invocation.ID().URI)
+	}
+}
+
+func listFiles(embedFs embed.FS, root string) ([]string, error) {
+	var files []string
+	err := fs.WalkDir(embedFs, root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			files = append(files, path)
+		}
+		return nil
+	})
+	return files, err
 }

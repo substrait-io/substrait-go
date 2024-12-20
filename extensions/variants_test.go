@@ -3,14 +3,11 @@
 package extensions_test
 
 import (
-	"embed"
-	"io/fs"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait"
-	"github.com/substrait-io/substrait-go/v3/expr"
 	"github.com/substrait-io/substrait-go/v3/extensions"
 	"github.com/substrait-io/substrait-go/v3/functions"
 	parser2 "github.com/substrait-io/substrait-go/v3/testcases/parser"
@@ -235,62 +232,17 @@ func TestMatchWithSyncParams(t *testing.T) {
 		reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(&extensions.DefaultCollection)
 		for _, tc := range testFile.TestCases {
 			t.Run(tc.FuncName, func(t *testing.T) {
-				testGetFunctionInvocation(t, tc, &reg, funcRegistry)
+				switch tc.FuncType {
+				case parser2.ScalarFuncType:
+					invocation, err := tc.GetScalarFunctionInvocation(&reg, funcRegistry)
+					require.NoError(t, err)
+					require.Equal(t, tc.ID(), invocation.ID())
+				case parser2.AggregateFuncType:
+					invocation, err := tc.GetAggregateFunctionInvocation(&reg, funcRegistry)
+					require.NoError(t, err)
+					require.Equal(t, tc.ID(), invocation.ID())
+				}
 			})
 		}
 	}
-}
-
-func TestLoadAllSubstraitTestFiles(t *testing.T) {
-	got := substrait.GetSubstraitTestsFS()
-	filePaths, err := listFiles(got, ".")
-	require.NoError(t, err)
-	assert.GreaterOrEqual(t, len(filePaths), 107)
-
-	for _, filePath := range filePaths {
-		t.Run(filePath, func(t *testing.T) {
-			switch filePath {
-			case "tests/cases/boolean/bool_and.test":
-				t.Skip("Skipping bool_and.test")
-			case "tests/cases/datetime/extract.test":
-				// TODO deal with enum arguments in testcase
-				t.Skip("Skipping extract.test")
-			}
-
-			testFile, err := parser2.ParseTestCaseFileFromFS(got, filePath)
-			require.NoError(t, err)
-			require.NotNil(t, testFile)
-			reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(&extensions.DefaultCollection)
-			for _, tc := range testFile.TestCases {
-				testGetFunctionInvocation(t, tc, &reg, funcRegistry)
-			}
-		})
-	}
-}
-
-func testGetFunctionInvocation(t *testing.T, tc *parser2.TestCase, reg *expr.ExtensionRegistry, registry functions.FunctionRegistry) {
-	switch tc.FuncType {
-	case parser2.ScalarFuncType:
-		invocation, err := tc.GetScalarFunctionInvocation(reg, registry)
-		require.NoError(t, err, "GetScalarFunctionInvocation failed with error in test case: %s", tc.CompoundFunctionName())
-		require.Equal(t, tc.ID().URI, invocation.ID().URI)
-	case parser2.AggregateFuncType:
-		invocation, err := tc.GetAggregateFunctionInvocation(reg, registry)
-		require.NoError(t, err)
-		require.Equal(t, tc.ID().URI, invocation.ID().URI)
-	}
-}
-
-func listFiles(embedFs embed.FS, root string) ([]string, error) {
-	var files []string
-	err := fs.WalkDir(embedFs, root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if !d.IsDir() {
-			files = append(files, path)
-		}
-		return nil
-	})
-	return files, err
 }
