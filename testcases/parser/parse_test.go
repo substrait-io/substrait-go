@@ -1,7 +1,9 @@
 package parser
 
 import (
+	"embed"
 	"fmt"
+	"io/fs"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,6 +11,7 @@ import (
 	"github.com/substrait-io/substrait"
 	"github.com/substrait-io/substrait-go/v3/expr"
 	"github.com/substrait-io/substrait-go/v3/extensions"
+	"github.com/substrait-io/substrait-go/v3/functions"
 	"github.com/substrait-io/substrait-go/v3/literal"
 	"github.com/substrait-io/substrait-go/v3/types"
 )
@@ -42,16 +45,17 @@ add(120::i8, 10::i8) [overflow:ERROR] = <!ERROR>
 		{&types.Int16Type{}, &types.Int16Type{}},
 		{&types.Int8Type{}, &types.Int8Type{}},
 	}
-	reg := expr.NewEmptyExtensionRegistry(&extensions.DefaultCollection)
+	reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(&extensions.DefaultCollection)
 	for i, tc := range testFile.TestCases {
 		assert.Equal(t, extensions.ID{URI: arithURI, Name: ids[i]}, tc.ID())
-		scalarFunc, err1 := tc.GetScalarFunctionInvocation(&reg)
+		scalarFunc, err1 := tc.GetScalarFunctionInvocation(&reg, funcRegistry)
 		require.NoError(t, err1)
 		assert.Equal(t, tc.FuncName, scalarFunc.Name())
 		require.Equal(t, 2, scalarFunc.NArgs())
 		assert.Equal(t, tc.Args[0].Value, scalarFunc.Arg(0))
 		assert.Equal(t, tc.Args[1].Value, scalarFunc.Arg(1))
 		assert.Equal(t, argTypes[i], tc.GetArgTypes())
+		assert.Equal(t, ids[i], tc.CompoundFunctionName())
 	}
 }
 
@@ -270,7 +274,7 @@ func TestParseAggregateFunc(t *testing.T) {
 avg((1,2,3)::fp32) = 2::fp64
 sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ERROR>`
 
-	reg := expr.NewEmptyExtensionRegistry(&extensions.DefaultCollection)
+	reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(&extensions.DefaultCollection)
 	arithUri := "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
 	testFile, err := ParseTestCasesFromString(header + tests)
 	require.NoError(t, err)
@@ -293,10 +297,11 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 	assert.Equal(t, "fp64", testFile.TestCases[0].Result.Type.String())
 	assert.Equal(t, literal.NewFloat64(2), testFile.TestCases[0].Result.Value)
 	assert.Equal(t, AggregateFuncType, testFile.TestCases[0].FuncType)
-	_, err = testFile.TestCases[0].GetScalarFunctionInvocation(nil)
+	_, err = testFile.TestCases[0].GetScalarFunctionInvocation(nil, nil)
 	require.Error(t, err)
 	assert.Equal(t, extensions.ID{URI: arithUri, Name: "avg:fp32"}, tc.ID())
-	aggregateFunc, err1 := tc.GetAggregateFunctionInvocation(&reg)
+	assert.Equal(t, "avg:fp32", tc.CompoundFunctionName())
+	aggregateFunc, err1 := tc.GetAggregateFunctionInvocation(&reg, funcRegistry)
 	require.NoError(t, err1)
 	assert.Equal(t, tc.FuncName, aggregateFunc.Name())
 	require.Equal(t, 1, aggregateFunc.NArgs())
@@ -317,10 +322,11 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 	assert.Equal(t, newInt64List(9223372036854775806, 1, 1, 1, 1, 10000000000), testFile.TestCases[1].AggregateArgs[0].Argument.Value)
 	assert.Equal(t, "ERROR", testFile.TestCases[1].Options["overflow"])
 
-	_, err = testFile.TestCases[0].GetScalarFunctionInvocation(nil)
+	_, err = testFile.TestCases[0].GetScalarFunctionInvocation(nil, nil)
 	require.Error(t, err)
 	assert.Equal(t, extensions.ID{URI: arithUri, Name: "sum:i64"}, tc.ID())
-	aggregateFunc, err1 = tc.GetAggregateFunctionInvocation(&reg)
+	assert.Equal(t, "sum:i64", tc.CompoundFunctionName())
+	aggregateFunc, err1 = tc.GetAggregateFunctionInvocation(&reg, funcRegistry)
 	require.NoError(t, err1)
 	assert.Equal(t, tc.FuncName, aggregateFunc.Name())
 	require.Equal(t, 1, aggregateFunc.NArgs())
@@ -472,7 +478,7 @@ LIST_AGG(t1.col0, ','::string) = 1::fp64
 	assert.Len(t, testFile.TestCases, 1)
 	assert.Equal(t, AggregateFuncType, testFile.TestCases[0].FuncType)
 	reg := expr.NewEmptyExtensionRegistry(&extensions.DefaultCollection)
-	aggFun, err := testFile.TestCases[0].GetAggregateFunctionInvocation(&reg)
+	aggFun, err := testFile.TestCases[0].GetAggregateFunctionInvocation(&reg, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "string_agg", aggFun.Name())
 }
@@ -612,4 +618,58 @@ func TestParseTestCaseFile(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, testFile)
 	assert.Len(t, testFile.TestCases, 13)
+}
+
+func TestLoadAllSubstraitTestFiles(t *testing.T) {
+	got := substrait.GetSubstraitTestsFS()
+	filePaths, err := listFiles(got, ".")
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(filePaths), 107)
+
+	for _, filePath := range filePaths {
+		t.Run(filePath, func(t *testing.T) {
+			switch filePath {
+			case "tests/cases/boolean/bool_and.test":
+				t.Skip("Skipping bool_and.test")
+			case "tests/cases/datetime/extract.test":
+				// TODO deal with enum arguments in testcase
+				t.Skip("Skipping extract.test")
+			}
+
+			testFile, err := ParseTestCaseFileFromFS(got, filePath)
+			require.NoError(t, err)
+			require.NotNil(t, testFile)
+			reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(&extensions.DefaultCollection)
+			for _, tc := range testFile.TestCases {
+				testGetFunctionInvocation(t, tc, &reg, funcRegistry)
+			}
+		})
+	}
+}
+
+func testGetFunctionInvocation(t *testing.T, tc *TestCase, reg *expr.ExtensionRegistry, registry functions.FunctionRegistry) {
+	switch tc.FuncType {
+	case ScalarFuncType:
+		invocation, err := tc.GetScalarFunctionInvocation(reg, registry)
+		require.NoError(t, err, "GetScalarFunctionInvocation failed with error in test case: %s", tc.CompoundFunctionName())
+		require.Equal(t, tc.ID().URI, invocation.ID().URI)
+	case AggregateFuncType:
+		invocation, err := tc.GetAggregateFunctionInvocation(reg, registry)
+		require.NoError(t, err, "GetAggregateFunctionInvocation failed with error in test case: %s", tc.CompoundFunctionName())
+		require.Equal(t, tc.ID().URI, invocation.ID().URI)
+	}
+}
+
+func listFiles(embedFs embed.FS, root string) ([]string, error) {
+	var files []string
+	err := fs.WalkDir(embedFs, root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			files = append(files, path)
+		}
+		return nil
+	})
+	return files, err
 }

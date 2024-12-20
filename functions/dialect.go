@@ -38,6 +38,8 @@ type dialectImpl struct {
 	localScalarFunctions    map[extensions.ID]*dialectFunctionInfo
 	localAggregateFunctions map[extensions.ID]*dialectFunctionInfo
 	localWindowFunctions    map[extensions.ID]*dialectFunctionInfo
+
+	localTypeRegistry LocalTypeRegistry
 }
 
 func (d *dialectImpl) Name() string {
@@ -52,6 +54,10 @@ func appendVariants[T extensions.FunctionVariant](variants []extensions.Function
 }
 
 func (d *dialectImpl) LocalizeFunctionRegistry(registry FunctionRegistry) (LocalFunctionRegistry, error) {
+	localTypeRegistry, err := d.GetLocalTypeRegistry()
+	if err != nil {
+		return nil, err
+	}
 	scalarFunctions, err := makeLocalFunctionVariantMapAndSlice(d.localScalarFunctions, registry.GetScalarFunctionsByName, newLocalScalarFunctionVariant)
 	if err != nil {
 		return nil, err
@@ -71,11 +77,13 @@ func (d *dialectImpl) LocalizeFunctionRegistry(registry FunctionRegistry) (Local
 	allVariants = appendVariants(allVariants, windowFunctions.variantsSlice)
 
 	return &localFunctionRegistryImpl{
-		dialect:            d,
-		scalarFunctions:    scalarFunctions.variantsMap,
-		aggregateFunctions: aggregateFunctions.variantsMap,
-		windowFunctions:    windowFunctions.variantsMap,
-		allFunctions:       allVariants,
+		dialect:              d,
+		scalarFunctions:      scalarFunctions.variantsMap,
+		aggregateFunctions:   aggregateFunctions.variantsMap,
+		windowFunctions:      windowFunctions.variantsMap,
+		allFunctions:         allVariants,
+		idToLocalFunctionMap: makeLocalFunctionVariantsMap(allVariants),
+		localTypeRegistry:    localTypeRegistry,
 	}, nil
 }
 
@@ -151,6 +159,9 @@ func addToSliceMapWithLocalKey[V localFunctionVariant](m map[FunctionName][]V, v
 }
 
 func (d *dialectImpl) LocalizeTypeRegistry(TypeRegistry) (LocalTypeRegistry, error) {
+	if d.localTypeRegistry != nil {
+		return d.localTypeRegistry, nil
+	}
 	typeInfos := make([]typeInfo, 0, len(d.toLocalTypeMap))
 	for name, info := range d.toLocalTypeMap {
 		// TODO use registry.GetTypeClasses
@@ -158,9 +169,17 @@ func (d *dialectImpl) LocalizeTypeRegistry(TypeRegistry) (LocalTypeRegistry, err
 		if err != nil {
 			return nil, fmt.Errorf("%w: unknown type %v", substraitgo.ErrInvalidDialect, name)
 		}
-		typeInfos = append(typeInfos, typeInfo{typ: typ, shortName: name, localName: info.SqlTypeName, supportedAsColumn: info.SupportedAsColumn})
+		typeInfos = append(typeInfos, typeInfo{typ: typ, shortName: typ.ShortString(), localName: info.SqlTypeName, supportedAsColumn: info.SupportedAsColumn})
 	}
-	return NewLocalTypeRegistry(typeInfos), nil
+	d.localTypeRegistry = NewLocalTypeRegistry(typeInfos)
+	return d.localTypeRegistry, nil
+}
+
+func (d *dialectImpl) GetLocalTypeRegistry() (LocalTypeRegistry, error) {
+	if d.localTypeRegistry != nil {
+		return d.localTypeRegistry, nil
+	}
+	return d.LocalizeTypeRegistry(NewTypeRegistry())
 }
 
 func newDialect(name string, reader io.Reader) (Dialect, error) {

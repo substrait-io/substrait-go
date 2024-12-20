@@ -5,8 +5,10 @@ import (
 	"strconv"
 	"strings"
 
+	substraitgo "github.com/substrait-io/substrait-go/v3"
 	"github.com/substrait-io/substrait-go/v3/expr"
 	"github.com/substrait-io/substrait-go/v3/extensions"
+	"github.com/substrait-io/substrait-go/v3/functions"
 	"github.com/substrait-io/substrait-go/v3/types"
 )
 
@@ -148,7 +150,7 @@ func (tc *TestCase) ID() extensions.ID {
 	}
 }
 
-func (tc *TestCase) GetScalarFunctionInvocation(reg *expr.ExtensionRegistry) (*expr.ScalarFunction, error) {
+func (tc *TestCase) GetScalarFunctionInvocation(reg *expr.ExtensionRegistry, funcRegistry functions.FunctionRegistry) (*expr.ScalarFunction, error) {
 	if tc.FuncType != ScalarFuncType {
 		return nil, fmt.Errorf("not a scalar function testcase")
 	}
@@ -158,10 +160,26 @@ func (tc *TestCase) GetScalarFunctionInvocation(reg *expr.ExtensionRegistry) (*e
 		args[i] = arg.Value
 	}
 
-	return expr.NewScalarFunc(*reg, id, tc.GetFunctionOptions(), args...)
+	invocation, err := expr.NewScalarFunc(*reg, id, tc.GetFunctionOptions(), args...)
+	if err == nil {
+		return invocation, nil
+	}
+
+	// exact match not found, try to find a function that matches with function parameter type "any"
+	funcVariants := funcRegistry.GetScalarFunctions(tc.FuncName, len(args))
+	for _, function := range funcVariants {
+		isMatch, err1 := function.Match(tc.GetArgTypes())
+		if err1 == nil && isMatch && function.ID().URI == id.URI {
+			return expr.NewScalarFunc(*reg, function.ID(), tc.GetFunctionOptions(), args...)
+		}
+	}
+	return nil, fmt.Errorf("%w: no matching function found  or %s", substraitgo.ErrNotFound, id)
 }
 
-func (tc *TestCase) GetAggregateFunctionInvocation(reg *expr.ExtensionRegistry) (*expr.AggregateFunction, error) {
+func (tc *TestCase) GetAggregateFunctionInvocation(reg *expr.ExtensionRegistry, funcRegistry functions.FunctionRegistry) (*expr.AggregateFunction, error) {
+	if tc.FuncType != AggregateFuncType {
+		return nil, fmt.Errorf("not an aggregate function testcase")
+	}
 	id := tc.ID()
 	args := make([]types.FuncArg, len(tc.AggregateArgs))
 	baseSchema := types.NewRecordTypeFromTypes(tc.getAggregateFuncTableSchema())
@@ -178,8 +196,21 @@ func (tc *TestCase) GetAggregateFunctionInvocation(reg *expr.ExtensionRegistry) 
 		args[i] = fieldRef
 	}
 
-	return expr.NewAggregateFunc(*reg, id, tc.GetFunctionOptions(),
+	invocation, err := expr.NewAggregateFunc(*reg, id, tc.GetFunctionOptions(),
 		types.AggInvocationAll, types.AggPhaseInitialToResult, nil, args...)
+	if err == nil {
+		return invocation, nil
+	}
+
+	funcVariants := funcRegistry.GetAggregateFunctions(tc.FuncName, len(args))
+	for _, function := range funcVariants {
+		isMatch, err := function.Match(tc.GetArgTypes())
+		if err == nil && isMatch && function.ID().URI == id.URI {
+			return expr.NewAggregateFunc(*reg, function.ID(), tc.GetFunctionOptions(),
+				types.AggInvocationAll, types.AggPhaseInitialToResult, nil, args...)
+		}
+	}
+	return nil, fmt.Errorf("%w: no matching function found  or %s", substraitgo.ErrNotFound, id)
 }
 
 type TestGroup struct {

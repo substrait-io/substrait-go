@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait"
-	"github.com/substrait-io/substrait-go/v3/expr"
 	"github.com/substrait-io/substrait-go/v3/extensions"
+	"github.com/substrait-io/substrait-go/v3/functions"
 	parser2 "github.com/substrait-io/substrait-go/v3/testcases/parser"
 	"github.com/substrait-io/substrait-go/v3/types"
 	"github.com/substrait-io/substrait-go/v3/types/integer_parameters"
@@ -229,16 +229,16 @@ func TestMatchWithSyncParams(t *testing.T) {
 		require.NotNil(t, testFile)
 		assert.Len(t, testFile.TestCases, testFileInfo.numTests)
 
-		reg := expr.NewEmptyExtensionRegistry(&extensions.DefaultCollection)
+		reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(&extensions.DefaultCollection)
 		for _, tc := range testFile.TestCases {
 			t.Run(tc.FuncName, func(t *testing.T) {
 				switch tc.FuncType {
 				case parser2.ScalarFuncType:
-					invocation, err := tc.GetScalarFunctionInvocation(&reg)
+					invocation, err := tc.GetScalarFunctionInvocation(&reg, funcRegistry)
 					require.NoError(t, err)
 					require.Equal(t, tc.ID(), invocation.ID())
 				case parser2.AggregateFuncType:
-					invocation, err := tc.GetAggregateFunctionInvocation(&reg)
+					invocation, err := tc.GetAggregateFunctionInvocation(&reg, funcRegistry)
 					require.NoError(t, err)
 					require.Equal(t, tc.ID(), invocation.ID())
 				}
