@@ -148,8 +148,12 @@ supported_types:
 aggregate_functions:
   - name: arithmetic.sum
     aggregate: true
+    required_options:
+      overflow: ERROR
+      rounding: TIE_TO_EVEN
     supported_kernels:
       - fp64
+      - i64
   - name: arithmetic.min
     aggregate: true
     supported_kernels:
@@ -178,6 +182,8 @@ min((20, -3, 1, -10, 0, 5)::i8) = -10::i8
 min((-32768, 32767, 20000, -30000)::i16) = -32768::i16
 min((-214748648, 214748647, 21470048, 4000000)::i32) = -214748648::i32
 sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ERROR>
+sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:SILENT] = -9223372036854775806::i64
+sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:SATURATE] = -9223372036854775806::i64
 sum((2.5000007152557373046875, 7.0000007152557373046875, 0, 7.0000007152557373046875)::fp64) = 16.500002145767212::fp64
 `
 	decHeader := makeAggregateTestHeader("v1.0", "/extensions/functions_arithmetic_decimal.yaml")
@@ -196,7 +202,9 @@ sum((2.5000007152557373046875, 7.0000007152557373046875, 0, 7.000000715255737304
 		{"min:i8", "function variant not found"},
 		{"min:i16", ""},
 		{"min:i32", ""},
-		{"sum:i64", "function variant not found"},
+		{"sum:i64", ""},
+		{"sum:i64 [overflow:SILENT]", "unsupported option [overflow:SILENT]"},
+		{"sum:i64 [overflow:SATURATE]", "unsupported option [overflow:SATURATE]"},
 		{"sum:fp64", ""},
 		{"min:dec", ""},
 		{"min:dec", ""},

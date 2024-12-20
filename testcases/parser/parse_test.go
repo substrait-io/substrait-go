@@ -55,6 +55,7 @@ add(120::i8, 10::i8) [overflow:ERROR] = <!ERROR>
 		assert.Equal(t, tc.Args[0].Value, scalarFunc.Arg(0))
 		assert.Equal(t, tc.Args[1].Value, scalarFunc.Arg(1))
 		assert.Equal(t, argTypes[i], tc.GetArgTypes())
+		assert.Equal(t, ids[i], tc.CompoundFunctionName())
 	}
 }
 
@@ -299,6 +300,7 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 	_, err = testFile.TestCases[0].GetScalarFunctionInvocation(nil, nil)
 	require.Error(t, err)
 	assert.Equal(t, extensions.ID{URI: arithUri, Name: "avg:fp32"}, tc.ID())
+	assert.Equal(t, "avg:fp32", tc.CompoundFunctionName())
 	aggregateFunc, err1 := tc.GetAggregateFunctionInvocation(&reg, funcRegistry)
 	require.NoError(t, err1)
 	assert.Equal(t, tc.FuncName, aggregateFunc.Name())
@@ -323,6 +325,7 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 	_, err = testFile.TestCases[0].GetScalarFunctionInvocation(nil, nil)
 	require.Error(t, err)
 	assert.Equal(t, extensions.ID{URI: arithUri, Name: "sum:i64"}, tc.ID())
+	assert.Equal(t, "sum:i64", tc.CompoundFunctionName())
 	aggregateFunc, err1 = tc.GetAggregateFunctionInvocation(&reg, funcRegistry)
 	require.NoError(t, err1)
 	assert.Equal(t, tc.FuncName, aggregateFunc.Name())
@@ -652,7 +655,7 @@ func testGetFunctionInvocation(t *testing.T, tc *TestCase, reg *expr.ExtensionRe
 		require.Equal(t, tc.ID().URI, invocation.ID().URI)
 	case AggregateFuncType:
 		invocation, err := tc.GetAggregateFunctionInvocation(reg, registry)
-		require.NoError(t, err)
+		require.NoError(t, err, "GetAggregateFunctionInvocation failed with error in test case: %s", tc.CompoundFunctionName())
 		require.Equal(t, tc.ID().URI, invocation.ID().URI)
 	}
 }
