@@ -1,4 +1,4 @@
-package functions
+package functions_test
 
 import (
 	"strings"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	substraitgo "github.com/substrait-io/substrait-go/v3"
+	. "github.com/substrait-io/substrait-go/v3/functions"
 	"github.com/substrait-io/substrait-go/v3/types"
 )
 
