@@ -140,6 +140,13 @@ func BoundFromProto(b *proto.Expression_WindowFunction_Bound) Bound {
 	return nil
 }
 
+type FunctionInvocation interface {
+	CompoundName() string
+	ID() extensions.ID
+	GetOptions() []*types.FunctionOption
+	GetArgTypes() []types.Type
+}
+
 type ScalarFunction struct {
 	funcRef     uint32
 	declaration *extensions.ScalarFunctionVariant
@@ -322,6 +329,25 @@ func (s *ScalarFunction) GetOption(name string) []string {
 		}
 	}
 	return nil
+}
+
+func (s *ScalarFunction) GetOptions() []*types.FunctionOption { return s.options }
+
+func getArgTypes(args []types.FuncArg) []types.Type {
+	argTypes := make([]types.Type, len(args))
+	for i, arg := range args {
+		switch a := arg.(type) {
+		case Expression:
+			argTypes[i] = a.GetType()
+		case types.Type:
+			argTypes[i] = a
+		}
+	}
+	return argTypes
+}
+
+func (s *ScalarFunction) GetArgTypes() []types.Type {
+	return getArgTypes(s.args)
 }
 
 func (s *ScalarFunction) GetType() types.Type { return s.outputType }
@@ -538,6 +564,12 @@ func (w *WindowFunction) String() string {
 		w.phase, w.invocation, w.outputType)
 
 	return b.String()
+}
+
+func (w *WindowFunction) GetOptions() []*types.FunctionOption { return w.options }
+
+func (w *WindowFunction) GetArgTypes() []types.Type {
+	return getArgTypes(w.args)
 }
 
 func (w *WindowFunction) GetType() types.Type { return w.outputType }
@@ -805,6 +837,12 @@ func (a *AggregateFunction) GetOption(name string) []string {
 		}
 	}
 	return nil
+}
+
+func (a *AggregateFunction) GetOptions() []*types.FunctionOption { return a.options }
+
+func (a *AggregateFunction) GetArgTypes() []types.Type {
+	return getArgTypes(a.args)
 }
 
 func (a *AggregateFunction) GetType() types.Type { return a.outputType }

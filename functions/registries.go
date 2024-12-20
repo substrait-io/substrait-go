@@ -3,6 +3,7 @@ package functions
 import (
 	"strings"
 
+	"github.com/substrait-io/substrait-go/v3/expr"
 	"github.com/substrait-io/substrait-go/v3/extensions"
 	"github.com/substrait-io/substrait-go/v3/types"
 )
@@ -85,6 +86,9 @@ type FunctionRegistry interface {
 type LocalFunctionRegistry interface {
 	functionRegistryBase[FunctionName, *LocalScalarFunctionVariant, *LocalAggregateFunctionVariant, *LocalWindowFunctionVariant]
 	GetDialect() Dialect
+	GetScalarFunctionByInvocation(scalarFuncInvocation *expr.ScalarFunction) (*LocalScalarFunctionVariant, error)
+	GetAggregateFunctionByInvocation(aggregateFuncInvocation *expr.AggregateFunction) (*LocalAggregateFunctionVariant, error)
+	GetWindowFunctionByInvocation(windowFuncInvocation *expr.WindowFunction) (*LocalWindowFunctionVariant, error)
 }
 
 type FunctionNotation int
@@ -183,4 +187,8 @@ func newLocalWindowFunctionVariant(wf *extensions.WindowFunctionVariant, dfi *di
 			notation:         dfi.Notation,
 		},
 	}
+}
+
+func NewExtensionAndFunctionRegistries(c *extensions.Collection) (expr.ExtensionRegistry, FunctionRegistry) {
+	return expr.NewEmptyExtensionRegistry(c), NewFunctionRegistry(c)
 }

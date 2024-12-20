@@ -223,7 +223,7 @@ func validateVariadicBehaviorForMatch(variadicBehavior *VariadicBehavior, actual
 		// all concrete types must be equal for all variable arguments
 		firstVariadicArgIdx := max(variadicBehavior.Min-1, 0)
 		for i := firstVariadicArgIdx; i < len(actualTypes)-1; i++ {
-			if !actualTypes[i].Equals(actualTypes[i+1]) {
+			if !actualTypes[i].Equals(actualTypes[i+1].WithNullability(actualTypes[i].GetNullability())) {
 				return false
 			}
 		}
