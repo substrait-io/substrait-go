@@ -300,7 +300,7 @@ func (v *TestCaseVisitor) VisitFuncOption(ctx *baseparser.FuncOptionContext) int
 }
 
 func (v *TestCaseVisitor) VisitTestGroupDescription(ctx *baseparser.TestGroupDescriptionContext) interface{} {
-	return strings.TrimPrefix(ctx.GetText(), "#")
+	return strings.TrimSpace(strings.TrimPrefix(ctx.GetText(), "#"))
 }
 
 func (v *TestCaseVisitor) VisitTestCase(ctx *baseparser.TestCaseContext) interface{} {

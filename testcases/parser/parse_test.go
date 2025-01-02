@@ -26,11 +26,11 @@ func makeAggregateTestHeader(version, include string) string {
 
 func TestParseBasicExample(t *testing.T) {
 	header := makeHeader("v1.0", "/extensions/functions_arithmetic.yaml")
-	tests := `# 'Basic examples without any special cases'
+	tests := `#  'Basic examples without any special cases'
 add(120::i8, 5::i8) = 125::i8
 add(100::i16, 100::i16) = 200::i16
 
-# Overflow examples demonstrating overflow behavior
+# Overflow examples demonstrating overflow behavior  
 add(120::i8, 10::i8) [overflow:ERROR] = <!ERROR>
 `
 
@@ -46,6 +46,9 @@ add(120::i8, 10::i8) [overflow:ERROR] = <!ERROR>
 		{&types.Int8Type{}, &types.Int8Type{}},
 	}
 	reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(&extensions.DefaultCollection)
+	basicGroupDesc := "'Basic examples without any special cases'"
+	overflowGroupDesc := "Overflow examples demonstrating overflow behavior"
+	groupDescs := []string{basicGroupDesc, basicGroupDesc, overflowGroupDesc}
 	for i, tc := range testFile.TestCases {
 		assert.Equal(t, extensions.ID{URI: arithURI, Name: ids[i]}, tc.ID())
 		scalarFunc, err1 := tc.GetScalarFunctionInvocation(&reg, funcRegistry)
@@ -56,12 +59,13 @@ add(120::i8, 10::i8) [overflow:ERROR] = <!ERROR>
 		assert.Equal(t, tc.Args[1].Value, scalarFunc.Arg(1))
 		assert.Equal(t, argTypes[i], tc.GetArgTypes())
 		assert.Equal(t, ids[i], tc.CompoundFunctionName())
+		assert.Equal(t, groupDescs[i], tc.GroupDesc)
 	}
 }
 
 func TestParseDataTimeExample(t *testing.T) {
 	header := makeHeader("v1.0", "/extensions/functions_datetime.yaml")
-	tests := `# timestamp examples using the timestamp type
+	tests := `#  timestamp examples using the timestamp type 
 lt('2016-12-31T13:30:15'::ts, '2017-12-31T13:30:15'::ts) = true::bool
 `
 	testFile, err := ParseTestCasesFromString(header + tests)
@@ -71,7 +75,7 @@ lt('2016-12-31T13:30:15'::ts, '2017-12-31T13:30:15'::ts) = true::bool
 	assert.Equal(t, "lt", testFile.TestCases[0].FuncName)
 
 	assert.Equal(t, testFile.TestCases[0].BaseURI, "/extensions/functions_datetime.yaml")
-	assert.Contains(t, testFile.TestCases[0].GroupDesc, "timestamp examples using the timestamp type")
+	assert.Equal(t, testFile.TestCases[0].GroupDesc, "timestamp examples using the timestamp type")
 	assert.Len(t, testFile.TestCases[0].Args, 2)
 	tsLiteral, err := literal.NewTimestampFromString("2016-12-31T13:30:15")
 	require.NoError(t, err)
@@ -282,7 +286,7 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 	assert.Len(t, testFile.TestCases, 2)
 	assert.Equal(t, "avg", testFile.TestCases[0].FuncName)
 	tc := testFile.TestCases[0]
-	assert.Contains(t, testFile.TestCases[0].GroupDesc, "basic")
+	assert.Equal(t, testFile.TestCases[0].GroupDesc, "basic")
 	assert.Equal(t, testFile.TestCases[0].BaseURI, "/extensions/functions_arithmetic.yaml")
 	assert.Len(t, testFile.TestCases[0].Args, 0)
 	assert.Len(t, testFile.TestCases[0].AggregateArgs, 1)
@@ -313,7 +317,7 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 
 	tc = testFile.TestCases[1]
 	assert.Equal(t, "sum", testFile.TestCases[1].FuncName)
-	assert.Contains(t, testFile.TestCases[1].GroupDesc, "basic")
+	assert.Equal(t, testFile.TestCases[1].GroupDesc, "basic")
 	assert.Equal(t, testFile.TestCases[1].BaseURI, "/extensions/functions_arithmetic.yaml")
 	assert.Len(t, testFile.TestCases[1].Args, 0)
 	assert.Len(t, testFile.TestCases[1].AggregateArgs, 1)
@@ -374,7 +378,7 @@ func TestParseAggregateFuncCompact(t *testing.T) {
 	require.NotNil(t, testFile)
 	assert.Len(t, testFile.TestCases, 1)
 	assert.Equal(t, "corr", testFile.TestCases[0].FuncName)
-	assert.Contains(t, testFile.TestCases[0].GroupDesc, "basic")
+	assert.Equal(t, testFile.TestCases[0].GroupDesc, "basic")
 	assert.Equal(t, testFile.TestCases[0].BaseURI, "/extensions/functions_arithmetic.yaml")
 	assert.Len(t, testFile.TestCases[0].Args, 0)
 	assert.Len(t, testFile.TestCases[0].AggregateArgs, 2)
@@ -398,7 +402,7 @@ func createAggregateArg(t *testing.T, tableName, columnName string, columnType t
 
 func TestParseAggregateFuncWithMultipleArgs(t *testing.T) {
 	header := makeAggregateTestHeader("v1.0", "/extensions/functions_arithmetic.yaml")
-	tests := `# basic
+	tests := `#  basic 
 DEFINE t1(fp32, fp32) = ((20, 20), (-3, -3), (1, 1), (10,10), (5,5.5))
 corr(t1.col0, t1.col1) = 1::fp64
 DEFINE t1(i64, fp32) = ((20, 20), (-3, -3), (1, 1), (10,10), (5,5.5))
@@ -410,7 +414,7 @@ corr(t1.col1, t1.col0) = 1::fp64
 	require.NotNil(t, testFile)
 	assert.Len(t, testFile.TestCases, 2)
 	assert.Equal(t, "corr", testFile.TestCases[0].FuncName)
-	assert.Contains(t, testFile.TestCases[0].GroupDesc, "basic")
+	assert.Equal(t, testFile.TestCases[0].GroupDesc, "basic")
 	assert.Equal(t, testFile.TestCases[0].BaseURI, "/extensions/functions_arithmetic.yaml")
 	assert.Len(t, testFile.TestCases[0].Args, 0)
 	assert.Len(t, testFile.TestCases[0].AggregateArgs, 2)
@@ -420,7 +424,7 @@ corr(t1.col1, t1.col0) = 1::fp64
 	assert.Equal(t, "col1", testFile.TestCases[0].AggregateArgs[1].ColumnName)
 
 	assert.Equal(t, "corr", testFile.TestCases[1].FuncName)
-	assert.Contains(t, testFile.TestCases[1].GroupDesc, "basic")
+	assert.Equal(t, testFile.TestCases[1].GroupDesc, "basic")
 	assert.Equal(t, testFile.TestCases[1].BaseURI, "/extensions/functions_arithmetic.yaml")
 	assert.Len(t, testFile.TestCases[1].Args, 0)
 	assert.Len(t, testFile.TestCases[1].AggregateArgs, 2)
