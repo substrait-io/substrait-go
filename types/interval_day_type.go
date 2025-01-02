@@ -48,10 +48,10 @@ func (m *IntervalDayType) ToProto() *proto.Type {
 			TypeVariationReference: m.TypeVariationRef}}}
 }
 
-func (*IntervalDayType) ShortString() string { return "iday" }
+func (*IntervalDayType) ShortString() string { return shortTypeNames[TypeNameIntervalDay] }
 
 func (m *IntervalDayType) String() string {
-	return fmt.Sprintf("interval_day%s<%d>", strNullable(m),
+	return fmt.Sprintf("%s%s<%d>", TypeNameIntervalDay, strNullable(m),
 		m.Precision.ToProtoVal())
 }
 
@@ -60,7 +60,7 @@ func (m *IntervalDayType) ParameterString() string {
 }
 
 func (s *IntervalDayType) BaseString() string {
-	return "interval_day"
+	return string(TypeNameIntervalDay)
 }
 
 func (m *IntervalDayType) GetPrecision() TimePrecision {
