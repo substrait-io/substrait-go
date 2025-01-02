@@ -66,10 +66,9 @@ func (m IntervalCompoundType) ToProto() *proto.Type {
 			TypeVariationReference: m.typeVariationRef}}}
 }
 
-func (IntervalCompoundType) ShortString() string { return "intrcomp" }
+func (IntervalCompoundType) ShortString() string { return shortTypeNames[TypeNameIntervalCompound] }
 func (m IntervalCompoundType) String() string {
-	return fmt.Sprintf("intervalcompound%s<%d>", strNullable(m),
-		m.precision.ToProtoVal())
+	return fmt.Sprintf("%s%s<%d>", TypeNameIntervalCompound, strNullable(m), m.precision.ToProtoVal())
 }
 
 func (m IntervalCompoundType) GetParameters() []interface{} {
