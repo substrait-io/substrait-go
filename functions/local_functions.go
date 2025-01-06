@@ -19,6 +19,7 @@ type localFunctionRegistryImpl struct {
 
 	idToLocalFunctionMap map[extensions.ID]localFunctionVariant
 	localTypeRegistry    LocalTypeRegistry
+	funcRegistry         FunctionRegistry
 }
 
 func makeLocalFunctionVariantsMap(functions []extensions.FunctionVariant) map[extensions.ID]localFunctionVariant {
@@ -42,6 +43,10 @@ func (l *localFunctionRegistryImpl) GetAllFunctions() []extensions.FunctionVaria
 
 func (l *localFunctionRegistryImpl) GetDialect() Dialect {
 	return l.dialect
+}
+
+func (l *localFunctionRegistryImpl) GetFunctionRegistry() FunctionRegistry {
+	return l.funcRegistry
 }
 
 func (l *localFunctionRegistryImpl) GetScalarFunctions(name FunctionName, numArgs int) []*LocalScalarFunctionVariant {

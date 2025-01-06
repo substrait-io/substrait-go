@@ -86,6 +86,7 @@ type FunctionRegistry interface {
 type LocalFunctionRegistry interface {
 	functionRegistryBase[FunctionName, *LocalScalarFunctionVariant, *LocalAggregateFunctionVariant, *LocalWindowFunctionVariant]
 	GetDialect() Dialect
+	GetFunctionRegistry() FunctionRegistry
 	GetScalarFunctionByInvocation(scalarFuncInvocation *expr.ScalarFunction) (*LocalScalarFunctionVariant, error)
 	GetAggregateFunctionByInvocation(aggregateFuncInvocation *expr.AggregateFunction) (*LocalAggregateFunctionVariant, error)
 	GetWindowFunctionByInvocation(windowFuncInvocation *expr.WindowFunction) (*LocalWindowFunctionVariant, error)
