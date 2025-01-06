@@ -4,12 +4,12 @@ package plan
 
 import (
 	"fmt"
+	"golang.org/x/exp/slices"
 
 	substraitgo "github.com/substrait-io/substrait-go/v3"
 	"github.com/substrait-io/substrait-go/v3/expr"
 	"github.com/substrait-io/substrait-go/v3/extensions"
 	"github.com/substrait-io/substrait-go/v3/types"
-	"golang.org/x/exp/slices"
 )
 
 // Builder is the base object for constructing the various elements of a plan.
@@ -73,12 +73,8 @@ type Builder interface {
 	Project(input Rel, exprs ...expr.Expression) (*ProjectRel, error)
 	// Deprecated: Use Project(...).Remap() instead.
 	ProjectRemap(input Rel, remap []int32, exprs ...expr.Expression) (*ProjectRel, error)
-	// Deprecated: Use AggregateColumns(...).Remap() instead.
-	AggregateColumnsRemap(input Rel, remap []int32, measures []AggRelMeasure, groupByCols ...int32) (*AggregateRel, error)
 	// Deprecated: Use Aggregate(...) instead.
 	AggregateColumns(input Rel, measures []AggRelMeasure, groupByCols ...int32) (*AggregateRel, error)
-	// Deprecated: Use AggregateExprs(...).Remap() instead.
-	AggregateExprsRemap(input Rel, remap []int32, measures []AggRelMeasure, groups ...[]expr.Expression) (*AggregateRel, error)
 	AggregateExprs(input Rel, measures []AggRelMeasure, groups ...[]expr.Expression) (*AggregateRel, error)
 	// Deprecated: Use CreateTableAsSelect(...).Remap() instead.
 	CreateTableAsSelectRemap(input Rel, remap []int32, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error)
@@ -171,8 +167,8 @@ func NewBuilder(c *extensions.Collection) Builder {
 var (
 	errOutputMappingOutOfRange = fmt.Errorf("%w: output mapping index out of range", substraitgo.ErrInvalidRel)
 	errNilInputRel             = fmt.Errorf("%w: input Relation must not be nil", substraitgo.ErrInvalidRel)
-	errNoGroupingOrMeasure     = fmt.Errorf("%w: must have at least one grouping expression or measure", substraitgo.ErrInvalidRel)
-	errEmptyOrZeroGroupings    = fmt.Errorf("%w: groupings cannot contain empty slices or zero values", substraitgo.ErrInvalidRel)
+	errNoGroupingOrMeasure     = fmt.Errorf("%w: must have at least one grouping expression or measure for AggregateRel", substraitgo.ErrInvalidRel)
+	errNoGroupingExpression    = fmt.Errorf("%w: groupings cannot contain empty expression list or nil expression", substraitgo.ErrInvalidRel)
 	errInvalidGroupingIndex    = fmt.Errorf("%w: groupingReferences contains invalid indices", substraitgo.ErrInvalidRel)
 	errCubeGroupingSizeLimit   = fmt.Errorf("cannot exceed %d grouping references for AddCube", maxGroupingSize)
 )
@@ -269,114 +265,34 @@ func (b *builder) Measure(measure *expr.AggregateFunction, filter expr.Expressio
 	}
 }
 
-func (b *builder) AggregateColumnsRemap(input Rel, remap []int32, measures []AggRelMeasure, groupByCols ...int32) (*AggregateRel, error) {
-	if input == nil {
-		return nil, errNilInputRel
-	}
-
-	if (len(measures) + len(groupByCols)) == 0 {
-		return nil, fmt.Errorf("%w: must have at least one grouping expression or measure for AggregateRel",
-			substraitgo.ErrInvalidRel)
-	}
-
-	exprs := make([][]expr.Expression, len(groupByCols))
-	for i, c := range groupByCols {
-		ref, err := b.RootFieldRef(input, c)
-		if err != nil {
-			return nil, err
-		}
-		exprs[i] = []expr.Expression{ref}
-	}
-
-	noutput := int32(len(measures) + len(groupByCols))
-	for _, idx := range remap {
-		if idx < 0 || idx >= noutput {
-			return nil, errOutputMappingOutOfRange
-		}
-	}
-
-	groupingExpressions, groupingReferences := groupingExprs(exprs)
-	return &AggregateRel{
-		RelCommon:           RelCommon{mapping: remap},
-		input:               input,
-		measures:            measures,
-		groupingReferences:  groupingReferences,
-		groupingExpressions: groupingExpressions,
-	}, nil
-}
-
 func (b *builder) AggregateColumns(input Rel, measures []AggRelMeasure, groupByCols ...int32) (*AggregateRel, error) {
-	return b.AggregateColumnsRemap(input, nil, measures, groupByCols...)
-}
-
-func (b *builder) AggregateExprsRemap(input Rel, remap []int32, measures []AggRelMeasure, groups ...[]expr.Expression) (*AggregateRel, error) {
-	if input == nil {
-		return nil, errNilInputRel
-	}
-
-	if (len(measures) + len(groups)) == 0 {
-		return nil, fmt.Errorf("%w: must have at least one grouping expression or measure for AggregateRel",
-			substraitgo.ErrInvalidRel)
-	}
-
-	if slices.ContainsFunc(groups, func(exlist []expr.Expression) bool {
-		return len(exlist) == 0 || slices.ContainsFunc(exlist, func(e expr.Expression) bool { return e == nil })
-	}) {
-		return nil, fmt.Errorf("%w: groupings cannot contain empty expression list or nil expression", substraitgo.ErrInvalidRel)
-	}
-
-	noutput := int32(len(measures) + len(groups))
-	for _, idx := range remap {
-		if idx < 0 || idx >= noutput {
-			return nil, errOutputMappingOutOfRange
+	arb := b.GetRelBuilder().AggregateRel(input, measures)
+	if len(groupByCols) > 0 {
+		groupingReferences := []uint32{}
+		for _, c := range groupByCols {
+			ref, err := b.RootFieldRef(input, c)
+			if err != nil {
+				return nil, err
+			}
+			i := arb.AddExpression(ref)
+			groupingReferences = append(groupingReferences, i)
 		}
+		arb.AddGroupingSet(groupingReferences)
 	}
-
-	groupingExpressions, groupingReferences := groupingExprs(groups)
-	return &AggregateRel{
-		RelCommon:           RelCommon{mapping: remap},
-		input:               input,
-		measures:            measures,
-		groupingReferences:  groupingReferences,
-		groupingExpressions: groupingExpressions,
-	}, nil
+	return arb.Build()
 }
 
 func (b *builder) AggregateExprs(input Rel, measures []AggRelMeasure, groups ...[]expr.Expression) (*AggregateRel, error) {
-	return b.AggregateExprsRemap(input, nil, measures, groups...)
-}
-
-func (b *builder) Aggregate(input Rel, measures []AggRelMeasure, groupingExpressions []expr.Expression, groupingReferences [][]uint32) (*AggregateRel, error) {
-	if input == nil {
-		return nil, errNilInputRel
-	}
-
-	if (len(measures) + len(groupingExpressions)) == 0 {
-		return nil, fmt.Errorf("%w: must have at least one grouping expression or measure for AggregateRel", substraitgo.ErrInvalidRel)
-	}
-
-	if slices.ContainsFunc(groupingExpressions, func(expr expr.Expression) bool {
-		return expr == nil
-	}) {
-		return nil, fmt.Errorf("%w: groupings cannot contain empty expression list or nil expression", substraitgo.ErrInvalidRel)
-	}
-
-	// Validate groupingReferences indices.
-	for _, refList := range groupingReferences {
-		for _, ref := range refList {
-			if ref >= uint32(len(groupingExpressions)) {
-				return nil, fmt.Errorf("%w: groupingReferences contains invalid indices", substraitgo.ErrInvalidRel)
-			}
+	arb := b.GetRelBuilder().AggregateRel(input, measures)
+	for _, group := range groups {
+		groupingSet := []uint32{}
+		for _, expr := range group {
+			i := arb.AddExpression(expr)
+			groupingSet = append(groupingSet, i)
 		}
+		arb.AddGroupingSet(groupingSet)
 	}
-
-	return &AggregateRel{
-		RelCommon:           RelCommon{},
-		input:               input,
-		measures:            measures,
-		groupingReferences:  groupingReferences,
-		groupingExpressions: groupingExpressions,
-	}, nil
+	return arb.Build()
 }
 
 func (b *builder) CreateTableAsSelectRemap(input Rel, remap []int32, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {
@@ -899,10 +815,14 @@ func (arb *AggregateRelBuilder) validate() error {
 		return errNoGroupingOrMeasure
 	}
 
-	if slices.ContainsFunc(arb.groupingReferences, func(group []uint32) bool {
-		return len(group) == 0
+	if len(arb.measures) == 0 && len(arb.groupingExpressions) == 0 {
+		return errNoGroupingExpression
+	}
+
+	if slices.ContainsFunc(arb.groupingExpressions, func(e expr.Expression) bool {
+		return e == nil
 	}) {
-		return errEmptyOrZeroGroupings
+		return errNoGroupingExpression
 	}
 
 	for _, refList := range arb.groupingReferences {

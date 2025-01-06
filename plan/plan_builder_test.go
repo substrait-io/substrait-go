@@ -331,7 +331,9 @@ func TestAggregateRelErrors(t *testing.T) {
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidArg)
 	assert.ErrorContains(t, err, "cannot create field ref index -1")
 
-	_, err = b.AggregateColumnsRemap(scan, []int32{-1, 5}, nil, 0)
+	aggregateRel, err := b.AggregateColumns(scan, nil, 0)
+	assert.NoError(t, err)
+	_, err = aggregateRel.Remap([]int32{-1, 5}...)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
@@ -342,7 +344,9 @@ func TestAggregateRelErrors(t *testing.T) {
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
 	ref, _ := b.RootFieldRef(scan, 0)
-	_, err = b.AggregateExprsRemap(scan, []int32{5, -1}, nil, []expr.Expression{ref})
+	aggregateRel, err = b.AggregateExprs(scan, nil, []expr.Expression{ref})
+	assert.NoError(t, err)
+	_, err = aggregateRel.Remap([]int32{5, -1}...)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
@@ -353,7 +357,9 @@ func TestAggregateRelErrors(t *testing.T) {
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
-	_, err = b.AggregateExprsRemap(scan, []int32{1}, nil, []expr.Expression{ref})
+	aggregateRel, err = b.AggregateExprs(scan, nil, []expr.Expression{ref})
+	assert.NoError(t, err)
+	_, err = aggregateRel.Remap([]int32{1}...)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
@@ -363,14 +369,18 @@ func TestAggregateRelErrors(t *testing.T) {
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
-	_, err = b.AggregateExprsRemap(scan, []int32{0}, nil, []expr.Expression{ref})
+	aggregateRel, err = b.AggregateExprs(scan, nil, []expr.Expression{ref})
+	assert.NoError(t, err)
+	_, err = aggregateRel.Remap([]int32{0}...)
 	assert.NoError(t, err)
 	ae, err = b.AggregateExprs(scan, nil, []expr.Expression{ref})
 	assert.NoError(t, err)
 	_, err = ae.Remap(0)
 	assert.NoError(t, err)
 
-	_, err = b.AggregateColumnsRemap(scan, []int32{0}, nil, 0)
+	aggregateRel, err = b.AggregateColumns(scan, nil, 0)
+	assert.NoError(t, err)
+	_, err = aggregateRel.Remap([]int32{0}...)
 	assert.NoError(t, err)
 	ae, err = b.AggregateColumns(scan, nil, 0)
 	assert.NoError(t, err)
