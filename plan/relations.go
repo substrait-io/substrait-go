@@ -1094,6 +1094,22 @@ func (ar *AggregateRel) Remap(mapping ...int32) (Rel, error) {
 	return RemapHelper(ar, mapping)
 }
 
+func (ar *AggregateRel) SetInput(input Rel) {
+	ar.input = input
+}
+
+func (ar *AggregateRel) SetMeasures(measures []AggRelMeasure) {
+	ar.measures = measures
+}
+
+func (ar *AggregateRel) SetGroupingExpressions(groupingExpressions []expr.Expression) {
+	ar.groupingExpressions = groupingExpressions
+}
+
+func (ar *AggregateRel) SetGroupingReferences(groupingReferences [][]uint32) {
+	ar.groupingReferences = groupingReferences
+}
+
 // SortRel is an ORDER BY relational operator, describing a base relation,
 // it includes a list of fields to sort on.
 type SortRel struct {

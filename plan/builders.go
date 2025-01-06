@@ -147,6 +147,10 @@ type Builder interface {
 	// GetExprBuilder returns an expr.ExprBuilder that shares the extension
 	// registry that this Builder uses.
 	GetExprBuilder() *expr.ExprBuilder
+
+	// GetRelBuilder returns an expr.RelBuilder that can be used to construct
+	// relations which need multiple stages to build them.
+	GetRelBuilder() *RelBuilder
 }
 
 const FETCH_COUNT_ALL_RECORDS = -1
@@ -167,6 +171,10 @@ func NewBuilder(c *extensions.Collection) Builder {
 var (
 	errOutputMappingOutOfRange = fmt.Errorf("%w: output mapping index out of range", substraitgo.ErrInvalidRel)
 	errNilInputRel             = fmt.Errorf("%w: input Relation must not be nil", substraitgo.ErrInvalidRel)
+	errNoGroupingOrMeasure     = fmt.Errorf("%w: must have at least one grouping expression or measure", substraitgo.ErrInvalidRel)
+	errEmptyOrZeroGroupings    = fmt.Errorf("%w: groupings cannot contain empty slices or zero values", substraitgo.ErrInvalidRel)
+	errInvalidGroupingIndex    = fmt.Errorf("%w: groupingReferences contains invalid indices", substraitgo.ErrInvalidRel)
+	errCubeGroupingSizeLimit   = fmt.Errorf("cannot exceed %d grouping references for AddCube", maxGroupingSize)
 )
 
 type builder struct {
@@ -782,3 +790,128 @@ func (b *builder) Plan(root Rel, rootNames []string, others ...Rel) (*Plan, erro
 var (
 	_ Builder = (*builder)(nil)
 )
+
+// RelBuilder is a builder for constructing a plan.Rel expression.
+type RelBuilder struct {
+}
+
+func (b *builder) GetRelBuilder() *RelBuilder {
+	return &RelBuilder{}
+}
+
+// AggregateRel returns a builder for constructing an AggregateRelation
+// expression. The input plan.Rel is the input relation to the aggregation.
+// The measures are the aggregation measures to be computed.
+func (r *RelBuilder) AggregateRel(input Rel, measures []AggRelMeasure) *AggregateRelBuilder {
+	return &AggregateRelBuilder{input: input, measures: measures}
+}
+
+type AggregateRelBuilder struct {
+	input               Rel
+	measures            []AggRelMeasure
+	groupingExpressions []expr.Expression
+	groupingReferences  [][]uint32
+}
+
+// AddExpression adds an expression to the expression map and returns an expression reference.
+func (arb *AggregateRelBuilder) AddExpression(e expr.Expression) uint32 {
+	for idx, expr := range arb.groupingExpressions {
+		if expr == e {
+			return uint32(idx)
+		}
+	}
+
+	arb.groupingExpressions = append(arb.groupingExpressions, e)
+	return uint32(len(arb.groupingExpressions) - 1)
+}
+
+// maxGroupingSize is the maximum allowed size for the grouping references in the AddCube API.
+const maxGroupingSize = 20
+
+// AddCube generates all combinations (subsets) of the group represented by the set of expressionReferences and appends them to groupingReferences.
+// It uses the power set to generate all possible subsets and adds them to the groupingReferences.
+// If the length of expressionReferences exceeds maxGroupingSize, an error is returned to avoid excessive computation.
+func (arb *AggregateRelBuilder) AddCube(expressionReferences []uint32) error {
+	// Ensure the input size is within allowed limits
+	if len(expressionReferences) > maxGroupingSize {
+		return errCubeGroupingSizeLimit
+	}
+
+	// Total combinations in the power set (2^n)
+	totalCombinations := 1 << len(expressionReferences)
+
+	// Generate each subset based on the binary representation of the combination index
+	for combinationIndex := 1; combinationIndex < totalCombinations; combinationIndex++ {
+		group := extractGroup(expressionReferences, combinationIndex)
+		arb.groupingReferences = append(arb.groupingReferences, group)
+	}
+
+	return nil
+}
+
+// extractGroup generates a subset of expressionReferences based on the binary representation of combinationIndex.
+// For each bit set to 1 in combinationIndex, the corresponding element from expressionReferences is included in the subset.
+func extractGroup(expressionReferences []uint32, combinationIndex int) []uint32 {
+	var group []uint32
+	for bit := 0; bit < len(expressionReferences); bit++ {
+		if (combinationIndex & (1 << bit)) != 0 {
+			group = append(group, expressionReferences[bit])
+		}
+	}
+	return group
+}
+
+// addRollup constructs the rollup grouping strategy from the provided grouping references.
+func (arb *AggregateRelBuilder) AddRollup(groupingReferences []uint32) {
+	for i := len(groupingReferences); i > 0; i-- {
+		rollupSet := groupingReferences[:i]
+		arb.groupingReferences = append(arb.groupingReferences, rollupSet)
+	}
+}
+
+// addGroupingSet adds a new grouping set based on the provided grouping references.
+func (arb *AggregateRelBuilder) AddGroupingSet(groupingReferences []uint32) {
+	arb.groupingReferences = append(arb.groupingReferences, groupingReferences)
+}
+
+func (arb *AggregateRelBuilder) Build() (*AggregateRel, error) {
+	if err := arb.validate(); err != nil {
+		return nil, err
+	}
+
+	aggregateRel := &AggregateRel{
+		RelCommon: RelCommon{},
+	}
+	aggregateRel.SetInput(arb.input)
+	aggregateRel.SetMeasures(arb.measures)
+	aggregateRel.SetGroupingExpressions(arb.groupingExpressions)
+	aggregateRel.SetGroupingReferences(arb.groupingReferences)
+
+	return aggregateRel, nil
+}
+
+func (arb *AggregateRelBuilder) validate() error {
+	if arb.input == nil {
+		return errNilInputRel
+	}
+
+	if len(arb.measures) == 0 && len(arb.groupingReferences) == 0 {
+		return errNoGroupingOrMeasure
+	}
+
+	if slices.ContainsFunc(arb.groupingReferences, func(group []uint32) bool {
+		return len(group) == 0
+	}) {
+		return errEmptyOrZeroGroupings
+	}
+
+	for _, refList := range arb.groupingReferences {
+		for _, ref := range refList {
+			if ref >= uint32(len(arb.groupingExpressions)) {
+				return errInvalidGroupingIndex
+			}
+		}
+	}
+
+	return nil
+}
