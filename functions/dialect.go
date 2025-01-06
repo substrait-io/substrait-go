@@ -84,6 +84,7 @@ func (d *dialectImpl) LocalizeFunctionRegistry(registry FunctionRegistry) (Local
 		allFunctions:         allVariants,
 		idToLocalFunctionMap: makeLocalFunctionVariantsMap(allVariants),
 		localTypeRegistry:    localTypeRegistry,
+		funcRegistry:         registry,
 	}, nil
 }
 

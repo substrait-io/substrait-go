@@ -68,6 +68,7 @@ window_functions:
 	localRegistry, err := dialect.LocalizeFunctionRegistry(gFunctionRegistry)
 	assert.NoError(t, err)
 	assert.Equal(t, t.Name(), localRegistry.GetDialect().Name())
+	assert.Equal(t, gFunctionRegistry, localRegistry.GetFunctionRegistry())
 }
 
 func TestBadDialects(t *testing.T) {
