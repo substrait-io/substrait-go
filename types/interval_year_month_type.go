@@ -54,9 +54,9 @@ func (m IntervalYearToMonthType) ToProto() *proto.Type {
 			TypeVariationReference: m.typeVariationRef}}}
 }
 
-func (IntervalYearToMonthType) ShortString() string { return "intrytm" }
+func (IntervalYearToMonthType) ShortString() string { return shortTypeNames[TypeNameIntervalYear] }
 func (m IntervalYearToMonthType) String() string {
-	return fmt.Sprintf("intervalyeartomonth%s", strNullable(m))
+	return fmt.Sprintf("%s%s", TypeNameIntervalYear, strNullable(m))
 }
 
 func (m IntervalYearToMonthType) GetParameters() []interface{} {
