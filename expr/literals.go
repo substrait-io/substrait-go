@@ -21,7 +21,7 @@ import (
 // via ==
 type PrimitiveLiteralValue interface {
 	bool | int8 | int16 | ~int32 | ~int64 |
-		float32 | float64 | ~string
+	float32 | float64 | ~string
 }
 
 type nestedLiteral interface {
@@ -522,7 +522,7 @@ func getNullability(nullable bool) types.Nullability {
 
 type newPrimitiveLiteralTypes interface {
 	bool | int8 | int16 | ~int32 | ~int64 |
-		float32 | float64 | string
+	float32 | float64 | string
 }
 
 func NewPrimitiveLiteral[T newPrimitiveLiteralTypes](val T, nullable bool) Literal {
@@ -634,9 +634,9 @@ func NewFixedBinaryLiteral(val types.FixedBinary, nullable bool) *ByteSliceLiter
 
 type allLiteralTypes interface {
 	PrimitiveLiteralValue | nestedLiteral | MapLiteralValue |
-		[]byte | types.UUID | types.FixedBinary | *types.IntervalYearToMonth |
-		*types.IntervalDayToSecond | *types.VarChar | *types.Decimal | *types.UserDefinedLiteral |
-		*types.PrecisionTimestamp | *types.PrecisionTimestampTz
+	[]byte | types.UUID | types.FixedBinary | *types.IntervalYearToMonth |
+	*types.IntervalDayToSecond | *types.VarChar | *types.Decimal | *types.UserDefinedLiteral |
+	*types.PrecisionTimestamp | *types.PrecisionTimestampTz
 }
 
 func NewLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {
