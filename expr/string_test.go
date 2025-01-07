@@ -3,11 +3,11 @@
 package expr_test
 
 import (
-	"github.com/substrait-io/substrait-go/v3/literal"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/substrait-io/substrait-go/v3/expr"
+	"github.com/substrait-io/substrait-go/v3/literal"
 	"github.com/substrait-io/substrait-go/v3/types"
 )
 
