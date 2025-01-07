@@ -2,11 +2,11 @@ package expr
 
 import (
 	"fmt"
-	"github.com/substrait-io/substrait-go/v3/types"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/substrait-io/substrait-go/v3/types"
 )
 
 func TestDecimalStringToBytes(t *testing.T) {
