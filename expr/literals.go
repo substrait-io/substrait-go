@@ -21,7 +21,7 @@ import (
 // via ==
 type PrimitiveLiteralValue interface {
 	bool | int8 | int16 | ~int32 | ~int64 |
-		float32 | float64 | ~string
+	float32 | float64 | ~string
 }
 
 type nestedLiteral interface {
@@ -406,12 +406,34 @@ type ProtoLiteral struct {
 	Type  types.Type
 }
 
+func DecimalLiteralToString(lit *ProtoLiteral) (string, error) {
+	decLit, ok := lit.Type.(*types.DecimalType)
+	if !ok {
+		return "", fmt.Errorf("expected decimal, got %T", lit.Type)
+	}
+	decBytes, ok := lit.Value.([]byte)
+	if !ok {
+		return "", fmt.Errorf("expected [16]byte, got %T", lit.Value)
+	}
+	if len(decBytes) != 16 {
+		return "", fmt.Errorf("expected 16 bytes, got [%d]", len(decBytes))
+	}
+
+	return decimalBytesToString([16]byte(decBytes), decLit.Scale), nil
+}
+
 func (*ProtoLiteral) isRootRef()            {}
 func (t *ProtoLiteral) GetType() types.Type { return t.Type }
 func (t *ProtoLiteral) String() string {
 	switch literalType := t.Type.(type) {
 	case *types.PrecisionTimestampType, *types.PrecisionTimestampTzType:
 		return fmt.Sprintf("%s(%d)", literalType, t.Value)
+	case *types.DecimalType:
+		str, err := DecimalLiteralToString(t)
+		if err != nil {
+			return fmt.Sprintf("%s(%v)", literalType, err)
+		}
+		return fmt.Sprintf("%s(%s)", literalType, str)
 	}
 	return fmt.Sprintf("%s(%s)", t.Type, t.Value)
 }
@@ -515,7 +537,7 @@ func getNullability(nullable bool) types.Nullability {
 
 type newPrimitiveLiteralTypes interface {
 	bool | int8 | int16 | ~int32 | ~int64 |
-		float32 | float64 | string
+	float32 | float64 | string
 }
 
 func NewPrimitiveLiteral[T newPrimitiveLiteralTypes](val T, nullable bool) Literal {
@@ -627,9 +649,9 @@ func NewFixedBinaryLiteral(val types.FixedBinary, nullable bool) *ByteSliceLiter
 
 type allLiteralTypes interface {
 	PrimitiveLiteralValue | nestedLiteral | MapLiteralValue |
-		[]byte | types.UUID | types.FixedBinary | *types.IntervalYearToMonth |
-		*types.IntervalDayToSecond | *types.VarChar | *types.Decimal | *types.UserDefinedLiteral |
-		*types.PrecisionTimestamp | *types.PrecisionTimestampTz
+	[]byte | types.UUID | types.FixedBinary | *types.IntervalYearToMonth |
+	*types.IntervalDayToSecond | *types.VarChar | *types.Decimal | *types.UserDefinedLiteral |
+	*types.PrecisionTimestamp | *types.PrecisionTimestampTz
 }
 
 func NewLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {

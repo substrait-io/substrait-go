@@ -3,6 +3,7 @@
 package expr_test
 
 import (
+	"github.com/substrait-io/substrait-go/v3/literal"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -46,6 +47,8 @@ func TestLiteralToString(t *testing.T) {
 		{expr.NewPrecisionTimestampTzLiteral(123456, types.PrecisionMilliSeconds, types.NullabilityNullable), "precisiontimestamptz?<3>(123456)"},
 		{expr.NewPrecisionTimestampTzLiteral(123456, types.PrecisionMicroSeconds, types.NullabilityNullable), "precisiontimestamptz?<6>(123456)"},
 		{expr.NewPrecisionTimestampTzLiteral(123456, types.PrecisionNanoSeconds, types.NullabilityNullable), "precisiontimestamptz?<9>(123456)"},
+		{MustLiteral(literal.NewDecimalFromString("12.345")), "decimal<5,3>(12.345)"},
+		{MustLiteral(literal.NewDecimalFromString("-12.345")), "decimal<5,3>(-12.345)"},
 	}
 
 	for _, tt := range tests {

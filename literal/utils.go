@@ -314,7 +314,7 @@ func NewDecimalFromTwosComplement(twosComplement []byte, precision, scale int32)
 
 // NewDecimalFromString create a Decimal literal from decimal value string
 func NewDecimalFromString(value string) (expr.Literal, error) {
-	v, precision, scale, err := decimalStringToBytes(value)
+	v, precision, scale, err := expr.DecimalStringToBytes(value)
 	if err != nil {
 		return nil, err
 	}
