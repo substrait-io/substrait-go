@@ -416,7 +416,7 @@ func DecimalLiteralToString(lit *ProtoLiteral) (string, error) {
 		return "", fmt.Errorf("expected [16]byte, got %T", lit.Value)
 	}
 	if len(decBytes) != 16 {
-		return "", fmt.Errorf("expected 16 bytes, got [%d]", len(decBytes))
+		return "", fmt.Errorf("expected 16 bytes, got %d", len(decBytes))
 	}
 
 	return decimalBytesToString([16]byte(decBytes), decLit.Scale), nil
