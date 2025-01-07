@@ -4,12 +4,12 @@ package plan
 
 import (
 	"fmt"
-	"golang.org/x/exp/slices"
 
 	substraitgo "github.com/substrait-io/substrait-go/v3"
 	"github.com/substrait-io/substrait-go/v3/expr"
 	"github.com/substrait-io/substrait-go/v3/extensions"
 	"github.com/substrait-io/substrait-go/v3/types"
+	"golang.org/x/exp/slices"
 )
 
 // Builder is the base object for constructing the various elements of a plan.

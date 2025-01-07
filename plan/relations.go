@@ -1012,7 +1012,7 @@ func (ar *AggregateRel) ToProto() *proto.Rel {
 	}
 
 	groupings := make([]*proto.AggregateRel_Grouping, len(ar.groupingReferences))
-	for i, _ := range ar.groupingReferences {
+	for i := range ar.groupingReferences {
 		groupings[i] = &proto.AggregateRel_Grouping{
 			ExpressionReferences: ar.groupingReferences[i],
 		}
