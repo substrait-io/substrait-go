@@ -1,12 +1,13 @@
-package functions
+package functions_test
 
 import (
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	substraitgo "github.com/substrait-io/substrait-go"
-	"github.com/substrait-io/substrait-go/types"
+	substraitgo "github.com/substrait-io/substrait-go/v3"
+	. "github.com/substrait-io/substrait-go/v3/functions"
+	"github.com/substrait-io/substrait-go/v3/types"
 )
 
 func TestTypeRegistry(t *testing.T) {

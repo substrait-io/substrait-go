@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	. "github.com/substrait-io/substrait-go/types"
+	. "github.com/substrait-io/substrait-go/v3/types"
 )
 
 func TestAnyType(t *testing.T) {

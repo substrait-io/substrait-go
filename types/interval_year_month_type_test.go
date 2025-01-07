@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
-	"github.com/substrait-io/substrait-go/proto"
+	"github.com/substrait-io/substrait-go/v3/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -24,8 +24,8 @@ func TestNewIntervalYearToMonthType(t *testing.T) {
 		assert.True(t, createdIntervalType.Equals(expectedIntervalType))
 		assert.Equal(t, nullability, createdIntervalType.GetNullability())
 		assert.Zero(t, createdIntervalTypeIfcType.GetTypeVariationReference())
-		assert.Equal(t, fmt.Sprintf("intervalyeartomonth%s", strNullable(expectedIntervalType)), createdIntervalType.String())
-		assert.Equal(t, "intrytm", createdIntervalType.ShortString())
+		assert.Equal(t, fmt.Sprintf("interval_year%s", strNullable(expectedIntervalType)), createdIntervalType.String())
+		assert.Equal(t, "iyear", createdIntervalType.ShortString())
 		assertIntervalYearToMonthTypeProto(t, nullability, createdIntervalType)
 	}
 }

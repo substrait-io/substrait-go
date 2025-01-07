@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package functions
+package functions_test
 
 import (
 	"strings"
@@ -8,8 +8,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/extensions"
-	"github.com/substrait-io/substrait-go/types"
+	"github.com/substrait-io/substrait-go/v3/extensions"
+	. "github.com/substrait-io/substrait-go/v3/functions"
+	"github.com/substrait-io/substrait-go/v3/types"
 )
 
 var gFunctionRegistry FunctionRegistry
@@ -67,6 +68,7 @@ window_functions:
 	localRegistry, err := dialect.LocalizeFunctionRegistry(gFunctionRegistry)
 	assert.NoError(t, err)
 	assert.Equal(t, t.Name(), localRegistry.GetDialect().Name())
+	assert.Equal(t, gFunctionRegistry, localRegistry.GetFunctionRegistry())
 }
 
 func TestBadDialects(t *testing.T) {
@@ -592,7 +594,7 @@ dependencies:
     http://localhost/sample.yaml
 supported_types:
   dec:
-    sql_type_name: INTEGER
+    sql_type_name: NUMBER
 scalar_functions:
 - name: arithmetic.func_testsync
   supported_kernels:
@@ -604,21 +606,29 @@ scalar_functions:
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
-	int32Nullable := &types.Int32Type{Nullability: types.NullabilityNullable}
+	argTypes := []types.Type{
+		&types.DecimalType{Nullability: types.NullabilityNullable, Precision: 10, Scale: 2},
+		&types.DecimalType{Nullability: types.NullabilityNullable, Precision: 10, Scale: 2},
+	}
+	argTypesWithMismatchedParams := []types.Type{
+		&types.DecimalType{Nullability: types.NullabilityNullable, Precision: 20, Scale: 2},
+		&types.DecimalType{Nullability: types.NullabilityNullable, Precision: 10, Scale: 2},
+	}
 
 	fv := localRegistry.GetScalarFunctions(LocalFunctionName("func_testsync"), 2)
 
-	argTypes := []types.Type{int32Nullable, int32Nullable}
 	require.Len(t, fv, 1)
-	_, err := fv[0].Match(argTypes)
-	require.Error(t, err)
-	require.ErrorContains(t, err, "function has sync param")
+	isMatch, err := fv[0].Match(argTypes)
+	require.NoError(t, err)
+	require.True(t, isMatch)
+	isMatch, err = fv[0].Match(argTypesWithMismatchedParams)
+	require.NoError(t, err)
+	require.False(t, isMatch)
 
 	// test MatchAt
 	for pos, typ := range argTypes {
 		_, err = fv[0].MatchAt(typ, pos)
-		require.Error(t, err)
-		require.ErrorContains(t, err, "function has sync param")
+		require.NoError(t, err)
 	}
 }
 
@@ -1643,7 +1653,7 @@ scalar_functions:
 	}
 	checkCompoundNames(t, getScalarCompoundNames(fv), expectedNames)
 	assert.Len(t, urisFound, len(expectedUris))
-	for k, _ := range urisFound {
+	for k := range urisFound {
 		assert.Contains(t, expectedUris, k)
 	}
 
@@ -1668,5 +1678,147 @@ scalar_functions:
 	assert.Greater(t, len(scalarFunctions), 0)
 	for _, f := range scalarFunctions {
 		assert.Contains(t, allFunctions, f)
+	}
+}
+
+func TestAggregateFunctionsWithSameName(t *testing.T) {
+	const arithmeticUri = "http://localhost/functions_aggregate_generic.yaml"
+	const decimalUri = "http://localhost/functions_aggregate_decimal_output.yaml"
+	const decimalYaml = `---
+aggregate_functions:
+  - name: "count"
+    description: Count a set of values. Result is returned as a decimal instead of i64.
+    impls:
+      - args:
+          - name: x
+            value: any
+        options:
+          overflow:
+            values: [SILENT, SATURATE, ERROR]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: decimal<38,0>
+        return: decimal<38,0>
+  - name: "count"
+    description: "Count a set of records (not field referenced). Result is returned as a decimal instead of i64."
+    impls:
+      - options:
+          overflow:
+            values: [SILENT, SATURATE, ERROR]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: decimal<38,0>
+        return: decimal<38,0>
+
+`
+	const arithmeticYaml = `---
+aggregate_functions:
+  - name: "count"
+    description: Count a set of values
+    impls:
+      - args:
+          - name: x
+            value: any
+        options:
+          overflow:
+            values: [SILENT, SATURATE, ERROR]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: i64
+        return: i64
+  - name: "count"
+    description: "Count a set of records (not field referenced)"
+    impls:
+      - options:
+          overflow:
+            values: [SILENT, SATURATE, ERROR]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: i64
+        return: i64
+
+`
+
+	dialectYaml := `
+name: test
+type: sql
+dependencies:
+  aggregate: 
+    http://localhost/functions_aggregate_generic.yaml
+  aggdec: 
+    http://localhost/functions_aggregate_decimal_output.yaml
+supported_types:
+  dec:
+    sql_type_name: numeric
+    supported_as_column: true
+  i64:
+    sql_type_name: BIGINT
+    supported_as_column: true
+aggregate_functions:
+- name: aggdec.count
+  local_name: count
+  aggregate: true
+  supported_kernels:
+    - any
+- name: aggdec.count
+  local_name: count_rows
+  aggregate: true
+  supported_kernels:
+    - ""
+`
+	// get substrait function registry
+	var c extensions.Collection
+	require.NoError(t, c.Load(arithmeticUri, strings.NewReader(arithmeticYaml)))
+	require.NoError(t, c.Load(decimalUri, strings.NewReader(decimalYaml)))
+	funcRegistry := NewFunctionRegistry(&c)
+	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
+	allFunctions := funcRegistry.GetAllFunctions()
+
+	testcases := []struct {
+		numArgs               int
+		localName             string
+		substraitName         string
+		signature             string
+		numSubstraitFunctions int
+	}{
+		{1, "count", "count", "count:any", 2},
+		{0, "count_rows", "count", "count:", 2},
+	}
+	for _, tt := range testcases {
+		t.Run(tt.localName, func(t *testing.T) {
+			var fv []*LocalAggregateFunctionVariant
+			fv = localRegistry.GetAggregateFunctions(LocalFunctionName(tt.localName), tt.numArgs)
+
+			require.Greater(t, len(fv), 0)
+			assert.Equal(t, decimalUri, fv[0].URI())
+			assert.Equal(t, tt.localName, fv[0].LocalName())
+			assert.Equal(t, tt.substraitName, fv[0].Name())
+			checkCompoundNames(t, getAggregateCompoundNames(fv), []string{tt.signature})
+
+			fv = localRegistry.GetAggregateFunctions(SubstraitFunctionName(tt.substraitName), tt.numArgs)
+			require.Greater(t, len(fv), 0)
+			assert.Equal(t, decimalUri, fv[0].URI())
+			assert.Equal(t, tt.localName, fv[0].LocalName())
+			assert.Equal(t, tt.substraitName, fv[0].Name())
+			checkCompoundNames(t, getAggregateCompoundNames(fv), []string{tt.signature})
+
+			aggregateFunctions := funcRegistry.GetAggregateFunctions(tt.substraitName, tt.numArgs)
+			assert.Equal(t, tt.numSubstraitFunctions, len(aggregateFunctions))
+			for _, f := range aggregateFunctions {
+				assert.Contains(t, allFunctions, f)
+			}
+			aggregateFunctions = funcRegistry.GetAggregateFunctionsByName(tt.substraitName)
+			assert.Equal(t, 4, len(aggregateFunctions))
+			uriMap := map[string]int{
+				arithmeticUri: 0,
+				decimalUri:    0,
+			}
+			for _, f := range aggregateFunctions {
+				assert.Contains(t, allFunctions, f)
+				uriMap[f.URI()]++
+			}
+			assert.Equal(t, 2, uriMap[arithmeticUri])
+			assert.Equal(t, 2, uriMap[decimalUri])
+		})
 	}
 }

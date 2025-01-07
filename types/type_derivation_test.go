@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/types"
-	"github.com/substrait-io/substrait-go/types/parser"
+	"github.com/substrait-io/substrait-go/v3/types"
+	"github.com/substrait-io/substrait-go/v3/types/parser"
 )
 
 type testcase struct {
@@ -229,6 +229,41 @@ func Test_getBinaryOpType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equalf(t, tt.want, types.GetBinaryOpType(tt.name), "GetBinaryOpType(%v)", tt.name)
 			assert.Equalf(t, tt.name, tt.want.String(), "getBinaryOpType(%v)", tt.name)
+		})
+	}
+}
+
+func TestAreSyncTypeParametersMatching(t *testing.T) {
+	tests := []struct {
+		name       string
+		parameters []string
+		arguments  []string
+		inSync     bool
+	}{
+		{"singleVarchar", []string{"varchar<L1>"}, []string{"varchar<8>"}, true},
+		{"singleDec", []string{"decimal<P1, S1>"}, []string{"decimal<20,5>"}, true},
+		{"SingleDecSingleParam", []string{"decimal<P1, 5>"}, []string{"decimal<20,5>"}, true},
+		{"SingleDecScaleParam", []string{"decimal<25, S1>"}, []string{"decimal<25,9>"}, true},
+		{"NonSyncVarcharParams", []string{"varchar<L1>", "varchar<L2>"}, []string{"varchar<9>", "varchar<8>"}, true},
+		{"SyncVarcharParams", []string{"varchar<L1>", "varchar<L1>"}, []string{"varchar<9>", "varchar<9>"}, true},
+		{"SyncVarcharParamsNeg", []string{"varchar<L1>", "varchar<L1>"}, []string{"varchar<9>", "varchar<8>"}, false},
+		{"NonSyncVarcharParams", []string{"decimal<P1, 0>", "decimal<P2, 0>"}, []string{"decimal<18,0>", "decimal<27,0>"}, true},
+		{"SyncScaleParam", []string{"decimal<38, S1>", "decimal<38, S1>"}, []string{"decimal<38,10>", "decimal<38,10>"}, true},
+		{"SyncScalParamNeg", []string{"decimal<38, S1>", "decimal<38, S1>"}, []string{"decimal<38,10>", "decimal<38,12>"}, false},
+		{"SyncPrecisionParam", []string{"decimal<P1, 0>", "decimal<P1, 0>"}, []string{"decimal<18,0>", "decimal<18,0>"}, true},
+		{"SyncPrecisionParamNeg", []string{"decimal<P1, 0>", "decimal<P1, 0>"}, []string{"decimal<18,0>", "decimal<20,0>"}, false},
+		{"NonSyncDecParams", []string{"decimal<P1, S1>", "decimal<P2, S2>"}, []string{"decimal<18,5>", "decimal<38,9>"}, true},
+		{"SyncDecParams", []string{"decimal<P1, S1>", "decimal<P1, S2>"}, []string{"decimal<18,5>", "decimal<18,9>"}, true},
+		{"SyncDecParamsBadScale", []string{"decimal<P1, S1>", "decimal<P1, S1>"}, []string{"decimal<18,5>", "decimal<18,9>"}, false},
+		{"SyncDecParamsBadPrecision", []string{"decimal<P1, S1>", "decimal<P1, S2>"}, []string{"decimal<19,5>", "decimal<18,5>"}, false},
+		{"SyncDecParamsNeg", []string{"decimal<P1, S1>", "decimal<P1, S2>"}, []string{"decimal<19,5>", "decimal<18,9>"}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			funcParameters := parseFuncParameters(t, tt.parameters)
+			funcArguments := parseFuncArguments(t, tt.arguments)
+			assert.Equalf(t, tt.inSync, types.AreSyncTypeParametersMatching(funcParameters, funcArguments), "AreSyncTypeParametersMatching(%v)", tt.name)
 		})
 	}
 }

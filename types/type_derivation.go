@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/substrait-io/substrait-go/types/integer_parameters"
+	"github.com/substrait-io/substrait-go/v3/types/integer_parameters"
 )
 
 type Expr interface {
@@ -307,8 +307,7 @@ type SymbolInfo struct {
 	Value any
 }
 
-func (m *OutputDerivation) ReturnType(funcParameters []FuncDefArgType, argumentTypes []Type) (Type, error) {
-	// Add parameterized parameters of arguments to symbol table
+func buildTypeParametersNameValueMap(funcParameters []FuncDefArgType, argumentTypes []Type) (map[string]any, error) {
 	symbolTable := make(map[string]any)
 	for i, p := range funcParameters {
 		paramNames := p.GetParameterizedParams()
@@ -320,11 +319,23 @@ func (m *OutputDerivation) ReturnType(funcParameters []FuncDefArgType, argumentT
 			for j, param := range paramNames {
 				if intParam, ok := param.(*integer_parameters.VariableIntParam); ok {
 					name := string(*intParam)
+					if existingValue, ok := symbolTable[name]; ok && existingValue != paramValues[j] {
+						return nil, fmt.Errorf("sync parameters %s has conflicting values: %v and %v", name, existingValue, paramValues[j])
+					}
 					symbolTable[name] = paramValues[j]
 					continue
 				}
 			}
 		}
+	}
+	return symbolTable, nil
+}
+
+func (m *OutputDerivation) ReturnType(funcParameters []FuncDefArgType, argumentTypes []Type) (Type, error) {
+	// Build a symbol table of parameterized parameters of arguments
+	symbolTable, err := buildTypeParametersNameValueMap(funcParameters, argumentTypes)
+	if err != nil {
+		return nil, err
 	}
 
 	// Evaluate assignments
@@ -358,4 +369,9 @@ func (m *OutputDerivation) ReturnType(funcParameters []FuncDefArgType, argumentT
 
 func (m *OutputDerivation) WithParameters([]interface{}) (Type, error) {
 	panic("WithParameters not to be called")
+}
+
+func AreSyncTypeParametersMatching(funcParameters []FuncDefArgType, argumentTypes []Type) bool {
+	_, err := buildTypeParametersNameValueMap(funcParameters, argumentTypes)
+	return err == nil
 }

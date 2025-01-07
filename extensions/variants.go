@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	substraitgo "github.com/substrait-io/substrait-go"
-	"github.com/substrait-io/substrait-go/types"
-	"github.com/substrait-io/substrait-go/types/integer_parameters"
-	"github.com/substrait-io/substrait-go/types/parser"
+	substraitgo "github.com/substrait-io/substrait-go/v3"
+	"github.com/substrait-io/substrait-go/v3/types"
+	"github.com/substrait-io/substrait-go/v3/types/integer_parameters"
+	"github.com/substrait-io/substrait-go/v3/types/parser"
 )
 
 type FunctionVariant interface {
@@ -170,6 +170,9 @@ func matchArguments(nullability NullabilityHandling, paramTypeList FuncParameter
 			return false, nil
 		}
 	}
+	if HasSyncParams(funcDefArgList) {
+		return types.AreSyncTypeParametersMatching(funcDefArgList, actualTypes), nil
+	}
 	return true, nil
 }
 
@@ -193,9 +196,6 @@ func matchArgumentAtCommon(actualType types.Type, argPos int, nullability Nullab
 		return false, nil
 	}
 
-	if HasSyncParams(funcDefArgList) {
-		return false, fmt.Errorf("%w: function has sync params", substraitgo.ErrNotImplemented)
-	}
 	// if argPos is >= len(funcDefArgList) than last funcDefArg type should be considered for type match
 	// already checked for parameter in range above (considering variadic) so no need to check again for variadic
 	var funcDefArg types.FuncDefArgType
@@ -223,7 +223,7 @@ func validateVariadicBehaviorForMatch(variadicBehavior *VariadicBehavior, actual
 		// all concrete types must be equal for all variable arguments
 		firstVariadicArgIdx := max(variadicBehavior.Min-1, 0)
 		for i := firstVariadicArgIdx; i < len(actualTypes)-1; i++ {
-			if !actualTypes[i].Equals(actualTypes[i+1]) {
+			if !actualTypes[i].Equals(actualTypes[i+1].WithNullability(actualTypes[i].GetNullability())) {
 				return false
 			}
 		}

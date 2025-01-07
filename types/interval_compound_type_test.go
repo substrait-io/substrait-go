@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
-	"github.com/substrait-io/substrait-go/proto"
+	"github.com/substrait-io/substrait-go/v3/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -29,8 +29,8 @@ func TestNewIntervalCompoundType(t *testing.T) {
 			assert.Equal(t, expectedProtoValMap[precision], createdIntervalCompoundType.GetPrecisionProtoVal())
 			assert.Equal(t, nullability, createdIntervalCompoundType.GetNullability())
 			assert.Zero(t, createdIntervalCompoundType.GetTypeVariationReference())
-			assert.Equal(t, fmt.Sprintf("intervalcompound%s", expectedFormatString), createdIntervalCompoundType.String())
-			assert.Equal(t, "intrcomp", createdIntervalCompoundType.ShortString())
+			assert.Equal(t, fmt.Sprintf("interval_compound%s", expectedFormatString), createdIntervalCompoundType.String())
+			assert.Equal(t, "icompound", createdIntervalCompoundType.ShortString())
 			assertIntervalCompoundTypeProto(t, precision, nullability, createdIntervalCompoundType)
 		}
 	}

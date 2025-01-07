@@ -3,7 +3,7 @@ package types
 import (
 	"fmt"
 
-	"github.com/substrait-io/substrait-go/proto"
+	"github.com/substrait-io/substrait-go/v3/proto"
 )
 
 // IntervalYearToMonthType this is used to represent a type of interval which represents YearToMonth.
@@ -54,9 +54,9 @@ func (m IntervalYearToMonthType) ToProto() *proto.Type {
 			TypeVariationReference: m.typeVariationRef}}}
 }
 
-func (IntervalYearToMonthType) ShortString() string { return "intrytm" }
+func (IntervalYearToMonthType) ShortString() string { return shortTypeNames[TypeNameIntervalYear] }
 func (m IntervalYearToMonthType) String() string {
-	return fmt.Sprintf("intervalyeartomonth%s", strNullable(m))
+	return fmt.Sprintf("%s%s", TypeNameIntervalYear, strNullable(m))
 }
 
 func (m IntervalYearToMonthType) GetParameters() []interface{} {

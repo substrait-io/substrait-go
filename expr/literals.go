@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"reflect"
 
-	substraitgo "github.com/substrait-io/substrait-go"
-	"github.com/substrait-io/substrait-go/proto"
-	"github.com/substrait-io/substrait-go/types"
+	substraitgo "github.com/substrait-io/substrait-go/v3"
+	"github.com/substrait-io/substrait-go/v3/proto"
+	"github.com/substrait-io/substrait-go/v3/types"
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/anypb"
 )

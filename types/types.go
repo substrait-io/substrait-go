@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	substraitgo "github.com/substrait-io/substrait-go"
-	"github.com/substrait-io/substrait-go/proto"
+	substraitgo "github.com/substrait-io/substrait-go/v3"
+	"github.com/substrait-io/substrait-go/v3/proto"
 )
 
 type Version = proto.Version
@@ -27,23 +27,24 @@ const (
 type TypeName string
 
 const (
-	TypeNameI8           TypeName = "i8"
-	TypeNameI16          TypeName = "i16"
-	TypeNameI32          TypeName = "i32"
-	TypeNameI64          TypeName = "i64"
-	TypeNameFp32         TypeName = "fp32"
-	TypeNameFp64         TypeName = "fp64"
-	TypeNameString       TypeName = "string"
-	TypeNameBinary       TypeName = "binary"
-	TypeNameBoolean      TypeName = "boolean"
-	TypeNameDate         TypeName = "date"
-	TypeNameTime         TypeName = "time"
-	TypeNameTimestamp    TypeName = "timestamp"
-	TypeNameTimestampTz  TypeName = "timestamp_tz"
-	TypeNameIntervalYear TypeName = "interval_year"
-	TypeNameIntervalDay  TypeName = "interval_day"
-	TypeNameUUID         TypeName = "uuid"
-	TypeNameUDT          TypeName = "u!"
+	TypeNameI8               TypeName = "i8"
+	TypeNameI16              TypeName = "i16"
+	TypeNameI32              TypeName = "i32"
+	TypeNameI64              TypeName = "i64"
+	TypeNameFp32             TypeName = "fp32"
+	TypeNameFp64             TypeName = "fp64"
+	TypeNameString           TypeName = "string"
+	TypeNameBinary           TypeName = "binary"
+	TypeNameBoolean          TypeName = "boolean"
+	TypeNameDate             TypeName = "date"
+	TypeNameTime             TypeName = "time"
+	TypeNameTimestamp        TypeName = "timestamp"
+	TypeNameTimestampTz      TypeName = "timestamp_tz"
+	TypeNameIntervalYear     TypeName = "interval_year"
+	TypeNameIntervalDay      TypeName = "interval_day"
+	TypeNameIntervalCompound TypeName = "interval_compound"
+	TypeNameUUID             TypeName = "uuid"
+	TypeNameUDT              TypeName = "u!"
 
 	TypeNameFixedBinary          TypeName = "fixedbinary"
 	TypeNameFixedChar            TypeName = "fixedchar"
@@ -79,13 +80,14 @@ var fixedTypeNameMap = map[TypeName]FixedType{
 }
 
 var shortTypeNames = map[TypeName]string{
-	TypeNameString:       "str",
-	TypeNameBinary:       "vbin",
-	TypeNameBoolean:      "bool",
-	TypeNameTimestamp:    "ts",
-	TypeNameTimestampTz:  "tstz",
-	TypeNameIntervalYear: "iyear",
-	TypeNameIntervalDay:  "iday",
+	TypeNameString:           "str",
+	TypeNameBinary:           "vbin",
+	TypeNameBoolean:          "bool",
+	TypeNameTimestamp:        "ts",
+	TypeNameTimestampTz:      "tstz",
+	TypeNameIntervalYear:     "iyear",
+	TypeNameIntervalDay:      "iday",
+	TypeNameIntervalCompound: "icompound",
 
 	TypeNameFixedBinary: "fbin",
 	TypeNameFixedChar:   "fchar",

@@ -9,8 +9,8 @@ import (
 
 	"github.com/creasty/defaults"
 	"github.com/goccy/go-yaml"
-	substraitgo "github.com/substrait-io/substrait-go"
-	"github.com/substrait-io/substrait-go/extensions"
+	substraitgo "github.com/substrait-io/substrait-go/v3"
+	"github.com/substrait-io/substrait-go/v3/extensions"
 )
 
 func LoadDialect(name string, r io.Reader) (Dialect, error) {
@@ -38,6 +38,8 @@ type dialectImpl struct {
 	localScalarFunctions    map[extensions.ID]*dialectFunctionInfo
 	localAggregateFunctions map[extensions.ID]*dialectFunctionInfo
 	localWindowFunctions    map[extensions.ID]*dialectFunctionInfo
+
+	localTypeRegistry LocalTypeRegistry
 }
 
 func (d *dialectImpl) Name() string {
@@ -52,6 +54,10 @@ func appendVariants[T extensions.FunctionVariant](variants []extensions.Function
 }
 
 func (d *dialectImpl) LocalizeFunctionRegistry(registry FunctionRegistry) (LocalFunctionRegistry, error) {
+	localTypeRegistry, err := d.GetLocalTypeRegistry()
+	if err != nil {
+		return nil, err
+	}
 	scalarFunctions, err := makeLocalFunctionVariantMapAndSlice(d.localScalarFunctions, registry.GetScalarFunctionsByName, newLocalScalarFunctionVariant)
 	if err != nil {
 		return nil, err
@@ -71,11 +77,14 @@ func (d *dialectImpl) LocalizeFunctionRegistry(registry FunctionRegistry) (Local
 	allVariants = appendVariants(allVariants, windowFunctions.variantsSlice)
 
 	return &localFunctionRegistryImpl{
-		dialect:            d,
-		scalarFunctions:    scalarFunctions.variantsMap,
-		aggregateFunctions: aggregateFunctions.variantsMap,
-		windowFunctions:    windowFunctions.variantsMap,
-		allFunctions:       allVariants,
+		dialect:              d,
+		scalarFunctions:      scalarFunctions.variantsMap,
+		aggregateFunctions:   aggregateFunctions.variantsMap,
+		windowFunctions:      windowFunctions.variantsMap,
+		allFunctions:         allVariants,
+		idToLocalFunctionMap: makeLocalFunctionVariantsMap(allVariants),
+		localTypeRegistry:    localTypeRegistry,
+		funcRegistry:         registry,
 	}, nil
 }
 
@@ -93,7 +102,7 @@ type mapAndSlice[V extensions.FunctionVariant] struct {
 // It returns
 // 1. a mapAndSlice of LocalFunctionVariants
 // 2. an error if a function variant is not found for a dialect function
-func makeLocalFunctionVariantMapAndSlice[T withID, V extensions.FunctionVariant](
+func makeLocalFunctionVariantMapAndSlice[T withID, V localFunctionVariant](
 	dialectFunctionInfos map[extensions.ID]*dialectFunctionInfo, getFunctionVariants func(string) []T,
 	createLocalVariant func(T, *dialectFunctionInfo) V) (*mapAndSlice[V], error) {
 
@@ -110,9 +119,11 @@ func makeLocalFunctionVariantMapAndSlice[T withID, V extensions.FunctionVariant]
 
 		localVariantArray := make([]V, 0)
 		for _, f := range getFunctionVariants(dfi.Name) {
-			if dfi, ok := dialectFunctionInfos[f.ID()]; ok {
-				localVariantArray = append(localVariantArray, createLocalVariant(f, dfi))
-				processedFunctions[f.ID()] = true
+			if _, alreadyProcessed := processedFunctions[f.ID()]; !alreadyProcessed {
+				if dfi1, ok := dialectFunctionInfos[f.ID()]; ok {
+					localVariantArray = append(localVariantArray, createLocalVariant(f, dfi1))
+					processedFunctions[f.ID()] = true
+				}
 			}
 		}
 		if _, ok := processedFunctions[dfi.ID]; !ok {
@@ -120,7 +131,7 @@ func makeLocalFunctionVariantMapAndSlice[T withID, V extensions.FunctionVariant]
 		}
 		if len(localVariantArray) > 0 {
 			addToSliceMap(variantsMap, SubstraitFunctionName(dfi.Name), localVariantArray)
-			addToSliceMap(variantsMap, LocalFunctionName(dfi.LocalName), localVariantArray)
+			addToSliceMapWithLocalKey(variantsMap, localVariantArray)
 			variantsSlice = append(variantsSlice, localVariantArray...)
 		}
 	}
@@ -137,7 +148,21 @@ func addToSliceMap[K FunctionName, V extensions.FunctionVariant](m map[FunctionN
 	m[key] = append(m[key], value...)
 }
 
+func addToSliceMapWithLocalKey[V localFunctionVariant](m map[FunctionName][]V, value []V) {
+	for _, v := range value {
+		// localFunctionName for some variants can be different even though substraitFunctionName is same
+		key := LocalFunctionName(v.LocalName())
+		if _, ok := m[key]; !ok {
+			m[key] = make([]V, 0)
+		}
+		m[key] = append(m[key], v)
+	}
+}
+
 func (d *dialectImpl) LocalizeTypeRegistry(TypeRegistry) (LocalTypeRegistry, error) {
+	if d.localTypeRegistry != nil {
+		return d.localTypeRegistry, nil
+	}
 	typeInfos := make([]typeInfo, 0, len(d.toLocalTypeMap))
 	for name, info := range d.toLocalTypeMap {
 		// TODO use registry.GetTypeClasses
@@ -145,9 +170,17 @@ func (d *dialectImpl) LocalizeTypeRegistry(TypeRegistry) (LocalTypeRegistry, err
 		if err != nil {
 			return nil, fmt.Errorf("%w: unknown type %v", substraitgo.ErrInvalidDialect, name)
 		}
-		typeInfos = append(typeInfos, typeInfo{typ: typ, shortName: name, localName: info.SqlTypeName, supportedAsColumn: info.SupportedAsColumn})
+		typeInfos = append(typeInfos, typeInfo{typ: typ, shortName: typ.ShortString(), localName: info.SqlTypeName, supportedAsColumn: info.SupportedAsColumn})
 	}
-	return NewLocalTypeRegistry(typeInfos), nil
+	d.localTypeRegistry = NewLocalTypeRegistry(typeInfos)
+	return d.localTypeRegistry, nil
+}
+
+func (d *dialectImpl) GetLocalTypeRegistry() (LocalTypeRegistry, error) {
+	if d.localTypeRegistry != nil {
+		return d.localTypeRegistry, nil
+	}
+	return d.LocalizeTypeRegistry(NewTypeRegistry())
 }
 
 func newDialect(name string, reader io.Reader) (Dialect, error) {

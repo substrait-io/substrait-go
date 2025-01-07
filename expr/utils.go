@@ -2,7 +2,7 @@
 
 package expr
 
-import "github.com/substrait-io/substrait-go/extensions"
+import "github.com/substrait-io/substrait-go/v3/extensions"
 
 type ExtensionRegistry struct {
 	extensions.Set

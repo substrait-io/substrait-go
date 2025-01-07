@@ -6,17 +6,18 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/substrait-io/substrait-go/expr"
-	"github.com/substrait-io/substrait-go/literal"
-	"github.com/substrait-io/substrait-go/testcases/parser/baseparser"
-	"github.com/substrait-io/substrait-go/types"
-	"github.com/substrait-io/substrait-go/types/parser/util"
+	"github.com/substrait-io/substrait-go/v3/expr"
+	"github.com/substrait-io/substrait-go/v3/literal"
+	"github.com/substrait-io/substrait-go/v3/testcases/parser/baseparser"
+	"github.com/substrait-io/substrait-go/v3/types"
+	"github.com/substrait-io/substrait-go/v3/types/parser/util"
 )
 
 type TestCaseVisitor struct {
 	baseparser.FuncTestCaseParserVisitor
 	ErrorListener        util.VisitErrorListener
 	literalTypeInContext types.Type
+	testFuncType         TestFuncType
 }
 
 func (v *TestCaseVisitor) getLiteralTypeInContext() types.Type {
@@ -41,7 +42,7 @@ func (v *TestCaseVisitor) Visit(tree antlr.ParseTree) interface{} {
 }
 
 func (v *TestCaseVisitor) VisitDoc(ctx *baseparser.DocContext) interface{} {
-	header := v.Visit(ctx.Header()).(TestFileHeader)
+	header := v.Visit(ctx.Header()).(*TestFileHeader)
 	testcases := make([]*TestCase, 0, len(ctx.AllTestGroup()))
 	for _, testGroup := range ctx.AllTestGroup() {
 		groupTestCases := v.Visit(testGroup).([]*TestCase)
@@ -57,9 +58,20 @@ func (v *TestCaseVisitor) VisitDoc(ctx *baseparser.DocContext) interface{} {
 }
 
 func (v *TestCaseVisitor) VisitHeader(ctx *baseparser.HeaderContext) interface{} {
-	return TestFileHeader{
-		Version:     ctx.Version().GetText(),
-		IncludedURI: v.Visit(ctx.Include()).(string),
+	header := v.Visit(ctx.Version()).(*TestFileHeader)
+	header.IncludedURI = v.Visit(ctx.Include()).(string)
+	return header
+}
+
+func (v *TestCaseVisitor) VisitVersion(ctx *baseparser.VersionContext) interface{} {
+	testFuncType := ScalarFuncType
+	if ctx.SubstraitAggregateTest() != nil {
+		testFuncType = AggregateFuncType
+	}
+	v.testFuncType = testFuncType
+	return &TestFileHeader{
+		Version:  ctx.FormatVersion().GetText(),
+		FuncType: testFuncType,
 	}
 }
 
@@ -67,17 +79,17 @@ func (v *TestCaseVisitor) VisitInclude(ctx *baseparser.IncludeContext) interface
 	return getRawStringFromStringLiteral(ctx.StringLiteral(0).GetText())
 }
 
-type TestGroup struct {
-	Description string
-	TestCases   []*TestCase
-}
-
 func (v *TestCaseVisitor) VisitScalarFuncTestGroup(ctx *baseparser.ScalarFuncTestGroupContext) interface{} {
 	groupDesc := v.Visit(ctx.TestGroupDescription()).(string)
 	groupTestCases := make([]*TestCase, 0, len(ctx.AllTestCase()))
+	if v.testFuncType != ScalarFuncType {
+		v.ErrorListener.ReportVisitError(fmt.Errorf("expected %v testcase based on test file header, but got scalar function testcase", v.testFuncType))
+		return groupTestCases
+	}
 	for _, tc := range ctx.AllTestCase() {
 		testcase := v.Visit(tc).(*TestCase)
 		testcase.GroupDesc = groupDesc
+		testcase.FuncType = ScalarFuncType
 		groupTestCases = append(groupTestCases, testcase)
 	}
 	return groupTestCases
@@ -86,9 +98,14 @@ func (v *TestCaseVisitor) VisitScalarFuncTestGroup(ctx *baseparser.ScalarFuncTes
 func (v *TestCaseVisitor) VisitAggregateFuncTestGroup(ctx *baseparser.AggregateFuncTestGroupContext) interface{} {
 	groupDesc := v.Visit(ctx.TestGroupDescription()).(string)
 	groupTestCases := make([]*TestCase, 0, len(ctx.AllAggFuncTestCase()))
+	if v.testFuncType != AggregateFuncType {
+		v.ErrorListener.ReportVisitError(fmt.Errorf("expected %v testcase based on test file header, but got aggregate function testcase", v.testFuncType))
+		return groupTestCases
+	}
 	for _, tc := range ctx.AllAggFuncTestCase() {
 		testcase := v.Visit(tc).(*TestCase)
 		testcase.GroupDesc = groupDesc
+		testcase.FuncType = AggregateFuncType
 		groupTestCases = append(groupTestCases, testcase)
 	}
 	return groupTestCases
@@ -119,7 +136,7 @@ func (v *TestCaseVisitor) VisitCompactAggregateFuncCall(ctx *baseparser.CompactA
 		args = v.Visit(ctx.AggregateFuncArgs()).([]*AggregateArgument)
 	}
 
-	numberOfColumns := len(rows[0])
+	numberOfColumns := int32(len(rows[0]))
 	columnTypes := make([]types.Type, numberOfColumns)
 	for _, arg := range args {
 		if arg.ColumnIndex >= numberOfColumns {
@@ -151,6 +168,9 @@ func (v *TestCaseVisitor) VisitMultiArgAggregateFuncCall(ctx *baseparser.MultiAr
 				v.ErrorListener.ReportVisitError(err)
 			}
 		}
+		if !arg.IsScalar {
+			arg.ColumnType = testcase.ColumnTypes[arg.ColumnIndex]
+		}
 	}
 	return testcase
 }
@@ -167,6 +187,7 @@ func (v *TestCaseVisitor) VisitQualifiedAggregateFuncArg(ctx *baseparser.Qualifi
 	if ctx.Argument() != nil {
 		return &AggregateArgument{
 			Argument: v.Visit(ctx.Argument()).(*CaseLiteral),
+			IsScalar: true,
 		}
 	}
 	arg, err := newAggregateArgument(ctx.Identifier().GetText(), ctx.ColumnName().GetText(), nil)
@@ -254,6 +275,7 @@ func (v *TestCaseVisitor) VisitAggregateFuncArg(ctx *baseparser.AggregateFuncArg
 	if ctx.Argument() != nil {
 		return &AggregateArgument{
 			Argument: v.Visit(ctx.Argument()).(*CaseLiteral),
+			IsScalar: true,
 		}
 	}
 	argType := v.Visit(ctx.DataType()).(types.Type)
@@ -278,14 +300,20 @@ func (v *TestCaseVisitor) VisitFuncOption(ctx *baseparser.FuncOptionContext) int
 }
 
 func (v *TestCaseVisitor) VisitTestGroupDescription(ctx *baseparser.TestGroupDescriptionContext) interface{} {
-	return strings.TrimPrefix(ctx.GetText(), "#")
+	return strings.TrimSpace(strings.TrimPrefix(ctx.GetText(), "#"))
 }
 
 func (v *TestCaseVisitor) VisitTestCase(ctx *baseparser.TestCaseContext) interface{} {
+	var options FuncOptions
+	if ctx.FuncOptions() != nil {
+		options = v.Visit(ctx.FuncOptions()).(FuncOptions)
+	}
+
 	return &TestCase{
 		FuncName: ctx.Identifier().GetText(),
 		Args:     v.Visit(ctx.Arguments()).([]*CaseLiteral),
 		Result:   v.Visit(ctx.Result()).(*CaseLiteral),
+		Options:  options,
 	}
 }
 
