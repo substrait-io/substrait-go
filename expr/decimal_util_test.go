@@ -2,6 +2,7 @@ package expr
 
 import (
 	"fmt"
+	"github.com/substrait-io/substrait-go/v3/types"
 	"strings"
 	"testing"
 
@@ -142,4 +143,17 @@ func TestDecimalBytesToString(t *testing.T) {
 			assert.Equal(t, tt.want, str)
 		})
 	}
+}
+
+func TestDecimalLiteralToStringBadType(t *testing.T) {
+	timeLit := NewPrecisionTimestampTzLiteral(123456, types.PrecisionNanoSeconds, types.NullabilityNullable)
+	timeLitAsProtoLit := timeLit.(*ProtoLiteral)
+	_, err := DecimalLiteralToString(timeLitAsProtoLit)
+	assert.Error(t, err)
+}
+
+func TestDecimalLiteralToStringMangledType(t *testing.T) {
+	brokenLit := &ProtoLiteral{Value: "random junk", Type: &types.DecimalType{}}
+	_, err := DecimalLiteralToString(brokenLit)
+	assert.Error(t, err)
 }

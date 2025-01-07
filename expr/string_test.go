@@ -19,6 +19,10 @@ func MustLiteral(l expr.Literal, err error) expr.Literal {
 }
 
 func TestLiteralToString(t *testing.T) {
+	brokenDecimalLit, _ := literal.NewDecimalFromString("1234.56")
+	brokenDecimalLitAsProtoLit := brokenDecimalLit.(*expr.ProtoLiteral)
+	brokenDecimalLitAsProtoLit.Value = []byte{1, 2, 3}
+
 	tests := []struct {
 		t   expr.Literal
 		exp string
@@ -49,6 +53,7 @@ func TestLiteralToString(t *testing.T) {
 		{expr.NewPrecisionTimestampTzLiteral(123456, types.PrecisionNanoSeconds, types.NullabilityNullable), "precisiontimestamptz?<9>(123456)"},
 		{MustLiteral(literal.NewDecimalFromString("12.345")), "decimal<5,3>(12.345)"},
 		{MustLiteral(literal.NewDecimalFromString("-12.345")), "decimal<5,3>(-12.345)"},
+		{brokenDecimalLit, "decimal<6,2>(expected 16 bytes, got 3)"},
 	}
 
 	for _, tt := range tests {
