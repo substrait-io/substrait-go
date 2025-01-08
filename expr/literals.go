@@ -406,36 +406,21 @@ type ProtoLiteral struct {
 	Type  types.Type
 }
 
-func DecimalLiteralToString(lit *ProtoLiteral) (string, error) {
-	decLit, ok := lit.Type.(*types.DecimalType)
-	if !ok {
-		return "", fmt.Errorf("expected decimal, got %T", lit.Type)
+func (t *ProtoLiteral) ValueString() string {
+	switch literalType := t.Type.(type) {
+	case *types.PrecisionTimestampType, *types.PrecisionTimestampTzType:
+		return fmt.Sprintf("%d", t.Value)
+	case *types.DecimalType:
+		decBytes, _ := t.Value.([]byte)
+		return decimalBytesToString([16]byte(decBytes), literalType.Scale)
 	}
-	decBytes, ok := lit.Value.([]byte)
-	if !ok {
-		return "", fmt.Errorf("expected [16]byte, got %T", lit.Value)
-	}
-	if len(decBytes) != 16 {
-		return "", fmt.Errorf("expected 16 bytes, got %d", len(decBytes))
-	}
-
-	return decimalBytesToString([16]byte(decBytes), decLit.Scale), nil
+	return fmt.Sprintf("%s", t.Value)
 }
 
 func (*ProtoLiteral) isRootRef()            {}
 func (t *ProtoLiteral) GetType() types.Type { return t.Type }
 func (t *ProtoLiteral) String() string {
-	switch literalType := t.Type.(type) {
-	case *types.PrecisionTimestampType, *types.PrecisionTimestampTzType:
-		return fmt.Sprintf("%s(%d)", literalType, t.Value)
-	case *types.DecimalType:
-		str, err := DecimalLiteralToString(t)
-		if err != nil {
-			return fmt.Sprintf("%s(%v)", literalType, err)
-		}
-		return fmt.Sprintf("%s(%s)", literalType, str)
-	}
-	return fmt.Sprintf("%s(%s)", t.Type, t.Value)
+	return fmt.Sprintf("%s(%s)", t.Type, t.ValueString())
 }
 func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
 	lit := &proto.Expression_Literal{
