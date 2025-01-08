@@ -73,8 +73,9 @@ type Builder interface {
 	Project(input Rel, exprs ...expr.Expression) (*ProjectRel, error)
 	// Deprecated: Use Project(...).Remap() instead.
 	ProjectRemap(input Rel, remap []int32, exprs ...expr.Expression) (*ProjectRel, error)
-	// Deprecated: Use Aggregate(...) instead.
+	// Deprecated: Use GetRelBuilder().AggregateRel(...) instead.
 	AggregateColumns(input Rel, measures []AggRelMeasure, groupByCols ...int32) (*AggregateRel, error)
+	// Deprecated: Use GetRelBuilder().AggregateRel(...) instead.
 	AggregateExprs(input Rel, measures []AggRelMeasure, groups ...[]expr.Expression) (*AggregateRel, error)
 	// Deprecated: Use CreateTableAsSelect(...).Remap() instead.
 	CreateTableAsSelectRemap(input Rel, remap []int32, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error)
