@@ -420,7 +420,7 @@ func (t *ProtoLiteral) ValueString() string {
 func (*ProtoLiteral) isRootRef()            {}
 func (t *ProtoLiteral) GetType() types.Type { return t.Type }
 func (t *ProtoLiteral) String() string {
-	return fmt.Sprintf("%s(%s)", t.Type, t.ValueString())
+	return fmt.Sprintf("%s(%s)", t.GetType(), t.ValueString())
 }
 func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
 	lit := &proto.Expression_Literal{
