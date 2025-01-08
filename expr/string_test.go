@@ -73,7 +73,7 @@ func TestLiteralToStringBrokenDecimal(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.exp, func(t *testing.T) {
 			assert.Panics(t, func() {
-				tt.t.String()
+				_ = tt.t.String()
 			})
 		})
 	}
