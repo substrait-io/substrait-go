@@ -218,15 +218,18 @@ func TestAggregateRelPlan(t *testing.T) {
 									"namedTable": { "names": [ "test" ]}
 								}
 							},
+							"groupingExpressions": [
+								{
+									"selection": {
+										"rootReference": {},
+										"directReference": { "structField": { "field": 0 }}
+									}
+								}
+							],
 							"groupings": [
 								{
-									"groupingExpressions": [
-										{
-											"selection": {
-												"rootReference": {},
-												"directReference": { "structField": { "field": 0 }}
-											}
-										}
+									"expressionReferences": [
+										0
 									]
 								}
 							],
@@ -261,6 +264,20 @@ func TestAggregateRelPlan(t *testing.T) {
 	require.NoError(t, err)
 
 	p, err := b.Plan(root, []string{"val", "cnt"})
+	require.NoError(t, err)
+	assert.Equal(t, "NSTRUCT<val: string, cnt: i64>", p.GetRoots()[0].RecordType().String())
+
+	checkRoundTrip(t, expectedJSON, p)
+
+	// Test with grouping expressions and references
+	ref, err := b.RootFieldRef(scan, 0)
+	require.NoError(t, err)
+	exprs := make([]expr.Expression, 0)
+	exprs = append(exprs, ref)
+	root, err = b.AggregateExprs(scan, []plan.AggRelMeasure{b.Measure(aggCount, nil)}, [][]expr.Expression{exprs}...)
+	require.NoError(t, err)
+
+	p, err = b.Plan(root, []string{"val", "cnt"})
 	require.NoError(t, err)
 	assert.Equal(t, "NSTRUCT<val: string, cnt: i64>", p.GetRoots()[0].RecordType().String())
 
@@ -314,7 +331,9 @@ func TestAggregateRelErrors(t *testing.T) {
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidArg)
 	assert.ErrorContains(t, err, "cannot create field ref index -1")
 
-	_, err = b.AggregateColumnsRemap(scan, []int32{-1, 5}, nil, 0)
+	aggregateRel, err := b.AggregateColumns(scan, nil, 0)
+	assert.NoError(t, err)
+	_, err = aggregateRel.Remap([]int32{-1, 5}...)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
@@ -325,7 +344,9 @@ func TestAggregateRelErrors(t *testing.T) {
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
 	ref, _ := b.RootFieldRef(scan, 0)
-	_, err = b.AggregateExprsRemap(scan, []int32{5, -1}, nil, []expr.Expression{ref})
+	aggregateRel, err = b.AggregateExprs(scan, nil, []expr.Expression{ref})
+	assert.NoError(t, err)
+	_, err = aggregateRel.Remap([]int32{5, -1}...)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
@@ -336,7 +357,9 @@ func TestAggregateRelErrors(t *testing.T) {
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
-	_, err = b.AggregateExprsRemap(scan, []int32{1}, nil, []expr.Expression{ref})
+	aggregateRel, err = b.AggregateExprs(scan, nil, []expr.Expression{ref})
+	assert.NoError(t, err)
+	_, err = aggregateRel.Remap([]int32{1}...)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
@@ -346,14 +369,18 @@ func TestAggregateRelErrors(t *testing.T) {
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
-	_, err = b.AggregateExprsRemap(scan, []int32{0}, nil, []expr.Expression{ref})
+	aggregateRel, err = b.AggregateExprs(scan, nil, []expr.Expression{ref})
+	assert.NoError(t, err)
+	_, err = aggregateRel.Remap([]int32{0}...)
 	assert.NoError(t, err)
 	ae, err = b.AggregateExprs(scan, nil, []expr.Expression{ref})
 	assert.NoError(t, err)
 	_, err = ae.Remap(0)
 	assert.NoError(t, err)
 
-	_, err = b.AggregateColumnsRemap(scan, []int32{0}, nil, 0)
+	aggregateRel, err = b.AggregateColumns(scan, nil, 0)
+	assert.NoError(t, err)
+	_, err = aggregateRel.Remap([]int32{0}...)
 	assert.NoError(t, err)
 	ae, err = b.AggregateColumns(scan, nil, 0)
 	assert.NoError(t, err)
@@ -1710,4 +1737,201 @@ func TestSetRelErrors(t *testing.T) {
 	_, err = s.Remap(3)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
+}
+
+func TestAggregateRelBuilder(t *testing.T) {
+	addID := extensions.ID{
+		URI:  extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+		Name: "add"}
+
+	t.Run("AddExpression adds unique expressions", func(t *testing.T) {
+		b := plan.NewBuilderDefault()
+
+		e := b.GetExprBuilder()
+		expr1, _ := e.ScalarFunc(addID).Args(
+			e.Wrap(expr.NewLiteral(int32(3), false)),
+			e.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
+		expr2, _ := e.ScalarFunc(addID).Args(
+			e.Wrap(expr.NewLiteral(int32(3), false)),
+			e.Wrap(expr.NewLiteral(int32(4), false))).BuildExpr()
+
+		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURIPrefix+"functions_aggregate_generic.yaml",
+			"count", nil)
+		require.NoError(t, err)
+		arb := b.GetRelBuilder().AggregateRel(b.NamedScan([]string{"test"}, baseSchema), []plan.AggRelMeasure{b.Measure(aggCount, nil)})
+
+		ref1 := arb.AddExpression(expr1)
+		ref2 := arb.AddExpression(expr2)
+		ref3 := arb.AddExpression(expr1)
+
+		assert.Equal(t, uint32(0), ref1)
+		assert.Equal(t, uint32(1), ref2)
+		assert.Equal(t, uint32(0), ref3)
+		aggregateRel, err := arb.Build()
+		assert.NoError(t, err)
+		assert.Equal(t, 2, len(aggregateRel.GroupingExpressions()))
+	})
+
+	t.Run("AddCube generates all subsets", func(t *testing.T) {
+		b := plan.NewBuilderDefault()
+
+		e := b.GetExprBuilder()
+		expr1, _ := e.ScalarFunc(addID).Args(
+			e.Wrap(expr.NewLiteral(int32(3), false)),
+			e.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
+		expr2, _ := e.ScalarFunc(addID).Args(
+			e.Wrap(expr.NewLiteral(int32(3), false)),
+			e.Wrap(expr.NewLiteral(int32(4), false))).BuildExpr()
+		expr3, _ := e.ScalarFunc(addID).Args(
+			e.Wrap(expr.NewLiteral(int32(3), false)),
+			e.Wrap(expr.NewLiteral(int32(4), false))).BuildExpr()
+
+		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURIPrefix+"functions_aggregate_generic.yaml",
+			"count", nil)
+		require.NoError(t, err)
+		arb := b.GetRelBuilder().AggregateRel(b.NamedScan([]string{"test"}, baseSchema), []plan.AggRelMeasure{b.Measure(aggCount, nil)})
+
+		ref1 := arb.AddExpression(expr1)
+		ref2 := arb.AddExpression(expr2)
+		ref3 := arb.AddExpression(expr3)
+
+		expressionReferences := []uint32{ref1, ref2, ref3}
+
+		err = arb.AddCube(expressionReferences)
+		assert.NoError(t, err)
+
+		// Verify that the generated grouping references match the power set of the input
+		expected := [][]uint32{
+			{ref1}, {ref2}, {ref3},
+			{ref1, ref2}, {ref1, ref3}, {ref2, ref3},
+			{ref1, ref2, ref3},
+		}
+		aggregateRel, err := arb.Build()
+		assert.NoError(t, err)
+		assert.ElementsMatch(t, expected, aggregateRel.GroupingReferences())
+	})
+
+	t.Run("AddRollup generates hierarchical groupings", func(t *testing.T) {
+		b := plan.NewBuilderDefault()
+		e := b.GetExprBuilder()
+
+		// Create sample expressions
+		expr1, _ := e.ScalarFunc(addID).Args(
+			e.Wrap(expr.NewLiteral(int32(3), false)),
+			e.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
+		expr2, _ := e.ScalarFunc(addID).Args(
+			e.Wrap(expr.NewLiteral(int32(3), false)),
+			e.Wrap(expr.NewLiteral(int32(4), false))).BuildExpr()
+		expr3, _ := e.ScalarFunc(addID).Args(
+			e.Wrap(expr.NewLiteral(int32(3), false)),
+			e.Wrap(expr.NewLiteral(int32(5), false))).BuildExpr()
+
+		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURIPrefix+"functions_aggregate_generic.yaml",
+			"count", nil)
+		require.NoError(t, err)
+
+		arb := b.GetRelBuilder().AggregateRel(b.NamedScan([]string{"test"}, baseSchema), []plan.AggRelMeasure{b.Measure(aggCount, nil)})
+
+		ref1 := arb.AddExpression(expr1)
+		ref2 := arb.AddExpression(expr2)
+		ref3 := arb.AddExpression(expr3)
+
+		groupingReferences := []uint32{ref1, ref2, ref3}
+		arb.AddRollup(groupingReferences)
+
+		expected := [][]uint32{
+			{ref1, ref2, ref3}, // Full set
+			{ref1, ref2},       // Rollup level 1
+			{ref1},             // Rollup level 2
+		}
+
+		aggregateRel, err := arb.Build()
+		assert.NoError(t, err)
+		assert.Equal(t, expected, aggregateRel.GroupingReferences())
+	})
+
+	t.Run("AddGroupingSet appends grouping sets", func(t *testing.T) {
+		b := plan.NewBuilderDefault()
+		e := b.GetExprBuilder()
+
+		// Create sample expressions
+		expr1, _ := e.ScalarFunc(addID).Args(
+			e.Wrap(expr.NewLiteral(int32(3), false)),
+			e.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
+		expr2, _ := e.ScalarFunc(addID).Args(
+			e.Wrap(expr.NewLiteral(int32(3), false)),
+			e.Wrap(expr.NewLiteral(int32(4), false))).BuildExpr()
+		expr3, _ := e.ScalarFunc(addID).Args(
+			e.Wrap(expr.NewLiteral(int32(3), false)),
+			e.Wrap(expr.NewLiteral(int32(5), false))).BuildExpr()
+
+		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURIPrefix+"functions_aggregate_generic.yaml",
+			"count", nil)
+		require.NoError(t, err)
+
+		arb := b.GetRelBuilder().AggregateRel(b.NamedScan([]string{"test"}, baseSchema), []plan.AggRelMeasure{b.Measure(aggCount, nil)})
+
+		ref1 := arb.AddExpression(expr1)
+		ref2 := arb.AddExpression(expr2)
+		ref3 := arb.AddExpression(expr3)
+
+		groupingReferences := []uint32{ref1, ref2, ref3}
+		arb.AddGroupingSet(groupingReferences)
+
+		expected := [][]uint32{
+			{ref1, ref2, ref3},
+		}
+
+		aggregateRel, err := arb.Build()
+		assert.NoError(t, err)
+		assert.Equal(t, expected, aggregateRel.GroupingReferences())
+	})
+
+	t.Run("Build fails with no input", func(t *testing.T) {
+		b := plan.NewBuilderDefault()
+		e := b.GetExprBuilder()
+		expr1, _ := e.ScalarFunc(addID).Args(
+			e.Wrap(expr.NewLiteral(int32(3), false)),
+			e.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
+		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURIPrefix+"functions_aggregate_generic.yaml",
+			"count", nil)
+		require.NoError(t, err)
+
+		arb := b.GetRelBuilder().AggregateRel(nil, []plan.AggRelMeasure{b.Measure(aggCount, nil)})
+		ref1 := arb.AddExpression(expr1)
+		arb.AddGroupingSet([]uint32{ref1})
+		_, err = arb.Build()
+		assert.Error(t, err)
+	})
+
+	t.Run("Build fails with no measures or groupings", func(t *testing.T) {
+		b := plan.NewBuilderDefault()
+		e := b.GetExprBuilder()
+		expr1, _ := e.ScalarFunc(addID).Args(
+			e.Wrap(expr.NewLiteral(int32(3), false)),
+			e.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
+
+		arb := b.GetRelBuilder().AggregateRel(b.NamedScan([]string{"test"}, baseSchema), nil)
+		_ = arb.AddExpression(expr1)
+		_, err := arb.Build()
+		assert.Error(t, err)
+	})
+
+	t.Run("Build fails with invalid groupings", func(t *testing.T) {
+		b := plan.NewBuilderDefault()
+		e := b.GetExprBuilder()
+		expr1, _ := e.ScalarFunc(addID).Args(
+			e.Wrap(expr.NewLiteral(int32(3), false)),
+			e.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
+
+		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURIPrefix+"functions_aggregate_generic.yaml",
+			"count", nil)
+		require.NoError(t, err)
+		arb := b.GetRelBuilder().AggregateRel(b.NamedScan([]string{"test"}, baseSchema), []plan.AggRelMeasure{b.Measure(aggCount, nil)})
+		ref1 := arb.AddExpression(expr1)
+		assert.Equal(t, uint32(0), ref1)
+		arb.AddGroupingSet([]uint32{1})
+		_, err = arb.Build()
+		assert.Error(t, err)
+	})
 }
