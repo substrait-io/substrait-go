@@ -49,7 +49,10 @@ func intervalYearToMonthLiteralFromProto(l *proto.Expression_Literal) Literal {
 func (IntervalYearToMonthLiteral) isRootRef()            {}
 func (m IntervalYearToMonthLiteral) GetType() types.Type { return m.getType() }
 func (m IntervalYearToMonthLiteral) String() string {
-	return fmt.Sprintf("%s(years:%d,months:%d)", m.getType(), m.Years, m.Months)
+	return fmt.Sprintf("%s(%s)", m.getType(), m.ValueString())
+}
+func (m IntervalYearToMonthLiteral) ValueString() string {
+	return fmt.Sprintf("%d years, %d months", m.Years, m.Months)
 }
 func (m IntervalYearToMonthLiteral) Equals(rhs Expression) bool {
 	if other, ok := rhs.(IntervalYearToMonthLiteral); ok {
