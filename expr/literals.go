@@ -406,14 +406,21 @@ type ProtoLiteral struct {
 	Type  types.Type
 }
 
+func (t *ProtoLiteral) ValueString() string {
+	switch literalType := t.Type.(type) {
+	case *types.PrecisionTimestampType, *types.PrecisionTimestampTzType:
+		return fmt.Sprintf("%d", t.Value)
+	case *types.DecimalType:
+		decBytes, _ := t.Value.([]byte)
+		return decimalBytesToString([16]byte(decBytes), literalType.Scale)
+	}
+	return fmt.Sprintf("%s", t.Value)
+}
+
 func (*ProtoLiteral) isRootRef()            {}
 func (t *ProtoLiteral) GetType() types.Type { return t.Type }
 func (t *ProtoLiteral) String() string {
-	switch literalType := t.Type.(type) {
-	case *types.PrecisionTimestampType, *types.PrecisionTimestampTzType:
-		return fmt.Sprintf("%s(%d)", literalType, t.Value)
-	}
-	return fmt.Sprintf("%s(%s)", t.Type, t.Value)
+	return fmt.Sprintf("%s(%s)", t.GetType(), t.ValueString())
 }
 func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
 	lit := &proto.Expression_Literal{
