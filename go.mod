@@ -14,7 +14,7 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.10.0
-	github.com/substrait-io/substrait v0.62.0
+	github.com/substrait-io/substrait v0.63.1
 	golang.org/x/exp v0.0.0-20240909161429-701f63a606c0
 	google.golang.org/protobuf v1.35.2
 	gopkg.in/yaml.v3 v3.0.1
