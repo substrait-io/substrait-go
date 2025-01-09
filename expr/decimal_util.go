@@ -42,7 +42,7 @@ func DecimalStringToBytes(decimalStr string) ([16]byte, int32, int32, error) {
 		precision = max(int32(apd.NumDigits(&dec.Coeff)), scale+1)
 	}
 	if precision > 38 {
-		return result, precision, scale, fmt.Errorf("number exceeds maximum precision of 38")
+		return result, precision, scale, fmt.Errorf("number %s exceeds maximum precision of 38 (%d)", decimalStr, precision)
 	}
 
 	coefficient := dec.Coeff
