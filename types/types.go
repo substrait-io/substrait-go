@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	substraitgo "github.com/substrait-io/substrait-go/v3"
 	"github.com/substrait-io/substrait-go/v3/proto"
@@ -386,6 +387,12 @@ type (
 		GetParameters() []interface{}
 	}
 
+	TimeConverter interface {
+		Type
+		// ToTime returns a time.Time representation of the current value.
+		ToTime() time.Time
+	}
+
 	// CompositeType this represents a concrete type having components
 	CompositeType interface {
 		Type
@@ -666,8 +673,8 @@ func TypeToProto(t Type) *proto.Type {
 
 type primitiveTypeIFace interface {
 	bool | int8 | int16 | ~int32 | ~int64 |
-		float32 | float64 | ~string |
-		[]byte | IntervalYearToMonth | IntervalDayToSecond | UUID
+	float32 | float64 | ~string |
+	[]byte | IntervalYearToMonth | IntervalDayToSecond | UUID
 }
 
 var emptyFixedChar FixedChar
