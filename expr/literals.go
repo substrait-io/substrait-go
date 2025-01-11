@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/civil"
 	"github.com/google/uuid"
 	substraitgo "github.com/substrait-io/substrait-go/v3"
 	"github.com/substrait-io/substrait-go/v3/proto"
@@ -157,20 +156,8 @@ func (t *PrimitiveLiteral[T]) String() string {
 	return fmt.Sprintf("%s(%s)", t.Type.String(), t.ValueString())
 }
 func (t *PrimitiveLiteral[T]) ValueString() string {
-	switch x := any(t.Value).(type) {
-	case types.Date:
-		d := civil.Date{Year: 1970, Month: time.January, Day: 1}
-		d = d.AddDays(int(x))
-		return d.String()
-	case types.Time:
-		t := time.UnixMicro(int64(x))
-		return t.UTC().Format(time.TimeOnly)
-	case types.Timestamp:
-		t := time.UnixMicro(int64(x))
-		return t.UTC().Format(time.RFC3339)
-	case types.TimestampTz:
-		t := time.UnixMicro(int64(x))
-		return t.UTC().Format(time.RFC3339)
+	if lit, ok := any(t.Value).(types.TimeConverter); ok {
+		return lit.ToTimeString()
 	}
 	return fmt.Sprintf("%v", t.Value)
 }
