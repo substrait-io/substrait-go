@@ -74,7 +74,7 @@ func TestLiteralToValueString(t *testing.T) {
 		{literal.NewString("99.30"), "99.30"},
 		{MustLiteral(literal.NewDate(365)), "1971-01-01"},
 		{MustLiteral(literal.NewTimeFromString("12:34:56")), "12:34:56"},
-		{MustLiteral(literal.NewTimestampFromString("2021-03-05T12:34:56")), "2021-03-05T12:34:56Z"},
+		{MustLiteral(literal.NewTimestampFromString("2021-03-05T12:34:56")), "2021-03-05 12:34:56"},
 		{MustLiteral(literal.NewTimestampTZFromString("2021-03-05T12:34:56")), "2021-03-05T12:34:56Z"},
 		// Test the first implementation.
 		{MustLiteral(literal.NewIntervalYearsToMonth(5, 4)), "5 years, 4 months"},
