@@ -633,8 +633,6 @@ func TestLoadAllSubstraitTestFiles(t *testing.T) {
 	for _, filePath := range filePaths {
 		t.Run(filePath, func(t *testing.T) {
 			switch filePath {
-			case "tests/cases/boolean/bool_and.test":
-				t.Skip("Skipping bool_and.test")
 			case "tests/cases/datetime/extract.test":
 				// TODO deal with enum arguments in testcase
 				t.Skip("Skipping extract.test")

@@ -9,7 +9,7 @@ import (
 	"github.com/cockroachdb/apd/v3"
 )
 
-var decimalPattern = regexp.MustCompile(`^[+-]?\d{0,38}(\.\d{0,38})?([eE][+-]?\d{0,38})?$`)
+var decimalPattern = regexp.MustCompile(`^[+-]?\d*(\.\d*)?([eE][+-]?\d*)?$`)
 
 // DecimalStringToBytes converts a decimal string to a 16-byte byte array.
 // 16-byte bytes represents a little-endian 128-bit integer, to be divided by 10^Scale to get the decimal value.
@@ -31,7 +31,7 @@ func DecimalStringToBytes(decimalStr string) ([16]byte, int32, int32, error) {
 	// Parse the decimal string using apd
 	dec, cond, err := apd.NewFromString(decimalStr)
 	if err != nil || cond.Any() {
-		return result, 0, 0, fmt.Errorf("invalid decimal string: %v", err)
+		return result, 0, 0, fmt.Errorf("invalid decimal string %s: %v", decimalStr, err)
 	}
 
 	if dec.Exponent > 0 {
@@ -42,7 +42,7 @@ func DecimalStringToBytes(decimalStr string) ([16]byte, int32, int32, error) {
 		precision = max(int32(apd.NumDigits(&dec.Coeff)), scale+1)
 	}
 	if precision > 38 {
-		return result, precision, scale, fmt.Errorf("number exceeds maximum precision of 38")
+		return result, precision, scale, fmt.Errorf("number %s exceeds maximum precision of 38 (%d)", decimalStr, precision)
 	}
 
 	coefficient := dec.Coeff
