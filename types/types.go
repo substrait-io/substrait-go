@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/civil"
 	substraitgo "github.com/substrait-io/substrait-go/v3"
 	"github.com/substrait-io/substrait-go/v3/proto"
 )
@@ -388,9 +389,8 @@ type (
 	}
 
 	TimeConverter interface {
-		Type
-		// ToTime returns a time.Time representation of the current value.
-		ToTime() time.Time
+		// ToTimeString returns a human consumable version of the current value.
+		ToTimeString() string
 	}
 
 	// CompositeType this represents a concrete type having components
@@ -673,8 +673,8 @@ func TypeToProto(t Type) *proto.Type {
 
 type primitiveTypeIFace interface {
 	bool | int8 | int16 | ~int32 | ~int64 |
-	float32 | float64 | ~string |
-	[]byte | IntervalYearToMonth | IntervalDayToSecond | UUID
+		float32 | float64 | ~string |
+		[]byte | IntervalYearToMonth | IntervalDayToSecond | UUID
 }
 
 var emptyFixedChar FixedChar
@@ -1552,4 +1552,25 @@ func (r RecordType) Types() []Type {
 
 func (r RecordType) Concat(other RecordType) RecordType {
 	return RecordType{types: append(r.Types(), other.Types()...)}
+}
+
+func (d Date) ToTimeString() string {
+	date := civil.Date{Year: 1970, Month: time.January, Day: 1}
+	date = date.AddDays(int(d))
+	return date.String()
+}
+
+func (t Time) ToTimeString() string {
+	tm := time.UnixMicro(int64(t))
+	return tm.UTC().Format(time.TimeOnly)
+}
+
+func (t Timestamp) ToTimeString() string {
+	tm := time.UnixMicro(int64(t))
+	return tm.UTC().Format(time.RFC3339)
+}
+
+func (t TimestampTz) ToTimeString() string {
+	tm := time.UnixMicro(int64(t))
+	return tm.UTC().Format(time.RFC3339)
 }
