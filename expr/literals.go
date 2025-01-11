@@ -6,9 +6,13 @@ package expr
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"reflect"
+	"strings"
+	"time"
 
+	"github.com/google/uuid"
 	substraitgo "github.com/substrait-io/substrait-go/v3"
 	"github.com/substrait-io/substrait-go/v3/proto"
 	"github.com/substrait-io/substrait-go/v3/types"
@@ -84,6 +88,8 @@ type Literal interface {
 	ToProto() *proto.Expression
 	ToProtoLiteral() *proto.Expression_Literal
 	Visit(VisitFunc) Expression
+	// ValueString returns a human presentable representation of just the literal's value.
+	ValueString() string
 }
 
 // A NullLiteral is a typed null, so it just contains its type
@@ -100,6 +106,9 @@ func (*NullLiteral) IsScalar() bool { return true }
 func (*NullLiteral) isRootRef() {}
 func (n *NullLiteral) String() string {
 	return "null(" + n.Type.String() + ")"
+}
+func (n *NullLiteral) ValueString() string {
+	return "null"
 }
 
 func (n *NullLiteral) GetType() types.Type { return n.Type }
@@ -144,7 +153,13 @@ type PrimitiveLiteral[T PrimitiveLiteralValue] struct {
 
 func (*PrimitiveLiteral[T]) isRootRef() {}
 func (t *PrimitiveLiteral[T]) String() string {
-	return fmt.Sprintf("%s(%v)", t.Type, t.Value)
+	return fmt.Sprintf("%s(%s)", t.Type.String(), t.ValueString())
+}
+func (t *PrimitiveLiteral[T]) ValueString() string {
+	if lit, ok := any(t.Value).(types.TimePrinter); ok {
+		return lit.ToTimeString()
+	}
+	return fmt.Sprintf("%v", t.Value)
 }
 func (t *PrimitiveLiteral[T]) GetType() types.Type { return t.Type }
 func (t *PrimitiveLiteral[T]) ToProtoLiteral() *proto.Expression_Literal {
@@ -220,6 +235,17 @@ func (*NestedLiteral[T]) isRootRef() {}
 func (t *NestedLiteral[T]) String() string {
 	return fmt.Sprintf("%s(%v)", t.Type, t.Value)
 }
+func (t *NestedLiteral[T]) ValueString() string {
+	switch x := any(t.Value).(type) {
+	case ListLiteralValue:
+		var items []string
+		for _, item := range x {
+			items = append(items, item.ValueString())
+		}
+		return fmt.Sprintf("[%s]", strings.Join(items, ", "))
+	}
+	return fmt.Sprintf("%v", t.Value)
+}
 func (t *NestedLiteral[T]) GetType() types.Type { return t.Type }
 func (t *NestedLiteral[T]) ToProtoLiteral() *proto.Expression_Literal {
 	lit := &proto.Expression_Literal{
@@ -291,7 +317,10 @@ type MapLiteral struct {
 
 func (*MapLiteral) isRootRef() {}
 func (t *MapLiteral) String() string {
-	return fmt.Sprintf("%s(%v)", t.Type, t.Value)
+	return fmt.Sprintf("%s(%s)", t.Type, t.ValueString())
+}
+func (t *MapLiteral) ValueString() string {
+	return fmt.Sprintf("%v", t.Value)
 }
 func (t *MapLiteral) GetType() types.Type { return t.Type }
 func (t *MapLiteral) ToProtoLiteral() *proto.Expression_Literal {
@@ -344,7 +373,7 @@ func (t *MapLiteral) ToProtoFuncArg() *proto.FunctionArgument {
 func (t *MapLiteral) Visit(VisitFunc) Expression { return t }
 func (*MapLiteral) IsScalar() bool               { return true }
 
-// ByteSliceLiteral is any literal that is represnted as a byte slice.
+// ByteSliceLiteral is any literal that is represented as a byte slice.
 // As opposed to a string literal which can be compared with ==, a byte
 // slice needs to use something like bytes.Equal
 type ByteSliceLiteral[T ~[]byte] struct {
@@ -354,8 +383,23 @@ type ByteSliceLiteral[T ~[]byte] struct {
 
 func (*ByteSliceLiteral[T]) isRootRef() {}
 func (t *ByteSliceLiteral[T]) String() string {
-	return fmt.Sprintf("%s(%v)", t.Type, t.Value)
+	return fmt.Sprintf("%s(%s)", t.Type, t.ValueString())
 }
+func (t *ByteSliceLiteral[T]) ValueString() string {
+	switch x := any(t.Value).(type) {
+	case types.UUID:
+		u, err := uuid.FromBytes(x[:])
+		if err != nil {
+			return fmt.Sprintf("%v", t.Value)
+		}
+		return u.String()
+	case types.FixedBinary:
+		return "0x" + hex.EncodeToString(x[:])
+	default:
+		return fmt.Sprintf("%v", t.Value)
+	}
+}
+
 func (t *ByteSliceLiteral[T]) GetType() types.Type { return t.Type }
 func (t *ByteSliceLiteral[T]) ToProtoLiteral() *proto.Expression_Literal {
 	lit := &proto.Expression_Literal{
@@ -408,11 +452,22 @@ type ProtoLiteral struct {
 
 func (t *ProtoLiteral) ValueString() string {
 	switch literalType := t.Type.(type) {
-	case *types.PrecisionTimestampType, *types.PrecisionTimestampTzType:
-		return fmt.Sprintf("%d", t.Value)
+	case *types.PrecisionTimestampType:
+		tm := types.Timestamp(t.Value.(int64)).ToPrecisionTime(literalType.Precision)
+		return tm.UTC().Format("2006-01-02 15:04:05.999999999")
+	case *types.PrecisionTimestampTzType:
+		tm := types.TimestampTz(t.Value.(int64)).ToPrecisionTime(literalType.Precision)
+		return tm.UTC().Format(time.RFC3339Nano)
 	case *types.DecimalType:
-		decBytes, _ := t.Value.([]byte)
-		return decimalBytesToString([16]byte(decBytes), literalType.Scale)
+		return decimalBytesToString([16]byte(t.Value.([]byte)), literalType.Scale)
+	case *types.IntervalYearType:
+		x, _ := t.Value.(*proto.Expression_Literal_IntervalYearToMonth)
+		// Validity is required by construction.
+		return fmt.Sprintf("%d years, %d months", x.GetYears(), x.GetMonths())
+	case *types.IntervalDayType:
+		x, _ := t.Value.(*proto.Expression_Literal_IntervalDayToSecond)
+		// Validity is required by construction.
+		return fmt.Sprintf("%d days, %d seconds, %d subseconds", x.GetDays(), x.GetSeconds(), x.GetSubseconds())
 	}
 	return fmt.Sprintf("%s", t.Value)
 }
@@ -420,7 +475,11 @@ func (t *ProtoLiteral) ValueString() string {
 func (*ProtoLiteral) isRootRef()            {}
 func (t *ProtoLiteral) GetType() types.Type { return t.Type }
 func (t *ProtoLiteral) String() string {
-	return fmt.Sprintf("%s(%s)", t.GetType(), t.ValueString())
+	switch literalType := t.Type.(type) {
+	case *types.PrecisionTimestampType, *types.PrecisionTimestampTzType:
+		return fmt.Sprintf("%s(%s)", literalType, t.ValueString())
+	}
+	return fmt.Sprintf("%s(%s)", t.Type, t.ValueString())
 }
 func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
 	lit := &proto.Expression_Literal{
