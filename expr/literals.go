@@ -25,7 +25,7 @@ import (
 // via ==
 type PrimitiveLiteralValue interface {
 	bool | int8 | int16 | ~int32 | ~int64 |
-		float32 | float64 | ~string
+	float32 | float64 | ~string
 }
 
 type nestedLiteral interface {
@@ -482,16 +482,13 @@ func timeFromPrecisionUnits(units int64, precision types.TimePrecision) time.Tim
 func (t *ProtoLiteral) ValueString() string {
 	switch literalType := t.Type.(type) {
 	case *types.PrecisionTimestampType:
-		x, _ := t.Value.(int64)
-		tm := timeFromPrecisionUnits(x, literalType.Precision)
+		tm := timeFromPrecisionUnits(t.Value.(int64), literalType.Precision)
 		return tm.UTC().Format("2006-01-02 15:04:05.999999999")
 	case *types.PrecisionTimestampTzType:
-		x, _ := t.Value.(int64)
-		tm := timeFromPrecisionUnits(x, literalType.Precision)
+		tm := timeFromPrecisionUnits(t.Value.(int64), literalType.Precision)
 		return tm.UTC().Format(time.RFC3339Nano)
 	case *types.DecimalType:
-		decBytes, _ := t.Value.([]byte)
-		return decimalBytesToString([16]byte(decBytes), literalType.Scale)
+		return decimalBytesToString([16]byte(t.Value.([]byte)), literalType.Scale)
 	case *types.IntervalYearType:
 		x, _ := t.Value.(*proto.Expression_Literal_IntervalYearToMonth)
 		// Validity is required by construction.
@@ -613,7 +610,7 @@ func getNullability(nullable bool) types.Nullability {
 
 type newPrimitiveLiteralTypes interface {
 	bool | int8 | int16 | ~int32 | ~int64 |
-		float32 | float64 | string
+	float32 | float64 | string
 }
 
 func NewPrimitiveLiteral[T newPrimitiveLiteralTypes](val T, nullable bool) Literal {
@@ -725,9 +722,9 @@ func NewFixedBinaryLiteral(val types.FixedBinary, nullable bool) *ByteSliceLiter
 
 type allLiteralTypes interface {
 	PrimitiveLiteralValue | nestedLiteral | MapLiteralValue |
-		[]byte | types.UUID | types.FixedBinary | *types.IntervalYearToMonth |
-		*types.IntervalDayToSecond | *types.VarChar | *types.Decimal | *types.UserDefinedLiteral |
-		*types.PrecisionTimestamp | *types.PrecisionTimestampTz
+	[]byte | types.UUID | types.FixedBinary | *types.IntervalYearToMonth |
+	*types.IntervalDayToSecond | *types.VarChar | *types.Decimal | *types.UserDefinedLiteral |
+	*types.PrecisionTimestamp | *types.PrecisionTimestampTz
 }
 
 func NewLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {
