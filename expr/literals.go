@@ -25,7 +25,7 @@ import (
 // via ==
 type PrimitiveLiteralValue interface {
 	bool | int8 | int16 | ~int32 | ~int64 |
-	float32 | float64 | ~string
+		float32 | float64 | ~string
 }
 
 type nestedLiteral interface {
@@ -156,7 +156,7 @@ func (t *PrimitiveLiteral[T]) String() string {
 	return fmt.Sprintf("%s(%s)", t.Type.String(), t.ValueString())
 }
 func (t *PrimitiveLiteral[T]) ValueString() string {
-	if lit, ok := any(t.Value).(types.TimeConverter); ok {
+	if lit, ok := any(t.Value).(types.TimePrinter); ok {
 		return lit.ToTimeString()
 	}
 	return fmt.Sprintf("%v", t.Value)
@@ -450,42 +450,13 @@ type ProtoLiteral struct {
 	Type  types.Type
 }
 
-func timeFromPrecisionUnits(units int64, precision types.TimePrecision) time.Time {
-	var tm time.Time
-	switch precision {
-	case types.PrecisionSeconds:
-		tm = time.Unix(units, 0)
-	case types.PrecisionDeciSeconds:
-		tm = time.Unix(units/10, units%10*100000000)
-	case types.PrecisionCentiSeconds:
-		tm = time.Unix(units/100, units%100*10000000)
-	case types.PrecisionMilliSeconds:
-		tm = time.UnixMilli(units)
-	case types.PrecisionEMinus4Seconds:
-		tm = time.Unix(units/10000, units%10000*100000)
-	case types.PrecisionEMinus5Seconds:
-		tm = time.Unix(units/100000, units%100000*10000)
-	case types.PrecisionMicroSeconds:
-		tm = time.UnixMicro(units)
-	case types.PrecisionEMinus7Seconds:
-		tm = time.Unix(units/10000000, units%10000000*100)
-	case types.PrecisionEMinus8Seconds:
-		tm = time.Unix(units/100000000, units%100000000*10)
-	case types.PrecisionNanoSeconds:
-		tm = time.Unix(units/1000000000, units%1000000000)
-	default:
-		panic("unsupported precision")
-	}
-	return tm
-}
-
 func (t *ProtoLiteral) ValueString() string {
 	switch literalType := t.Type.(type) {
 	case *types.PrecisionTimestampType:
-		tm := timeFromPrecisionUnits(t.Value.(int64), literalType.Precision)
+		tm := types.Timestamp(t.Value.(int64)).ToPrecisionTime(literalType.Precision)
 		return tm.UTC().Format("2006-01-02 15:04:05.999999999")
 	case *types.PrecisionTimestampTzType:
-		tm := timeFromPrecisionUnits(t.Value.(int64), literalType.Precision)
+		tm := types.TimestampTz(t.Value.(int64)).ToPrecisionTime(literalType.Precision)
 		return tm.UTC().Format(time.RFC3339Nano)
 	case *types.DecimalType:
 		return decimalBytesToString([16]byte(t.Value.([]byte)), literalType.Scale)
@@ -610,7 +581,7 @@ func getNullability(nullable bool) types.Nullability {
 
 type newPrimitiveLiteralTypes interface {
 	bool | int8 | int16 | ~int32 | ~int64 |
-	float32 | float64 | string
+		float32 | float64 | string
 }
 
 func NewPrimitiveLiteral[T newPrimitiveLiteralTypes](val T, nullable bool) Literal {
@@ -722,9 +693,9 @@ func NewFixedBinaryLiteral(val types.FixedBinary, nullable bool) *ByteSliceLiter
 
 type allLiteralTypes interface {
 	PrimitiveLiteralValue | nestedLiteral | MapLiteralValue |
-	[]byte | types.UUID | types.FixedBinary | *types.IntervalYearToMonth |
-	*types.IntervalDayToSecond | *types.VarChar | *types.Decimal | *types.UserDefinedLiteral |
-	*types.PrecisionTimestamp | *types.PrecisionTimestampTz
+		[]byte | types.UUID | types.FixedBinary | *types.IntervalYearToMonth |
+		*types.IntervalDayToSecond | *types.VarChar | *types.Decimal | *types.UserDefinedLiteral |
+		*types.PrecisionTimestamp | *types.PrecisionTimestampTz
 }
 
 func NewLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {
