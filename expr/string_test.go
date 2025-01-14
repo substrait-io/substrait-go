@@ -103,6 +103,16 @@ func TestLiteralToValueString(t *testing.T) {
 				},
 			}, true),
 		}, true), "[[{string(foo) char<3>(bar)} {string(baz) char<3>(bar)}]]"},
+		{expr.NewNestedLiteral(expr.MapLiteralValue{
+			{
+				Key:   expr.NewPrimitiveLiteral("foo", false),
+				Value: expr.NewFixedCharLiteral(types.FixedChar("bar"), false),
+			},
+			{
+				Key:   expr.NewPrimitiveLiteral("baz", false),
+				Value: expr.NewFixedCharLiteral(types.FixedChar("bar"), false),
+			},
+		}, true), "[{string(foo) char<3>(bar)} {string(baz) char<3>(bar)}]"},
 		{MustLiteral(expr.NewLiteral(float32(1.5), false)), "1.5"},
 		{MustLiteral(expr.NewLiteral(&types.VarChar{Value: "foobar", Length: 7}, true)), "foobar"},
 		{expr.NewPrecisionTimestampLiteral(123456, types.PrecisionSeconds, types.NullabilityNullable), "1970-01-02 10:17:36"},
