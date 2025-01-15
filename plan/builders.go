@@ -124,7 +124,6 @@ type Builder interface {
 	// Deprecated: Use VirtualTableFromExpr(...).Remap() instead.
 	VirtualTableFromExprRemap(fieldNames []string, remap []int32, values ...expr.VirtualTableExpressionValue) (*VirtualTableReadRel, error)
 	VirtualTableFromExpr(fieldNames []string, values ...expr.VirtualTableExpressionValue) (*VirtualTableReadRel, error)
-	IcebergTableFromMetadataFile(metadataURI string, schema types.NamedStruct) (*IcebergTableReadRel, error)
 	// Deprecated: Use Sort(...).Remap() instead.
 	SortRemap(input Rel, remap []int32, sorts ...expr.SortField) (*SortRel, error)
 	Sort(input Rel, sorts ...expr.SortField) (*SortRel, error)
@@ -586,18 +585,6 @@ func (b *builder) VirtualTableFromExprRemap(fieldNames []string, remap []int32, 
 
 func (b *builder) VirtualTable(fields []string, values ...expr.StructLiteralValue) (*VirtualTableReadRel, error) {
 	return b.VirtualTableRemap(fields, nil, values...)
-}
-
-func (b *builder) IcebergTableFromMetadataFile(metadataURI string, schema types.NamedStruct) (*IcebergTableReadRel, error) {
-	tableType := &Direct{}
-	tableType.MetadataUri = metadataURI
-
-	return &IcebergTableReadRel{
-		baseReadRel: baseReadRel{
-			baseSchema: schema,
-		},
-		tableType: tableType,
-	}, nil
 }
 
 func (b *builder) SortRemap(input Rel, remap []int32, sorts ...expr.SortField) (*SortRel, error) {
