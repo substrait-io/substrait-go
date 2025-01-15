@@ -897,10 +897,14 @@ func (f *FetchRel) ToProto() *proto.Rel {
 	return &proto.Rel{
 		RelType: &proto.Rel_Fetch{
 			Fetch: &proto.FetchRel{
-				Common:            f.toProto(),
-				Input:             f.input.ToProto(),
-				Offset:            f.offset,
-				Count:             f.count,
+				Common: f.toProto(),
+				Input:  f.input.ToProto(),
+				OffsetMode: &proto.FetchRel_Offset{
+					Offset: f.offset,
+				},
+				CountMode: &proto.FetchRel_Count{
+					Count: f.count,
+				},
 				AdvancedExtension: f.advExtension,
 			},
 		},

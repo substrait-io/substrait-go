@@ -411,10 +411,24 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			return nil, fmt.Errorf("error getting input to FetchRel: %w", err)
 		}
 
+		var offset int64
+		if off, ok := rel.Fetch.OffsetMode.(*proto.FetchRel_Offset); ok {
+			offset = off.Offset
+		} else {
+			return nil, fmt.Errorf("%w: missing required Offset field for Fetch Relation", substraitgo.ErrInvalidRel)
+		}
+
+		var count int64
+		if cnt, ok := rel.Fetch.CountMode.(*proto.FetchRel_Count); ok {
+			count = cnt.Count
+		} else {
+			return nil, fmt.Errorf("%w: missing required Count field for Fetch Relation", substraitgo.ErrInvalidRel)
+		}
+
 		out := &FetchRel{
 			input:        input,
-			offset:       rel.Fetch.Offset,
-			count:        rel.Fetch.Count,
+			offset:       offset,
+			count:        count,
 			advExtension: rel.Fetch.AdvancedExtension,
 		}
 		if rel.Fetch.Common != nil {
