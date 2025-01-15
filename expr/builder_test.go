@@ -29,8 +29,8 @@ func TestExprBuilder(t *testing.T) {
 		err      string
 	}{
 		{"literal", "i8?(5)", b.Wrap(expr.NewLiteral(int8(5), true)), ""},
-		{"preciseTimeStampliteral", "precisiontimestamp?<3>(123456)", b.Wrap(expr.NewPrecisionTimestampLiteral(123456, types.PrecisionMilliSeconds, types.NullabilityNullable), nil), ""},
-		{"preciseTimeStampTzliteral", "precisiontimestamptz?<6>(123456)", b.Wrap(expr.NewPrecisionTimestampTzLiteral(123456, types.PrecisionMicroSeconds, types.NullabilityNullable), nil), ""},
+		{"preciseTimeStampliteral", "precisiontimestamp?<3>(1970-01-01 00:02:03.456)", b.Wrap(expr.NewPrecisionTimestampLiteral(123456, types.PrecisionMilliSeconds, types.NullabilityNullable), nil), ""},
+		{"preciseTimeStampTzliteral", "precisiontimestamptz?<6>(1970-01-01T00:00:00.123456Z)", b.Wrap(expr.NewPrecisionTimestampTzLiteral(123456, types.PrecisionMicroSeconds, types.NullabilityNullable), nil), ""},
 		{"simple add", "add(.field(1) => i8, i8(5)) => i8?",
 			b.ScalarFunc(addID).Args(
 				b.RootRef(expr.NewStructFieldRef(1)),
@@ -64,7 +64,7 @@ func TestExprBuilder(t *testing.T) {
 			b.WindowFunc(rankID), "invalid expression: non-decomposable window or agg function '{https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml rank}' must use InitialToResult phase"},
 		{"window func", "rank(; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_UNSPECIFIED) => i64?",
 			b.WindowFunc(rankID).Phase(types.AggPhaseInitialToResult), ""},
-		{"nested funcs", "add(extract(YEAR, date(10957)) => i64, rank(; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_ALL) => i64?) => i64?",
+		{"nested funcs", "add(extract(YEAR, date(2000-01-01)) => i64, rank(; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_ALL) => i64?) => i64?",
 			b.ScalarFunc(addID).Args(
 				b.ScalarFunc(extractID).Args(b.Enum("YEAR"),
 					b.Wrap(expr.NewLiteral(types.Date(10957), false))),

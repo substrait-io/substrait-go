@@ -90,8 +90,11 @@ func intervalCompoundLiteralFromProto(l *proto.Expression_Literal) Literal {
 func (IntervalCompoundLiteral) isRootRef()            {}
 func (m IntervalCompoundLiteral) GetType() types.Type { return m.getType() }
 func (m IntervalCompoundLiteral) String() string {
-	return fmt.Sprintf("%s(years:%d,months:%d, days:%d, seconds:%d subseconds:%d)",
-		m.getType(), m.Years, m.Months, m.Days, m.Seconds, m.SubSeconds)
+	return fmt.Sprintf("%s(%s)", m.getType(), m.ValueString())
+}
+func (m IntervalCompoundLiteral) ValueString() string {
+	return fmt.Sprintf("%d years, %d months, %d days, %d seconds, %d subseconds",
+		m.Years, m.Months, m.Days, m.Seconds, m.SubSeconds)
 }
 func (m IntervalCompoundLiteral) Equals(rhs Expression) bool {
 	if other, ok := rhs.(IntervalCompoundLiteral); ok {

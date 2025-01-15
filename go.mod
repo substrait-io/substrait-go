@@ -7,6 +7,7 @@ go 1.22.0
 toolchain go1.22.3
 
 require (
+	cloud.google.com/go v0.118.0
 	github.com/antlr4-go/antlr/v4 v4.13.1
 	github.com/cockroachdb/apd/v3 v3.2.1
 	github.com/creasty/defaults v1.8.0
@@ -30,9 +31,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
-	golang.org/x/crypto v0.30.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )

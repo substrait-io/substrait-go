@@ -9,7 +9,9 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
+	"cloud.google.com/go/civil"
 	substraitgo "github.com/substrait-io/substrait-go/v3"
 	"github.com/substrait-io/substrait-go/v3/proto"
 )
@@ -384,6 +386,18 @@ type (
 		WithNullability(Nullability) Type
 		// GetParameters returns all parameters of this type and will be used in function return type derivation
 		GetParameters() []interface{}
+	}
+
+	TimeConverter interface {
+		// ToTime converts the current value into a time.Time assuming microsecond precision.
+		ToTime() time.Time
+		// ToPrecisionTime converts the current value using the provided precision into a time.Time.
+		ToPrecisionTime(precision TimePrecision) time.Time
+	}
+
+	TimePrinter interface {
+		// ToTimeString returns a human consumable version of the current value.
+		ToTimeString() string
 	}
 
 	// CompositeType this represents a concrete type having components
@@ -1545,4 +1559,70 @@ func (r RecordType) Types() []Type {
 
 func (r RecordType) Concat(other RecordType) RecordType {
 	return RecordType{types: append(r.Types(), other.Types()...)}
+}
+
+func (d Date) ToTimeString() string {
+	date := civil.Date{Year: 1970, Month: time.January, Day: 1}
+	date = date.AddDays(int(d))
+	return date.String()
+}
+
+func timeFromPrecisionUnits(units int64, precision TimePrecision) time.Time {
+	var tm time.Time
+	switch precision {
+	case PrecisionSeconds:
+		tm = time.Unix(units, 0)
+	case PrecisionDeciSeconds:
+		tm = time.Unix(units/10, units%10*100000000)
+	case PrecisionCentiSeconds:
+		tm = time.Unix(units/100, units%100*10000000)
+	case PrecisionMilliSeconds:
+		tm = time.UnixMilli(units)
+	case PrecisionEMinus4Seconds:
+		tm = time.Unix(units/10000, units%10000*100000)
+	case PrecisionEMinus5Seconds:
+		tm = time.Unix(units/100000, units%100000*10000)
+	case PrecisionMicroSeconds:
+		tm = time.UnixMicro(units)
+	case PrecisionEMinus7Seconds:
+		tm = time.Unix(units/10000000, units%10000000*100)
+	case PrecisionEMinus8Seconds:
+		tm = time.Unix(units/100000000, units%100000000*10)
+	case PrecisionNanoSeconds:
+		tm = time.Unix(units/1000000000, units%1000000000)
+	default:
+		panic("unsupported precision")
+	}
+	return tm
+}
+
+func (t Time) ToTimeString() string {
+	tm := time.UnixMicro(int64(t))
+	return tm.UTC().Format(time.TimeOnly)
+}
+
+func (t Timestamp) ToTime() time.Time {
+	return time.UnixMicro(int64(t))
+}
+
+func (t Timestamp) ToPrecisionTime(precision TimePrecision) time.Time {
+	return timeFromPrecisionUnits(int64(t), precision)
+}
+
+func (t Timestamp) ToTimeString() string {
+	tm := any(t).(TimeConverter).ToTime()
+	return tm.UTC().Format("2006-01-02 15:04:05.999999999")
+}
+
+func (t TimestampTz) ToTime() time.Time {
+	return time.UnixMicro(int64(t))
+}
+
+func (t TimestampTz) ToPrecisionTime(precision TimePrecision) time.Time {
+	return timeFromPrecisionUnits(int64(t), precision)
+}
+
+func (t TimestampTz) ToTimeString() string {
+	tm := any(t).(TimeConverter).ToTime()
+	return tm.UTC().Format(time.RFC3339Nano)
 }
