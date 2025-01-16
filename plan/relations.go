@@ -371,6 +371,112 @@ func (e *ExtensionTableReadRel) Remap(mapping ...int32) (Rel, error) {
 	return RemapHelper(e, mapping)
 }
 
+type (
+	SnapshotId        string
+	SnapshotTimestamp int64
+
+	IcebergSnapshot interface {
+		isSnapshot()
+	}
+)
+
+func (SnapshotId) isSnapshot()        {}
+func (SnapshotTimestamp) isSnapshot() {}
+
+type (
+	Direct struct {
+		MetadataUri string
+		SnapshotTimestamp
+		SnapshotId
+	}
+
+	IcebergTableType interface {
+		isTableType()
+	}
+)
+
+func (*Direct) isTableType() {}
+
+// IcebergTableReadRel is a scan on iceberg table.
+type IcebergTableReadRel struct {
+	baseReadRel
+
+	tableType    IcebergTableType
+	advExtension *extensions.AdvancedExtension
+}
+
+func (n *IcebergTableReadRel) NamedTableAdvancedExtension() *extensions.AdvancedExtension {
+	return n.advExtension
+}
+
+func (n *IcebergTableReadRel) RecordType() types.RecordType {
+	return n.remap(n.directOutputSchema())
+}
+
+func (n *IcebergTableReadRel) ToProtoPlanRel() *proto.PlanRel {
+	return &proto.PlanRel{
+		RelType: &proto.PlanRel_Rel{
+			Rel: n.ToProto(),
+		},
+	}
+}
+
+func (n *IcebergTableReadRel) ToProto() *proto.Rel {
+	readRel := n.toReadRelProto()
+
+	if directTableType, ok := n.tableType.(*Direct); ok {
+		direct := &proto.ReadRel_IcebergTable_MetadataFileRead{
+			MetadataUri: directTableType.MetadataUri,
+		}
+
+		// SnapshotId and SnapshotTimestamp are mutually exclusive
+		if directTableType.SnapshotId != "" {
+			direct.Snapshot = &proto.ReadRel_IcebergTable_MetadataFileRead_SnapshotId{
+				SnapshotId: string(directTableType.SnapshotId),
+			}
+		} else if directTableType.SnapshotTimestamp != 0 {
+			direct.Snapshot = &proto.ReadRel_IcebergTable_MetadataFileRead_SnapshotTimestamp{
+				SnapshotTimestamp: int64(directTableType.SnapshotTimestamp),
+			}
+		}
+
+		readRel.ReadType = &proto.ReadRel_IcebergTable_{
+			IcebergTable: &proto.ReadRel_IcebergTable{
+				TableType: &proto.ReadRel_IcebergTable_Direct{
+					Direct: direct,
+				},
+			},
+		}
+	}
+
+	return &proto.Rel{
+		RelType: &proto.Rel_Read{
+			Read: readRel,
+		},
+	}
+}
+
+func (n *IcebergTableReadRel) Copy(_ ...Rel) (Rel, error) {
+	return n, nil
+}
+
+func (n *IcebergTableReadRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, _ ...Rel) (Rel, error) {
+	newExprs, err := n.copyExpressions(rewriteFunc)
+	if err != nil {
+		return nil, err
+	}
+	if slices.Equal(newExprs, n.getExpressions()) {
+		return n, nil
+	}
+	nt := *n
+	nt.updateFilters(newExprs)
+	return &nt, nil
+}
+
+func (n *IcebergTableReadRel) Remap(mapping ...int32) (Rel, error) {
+	return RemapHelper(n, mapping)
+}
+
 // PathType is the type of a LocalFileReadRel's uris.
 type PathType int8
 

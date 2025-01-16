@@ -377,6 +377,31 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			out = &VirtualTableReadRel{
 				values: values,
 			}
+		case *proto.ReadRel_IcebergTable_:
+			icebergTableType := readType.IcebergTable.TableType
+			if icebergTableType == nil {
+				return nil, fmt.Errorf("%w: IcebergTableType is required for IcebergTableReadRel", substraitgo.ErrInvalidRel)
+			}
+			if _, ok := icebergTableType.(IcebergTableType); ok {
+				return nil, fmt.Errorf("%w: IcebergTableType must be a string", substraitgo.ErrInvalidRel)
+			}
+			if direct, ok := icebergTableType.(*proto.ReadRel_IcebergTable_Direct); ok {
+				tableType := &Direct{
+					MetadataUri: direct.Direct.MetadataUri,
+				}
+				if snapshotId, ok := direct.Direct.Snapshot.(*proto.ReadRel_IcebergTable_MetadataFileRead_SnapshotId); ok {
+					tableType.SnapshotId = SnapshotId(snapshotId.SnapshotId)
+				} else if snapshotTimestamp, ok := direct.Direct.Snapshot.(*proto.ReadRel_IcebergTable_MetadataFileRead_SnapshotTimestamp); ok {
+					tableType.SnapshotTimestamp = SnapshotTimestamp(snapshotTimestamp.SnapshotTimestamp)
+				}
+				out = &IcebergTableReadRel{
+					tableType: tableType,
+				}
+			} else {
+				return nil, fmt.Errorf("%w: only IcebergTableType Direct is supported", substraitgo.ErrInvalidRel)
+			}
+		default:
+			return nil, fmt.Errorf("%w: unknown ReadRel type", substraitgo.ErrInvalidRel)
 		}
 
 		if err := out.fromProtoReadRel(rel.Read, reg); err != nil {
