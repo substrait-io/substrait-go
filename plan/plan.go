@@ -397,7 +397,11 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 				out = &IcebergTableReadRel{
 					tableType: tableType,
 				}
+			} else {
+				return nil, fmt.Errorf("%w: only IcebergTableType Direct is supported", substraitgo.ErrInvalidRel)
 			}
+		default:
+			return nil, fmt.Errorf("%w: unknown ReadRel type", substraitgo.ErrInvalidRel)
 		}
 
 		if err := out.fromProtoReadRel(rel.Read, reg); err != nil {

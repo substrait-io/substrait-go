@@ -43,6 +43,12 @@ func TestRelations_Copy(t *testing.T) {
 	sortRel := &SortRel{input: createVirtualTableReadRel(1), sorts: []expr.SortField{{Expr: createPrimitiveFloat(1.0), Kind: types.SortAscNullsFirst}}}
 	virtualTableReadRel := &VirtualTableReadRel{values: []expr.VirtualTableExpressionValue{[]expr.Expression{&expr.PrimitiveLiteral[int64]{Value: 1}}}}
 	namedTableWriteRel := &NamedTableWriteRel{input: namedTableReadRel}
+	icebergTableReadRel := &IcebergTableReadRel{
+		baseReadRel: baseReadRel{filter: expr.NewPrimitiveLiteral(true, false)},
+		tableType: &Direct{
+			MetadataUri: "s3://bucket/path/to/metadata.json",
+		},
+	}
 
 	type relationTestCase struct {
 		name            string
@@ -323,6 +329,27 @@ func TestRelations_Copy(t *testing.T) {
 			newInputs:   []Rel{createVirtualTableReadRel(6)},
 			rewriteFunc: func(e expr.Expression) (expr.Expression, error) { return createPrimitiveFloat(9.0), nil },
 			expectedRel: &NamedTableWriteRel{input: createVirtualTableReadRel(6)},
+		},
+		{
+			name:            "IcebergTableReadRel Copy with new inputs",
+			relation:        icebergTableReadRel,
+			newInputs:       []Rel{},
+			expectedSameRel: true,
+		},
+		{
+			name:        "IcebergTableReadRel Copy with new inputs and rewriteFunc",
+			relation:    icebergTableReadRel,
+			newInputs:   []Rel{},
+			rewriteFunc: func(e expr.Expression) (expr.Expression, error) { return createPrimitiveFloat(9.0), nil },
+			expectedRel: &IcebergTableReadRel{
+				baseReadRel: baseReadRel{
+					filter:           createPrimitiveFloat(9.0),
+					bestEffortFilter: createPrimitiveFloat(9.0),
+				},
+				tableType: &Direct{
+					MetadataUri: "s3://bucket/path/to/metadata.json",
+				},
+			},
 		},
 	}
 
