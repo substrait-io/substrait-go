@@ -97,6 +97,18 @@ type mapAndSlice[V extensions.FunctionVariant] struct {
 	variantsSlice []V
 }
 
+func nameForInvocationType(invocationType interface{}) string {
+	switch invocationType.(type) {
+	case *LocalScalarFunctionVariant:
+		return "scalar function"
+	case *LocalAggregateFunctionVariant:
+		return "aggregate function"
+	case *LocalWindowFunctionVariant:
+		return "window function"
+	}
+	return "function"
+}
+
 // makeLocalFunctionVariantMapAndSlice creates a map of function names to their variants and a slice of all variants.
 // The map is indexed by both the SubstraitFunctionName and the LocalFunctionName
 // It returns
@@ -112,7 +124,8 @@ func makeLocalFunctionVariantMapAndSlice[T withID, V localFunctionVariant](
 	for _, dfi := range dialectFunctionInfos {
 		if _, nameAlreadyProcessed := variantsMap[LocalFunctionName(dfi.Name)]; nameAlreadyProcessed {
 			if _, ok := processedFunctions[dfi.ID]; !ok {
-				return nil, fmt.Errorf("%w: no function variant found for '%s'", substraitgo.ErrInvalidDialect, dfi.ID)
+				var invocationType V
+				return nil, fmt.Errorf("%w: no %s variant found for '%s'", substraitgo.ErrInvalidDialect, nameForInvocationType(invocationType), dfi.ID)
 			}
 			continue
 		}
@@ -127,7 +140,8 @@ func makeLocalFunctionVariantMapAndSlice[T withID, V localFunctionVariant](
 			}
 		}
 		if _, ok := processedFunctions[dfi.ID]; !ok {
-			return nil, fmt.Errorf("%w: no function variant found for '%s'", substraitgo.ErrInvalidDialect, dfi.ID)
+			var invocationType V
+			return nil, fmt.Errorf("%w: no %s variant found for '%s'", substraitgo.ErrInvalidDialect, nameForInvocationType(invocationType), dfi.ID)
 		}
 		if len(localVariantArray) > 0 {
 			addToSliceMap(variantsMap, SubstraitFunctionName(dfi.Name), localVariantArray)
