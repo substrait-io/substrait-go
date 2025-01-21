@@ -157,7 +157,7 @@ window_functions:
 	}
 
 	localizeTestcases := []testcase{
-		{`no function variant found`, `name: testdb
+		{`no scalar function variant found`, `name: testdb
 type: sql
 dependencies:
   arithmetic: 
@@ -175,7 +175,7 @@ scalar_functions:
     - i32_i32
     - i32_fp32
 `},
-		{`no function variant found`, `name: testdb
+		{`no aggregate function variant found`, `name: testdb
 type: sql
 dependencies:
   arithmetic: 
@@ -190,7 +190,7 @@ aggregate_functions:
     - i32
     - str
 `},
-		{`no function variant found`, `name: testdb
+		{`no window function variant found`, `name: testdb
 type: sql
 dependencies:
   arithmetic: 

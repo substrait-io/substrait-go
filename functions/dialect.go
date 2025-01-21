@@ -112,7 +112,8 @@ func makeLocalFunctionVariantMapAndSlice[T withID, V localFunctionVariant](
 	for _, dfi := range dialectFunctionInfos {
 		if _, nameAlreadyProcessed := variantsMap[LocalFunctionName(dfi.Name)]; nameAlreadyProcessed {
 			if _, ok := processedFunctions[dfi.ID]; !ok {
-				return nil, fmt.Errorf("%w: no function variant found for '%s'", substraitgo.ErrInvalidDialect, dfi.ID)
+				var invocationType V
+				return nil, fmt.Errorf("%w: no %s function variant found for '%s'", substraitgo.ErrInvalidDialect, invocationType.InvocationTypeName(), dfi.ID)
 			}
 			continue
 		}
@@ -127,7 +128,8 @@ func makeLocalFunctionVariantMapAndSlice[T withID, V localFunctionVariant](
 			}
 		}
 		if _, ok := processedFunctions[dfi.ID]; !ok {
-			return nil, fmt.Errorf("%w: no function variant found for '%s'", substraitgo.ErrInvalidDialect, dfi.ID)
+			var invocationType V
+			return nil, fmt.Errorf("%w: no %s function variant found for '%s'", substraitgo.ErrInvalidDialect, invocationType.InvocationTypeName(), dfi.ID)
 		}
 		if len(localVariantArray) > 0 {
 			addToSliceMap(variantsMap, SubstraitFunctionName(dfi.Name), localVariantArray)
