@@ -95,7 +95,9 @@ var shortTypeNames = map[TypeName]string{
 	TypeNameFixedChar:   "fchar",
 	TypeNameVarChar:     "vchar",
 
-	TypeNameDecimal: "dec",
+	TypeNameDecimal:              "dec",
+	TypeNamePrecisionTimestamp:   "pts",
+	TypeNamePrecisionTimestampTz: "ptstz",
 }
 
 func GetShortTypeName(name TypeName) string {
@@ -398,6 +400,16 @@ type (
 	TimePrinter interface {
 		// ToTimeString returns a human consumable version of the current value.
 		ToTimeString() string
+	}
+
+	IsoTimePrinter interface {
+		// ToIsoTimeString returns a human consumable version of the current value in ISO8601 format.
+		ToIsoTimeString() string
+	}
+
+	IsoValuePrinter interface {
+		// IsoValueString API returns the value in ISO8601 format. This is used in normalizing the function testcases
+		IsoValueString() string
 	}
 
 	// CompositeType this represents a concrete type having components
@@ -704,7 +716,7 @@ var typeNames = map[reflect.Type]string{
 	reflect.TypeOf(&IntervalYearToMonth{}):            "interval_year",
 	reflect.TypeOf(&IntervalDayToSecond{}):            "interval_day",
 	reflect.TypeOf(&FixedBinary{}):                    "fixedbinary",
-	reflect.TypeOf(&emptyFixedChar):                   "char",
+	reflect.TypeOf(&emptyFixedChar):                   "fixedchar",
 	reflect.TypeOf(&VarChar{}):                        "varchar",
 	reflect.TypeOf(&PrecisionTimestampType{}):         "precision_timestamp",
 	reflect.TypeOf(&PrecisionTimestampTzType{}):       "precision_timestamp_tz",
@@ -1601,6 +1613,11 @@ func (t Time) ToTimeString() string {
 	return tm.UTC().Format(time.TimeOnly)
 }
 
+func (t Time) ToIsoTimeString() string {
+	tm := time.UnixMicro(int64(t))
+	return tm.UTC().Format("15:04:05.000000")
+}
+
 func (t Timestamp) ToTime() time.Time {
 	return time.UnixMicro(int64(t))
 }
@@ -1614,6 +1631,11 @@ func (t Timestamp) ToTimeString() string {
 	return tm.UTC().Format("2006-01-02 15:04:05.999999999")
 }
 
+func (t Timestamp) ToIsoTimeString() string {
+	tm := any(t).(TimeConverter).ToTime()
+	return tm.UTC().Format("2006-01-02T15:04:05.999999999")
+}
+
 func (t TimestampTz) ToTime() time.Time {
 	return time.UnixMicro(int64(t))
 }
@@ -1625,4 +1647,9 @@ func (t TimestampTz) ToPrecisionTime(precision TimePrecision) time.Time {
 func (t TimestampTz) ToTimeString() string {
 	tm := any(t).(TimeConverter).ToTime()
 	return tm.UTC().Format(time.RFC3339Nano)
+}
+
+func (t TimestampTz) ToIsoTimeString() string {
+	tm := any(t).(TimeConverter).ToTime()
+	return tm.UTC().Format("2006-01-02T15:04:05.999999999")
 }

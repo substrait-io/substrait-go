@@ -336,6 +336,14 @@ func NewPrecisionTimestamp(precision types.TimePrecision, value int64) (expr.Lit
 	}, false)
 }
 
+func NewPrecisionTimestampFromString(precision types.TimePrecision, value string) (expr.Literal, error) {
+	tm, err := parseTimeFromString(value)
+	if err != nil {
+		return nil, err
+	}
+	return NewPrecisionTimestampFromTime(precision, tm)
+}
+
 // NewPrecisionTimestampTzFromTime creates a new PrecisionTimestampTz literal from a time.Time timestamp value with given precision.
 func NewPrecisionTimestampTzFromTime(precision types.TimePrecision, tm time.Time) (expr.Literal, error) {
 	return NewPrecisionTimestampTz(precision, getTimeValueByPrecision(tm, precision))
@@ -349,6 +357,14 @@ func NewPrecisionTimestampTz(precision types.TimePrecision, value int64) (expr.L
 			Value:     value,
 		},
 	}, false)
+}
+
+func NewPrecisionTimestampTzFromString(precision types.TimePrecision, value string) (expr.Literal, error) {
+	tm, err := parseTimeFromString(value)
+	if err != nil {
+		return nil, err
+	}
+	return NewPrecisionTimestampTzFromTime(precision, tm)
 }
 
 func getTimeValueByPrecision(tm time.Time, precision types.TimePrecision) int64 {
