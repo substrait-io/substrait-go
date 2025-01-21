@@ -146,7 +146,7 @@ scalar_functions:
 		{"timestamp", "TIMESTAMP", &types.TimestampType{Nullability: types.NullabilityRequired}, true},
 		{"dec<10,2>", "NUMERIC(10,2)", &types.DecimalType{Nullability: types.NullabilityRequired, Precision: 10, Scale: 2}, true},
 		{"varchar<10>", "VARCHAR(10)", &types.VarCharType{Nullability: types.NullabilityRequired, Length: 10}, true},
-		{"char<10>", "CHAR(10)", &types.FixedCharType{Nullability: types.NullabilityRequired, Length: 10}, true},
+		{"fixedchar<10>", "CHAR(10)", &types.FixedCharType{Nullability: types.NullabilityRequired, Length: 10}, true},
 		{"fixedbinary<10>", "BINARY(10)", &types.FixedBinaryType{Nullability: types.NullabilityRequired, Length: 10}, true},
 
 		// short names
@@ -160,7 +160,7 @@ scalar_functions:
 		{"timestamp?", "TIMESTAMP", &types.TimestampType{Nullability: types.NullabilityNullable}, true},
 		{"dec?<10,2>", "NUMERIC(10,2)", &types.DecimalType{Nullability: types.NullabilityNullable, Precision: 10, Scale: 2}, true},
 		{"varchar?<10>", "VARCHAR(10)", &types.VarCharType{Nullability: types.NullabilityNullable, Length: 10}, true},
-		{"char?<10>", "CHAR(10)", &types.FixedCharType{Nullability: types.NullabilityNullable, Length: 10}, true},
+		{"fixedchar?<10>", "CHAR(10)", &types.FixedCharType{Nullability: types.NullabilityNullable, Length: 10}, true},
 		{"fixedbinary?<10>", "BINARY(10)", &types.FixedBinaryType{Nullability: types.NullabilityNullable, Length: 10}, true},
 	}
 	for _, tt := range tests {

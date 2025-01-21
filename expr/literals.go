@@ -155,12 +155,22 @@ func (*PrimitiveLiteral[T]) isRootRef() {}
 func (t *PrimitiveLiteral[T]) String() string {
 	return fmt.Sprintf("%s(%s)", t.Type.String(), t.ValueString())
 }
+
 func (t *PrimitiveLiteral[T]) ValueString() string {
 	if lit, ok := any(t.Value).(types.TimePrinter); ok {
 		return lit.ToTimeString()
 	}
 	return fmt.Sprintf("%v", t.Value)
 }
+
+func (t *PrimitiveLiteral[T]) IsoValueString() string {
+	switch x := any(t.Value).(type) {
+	case types.IsoTimePrinter:
+		return x.ToIsoTimeString()
+	}
+	return t.ValueString()
+}
+
 func (t *PrimitiveLiteral[T]) GetType() types.Type { return t.Type }
 func (t *PrimitiveLiteral[T]) ToProtoLiteral() *proto.Expression_Literal {
 	lit := &proto.Expression_Literal{
@@ -470,6 +480,49 @@ func (t *ProtoLiteral) ValueString() string {
 		return fmt.Sprintf("%d days, %d seconds, %d subseconds", x.GetDays(), x.GetSeconds(), x.GetSubseconds())
 	}
 	return fmt.Sprintf("%s", t.Value)
+}
+
+// IsoValueString handles precision timestamp and interval literals to return a string in ISO 8601 format
+func (t *ProtoLiteral) IsoValueString() string {
+	switch literalType := t.Type.(type) {
+	case *types.PrecisionTimestampType:
+		tm := types.Timestamp(t.Value.(int64)).ToPrecisionTime(literalType.Precision)
+		return tm.UTC().Format("2006-01-02T15:04:05.999999999")
+	case *types.PrecisionTimestampTzType:
+		tm := types.TimestampTz(t.Value.(int64)).ToPrecisionTime(literalType.Precision)
+		return tm.UTC().Format("2006-01-02T15:04:05.000-07:00")
+	case *types.IntervalYearType:
+		x, _ := t.Value.(*proto.Expression_Literal_IntervalYearToMonth)
+		// Validity is required by construction.
+		return fmt.Sprintf("P%dY%dM", x.GetYears(), x.GetMonths())
+	case *types.IntervalDayType:
+		x, _ := t.Value.(*proto.Expression_Literal_IntervalDayToSecond)
+		// Validity is required by construction.
+		seconds := x.GetSeconds()
+		minutes := seconds / 60
+		hours := minutes / 60
+		seconds = seconds % 60
+		minutes = minutes % 60
+		sb := strings.Builder{}
+		sb.WriteString("P")
+		if x.GetDays() > 0 {
+			sb.WriteString(fmt.Sprintf("%dD", x.GetDays()))
+		}
+		if minutes > 0 || seconds > 0 {
+			sb.WriteString("T")
+			if hours > 0 {
+				sb.WriteString(fmt.Sprintf("%dH", hours))
+			}
+			if minutes > 0 {
+				sb.WriteString(fmt.Sprintf("%dM", minutes))
+			}
+			if seconds > 0 {
+				sb.WriteString(fmt.Sprintf("%dS", seconds))
+			}
+		}
+		return sb.String()
+	}
+	return t.ValueString()
 }
 
 func (*ProtoLiteral) isRootRef()            {}

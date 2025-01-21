@@ -98,9 +98,11 @@ func (m *PrecisionTimestampType) ToProto() *proto.Type {
 			TypeVariationReference: m.TypeVariationRef}}}
 }
 
-func (*PrecisionTimestampType) ShortString() string { return "prets" }
+func (*PrecisionTimestampType) ShortString() string {
+	return GetShortTypeName(TypeNamePrecisionTimestamp)
+}
 func (m *PrecisionTimestampType) String() string {
-	return fmt.Sprintf("precisiontimestamp%s<%d>", strNullable(m),
+	return fmt.Sprintf("%s%s<%d>", TypeNamePrecisionTimestamp, strNullable(m),
 		m.Precision.ToProtoVal())
 }
 
@@ -154,7 +156,7 @@ func (m *PrecisionTimestampTzType) ToProto() *proto.Type {
 }
 
 func (m *PrecisionTimestampTzType) String() string {
-	return fmt.Sprintf("precisiontimestamptz%s<%d>", strNullable(m),
+	return fmt.Sprintf("%s%s<%d>", TypeNamePrecisionTimestampTz, strNullable(m),
 		m.Precision.ToProtoVal())
 }
 
@@ -179,7 +181,9 @@ func (m *PrecisionTimestampTzType) GetNullability() Nullability {
 	return m.Nullability
 }
 
-func (*PrecisionTimestampTzType) ShortString() string { return "pretstz" }
+func (*PrecisionTimestampTzType) ShortString() string {
+	return GetShortTypeName(TypeNamePrecisionTimestampTz)
+}
 
 func (m *PrecisionTimestampTzType) BaseString() string {
 	return typeNames[reflect.TypeOf(m)]

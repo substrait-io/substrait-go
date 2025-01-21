@@ -34,13 +34,13 @@ func TestTypeToString(t *testing.T) {
 		{&IntervalDayType{Precision: 5}, "interval_day<5>", "iday"},
 		{&UUIDType{Nullability: NullabilityNullable}, "uuid?", "uuid"},
 		{&FixedBinaryType{Length: 10}, "fixedbinary<10>", "fbin"},
-		{&FixedCharType{Length: 5}, "char<5>", "fchar"},
+		{&FixedCharType{Length: 5}, "fixedchar<5>", "fchar"},
 		{&VarCharType{Length: 15}, "varchar<15>", "vchar"},
 		{&DecimalType{Scale: 2, Precision: 4}, "decimal<4,2>", "dec"},
 		{&StructType{Nullability: NullabilityNullable, Types: []Type{
 			&Int8Type{Nullability: NullabilityNullable},
 			&DateType{Nullability: NullabilityRequired}, &FixedCharType{Length: 5}}},
-			"struct?<i8?, date, char<5>>", "struct"},
+			"struct?<i8?, date, fixedchar<5>>", "struct"},
 		{&ListType{Type: &Int8Type{}}, "list<i8>", "list"},
 		{&MapType{Key: &StringType{}, Value: &DecimalType{Precision: 10, Scale: 2}},
 			"map<string, decimal<10,2>>", "map"},
@@ -184,7 +184,7 @@ func TestFixedLenType_WithLength(t *testing.T) {
 		expError bool
 	}{
 		{"fixedbinary", &FixedBinaryType{}, 10, false},
-		{"char", &FixedCharType{}, 20, false},
+		{"fixedchar", &FixedCharType{}, 20, false},
 		{"varchar", &VarCharType{}, 30, false},
 	}
 	for _, tt := range tests {

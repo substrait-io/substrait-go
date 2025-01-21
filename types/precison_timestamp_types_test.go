@@ -62,8 +62,8 @@ func TestNewPrecisionTimestampType(t *testing.T) {
 			assert.Equal(t, expectedProtoValMap[precision], createdPrecTimeStamp.GetPrecisionProtoVal())
 			assert.Equal(t, nullability, createdPrecTimeStamp.GetNullability())
 			assert.Zero(t, createdPrecTimeStamp.GetTypeVariationReference())
-			assert.Equal(t, fmt.Sprintf("precisiontimestamp%s", expectedFormatString), createdPrecTimeStamp.String())
-			assert.Equal(t, "prets", createdPrecTimeStamp.ShortString())
+			assert.Equal(t, fmt.Sprintf("precision_timestamp%s", expectedFormatString), createdPrecTimeStamp.String())
+			assert.Equal(t, "pts", createdPrecTimeStamp.ShortString())
 			assertPrecisionTimeStampProto(t, precision, nullability, *createdPrecTimeStamp)
 
 			// verify PrecisionTimestampTzType
@@ -73,8 +73,8 @@ func TestNewPrecisionTimestampType(t *testing.T) {
 			assert.Equal(t, expectedProtoValMap[precision], createdPrecTimeStampTz.GetPrecisionProtoVal())
 			assert.Equal(t, nullability, createdPrecTimeStampTz.GetNullability())
 			assert.Zero(t, createdPrecTimeStampTz.GetTypeVariationReference())
-			assert.Equal(t, fmt.Sprintf("precisiontimestamptz%s", expectedFormatString), createdPrecTimeStampTz.String())
-			assert.Equal(t, "pretstz", createdPrecTimeStampTz.ShortString())
+			assert.Equal(t, fmt.Sprintf("precision_timestamp_tz%s", expectedFormatString), createdPrecTimeStampTz.String())
+			assert.Equal(t, "ptstz", createdPrecTimeStampTz.ShortString())
 			assertPrecisionTimeStampTzProto(t, precision, nullability, *createdPrecTimeStampTz)
 
 			// assert that both types are not equal

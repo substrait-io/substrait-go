@@ -34,6 +34,11 @@ add(100::i16, 100::i16) = 200::i16
 add(120::i8, 10::i8) [overflow:ERROR] = <!ERROR>
 `
 
+	testStrings := []string{
+		"add(120::i8, 5::i8) = 125::i8",
+		"add(100::i16, 100::i16) = 200::i16",
+		"add(120::i8, 10::i8) [overflow:ERROR] = <!ERROR>",
+	}
 	testFile, err := ParseTestCasesFromString(header + tests)
 	require.NoError(t, err)
 	assert.Len(t, testFile.TestCases, 3)
@@ -60,6 +65,7 @@ add(120::i8, 10::i8) [overflow:ERROR] = <!ERROR>
 		assert.Equal(t, argTypes[i], tc.GetArgTypes())
 		assert.Equal(t, ids[i], tc.CompoundFunctionName())
 		assert.Equal(t, groupDescs[i], tc.GroupDesc)
+		assert.Equal(t, testStrings[i], tc.String())
 	}
 }
 
@@ -130,39 +136,41 @@ func TestParseTestWithVariousTypes(t *testing.T) {
 	header := makeHeader("v1.0", "extensions/functions_arithmetic_decimal.yaml") + "# basic \n"
 	tests := []struct {
 		testCaseStr string
+		expTestStr  string
 	}{
-		{"f1(1::i8, 2::i16, 3::i32, 4::i64) = -7.0::fp32"},
-		{"f2(1.0::fp32, 2.0::fp64) = -7.0::fp32"},
-		{"f3('a'::str, 'b'::string) = 'c'::str"},
-		{"f4(false::bool, true::boolean) = false::bool"},
-		{"f5(1.1::dec, 2.2::decimal) = 3.3::dec"},
-		{"f6(1.1::dec<38,10>, 2.2::dec<38,10>) = 3.3::dec<38,10>"},
-		{"f7(1.1::dec<38,10>, 2.2::decimal<38,10>) = 3.3::decimal<38,10>"},
-		{"f8('1991-01-01'::date) = '2001-01-01'::date"},
-		{"f8('13:01:01.2345678'::time) = 123456::i64"},
-		{"f8('13:01:01.234'::time) = 123::i32"},
-		{"f8('1991-01-01T01:02:03.456'::ts, '1991-01-01T00:00:00'::timestamp) = '1991-01-01T22:33:44'::ts"},
-		{"f8('1991-01-01T01:02:03.456+05:30'::tstz, '1991-01-01T00:00:00+15:30'::timestamp_tz) = 23::i32"},
-		{"f9('1991-01-01'::date, 5::i64) = '1991-01-01T00:00:00+15:30'::timestamp_tz"},
-		{"f10('P10Y5M'::interval_year, 5::i64) = 'P15Y5M'::interval_year"},
-		{"f10('P10Y5M'::iyear, 5::i64) = 'P15Y5M'::iyear"},
-		{"f11('P10DT5H6M7S'::interval_day, 5::i64) = 'P10DT10H6M7S'::interval_day"},
-		{"f11('P10DT6M7S'::interval_day, 5::i64) = 'P10DT11M7S'::interval_day"},
-		{"or(false::bool, null::bool) = null::bool"},
-		{"f12('a'::vchar<9>, 'b'::varchar<4>) = 'c'::varchar<3>"},
-		{"f8('1991-01-01T01:02:03.456'::pts<3>, '1991-01-01T00:00:00.000000'::pts<6>) = '1991-01-01T22:33:44'::pts<0>"},
-		{"f8('1991-01-01T01:02:03.456+05:30'::ptstz<3>, '1991-01-01T00:00:00+15:30'::ptstz<0>) = '1991-01-01T22:33:44+15:30'::ptstz<0>"},
+		{testCaseStr: "f1(1::i8, 2::i16, 3::i32, 4::i64) = -7.0::fp32", expTestStr: "f1(1::i8, 2::i16, 3::i32, 4::i64) = -7::fp32"},
+		{testCaseStr: "f2(1.0::fp32, 2.0::fp64) = -7.0::fp32", expTestStr: "f2(1::fp32, 2::fp64) = -7::fp32"},
+		{testCaseStr: "f3('a'::str, 'b'::string) = 'c'::str", expTestStr: "f3('a'::string, 'b'::string) = 'c'::string"},
+		{testCaseStr: "f4(false::bool, true::boolean) = false::bool", expTestStr: "f4(false::boolean, true::boolean) = false::boolean"},
+		{testCaseStr: "f5(1.1::dec, 2.2::decimal) = 3.3::dec", expTestStr: "f5(1.1::decimal<38,0>, 2.2::decimal<38,0>) = 3.3::decimal<38,0>"},
+		{testCaseStr: "f6(1.1::dec<38,10>, 2.2::dec<38,10>) = 3.3::dec<38,10>", expTestStr: "f6(1.1::decimal<38,10>, 2.2::decimal<38,10>) = 3.3::decimal<38,10>"},
+		{testCaseStr: "f7(1.1::dec<38,10>, 2.2::decimal<38,10>) = 3.3::decimal<38,10>", expTestStr: "f7(1.1::decimal<38,10>, 2.2::decimal<38,10>) = 3.3::decimal<38,10>"},
+		{testCaseStr: "f8('1991-01-01'::date) = '2001-01-01'::date"},
+		{testCaseStr: "f8('13:01:01.2345678'::time) = 123456::i64", expTestStr: "f8('13:01:01.234567'::time) = 123456::i64"},
+		{testCaseStr: "f8('13:01:01.234'::time) = 123::i32", expTestStr: "f8('13:01:01.234000'::time) = 123::i32"},
+		{testCaseStr: "f8('1991-01-01T01:02:03.456'::ts, '1991-01-01T00:00:00'::timestamp) = '1991-01-01T22:33:44'::ts", expTestStr: "f8('1991-01-01T01:02:03.456'::timestamp, '1991-01-01T00:00:00'::timestamp) = '1991-01-01T22:33:44'::timestamp"},
+		{testCaseStr: "f8('1991-01-01T01:02:03.456+05:30'::tstz, '1991-01-01T00:00:00+15:30'::timestamp_tz) = 23::i32", expTestStr: "f8('1990-12-31T19:32:03.456'::timestamp_tz, '1990-12-31T08:30:00'::timestamp_tz) = 23::i32"},
+		{testCaseStr: "f9('1991-01-01'::date, 5::i64) = '1991-01-01T00:00:00+15:30'::timestamp_tz", expTestStr: "f9('1991-01-01'::date, 5::i64) = '1990-12-31T08:30:00'::timestamp_tz"},
+		{testCaseStr: "f10('P10Y5M'::interval_year, 5::i64) = 'P15Y5M'::interval_year"},
+		{testCaseStr: "f10('P10Y5M'::iyear, 5::i64) = 'P15Y5M'::iyear", expTestStr: "f10('P10Y5M'::interval_year, 5::i64) = 'P15Y5M'::interval_year"},
+		{testCaseStr: "f11('P10DT5H6M7S'::interval_day, 5::i64) = 'P10DT10H6M7S'::interval_day", expTestStr: "f11('P10DT5H6M7S'::interval_day<0>, 5::i64) = 'P10DT10H6M7S'::interval_day<0>"},
+		{testCaseStr: "f11('P10DT6M7S'::interval_day, 5::i64) = 'P10DT11M7S'::interval_day", expTestStr: "f11('P10DT6M7S'::interval_day<0>, 5::i64) = 'P10DT11M7S'::interval_day<0>"},
+		{testCaseStr: "or(false::bool, null::bool) = null::bool", expTestStr: "or(false::boolean, null::boolean) = null::boolean"},
+		{testCaseStr: "f12('a'::vchar<9>, 'b'::varchar<4>) = 'c'::varchar<3>", expTestStr: "f12('a'::varchar<9>, 'b'::varchar<4>) = 'c'::varchar<3>"},
+		{testCaseStr: "f8('1991-01-01T01:02:03.456'::pts<3>, '1991-01-01T00:00:00.000000'::pts<6>) = '1991-01-01T22:33:44'::pts<0>", expTestStr: "f8('1991-01-01T01:02:03.456'::precision_timestamp<3>, '1991-01-01T00:00:00'::precision_timestamp<6>) = '1991-01-01T22:33:44'::precision_timestamp<0>"},
+		{testCaseStr: "f8('1991-01-01T01:02:03.456+05:30'::ptstz<3>, '1991-01-01T00:00:00+15:30'::ptstz<0>) = '1991-01-01T22:33:44+15:30'::ptstz<0>", expTestStr: "f8('1990-12-31T19:32:03.456+00:00'::precision_timestamp_tz<3>, '1990-12-31T08:30:00.000+00:00'::precision_timestamp_tz<0>) = '1991-01-01T07:03:44.000+00:00'::precision_timestamp_tz<0>"},
 		//{"f12('P10DT6M7.2000S'::iday<4>, 5::i64) = 'P10DT11M7.2000S'::iday<4>"},  // TODO enable after fixing the grammar
-		{"f12('P10DT6M7S'::interval_day, 5::i64) = 'P10DT11M7S'::interval_day"},
-		{"concat('abcd'::varchar<9>, Null::str) [null_handling:ACCEPT_NULLS] = Null::str"},
-		{"concat('abcd'::vchar<9>, 'ef'::varchar<9>) = Null::vchar<9>"},
-		{"concat('abcd'::vchar<9>, 'ef'::fixedchar<9>) = Null::fchar<9>"},
-		{"concat('abcd'::fbin<9>, 'ef'::fixedbinary<9>) = Null::fbin<9>"},
-		{"f35('1991-01-01T01:02:03.456'::pts<3>) = '1991-01-01T01:02:30.123123'::precision_timestamp<3>"},
-		{"f36('1991-01-01T01:02:03.456'::pts<3>, '1991-01-01T01:02:30.123123'::precision_timestamp<3>) = 123456::i64"},
-		{"f37('1991-01-01T01:02:03.123456'::pts<6>, '1991-01-01T04:05:06.456'::precision_timestamp<6>) = 123456::i64"},
-		{"f38('1991-01-01T01:02:03.456+05:30'::ptstz<3>) = '1991-01-01T00:00:00+15:30'::precision_timestamp_tz<3>"},
-		{"f39('1991-01-01T01:02:03.123456+05:30'::ptstz<6>) = '1991-01-01T00:00:00+15:30'::precision_timestamp_tz<6>"},
+		{testCaseStr: "f12('P10DT6M7S'::interval_day, 5::i64) = 'P10DT11M7S'::interval_day", expTestStr: "f12('P10DT6M7S'::interval_day<0>, 5::i64) = 'P10DT11M7S'::interval_day<0>"},
+		{testCaseStr: "concat('abcd'::varchar<9>, Null::str) [null_handling:ACCEPT_NULLS] = Null::str", expTestStr: "concat('abcd'::varchar<9>, null::string) [null_handling:ACCEPT_NULLS] = null::string"},
+		{testCaseStr: "concat('abcd'::varchar<9>, null::string) [null_handling:ACCEPT_NULLS] = null::string"},
+		{testCaseStr: "concat('abcd'::vchar<9>, 'ef'::varchar<9>) = Null::vchar<9>", expTestStr: "concat('abcd'::varchar<9>, 'ef'::varchar<9>) = null::varchar<9>"},
+		{testCaseStr: "concat('abcd'::vchar<9>, 'ef'::fixedchar<9>) = Null::fchar<9>", expTestStr: "concat('abcd'::varchar<9>, 'ef'::fixedchar<9>) = null::fixedchar<9>"},
+		{testCaseStr: "concat('abcd'::fbin<9>, 'ef'::fixedbinary<9>) = Null::fbin<9>", expTestStr: "concat('0x61626364'::fixedbinary<9>, '0x6566'::fixedbinary<9>) = null::fixedbinary<9>"},
+		{testCaseStr: "f35('1991-01-01T01:02:03.456'::pts<3>) = '1991-01-01T01:02:30.123123'::precision_timestamp<3>", expTestStr: "f35('1991-01-01T01:02:03.456'::precision_timestamp<3>) = '1991-01-01T01:02:30.123'::precision_timestamp<3>"},
+		{testCaseStr: "f36('1991-01-01T01:02:03.456'::pts<3>, '1991-01-01T01:02:30.123123'::precision_timestamp<3>) = 123456::i64", expTestStr: "f36('1991-01-01T01:02:03.456'::precision_timestamp<3>, '1991-01-01T01:02:30.123'::precision_timestamp<3>) = 123456::i64"},
+		{testCaseStr: "f37('1991-01-01T01:02:03.123456'::pts<6>, '1991-01-01T04:05:06.456'::precision_timestamp<6>) = 123456::i64", expTestStr: "f37('1991-01-01T01:02:03.123456'::precision_timestamp<6>, '1991-01-01T04:05:06.456'::precision_timestamp<6>) = 123456::i64"},
+		{testCaseStr: "f38('1991-01-01T01:02:03.456+05:30'::ptstz<3>) = '1991-01-01T00:00:00+15:30'::precision_timestamp_tz<3>", expTestStr: "f38('1990-12-31T19:32:03.456+00:00'::precision_timestamp_tz<3>) = '1990-12-31T08:30:00.000+00:00'::precision_timestamp_tz<3>"},
+		{testCaseStr: "f39('1991-01-01T01:02:03.123456+05:30'::ptstz<6>) = '1991-01-01T00:00:00+15:30'::precision_timestamp_tz<6>", expTestStr: "f39('1990-12-31T19:32:03.123+00:00'::precision_timestamp_tz<6>) = '1990-12-31T08:30:00.000+00:00'::precision_timestamp_tz<6>"},
 	}
 	for _, test := range tests {
 		t.Run(test.testCaseStr, func(t *testing.T) {
@@ -170,6 +178,11 @@ func TestParseTestWithVariousTypes(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, testFile)
 			assert.Len(t, testFile.TestCases, 1)
+			if test.expTestStr != "" {
+				assert.Equal(t, test.expTestStr, testFile.TestCases[0].String())
+			} else {
+				assert.Equal(t, test.testCaseStr, testFile.TestCases[0].String())
+			}
 		})
 	}
 }
@@ -296,6 +309,10 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 		Nullability: types.NullabilityRequired,
 	}
 
+	testStrings := []string{
+		"avg((1, 2, 3)::fp32) = 2::fp64",
+		"sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ERROR>",
+	}
 	assert.Equal(t, newFloat32List(1, 2, 3), testFile.TestCases[0].AggregateArgs[0].Argument.Value)
 	assert.Equal(t, listType, testFile.TestCases[0].AggregateArgs[0].Argument.Value.GetType())
 	assert.Equal(t, "fp64", testFile.TestCases[0].Result.Type.String())
@@ -314,6 +331,7 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 	assert.Equal(t, &types.Float32Type{}, aggArg.GetType())
 	assert.Equal(t, ".field(0) => fp32", aggArg.String())
 	assert.Equal(t, []types.Type{&types.Float32Type{}}, tc.GetArgTypes())
+	assert.Equal(t, testStrings[0], tc.String())
 
 	tc = testFile.TestCases[1]
 	assert.Equal(t, "sum", testFile.TestCases[1].FuncName)
@@ -325,6 +343,7 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 	assert.Equal(t, "i64", testFile.TestCases[1].AggregateArgs[0].ColumnType.String())
 	assert.Equal(t, newInt64List(9223372036854775806, 1, 1, 1, 1, 10000000000), testFile.TestCases[1].AggregateArgs[0].Argument.Value)
 	assert.Equal(t, "ERROR", testFile.TestCases[1].Options["overflow"])
+	assert.Equal(t, testStrings[1], tc.String())
 
 	_, err = testFile.TestCases[0].GetScalarFunctionInvocation(nil, nil)
 	require.Error(t, err)
@@ -373,6 +392,7 @@ func TestParseAggregateFuncCompact(t *testing.T) {
 ((20, 20), (-3, -3), (1, 1), (10,10), (5,5)) corr(col0::fp32, col1::fp32) = 1::fp64
 `
 
+	testString := "((20, 20), (-3, -3), (1, 1), (10, 10), (5, 5)) corr(col0::fp32, col1::fp32) = 1::fp64"
 	testFile, err := ParseTestCasesFromString(header + tests)
 	require.NoError(t, err)
 	require.NotNil(t, testFile)
@@ -392,6 +412,7 @@ func TestParseAggregateFuncCompact(t *testing.T) {
 	assert.Equal(t, args, testFile.TestCases[0].AggregateArgs)
 	assert.Equal(t, "fp64", testFile.TestCases[0].Result.Type.String())
 	assert.Equal(t, literal.NewFloat64(1), testFile.TestCases[0].Result.Value)
+	assert.Equal(t, testString, testFile.TestCases[0].String())
 }
 
 func createAggregateArg(t *testing.T, tableName, columnName string, columnType types.Type) *AggregateArgument {
@@ -409,6 +430,10 @@ DEFINE t1(i64, fp32) = ((20, 20), (-3, -3), (1, 1), (10,10), (5,5.5))
 corr(t1.col1, t1.col0) = 1::fp64
 `
 
+	testStrings := []string{
+		"((20, 20), (-3, -3), (1, 1), (10, 10), (5, 5.5)) corr(col0::fp32, col1::fp32) = 1::fp64",
+		"((20, 20), (-3, -3), (1, 1), (10, 10), (5, 5.5)) corr(col1::fp32, col0::i64) = 1::fp64",
+	}
 	testFile, err := ParseTestCasesFromString(header + tests)
 	require.NoError(t, err)
 	require.NotNil(t, testFile)
@@ -422,6 +447,7 @@ corr(t1.col1, t1.col0) = 1::fp64
 	assert.Equal(t, newFloat32Values(20, -3, 1, 10, 5.5), testFile.TestCases[0].Columns[1])
 	assert.Equal(t, "col0", testFile.TestCases[0].AggregateArgs[0].ColumnName)
 	assert.Equal(t, "col1", testFile.TestCases[0].AggregateArgs[1].ColumnName)
+	assert.Equal(t, testStrings[0], testFile.TestCases[0].String())
 
 	assert.Equal(t, "corr", testFile.TestCases[1].FuncName)
 	assert.Equal(t, testFile.TestCases[1].GroupDesc, "basic")
@@ -432,6 +458,7 @@ corr(t1.col1, t1.col0) = 1::fp64
 	assert.Equal(t, newFloat32Values(20, -3, 1, 10, 5.5), testFile.TestCases[1].Columns[1])
 	assert.Equal(t, "col1", testFile.TestCases[1].AggregateArgs[0].ColumnName)
 	assert.Equal(t, "col0", testFile.TestCases[1].AggregateArgs[1].ColumnName)
+	assert.Equal(t, testStrings[1], testFile.TestCases[1].String())
 }
 
 func TestParseAggregateFuncWithVariousTypes(t *testing.T) {
@@ -461,6 +488,7 @@ DEFINE t1(fp32) = ((20), (-3), (1), (10))
 LIST_AGG(t1.col0, ','::string) = 1::fp64
 `
 
+	testString := "((20), (-3), (1), (10)) LIST_AGG(col0::fp32, ','::string) = 1::fp64"
 	testFile, err := ParseTestCasesFromString(header + tests)
 	require.NoError(t, err)
 	require.NotNil(t, testFile)
@@ -470,6 +498,7 @@ LIST_AGG(t1.col0, ','::string) = 1::fp64
 		assert.Equal(t, AggregateFuncType, tc.FuncType)
 		assert.Equal(t, expectedArgTypes, tc.GetArgTypes(), "unexpected arg types in test case %d", i)
 		assert.Equal(t, "LIST_AGG:fp32_str", tc.ID().Name)
+		assert.Equal(t, testString, tc.String(), "unexpected string in test case %d", i)
 	}
 
 	header = makeAggregateTestHeader("v1.0", "/extensions/functions_string.yaml")
@@ -485,6 +514,8 @@ LIST_AGG(t1.col0, ','::string) = 1::fp64
 	aggFun, err := testFile.TestCases[0].GetAggregateFunctionInvocation(&reg, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "string_agg", aggFun.Name())
+	testString = "(('ant'), ('bat'), ('cat')) string_agg(col0::string, ','::string) = 'ant,bat,cat'::string"
+	assert.Equal(t, testString, testFile.TestCases[0].String())
 }
 
 func TestParseTestWithBadScalarTests(t *testing.T) {
@@ -554,42 +585,46 @@ func TestParseAggregateTestWithVariousTypes(t *testing.T) {
 	header := makeAggregateTestHeader("v1.0", "extensions/functions_arithmetic_decimal.yaml") + "# basic \n"
 	tests := []struct {
 		testCaseStr string
+		expTestStr  string
 	}{
-		{"f1((1, 2, 3, 4)::i64) = 10::fp64"},
-		{"f1((1, 2, 3, 4)::i16) = 10.0::fp32"},
-		{"f1((1, 2, 3, 4)::i32) = 10::i64"},
-		{"f3(('a', 'b')::string) = 'c'::str"},
-		{"f4((false, true)::boolean) = false::bool"},
-		{"f5((1.1, 2.2)::fp32) = 3.3::fp32"},
-		{"f5((1.1, 2.2)::fp64) = 3.3::fp64"},
-		{"f5((1.1, 2.2)::decimal) = 3.3::dec"},
-		{"f6((1.1, 2.2)::dec<38,10>) = 3.3::dec<38,10>"},
-		{"f7((1.0, 2)::decimal<38,0>) = 3.0::decimal<38,0>"},
-		{"f6((1.1, 2.2, null)::dec?<38,10>) = 3.3::dec<38,10>"},
-		{"f8(('1991-01-01', '1991-02-02')::date) = '2001-01-01'::date"},
-		{"f8(('13:01:01.2345678', '14:01:01.333')::time) = 123456::i64"},
-		{"f8(('1991-01-01T01:02:03.456', '1991-01-01T00:00:00')::timestamp) = '1991-01-01T22:33:44'::ts"},
-		{"f8(('1991-01-01T01:02:03.456+05:30', '1991-01-01T00:00:00+15:30')::tstz) = 23::i32"},
-		{"f10(('P10Y5M', 'P11Y5M')::interval_year) = 'P21Y10M'::interval_year"},
-		{"f10(('P10Y2M', 'P10Y7M')::iyear) = 'P20Y9M'::iyear"},
-		{"f11(('P10DT5H6M7S', 'P10DT6M7S')::interval_day) = 'P20DT11H6M7S'::interval_day"},
-		{"f11(('P10DT5H6M7S', 'P10DT6M7S')::iday?) = 'P20DT11H6M7S'::iday"},
-		{"f11(('P10DT5H6M7S', 'P10DT6M7S')::iday?<6>) = 'P20DT11H6M7S'::iday"},
-		{"((20, 20), (-3, -3), (1, 1), (10,10), (5,5)) count_star() = 1::fp64"},
-		{"((20), (3), (1), (10), (5)) count_star() = 1::fp64"},
-		{`DEFINE t1(fp32, fp32) = ((20, 20), (-3, -3), (1, 1), (10,10), (5,5))
-count_star() = 1::fp64`},
-		{"f20(('abcd', 'ef')::fchar?<9>) = Null::fchar<9>"},
-		{"f20(('abcd', 'ef')::fixedchar<9>) = Null::fchar<9>"},
-		{"f20(('abcd', 'ef', null)::vchar?<9>) = Null::vchar<9>"},
-		{"f20(('abcd', 'ef')::varchar<9>) = Null::vchar<9>"},
-		{"f20(('abcd', 'ef')::fbin<9>) = Null::fbin<9>"},
-		{"f20(('abcd', 'ef')::fixedbinary?<9>) = Null::fixedbinary<9>"},
-		{"f35(('1991-01-01T01:02:03.456')::pts?<3>) = '1991-01-01T01:02:30.123123'::precision_timestamp<3>"},
-		{"f36(('1991-01-01T01:02:03.456', '1991-01-01T01:02:30.123123')::precision_timestamp<3>) = 123456::i64"},
-		{"f37(('1991-01-01T01:02:03.123456', '1991-01-01T04:05:06.456')::precision_timestamp<6>) = 123456::i64"},
-		{"f38(('1991-01-01T01:02:03.456+05:30')::ptstz?<3>) = '1991-01-01T00:00:00+15:30'::precision_timestamp_tz<3>"},
-		{"f39(('1991-01-01T01:02:03.456+05:30', '1991-01-01T01:02:03.123456+05:30')::ptstz<6>) = '1991-01-01T00:00:00+15:30'::ptstz<6>"},
+		{testCaseStr: "f1((1, 2, 3, 4)::i64) = 10::fp64"},
+		{testCaseStr: "f1((1, 2, 3, 4)::i16) = 10.0::fp32", expTestStr: "f1((1, 2, 3, 4)::i16) = 10::fp32"},
+		{testCaseStr: "f1((1, 2, 3, 4)::i32) = 10::i64"},
+		{testCaseStr: "f3(('a', 'b')::string) = 'c'::str", expTestStr: "f3(('a', 'b')::string) = 'c'::string"},
+		{testCaseStr: "f4((false, true)::boolean) = false::bool", expTestStr: "f4((false, true)::boolean) = false::boolean"},
+		{testCaseStr: "f5((1.1, 2.2)::fp32) = 3.3::fp32"},
+		{testCaseStr: "f5((1.1, 2.2)::fp64) = 3.3::fp64"},
+		{testCaseStr: "f5((1.1, 2.2)::decimal) = 3.3::dec", expTestStr: "f5((1.1, 2.2)::decimal<38,0>) = 3.3::decimal<38,0>"},
+		{testCaseStr: "f6((1.1, 2.2)::dec<38,10>) = 3.3::dec<38,10>", expTestStr: "f6((1.1, 2.2)::decimal<38,10>) = 3.3::decimal<38,10>"},
+		{testCaseStr: "f7((1.0, 2)::decimal<38,0>) = 3.0::decimal<38,0>"},
+		{testCaseStr: "f6((1.1, 2.2, null)::dec?<38,10>) = 3.3::dec<38,10>", expTestStr: "f6((1.1, 2.2, null)::decimal?<38,10>) = 3.3::decimal<38,10>"},
+		{testCaseStr: "f8(('1991-01-01', '1991-02-02')::date) = '2001-01-01'::date"},
+		{testCaseStr: "f8(('13:01:01.2345678', '14:01:01.333')::time) = 123456::i64", expTestStr: "f8(('13:01:01.234567', '14:01:01.333000')::time) = 123456::i64"},
+		{testCaseStr: "f8(('1991-01-01T01:02:03.456', '1991-01-01T00:00:00')::timestamp) = '1991-01-01T22:33:44'::ts", expTestStr: "f8(('1991-01-01T01:02:03.456', '1991-01-01T00:00:00')::timestamp) = '1991-01-01T22:33:44'::timestamp"},
+		{testCaseStr: "f8(('1991-01-01T01:02:03.456+05:30', '1991-01-01T00:00:00+15:30')::tstz) = 23::i32", expTestStr: "f8(('1990-12-31T19:32:03.456', '1990-12-31T08:30:00')::timestamp_tz) = 23::i32"},
+		{testCaseStr: "f10(('P10Y5M', 'P11Y5M')::interval_year) = 'P21Y10M'::interval_year"},
+		{testCaseStr: "f10(('P10Y2M', 'P10Y7M')::iyear) = 'P20Y9M'::iyear", expTestStr: "f10(('P10Y2M', 'P10Y7M')::interval_year) = 'P20Y9M'::interval_year"},
+		{testCaseStr: "f11(('P10DT5H6M7S', 'P10DT6M7S')::interval_day) = 'P20DT11H6M7S'::interval_day", expTestStr: "f11(('P10DT5H6M7S', 'P10DT6M7S')::interval_day<0>) = 'P20DT11H6M7S'::interval_day<0>"},
+		{testCaseStr: "f11(('P10DT5H6M7S', 'P10DT6M7S')::iday?) = 'P20DT11H6M7S'::iday", expTestStr: "f11(('P10DT5H6M7S', 'P10DT6M7S')::interval_day?<0>) = 'P20DT11H6M7S'::interval_day<0>"},
+		{testCaseStr: "f11(('P10DT5H6M7S', 'P10DT6M7S')::iday?<6>) = 'P20DT11H6M7S'::iday", expTestStr: "f11(('P10DT5H6M7S', 'P10DT6M7S')::interval_day?<6>) = 'P20DT11H6M7S'::interval_day<0>"},
+		{testCaseStr: "((20, 20), (-3, -3), (1, 1), (10,10), (5,5)) count_star() = 1::fp64", expTestStr: "(('20', '20'), ('-3', '-3'), ('1', '1'), ('10', '10'), ('5', '5')) count_star() = 1::fp64"}, // no type specified for columns
+		{testCaseStr: "((20), (3), (1), (10), (5)) count_star() = 1::fp64", expTestStr: "(('20'), ('3'), ('1'), ('10'), ('5')) count_star() = 1::fp64"},                                               // no type specified for columns in the test case
+		{testCaseStr: `DEFINE t1(fp32, fp32) = ((20, 20), (-3, -3), (1, 1), (10,10), (5,5))
+count_star() = 1::fp64`, expTestStr: "((20, 20), (-3, -3), (1, 1), (10, 10), (5, 5)) count_star() = 1::fp64"},
+		{testCaseStr: "f20(('abcd', 'ef')::fchar?<9>) = Null::fchar<9>", expTestStr: "f20(('abcd', 'ef')::fixedchar?<9>) = null::fixedchar<9>"},
+		{testCaseStr: "f20(('abcd', 'ef')::fixedchar<9>) = Null::fchar<9>", expTestStr: "f20(('abcd', 'ef')::fixedchar<9>) = null::fixedchar<9>"},
+		{testCaseStr: "f20(('abcd', 'ef', null)::vchar?<9>) = Null::vchar<9>", expTestStr: "f20(('abcd', 'ef', null)::varchar?<9>) = null::varchar<9>"},
+		{testCaseStr: "f20(('abcd', 'ef')::varchar<9>) = Null::vchar<9>", expTestStr: "f20(('abcd', 'ef')::varchar<9>) = null::varchar<9>"},
+		{testCaseStr: "f20(('abcd', 'ef')::fbin<9>) = Null::fbin<9>", expTestStr: "f20(('abcd', 'ef')::fixedbinary<9>) = null::fixedbinary<9>"},
+		{testCaseStr: "f20(('abcd', 'ef')::fixedbinary?<9>) = Null::fixedbinary<9>", expTestStr: "f20(('abcd', 'ef')::fixedbinary?<9>) = null::fixedbinary<9>"},
+		{testCaseStr: "f35(('1991-01-01T01:02:03.456')::pts?<3>) = '1991-01-01T01:02:30.123123'::precision_timestamp<3>",
+			expTestStr: "f35(('1991-01-01T01:02:03.456')::precision_timestamp?<3>) = '1991-01-01T01:02:30.123'::precision_timestamp<3>"},
+		{testCaseStr: "f36(('1991-01-01T01:02:03.456', '1991-01-01T01:02:30.123123')::precision_timestamp<3>) = 123456::i64"},
+		{testCaseStr: "f37(('1991-01-01T01:02:03.123456', '1991-01-01T04:05:06.456')::precision_timestamp<6>) = 123456::i64"},
+		{testCaseStr: "f38(('1991-01-01T01:02:03.456+05:30')::ptstz?<3>) = '1991-01-01T00:00:00+15:30'::precision_timestamp_tz<3>",
+			expTestStr: "f38(('1990-12-31T19:32:03.456')::precision_timestamp_tz?<3>) = '1990-12-31T08:30:00.000+00:00'::precision_timestamp_tz<3>"},
+		{testCaseStr: "f39(('1991-01-01T01:02:03.456+05:30', '1991-01-01T01:02:03.123456+05:30')::ptstz<6>) = '1991-01-01T00:00:00+15:30'::ptstz<6>",
+			expTestStr: "f39(('1990-12-31T19:32:03.456', '1990-12-31T19:32:03.123456')::precision_timestamp_tz<6>) = '1990-12-31T08:30:00.000+00:00'::precision_timestamp_tz<6>"},
 	}
 	for _, test := range tests {
 		t.Run(test.testCaseStr, func(t *testing.T) {
@@ -597,6 +632,10 @@ count_star() = 1::fp64`},
 			require.NoError(t, err)
 			require.NotNil(t, testFile)
 			assert.Len(t, testFile.TestCases, 1)
+			if test.expTestStr == "" {
+				test.expTestStr = test.testCaseStr
+			}
+			assert.Equal(t, test.expTestStr, testFile.TestCases[0].String())
 		})
 	}
 }

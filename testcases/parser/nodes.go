@@ -27,6 +27,57 @@ type CaseLiteral struct {
 	SubstraitError *SubstraitError
 }
 
+func (c *CaseLiteral) String() string {
+	if c.SubstraitError != nil {
+		return c.SubstraitError.String()
+	}
+	if c.Value == nil {
+		return "NULL"
+	}
+	return literalToString(c.Value) + "::" + c.Type.String()
+}
+
+func literalToString(literal expr.Literal) string {
+	if literal == nil {
+		panic("literal is nil")
+	}
+
+	switch lit := literal.(type) {
+	case *expr.NullLiteral:
+		return literal.ValueString()
+	case types.IsoValuePrinter:
+		switch literal.GetType().(type) {
+		// for these types enclose in single quotes
+		case *types.IntervalYearType, *types.IntervalDayType,
+			*types.PrecisionTimestampType, *types.PrecisionTimestampTzType,
+			*types.TimestampType, *types.TimeType, *types.TimestampTzType:
+			return fmt.Sprintf("'%s'", lit.IsoValueString())
+		}
+	}
+	switch literal.GetType().(type) {
+	// for these types enclose in single quotes
+	case *types.StringType, *types.FixedCharType, *types.VarCharType,
+		*types.FixedBinaryType, *types.BinaryType, *types.DateType:
+		return fmt.Sprintf("'%s'", literal.ValueString())
+	default:
+		return literal.ValueString()
+	}
+}
+
+func (c *CaseLiteral) AsAggregateArgumentString() string {
+	if c.SubstraitError != nil {
+		return c.SubstraitError.String()
+	}
+	if list, ok := c.Value.(*expr.ListLiteral); ok {
+		var elements []string
+		for _, element := range list.Value {
+			elements = append(elements, literalToString(element))
+		}
+		return "(" + strings.Join(elements, ", ") + ")::" + c.Type.String()
+	}
+	return c.Value.ValueString() + "::" + c.Type.String()
+}
+
 type TestFileHeader struct {
 	Version     string
 	FuncType    TestFuncType
@@ -45,6 +96,111 @@ type TestCase struct {
 	TableName     string
 	ColumnTypes   []types.Type
 	FuncType      TestFuncType
+}
+
+func (tc *TestCase) String() string {
+	switch tc.FuncType {
+	case ScalarFuncType:
+		return tc.getScalarTestString()
+	case AggregateFuncType:
+		return tc.getAggregateTestString()
+	default:
+		panic(fmt.Sprintf("unsupported function type: %s", tc.FuncType))
+	}
+}
+
+func (tc *TestCase) getScalarTestString() string {
+	var b strings.Builder
+	b.WriteString(tc.FuncName)
+	b.WriteByte('(')
+	for i, arg := range tc.Args {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(arg.String())
+	}
+	b.WriteByte(')')
+	b.WriteString(tc.getOptionString())
+	b.WriteString(" = ")
+	b.WriteString(tc.Result.String())
+	return b.String()
+}
+
+func (tc *TestCase) getAggregateTestString() string {
+	var b strings.Builder
+	if tc.needCompactAggregateFuncCall() {
+		b.WriteString(tc.getAggregateFuncTableString())
+		b.WriteByte(' ')
+	}
+
+	b.WriteString(tc.FuncName)
+	b.WriteByte('(')
+	for i, arg := range tc.AggregateArgs {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(arg.String())
+	}
+	b.WriteByte(')')
+	b.WriteString(tc.getOptionString())
+	b.WriteString(" = ")
+	b.WriteString(tc.Result.String())
+	return b.String()
+}
+
+func (tc *TestCase) needCompactAggregateFuncCall() bool {
+	if tc.FuncType == ScalarFuncType {
+		return false
+	}
+	if len(tc.AggregateArgs) == 0 {
+		return true
+	}
+	for _, arg := range tc.AggregateArgs {
+		if arg.IsScalar || arg.ColumnName != "" {
+			return true
+		}
+	}
+	// common case of single column aggregate function
+	return false
+}
+
+func (tc *TestCase) getAggregateFuncTableString() string {
+	var b strings.Builder
+	if len(tc.Columns) == 0 {
+		return ""
+	}
+	b.WriteByte('(')
+	numRows := len(tc.Columns[0])
+	for i := 0; i < numRows; i++ {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteByte('(')
+		for j, column := range tc.Columns {
+			if j != 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(literalToString(column[i]))
+		}
+		b.WriteByte(')')
+	}
+	b.WriteByte(')')
+	return b.String()
+}
+
+func (tc *TestCase) getOptionString() string {
+	if len(tc.Options) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString(" [")
+	var options []string
+	for k, v := range tc.Options {
+		options = append(options, fmt.Sprintf("%s:%s", k, v))
+	}
+	b.WriteString(strings.Join(options, ","))
+	b.WriteByte(']')
+	return b.String()
 }
 
 func (tc *TestCase) GetFunctionOptions() []*types.FunctionOption {
@@ -234,6 +390,16 @@ type AggregateArgument struct {
 	IsScalar    bool
 }
 
+func (a *AggregateArgument) String() string {
+	if a.IsScalar {
+		return a.Argument.String()
+	}
+	if a.ColumnName == "" {
+		return a.Argument.AsAggregateArgumentString()
+	}
+	return a.ColumnName + "::" + a.ColumnType.String()
+}
+
 func (a *AggregateArgument) GetType() types.Type {
 	if a.IsScalar {
 		return a.Argument.Type
@@ -261,4 +427,12 @@ type CompactAggregateFuncCall struct {
 	FuncName      string
 	Rows          [][]expr.Literal
 	AggregateArgs []*AggregateArgument
+}
+
+type SubstraitError struct {
+	Error string
+}
+
+func (e SubstraitError) String() string {
+	return "<!" + e.Error + ">"
 }
