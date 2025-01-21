@@ -111,6 +111,7 @@ type localFunctionVariant interface {
 	LocalName() string
 	Notation() FunctionNotation
 	IsOptionSupported(name string, value string) bool
+	InvocationTypeName() string
 }
 
 type LocalFunctionVariant struct {
@@ -149,6 +150,10 @@ type LocalScalarFunctionVariant struct {
 
 var _ extensions.FunctionVariant = &LocalScalarFunctionVariant{}
 
+func (l *LocalScalarFunctionVariant) InvocationTypeName() string {
+	return "scalar"
+}
+
 type LocalAggregateFunctionVariant struct {
 	extensions.AggregateFunctionVariant
 	LocalFunctionVariant
@@ -156,12 +161,20 @@ type LocalAggregateFunctionVariant struct {
 
 var _ extensions.FunctionVariant = &LocalAggregateFunctionVariant{}
 
+func (l *LocalAggregateFunctionVariant) InvocationTypeName() string {
+	return "aggregate"
+}
+
 type LocalWindowFunctionVariant struct {
 	extensions.WindowFunctionVariant
 	LocalFunctionVariant
 }
 
 var _ extensions.FunctionVariant = &LocalWindowFunctionVariant{}
+
+func (l *LocalWindowFunctionVariant) InvocationTypeName() string {
+	return "window"
+}
 
 func newLocalScalarFunctionVariant(sf *extensions.ScalarFunctionVariant, dfi *dialectFunctionInfo) *LocalScalarFunctionVariant {
 	return &LocalScalarFunctionVariant{
