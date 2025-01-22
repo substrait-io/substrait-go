@@ -131,6 +131,8 @@ func GetTypeNameToTypeMap() map[string]Type {
 	}
 	typeMap[string(TypeNameDecimal)] = &DecimalType{}
 	typeMap[string(TypeNameIntervalDay)] = &IntervalDayType{}
+	typeMap[string(TypeNamePrecisionTimestamp)] = &PrecisionTimestampType{}
+	typeMap[string(TypeNamePrecisionTimestampTz)] = &PrecisionTimestampTzType{}
 	return typeMap
 }
 
