@@ -107,22 +107,25 @@ func TestTypeRoundtrip(t *testing.T) {
 func TestGetTypeNameToTypeMap(t *testing.T) {
 	typeMap := GetTypeNameToTypeMap()
 	tests := []struct {
-		name     string
-		typ      Type
-		isSimple bool
-		expError bool
+		name            string
+		typ             Type
+		isSimple        bool
+		isParameterized bool
+		expError        bool
 	}{
-		{"boolean", &BooleanType{}, true, false},
-		{"i8", &Int8Type{}, true, false},
-		{"timestamp", &TimestampType{}, true, false},
-		{"uuid", &UUIDType{}, true, false},
-		{"fixedbinary", &FixedBinaryType{}, false, false},
-		{"fixedchar", &FixedCharType{}, false, false},
-		{"varchar", &VarCharType{}, false, false},
-		{"decimal", &DecimalType{}, false, false},
+		{"boolean", &BooleanType{}, true, false, false},
+		{"i8", &Int8Type{}, true, false, false},
+		{"timestamp", &TimestampType{}, true, false, false},
+		{"uuid", &UUIDType{}, true, false, false},
+		{"fixedbinary", &FixedBinaryType{}, false, false, false},
+		{"fixedchar", &FixedCharType{}, false, false, false},
+		{"varchar", &VarCharType{}, false, false, false},
+		{"decimal", &DecimalType{}, false, true, false},
+		{"precision_timestamp", &PrecisionTimestampType{}, false, true, false},
+		{"precision_timestamp_tz", &PrecisionTimestampTzType{}, false, true, false},
 
-		{"unknown1", nil, true, true},
-		{"unknown2", nil, false, true},
+		{"unknown1", nil, true, false, true},
+		{"unknown2", nil, false, false, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -142,7 +145,7 @@ func TestGetTypeNameToTypeMap(t *testing.T) {
 
 				parameters := typ.GetParameters()
 				assert.Len(t, parameters, 0)
-			} else if tt.name != "decimal" {
+			} else if !tt.isParameterized {
 				typ, err := FixedTypeNameToType(TypeName(tt.name))
 				assert.NoError(t, err)
 				assert.Equalf(t, tt.typ, typ, "FixedTypeNameToType(%s) = %v, want %v", tt.name, typ, tt.typ)
