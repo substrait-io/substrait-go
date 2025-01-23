@@ -640,6 +640,7 @@ count(t1.col0) = 4::fp64`, expTestStr: "(('cat'), ('bat'), ('rat'), (null)) coun
 		{testCaseStr: "f20(('abcd', 'ef')::fbin<9>) = Null::fbin<9>", expTestStr: "f20(('abcd', 'ef')::fixedbinary<9>) = null::fixedbinary?<9>"},
 		{testCaseStr: "f20(('abcd', 'ef')::varchar?<9>) = 'abcdef'::varchar<9>", expTestStr: "f20(('abcd', 'ef')::varchar?<9>) = 'abcdef'::varchar<9>"},
 		{testCaseStr: "f20(('abcd', null)::fixedchar?<9>) = Null::fixedchar<9>", expTestStr: "f20(('abcd', null)::fixedchar?<9>) = null::fixedchar?<9>"},
+		{testCaseStr: "f20(('abcd', 'ef')::fixedbinary?<9>) = Null::fixedbinary<9>", expTestStr: "f20(('abcd', 'ef')::fixedbinary?<9>) = null::fixedbinary?<9>"},
 		{testCaseStr: "f35(('1991-01-01T01:02:03.456')::pts?<3>) = '1991-01-01T01:02:30.123123'::precision_timestamp<3>",
 			expTestStr: "f35(('1991-01-01T01:02:03.456')::precision_timestamp?<3>) = '1991-01-01T01:02:30.123'::precision_timestamp<3>"},
 		{testCaseStr: "f36(('1991-01-01T01:02:03.456', '1991-01-01T01:02:30.123123')::precision_timestamp<3>) = 123456::i64"},
