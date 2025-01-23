@@ -618,6 +618,7 @@ func TestParseAggregateTestWithVariousTypes(t *testing.T) {
 		{testCaseStr: "f8(('1991-01-01T01:02:03.456', '1991-01-01T00:00:00')::timestamp) = '1991-01-01T22:33:44'::ts", expTestStr: "f8(('1991-01-01T01:02:03.456', '1991-01-01T00:00:00')::timestamp) = '1991-01-01T22:33:44'::timestamp"},
 		{testCaseStr: "f8(('1991-01-01T01:02:03.456+05:30', '1991-01-01T00:00:00+15:30')::tstz) = 23::i32", expTestStr: "f8(('1990-12-31T19:32:03.456', '1990-12-31T08:30:00')::timestamp_tz) = 23::i32"},
 		{testCaseStr: "f10(('P10Y5M', 'P11Y5M')::interval_year) = 'P21Y10M'::interval_year"},
+		{testCaseStr: "f10(('P10Y5M', null)::interval_year) = null::interval_year", expTestStr: "f10(('P10Y5M', null)::interval_year?) = null::interval_year?"},
 		{testCaseStr: "f10(('P10Y2M', 'P10Y7M')::iyear) = 'P20Y9M'::iyear", expTestStr: "f10(('P10Y2M', 'P10Y7M')::interval_year) = 'P20Y9M'::interval_year"},
 		{testCaseStr: "f11(('P10DT5H6M7S', 'P10DT6M7S')::interval_day) = 'P20DT11H6M7S'::interval_day", expTestStr: "f11(('P10DT5H6M7S', 'P10DT6M7S')::interval_day<0>) = 'P20DT11H6M7S'::interval_day<0>"},
 		{testCaseStr: "f11(('P10DT5H6M7S', 'P10DT6M7S')::iday?) = 'P20DT11H6M7S'::iday", expTestStr: "f11(('P10DT5H6M7S', 'P10DT6M7S')::interval_day?<0>) = 'P20DT11H6M7S'::interval_day<0>"},
@@ -626,13 +627,16 @@ func TestParseAggregateTestWithVariousTypes(t *testing.T) {
 		{testCaseStr: "((20), (3), (1), (10), (5)) count_star() = 1::fp64", expTestStr: "(('20'), ('3'), ('1'), ('10'), ('5')) count_star() = 1::fp64"},                                               // no type specified for columns in the test case
 		{testCaseStr: `DEFINE t1(fp32, fp32) = ((20, 20), (-3, -3), (1, 1), (10,10), (5,5))
 count_star() = 1::fp64`, expTestStr: "((20, 20), (-3, -3), (1, 1), (10, 10), (5, 5)) count_star() = 1::fp64"},
+		{testCaseStr: `DEFINE t1(varchar<5>) = (('cat'), ('bat'), ('rat'), (null))
+count_star() = 1::fp64`, expTestStr: "(('cat'), ('bat'), ('rat'), (null)) count_star() = 1::fp64"},
 		{testCaseStr: "f20(('abcd', 'ef')::fchar?<9>) = Null::fchar<9>", expTestStr: "f20(('abcd', 'ef')::fixedchar?<9>) = null::fixedchar?<9>"},
 		{testCaseStr: "f20(('abcd', 'ef')::fixedchar<9>) = Null::fchar<9>", expTestStr: "f20(('abcd', 'ef')::fixedchar<9>) = null::fixedchar?<9>"},
 		{testCaseStr: "f20(('abcd', null)::fixedchar<9>) = Null::fchar<9>", expTestStr: "f20(('abcd', null)::fixedchar?<9>) = null::fixedchar?<9>"},
 		{testCaseStr: "f20(('abcd', 'ef', null)::vchar?<9>) = Null::vchar<9>", expTestStr: "f20(('abcd', 'ef', null)::varchar?<9>) = null::varchar?<9>"},
 		{testCaseStr: "f20(('abcd', 'ef')::varchar<9>) = Null::vchar<9>", expTestStr: "f20(('abcd', 'ef')::varchar<9>) = null::varchar?<9>"},
 		{testCaseStr: "f20(('abcd', 'ef')::fbin<9>) = Null::fbin<9>", expTestStr: "f20(('abcd', 'ef')::fixedbinary<9>) = null::fixedbinary?<9>"},
-		{testCaseStr: "f20(('abcd', 'ef')::fixedbinary?<9>) = Null::fixedbinary<9>", expTestStr: "f20(('abcd', 'ef')::fixedbinary?<9>) = null::fixedbinary?<9>"},
+		{testCaseStr: "f20(('abcd', 'ef')::varchar?<9>) = 'abcdef'::varchar<9>", expTestStr: "f20(('abcd', 'ef')::varchar?<9>) = 'abcdef'::varchar<9>"},
+		{testCaseStr: "f20(('abcd', null)::fixedchar?<9>) = Null::fixedchar<9>", expTestStr: "f20(('abcd', null)::fixedchar?<9>) = null::fixedchar?<9>"},
 		{testCaseStr: "f35(('1991-01-01T01:02:03.456')::pts?<3>) = '1991-01-01T01:02:30.123123'::precision_timestamp<3>",
 			expTestStr: "f35(('1991-01-01T01:02:03.456')::precision_timestamp?<3>) = '1991-01-01T01:02:30.123'::precision_timestamp<3>"},
 		{testCaseStr: "f36(('1991-01-01T01:02:03.456', '1991-01-01T01:02:30.123123')::precision_timestamp<3>) = 123456::i64"},

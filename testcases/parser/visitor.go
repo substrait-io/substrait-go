@@ -225,6 +225,7 @@ func (v *TestCaseVisitor) getColumnsFromRows(rows [][]expr.Literal, columnTypes 
 			cell := v.getLiteral(row[i], columnType)
 			if _, ok := cell.(*expr.NullLiteral); ok {
 				newColumnType = columnType.WithNullability(types.NullabilityNullable)
+				cell = expr.NewNullLiteral(newColumnType)
 			}
 			column = append(column, cell)
 		}
@@ -726,7 +727,12 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 	}
 
 	if ctx.NullLiteral() != nil {
-		return expr.NewNullLiteral(v.getLiteralTypeInContext())
+		nullType := v.getLiteralTypeInContext()
+		if nullType == nil {
+			// Use a dummy type for null literal. This happens in AggregateFuncCall context, where type is not set
+			nullType = &types.DecimalType{Precision: 38, Scale: 0, Nullability: types.NullabilityNullable}
+		}
+		return expr.NewNullLiteral(nullType)
 	}
 	v.ErrorListener.ReportVisitError(fmt.Errorf("invalid literal arg %v", ctx.GetText()))
 	return nil
