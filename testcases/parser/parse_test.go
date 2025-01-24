@@ -163,6 +163,7 @@ func TestParseTestWithVariousTypes(t *testing.T) {
 		{testCaseStr: "f12('P10DT6M7S'::interval_day, 5::i64) = 'P10DT11M7S'::interval_day", expTestStr: "f12('P10DT6M7S'::interval_day<0>, 5::i64) = 'P10DT11M7S'::interval_day<0>"},
 		{testCaseStr: "concat('abcd'::varchar<9>, Null::str) [null_handling:ACCEPT_NULLS] = Null::str", expTestStr: "concat('abcd'::varchar<9>, null::string?) [null_handling:ACCEPT_NULLS] = null::string?"},
 		{testCaseStr: "concat('abcd'::varchar<9>, null::string) [null_handling:ACCEPT_NULLS] = null::string", expTestStr: "concat('abcd'::varchar<9>, null::string?) [null_handling:ACCEPT_NULLS] = null::string?"},
+		{testCaseStr: "concat('abcd'::varchar<9>, null::varchar?<9>) [null_handling:ACCEPT_NULLS] = null::varchar?<9>"},
 		{testCaseStr: "concat('abcd'::vchar<9>, 'ef'::varchar<9>) = 'abcdef'::vchar<9>", expTestStr: "concat('abcd'::varchar<9>, 'ef'::varchar<9>) = 'abcdef'::varchar<9>"},
 		{testCaseStr: "concat('abcd'::vchar<9>, Null::varchar<9>) = Null::vchar<9>", expTestStr: "concat('abcd'::varchar<9>, null::varchar?<9>) = null::varchar?<9>"},
 		{testCaseStr: "concat('abcd'::vchar<9>, Null::fixedchar<9>) = Null::fchar<9>", expTestStr: "concat('abcd'::varchar<9>, null::fixedchar?<9>) = null::fixedchar?<9>"},
@@ -628,7 +629,9 @@ func TestParseAggregateTestWithVariousTypes(t *testing.T) {
 		{testCaseStr: `DEFINE t1(fp32, fp32) = ((20, 20), (-3, -3), (1, 1), (10,10), (5,5))
 count_star() = 1::fp64`, expTestStr: "((20, 20), (-3, -3), (1, 1), (10, 10), (5, 5)) count_star() = 1::fp64"},
 		{testCaseStr: `DEFINE t1(varchar<5>) = (('cat'), ('bat'), ('rat'), (null))
-count_star() = 1::fp64`, expTestStr: "(('cat'), ('bat'), ('rat'), (null)) count_star() = 1::fp64"},
+count_star() = 1::fp64`, expTestStr: "(('cat'), ('bat'), ('rat'), (null)) count_star() = 1::fp64"}, // no arguments, so no type info in the output format
+		{testCaseStr: `DEFINE t1(varchar<5>) = (('cat'), ('bat'), ('rat'), (null))
+count(t1.col0) = 4::fp64`, expTestStr: "(('cat'), ('bat'), ('rat'), (null)) count(col0::varchar?<5>) = 4::fp64"},
 		{testCaseStr: "f20(('abcd', 'ef')::fchar?<9>) = Null::fchar<9>", expTestStr: "f20(('abcd', 'ef')::fixedchar?<9>) = null::fixedchar?<9>"},
 		{testCaseStr: "f20(('abcd', 'ef')::fixedchar<9>) = Null::fchar<9>", expTestStr: "f20(('abcd', 'ef')::fixedchar<9>) = null::fixedchar?<9>"},
 		{testCaseStr: "f20(('abcd', null)::fixedchar<9>) = Null::fchar<9>", expTestStr: "f20(('abcd', null)::fixedchar?<9>) = null::fixedchar?<9>"},
