@@ -482,7 +482,7 @@ func (t *ByteSliceLiteral[T]) WithType(newType types.Type) (Literal, error) {
 			Type:  newType,
 		}, nil
 	}
-	return nil, fmt.Errorf("invalid type %T for byte slice literal", newType)
+	return nil, fmt.Errorf("byte slice literal withType is not supported for %T ", newType)
 }
 
 // ProtoLiteral is a literal that is represented using its protobuf
@@ -505,7 +505,7 @@ func (t *ProtoLiteral) WithType(newType types.Type) (Literal, error) {
 	case *types.IntervalDayType:
 		return NewIntervalDayWithType(t, typ)
 	}
-	return &ProtoLiteral{Value: t.Value, Type: newType}, nil
+	return nil, fmt.Errorf("protoLiteral withType is not supported for %T ", newType)
 }
 
 func (t *ProtoLiteral) ValueString() string {
@@ -687,7 +687,7 @@ func NewDecimalWithType(literal *ProtoLiteral, decType *types.DecimalType) (Lite
 	if err != nil {
 		return nil, err
 	}
-	return NewLiteral[*types.Decimal](&types.Decimal{Value: decimalBytes[:16], Precision: precision, Scale: scale}, false)
+	return NewLiteral[*types.Decimal](&types.Decimal{Value: decimalBytes[:16], Precision: precision, Scale: scale}, decType.GetNullability() == types.NullabilityNullable)
 }
 
 func NewVarCharWithType(literal *ProtoLiteral, fixedType *types.VarCharType) (Literal, error) {

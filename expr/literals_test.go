@@ -1,6 +1,7 @@
 package expr_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -140,6 +141,66 @@ func TestNewIntervalDayWithType(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.inputType, got.GetType())
 			assert.Equal(t, tt.expLiteralString, got.(types.IsoValuePrinter).IsoValueString())
+		})
+	}
+}
+
+func TestProtoLiteral_WithType(t1 *testing.T) {
+	dec123, _ := literal.NewDecimalFromString("123.45")
+	iday, _ := literal.NewIntervalDaysToSecondFromString("PT23H59M59.999S")
+	pts, _ := literal.NewPrecisionTimestampFromString(3, "1991-01-01T01:02:03.456")
+	ptstz, _ := literal.NewPrecisionTimestampTzFromString(3, "1991-01-01T01:02:03.456")
+	vchar, _ := literal.NewVarChar("sun")
+	tests := []struct {
+		name         string
+		protoLiteral *expr.ProtoLiteral
+		newType      types.Type
+		want         expr.Literal
+		wantErr      assert.ErrorAssertionFunc
+	}{
+		{"Decimal", dec123.(*expr.ProtoLiteral), &types.DecimalType{Nullability: types.NullabilityNullable, Precision: 10, Scale: 5}, nil, assert.NoError},
+		{"IntervalDay", iday.(*expr.ProtoLiteral), &types.IntervalDayType{Precision: 3, Nullability: types.NullabilityNullable}, nil, assert.NoError},
+		{"PrecisionTimestamp", pts.(*expr.ProtoLiteral), &types.PrecisionTimestampType{Precision: 3, Nullability: types.NullabilityNullable}, nil, assert.NoError},
+		{"PrecisionTimestampTz", ptstz.(*expr.ProtoLiteral), &types.PrecisionTimestampTzType{PrecisionTimestampType: types.PrecisionTimestampType{Precision: 3, Nullability: types.NullabilityNullable}}, nil, assert.NoError},
+		{"VarChar", vchar.(*expr.ProtoLiteral), &types.VarCharType{Length: 3, Nullability: types.NullabilityNullable}, nil, assert.NoError},
+	}
+	for _, tt := range tests {
+		t1.Run(tt.name, func(t1 *testing.T) {
+			got, err := tt.protoLiteral.WithType(tt.newType)
+			if !tt.wantErr(t1, err, fmt.Sprintf("WithType(%v)", tt.newType)) {
+				return
+			}
+			assert.Equalf(t1, tt.newType, got.GetType(), "WithType(%v)", tt.newType)
+		})
+	}
+}
+
+func TestByteSliceLiteral_WithType(t1 *testing.T) {
+	fbin := expr.NewByteSliceLiteral[[]byte]([]byte{0x01, 0x02, 0x03}, false)
+	uuid := expr.NewByteSliceLiteral[types.UUID]([]byte{0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf, 0x10}, false)
+
+	list := expr.NewNestedLiteral(expr.ListLiteralValue{
+		literal.NewString("sun"), literal.NewString("moon"), literal.NewString("mars"),
+	}, false)
+	type testCase struct {
+		name    string
+		t       expr.WithTypeLiteral
+		newType types.Type
+		want    expr.Literal
+		wantErr assert.ErrorAssertionFunc
+	}
+	tests := []testCase{
+		{"FixedBinary", fbin, &types.FixedBinaryType{Length: 3, Nullability: types.NullabilityNullable}, nil, assert.NoError},
+		{"UUID", uuid, &types.UUIDType{Nullability: types.NullabilityNullable}, nil, assert.NoError},
+		{"List", list.(expr.WithTypeLiteral), &types.ListType{Type: &types.StringType{Nullability: types.NullabilityNullable}, Nullability: types.NullabilityNullable}, nil, assert.NoError},
+	}
+	for _, tt := range tests {
+		t1.Run(tt.name, func(t1 *testing.T) {
+			got, err := tt.t.WithType(tt.newType)
+			if !tt.wantErr(t1, err, fmt.Sprintf("WithType(%v)", tt.newType)) {
+				return
+			}
+			assert.Equalf(t1, tt.newType, got.GetType(), "WithType(%v)", tt.newType)
 		})
 	}
 }
