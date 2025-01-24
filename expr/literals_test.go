@@ -128,6 +128,7 @@ func TestNewIntervalDayWithType(t *testing.T) {
 		{"PT23H59M59.999S", &types.IntervalDayType{Precision: 3, Nullability: types.NullabilityNullable}, "PT23H59M59.999S", false},
 		{"PT23H59M59.999S", &types.IntervalDayType{Precision: 2, Nullability: types.NullabilityNullable}, "PT23H59M59.99S", false},
 		{"PT23H59M59.999S", &types.IntervalDayType{Precision: 6, Nullability: types.NullabilityRequired}, "PT23H59M59.999000S", false},
+		{"PT23H59M59.999S", &types.IntervalDayType{Precision: 9, Nullability: types.NullabilityRequired}, "PT23H59M59.999000000S", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
