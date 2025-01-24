@@ -683,7 +683,7 @@ func NewDecimalWithType(literal *ProtoLiteral, decType *types.DecimalType) (Lite
 		return nil, fmt.Errorf("literal type is not decimal")
 	}
 	inDecimalBytes := [16]byte(literal.Value.([]byte))
-	decimalBytes, precision, scale, err := modifyDecimalPrecisionAndScale(inDecimalBytes, litType.Precision, litType.Scale, decType.Precision, decType.Scale)
+	decimalBytes, precision, scale, err := modifyDecimalPrecisionAndScale(inDecimalBytes, litType.Scale, decType.Precision, decType.Scale)
 	if err != nil {
 		return nil, err
 	}

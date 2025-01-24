@@ -106,7 +106,7 @@ func decimalBytesToString(decimalBytes [16]byte, scale int32) string {
 	return apd.NewWithBigInt(apdBigInt, -scale).String()
 }
 
-func modifyDecimalPrecisionAndScale(decimalBytes [16]byte, precision, scale, targetPrecision, targetScale int32) ([16]byte, int32, int32, error) {
+func modifyDecimalPrecisionAndScale(decimalBytes [16]byte, scale, targetPrecision, targetScale int32) ([16]byte, int32, int32, error) {
 	var result [16]byte
 	if targetPrecision > 38 {
 		return result, 0, 0, fmt.Errorf("target precision %d exceeds maximum allowed precision of 38", targetPrecision)
@@ -138,7 +138,7 @@ func modifyDecimalPrecisionAndScale(decimalBytes [16]byte, precision, scale, tar
 		return result, 0, 0, fmt.Errorf("error adjusting scale: %v", err)
 	}
 
-	err2 := validatePrecisionAndScale(dec, targetPrecision, result, targetScale)
+	err2 := validatePrecisionAndScale(dec, targetPrecision, targetScale)
 	if err2 != nil {
 		return result, 0, 0, err2
 	}
@@ -163,26 +163,17 @@ func modifyDecimalPrecisionAndScale(decimalBytes [16]byte, precision, scale, tar
 	return result, targetPrecision, targetScale, nil
 }
 
-func validatePrecisionAndScale(dec *apd.Decimal, targetPrecision int32, result [16]byte, targetScale int32) error {
+func validatePrecisionAndScale(dec *apd.Decimal, targetPrecision int32, targetScale int32) error {
 	// Validate the minimum precision and scale.
 	minPrecision, minScale := getMinimumPrecisionAndScale(dec)
 	if targetPrecision < minPrecision {
-		return fmt.Errorf(
-			"number %s exceeds target precision %d, minimum precision needed is %d with target scale %d",
-			dec.String(), targetPrecision, minPrecision, targetScale,
-		)
+		return fmt.Errorf("number %s exceeds target precision %d, minimum precision needed is %d with target scale %d", dec.String(), targetPrecision, minPrecision, targetScale)
 	}
 	if targetScale < minScale {
-		return fmt.Errorf(
-			"number %v exceeds target scale %d, minimum scale needed is %d",
-			dec.String(), targetScale, minScale,
-		)
+		return fmt.Errorf("number %v exceeds target scale %d, minimum scale needed is %d", dec.String(), targetScale, minScale)
 	}
 	if targetPrecision-targetScale < minPrecision-minScale {
-		return fmt.Errorf(
-			"number %v exceeds target precision %d with target scale %d, minimum precision needed is %d with minimum scale %d",
-			dec.String(), targetPrecision, targetScale, minPrecision, minScale,
-		)
+		return fmt.Errorf("number %v exceeds target precision %d with target scale %d, minimum precision needed is %d with minimum scale %d", dec.String(), targetPrecision, targetScale, minPrecision, minScale)
 	}
 	return nil
 }

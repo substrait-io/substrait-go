@@ -82,7 +82,7 @@ func TestDecimalStringToBytes(t *testing.T) {
 			if precision <= 36 {
 				targetScale = min(scale+2, targetPrecision)
 			}
-			newBytes, newPrecision, newScale, err := modifyDecimalPrecisionAndScale(got, precision, scale, targetPrecision, targetScale)
+			newBytes, newPrecision, newScale, err := modifyDecimalPrecisionAndScale(got, scale, targetPrecision, targetScale)
 			require.NoError(t, err)
 			assert.Equal(t, targetPrecision, newPrecision)
 			decStr = decimalBytesToString(newBytes, newScale)
@@ -196,6 +196,7 @@ func TestModifyDecimalPrecisionAndScale(t *testing.T) {
 		{"-1.00", "9cffffffffffffffffffffffffffffff", 3, 2, 5, 3, "18fcffffffffffffffffffffffffffff", "-1.000", false},
 		{"-1.0", "f6ffffffffffffffffffffffffffffff", 2, 1, 2, 0, "ffffffffffffffffffffffffffffffff", "-1", false},
 		{"1.0", "0a000000000000000000000000000000", 2, 1, 2, 0, "01000000000000000000000000000000", "1", false},
+		{"1.0", "0a000000000000000000000000000000", 2, 1, 40, 0, "", "", true},
 		{"1.0", "0a000000000000000000000000000000", 2, 1, 1, 0, "01000000000000000000000000000000", "1", false},
 		{"1", "01000000000000000000000000000000", 1, 0, 3, 2, "64000000000000000000000000000000", "1.00", false},
 		{"9223372036854775807", "ffffffffffffff7f0000000000000000", 19, 0, 30, 4, "f0d8ffffffffffff8713000000000000", "9223372036854775807.0000", false},
@@ -222,7 +223,7 @@ func TestModifyDecimalPrecisionAndScale(t *testing.T) {
 			}
 			assert.Equal(t, tt.input, decStr)
 
-			newBytes, newPrecision, newScale, err := modifyDecimalPrecisionAndScale(inputBytes, tt.inputPrecision, tt.inputScale, tt.targetPrecision, tt.targetScale)
+			newBytes, newPrecision, newScale, err := modifyDecimalPrecisionAndScale(inputBytes, tt.inputScale, tt.targetPrecision, tt.targetScale)
 			if tt.expectError {
 				require.Error(t, err)
 				return

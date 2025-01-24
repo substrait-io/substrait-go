@@ -104,7 +104,7 @@ func TestNewPrecisionTimestampTzWithType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			lit, err := literal.NewPrecisionTimestampTzFromString(tt.inputPrecision, tt.name)
 			require.NoError(t, err)
-			inputType := &types.PrecisionTimestampTzType{tt.inputType}
+			inputType := &types.PrecisionTimestampTzType{PrecisionTimestampType: tt.inputType}
 			got, err := expr.NewPrecisionTimestampTzWithType(lit.(*expr.ProtoLiteral), inputType)
 			if tt.wantErr {
 				require.NoError(t, err)
