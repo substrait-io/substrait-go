@@ -98,7 +98,7 @@ type NullLiteral struct {
 }
 
 func NewNullLiteral(t types.Type) *NullLiteral {
-	return &NullLiteral{Type: t}
+	return &NullLiteral{Type: t.WithNullability(types.NullabilityNullable)}
 }
 
 func (*NullLiteral) IsScalar() bool { return true }
