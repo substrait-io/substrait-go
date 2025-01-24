@@ -78,6 +78,25 @@ func (c *CaseLiteral) AsAggregateArgumentString() string {
 	return c.Value.ValueString() + "::" + c.Type.String()
 }
 
+// change the type of the literal to the given type
+func (c *CaseLiteral) fixTypeInTheLiteral() error {
+	if len(c.Type.GetParameters()) == 0 {
+		return nil
+	}
+	switch proLit := c.Value.(type) {
+	case *expr.NullLiteral:
+		return nil
+	case expr.WithTypeLiteral:
+		lit, err := proLit.WithType(c.Type)
+		if err != nil {
+			return err
+		}
+		c.Value = lit
+		return nil
+	}
+	return fmt.Errorf("literal type is not handled to fix the type")
+}
+
 type TestFileHeader struct {
 	Version     string
 	FuncType    TestFuncType

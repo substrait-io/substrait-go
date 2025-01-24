@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDecimalStringToBytes(t *testing.T) {
@@ -53,20 +54,41 @@ func TestDecimalStringToBytes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			got, precision, scale, err := DecimalStringToBytes(tt.input)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Len(t, got, 16)
 			assert.Equal(t, hexToBytes(t, tt.hexWant), got[:])
 			assert.Equal(t, tt.expPrecision, precision)
 			assert.Equal(t, tt.expScale, scale)
-			if err == nil {
-				// verify that the conversion is correct
-				decStr := decimalBytesToString(got, scale)
-				if tt.expected == "" {
-					tt.expected = strings.TrimPrefix(tt.input, "+")
-				}
-				assert.Equal(t, tt.expected, decStr)
-			}
 
+			// verify that the conversion is correct
+			decStr := decimalBytesToString(got, scale)
+			if tt.expected == "" {
+				tt.expected = strings.TrimPrefix(tt.input, "+")
+			}
+			assert.Equal(t, tt.expected, decStr)
+
+			// test modifyDecimalPrecisionAndScale
+			targetPrecision := min(precision+2, 38)
+			targetScale := scale
+			if precision <= 36 {
+				targetScale = min(scale+2, targetPrecision)
+			}
+			newBytes, newPrecision, newScale, err := modifyDecimalPrecisionAndScale(got, precision, scale, targetPrecision, targetScale)
+			require.NoError(t, err)
+			assert.Equal(t, targetPrecision, newPrecision)
+			decStr = decimalBytesToString(newBytes, newScale)
+			if tt.expected != decStr {
+				require.True(t, strings.HasPrefix(decStr, tt.expected))
+				suffix := decStr[len(tt.expected):]
+				assert.LessOrEqual(t, len(suffix), 3)
+				assert.NotEqual(t, 1, len(suffix))
+				switch len(suffix) {
+				case 2:
+					assert.Equal(t, "00", suffix)
+				case 3:
+					assert.Equal(t, ".00", suffix)
+				}
+			}
 		})
 	}
 }

@@ -113,12 +113,18 @@ power(-1::dec, 0.5::dec<38,1>) [complex_number_result:NAN] = nan::fp64
 	assert.Equal(t, "power", testFile.TestCases[0].FuncName)
 	assert.Equal(t, "power", testFile.TestCases[1].FuncName)
 	assert.Equal(t, "power", testFile.TestCases[2].FuncName)
-	dec8, _ := literal.NewDecimalFromString("8")
-	dec2, _ := literal.NewDecimalFromString("2")
-	dec1, _ := literal.NewDecimalFromString("1.0")
-	decMinus1, _ := literal.NewDecimalFromString("-1")
-	decMinus1Point0, _ := literal.NewDecimalFromString("-1.0")
-	decPoint5, _ := literal.NewDecimalFromString("0.5")
+	dec8Value, _ := literal.NewDecimalFromString("8")
+	dec2Value, _ := literal.NewDecimalFromString("2")
+	dec1Value, _ := literal.NewDecimalFromString("1.0")
+	decMinus1Value, _ := literal.NewDecimalFromString("-1")
+	decMinus1Point0Value, _ := literal.NewDecimalFromString("-1.0")
+	decPoint5Value, _ := literal.NewDecimalFromString("0.5")
+	dec8, _ := dec8Value.(expr.WithTypeLiteral).WithType(&types.DecimalType{Precision: 38, Scale: 0, Nullability: types.NullabilityRequired})
+	dec2, _ := dec2Value.(expr.WithTypeLiteral).WithType(&types.DecimalType{Precision: 38, Scale: 0, Nullability: types.NullabilityRequired})
+	dec1, _ := dec1Value.(expr.WithTypeLiteral).WithType(&types.DecimalType{Precision: 38, Scale: 5, Nullability: types.NullabilityRequired})
+	decMinus1, _ := decMinus1Value.(expr.WithTypeLiteral).WithType(&types.DecimalType{Precision: 38, Scale: 0, Nullability: types.NullabilityRequired})
+	decMinus1Point0, _ := decMinus1Point0Value.(expr.WithTypeLiteral).WithType(&types.DecimalType{Precision: 38, Scale: 5, Nullability: types.NullabilityRequired})
+	decPoint5, _ := decPoint5Value.(expr.WithTypeLiteral).WithType(&types.DecimalType{Precision: 38, Scale: 1, Nullability: types.NullabilityRequired})
 	f6464 := literal.NewFloat64(64)
 	f641 := literal.NewFloat64(1)
 	assert.Equal(t, dec8, testFile.TestCases[0].Args[0].Value)
@@ -142,9 +148,9 @@ func TestParseTestWithVariousTypes(t *testing.T) {
 		{testCaseStr: "f2(1.0::fp32, 2.0::fp64) = -7.0::fp32", expTestStr: "f2(1::fp32, 2::fp64) = -7::fp32"},
 		{testCaseStr: "f3('a'::str, 'b'::string) = 'c'::str", expTestStr: "f3('a'::string, 'b'::string) = 'c'::string"},
 		{testCaseStr: "f4(false::bool, true::boolean) = false::bool", expTestStr: "f4(false::boolean, true::boolean) = false::boolean"},
-		{testCaseStr: "f5(1.1::dec, 2.2::decimal) = 3.3::dec", expTestStr: "f5(1.1::decimal<38,0>, 2.2::decimal<38,0>) = 3.3::decimal<38,0>"},
-		{testCaseStr: "f6(1.1::dec<38,10>, 2.2::dec<38,10>) = 3.3::dec<38,10>", expTestStr: "f6(1.1::decimal<38,10>, 2.2::decimal<38,10>) = 3.3::decimal<38,10>"},
-		{testCaseStr: "f7(1.1::dec<38,10>, 2.2::decimal<38,10>) = 3.3::decimal<38,10>", expTestStr: "f7(1.1::decimal<38,10>, 2.2::decimal<38,10>) = 3.3::decimal<38,10>"},
+		{testCaseStr: "f5(1::dec, 2::decimal) = 3::dec", expTestStr: "f5(1::decimal<38,0>, 2::decimal<38,0>) = 3::decimal<38,0>"},
+		{testCaseStr: "f6(1.1::dec<38,10>, 2.2::dec<38,10>) = 3.3::dec<38,10>", expTestStr: "f6(1.1000000000::decimal<38,10>, 2.2000000000::decimal<38,10>) = 3.3000000000::decimal<38,10>"},
+		{testCaseStr: "f7(1.1::dec<38,1>, 2.2::decimal<38,1>) = 3.3::decimal<38,1>", expTestStr: "f7(1.1::decimal<38,1>, 2.2::decimal<38,1>) = 3.3::decimal<38,1>"},
 		{testCaseStr: "f8('1991-01-01'::date) = '2001-01-01'::date"},
 		{testCaseStr: "f8('13:01:01.2345678'::time) = 123456::i64", expTestStr: "f8('13:01:01.234567'::time) = 123456::i64"},
 		{testCaseStr: "f8('13:01:01.234'::time) = 123::i32", expTestStr: "f8('13:01:01.234000'::time) = 123::i32"},
@@ -201,6 +207,7 @@ func checkNullability(t *testing.T, lit expr.Literal, argType types.Type) {
 	} else {
 		assert.Equal(t, types.NullabilityNullable, argType.GetNullability())
 	}
+	assert.Equal(t, argType, lit.GetType())
 }
 
 func TestParseStringTestCases(t *testing.T) {
@@ -610,10 +617,11 @@ func TestParseAggregateTestWithVariousTypes(t *testing.T) {
 		{testCaseStr: "f4((false, true)::boolean) = false::bool", expTestStr: "f4((false, true)::boolean) = false::boolean"},
 		{testCaseStr: "f5((1.1, 2.2)::fp32) = 3.3::fp32"},
 		{testCaseStr: "f5((1.1, 2.2)::fp64) = 3.3::fp64"},
-		{testCaseStr: "f5((1.1, 2.2)::decimal) = 3.3::dec", expTestStr: "f5((1.1, 2.2)::decimal<38,0>) = 3.3::decimal<38,0>"},
-		{testCaseStr: "f6((1.1, 2.2)::dec<38,10>) = 3.3::dec<38,10>", expTestStr: "f6((1.1, 2.2)::decimal<38,10>) = 3.3::decimal<38,10>"},
-		{testCaseStr: "f7((1.0, 2)::decimal<38,0>) = 3.0::decimal<38,0>"},
-		{testCaseStr: "f6((1.1, 2.2, null)::dec?<38,10>) = 3.3::dec<38,10>", expTestStr: "f6((1.1, 2.2, null)::decimal?<38,10>) = 3.3::decimal<38,10>"},
+		{testCaseStr: "f5((1, 2)::decimal) = 3::dec", expTestStr: "f5((1, 2)::decimal<38,0>) = 3::decimal<38,0>"},
+		{testCaseStr: "f5((1.1, 2.2)::dec<38,1>) = 3.3::dec<38,1>", expTestStr: "f5((1.1, 2.2)::decimal<38,1>) = 3.3::decimal<38,1>"},
+		{testCaseStr: "f6((1.1, 2.2)::dec<38,10>) = 3.3::dec<38,10>", expTestStr: "f6((1.1, 2.2)::decimal<38,10>) = 3.3000000000::decimal<38,10>"},
+		{testCaseStr: "f7((1.0, 2)::decimal<38,0>) = 3::decimal<38,0>"},
+		{testCaseStr: "f6((1.1, 2.2, null)::dec?<38,10>) = 3.3::dec<38,10>", expTestStr: "f6((1.1, 2.2, null)::decimal?<38,10>) = 3.3000000000::decimal<38,10>"},
 		{testCaseStr: "f8(('1991-01-01', '1991-02-02')::date) = '2001-01-01'::date"},
 		{testCaseStr: "f8(('13:01:01.2345678', '14:01:01.333')::time) = 123456::i64", expTestStr: "f8(('13:01:01.234567', '14:01:01.333000')::time) = 123456::i64"},
 		{testCaseStr: "f8(('1991-01-01T01:02:03.456', '1991-01-01T00:00:00')::timestamp) = '1991-01-01T22:33:44'::ts", expTestStr: "f8(('1991-01-01T01:02:03.456', '1991-01-01T00:00:00')::timestamp) = '1991-01-01T22:33:44'::timestamp"},
@@ -699,6 +707,9 @@ func TestLoadAllSubstraitTestFiles(t *testing.T) {
 			case "tests/cases/datetime/extract.test":
 				// TODO deal with enum arguments in testcase
 				t.Skip("Skipping extract.test")
+			case "tests/cases/arithmetic_decimal/bitwise_or.test":
+				// TODO enable this after merging the PR with testcase fix
+				t.Skip("Skipping bitwise_or.test")
 			}
 
 			testFile, err := ParseTestCaseFileFromFS(got, filePath)

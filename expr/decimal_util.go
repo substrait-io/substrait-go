@@ -105,3 +105,74 @@ func decimalBytesToString(decimalBytes [16]byte, scale int32) string {
 	apdBigInt := new(apd.BigInt).SetMathBigInt(intValue)
 	return apd.NewWithBigInt(apdBigInt, -scale).String()
 }
+
+func modifyDecimalPrecisionAndScale(decimalBytes [16]byte, precision, scale, targetPrecision, targetScale int32) ([16]byte, int32, int32, error) {
+	var result [16]byte
+	if targetPrecision > 38 {
+		return result, 0, 0, fmt.Errorf("number %v exceeds maximum precision of 38 (%d)", decimalBytes, precision)
+	}
+	scaleDiff := targetScale - scale
+	if scaleDiff == 0 && targetPrecision >= precision {
+		return decimalBytes, targetPrecision, targetScale, nil
+	}
+
+	isNegative := decimalBytes[15]&0x80 != 0
+	// Reverse the byte array to big-endian.
+	processingValue := make([]byte, 16)
+	for i := len(processingValue) - 1; i >= 0; i = i - 1 {
+		processingValue[i] = decimalBytes[15-i]
+	}
+	if isNegative {
+		negate(processingValue[:])
+	}
+
+	// Convert into an apd.BigInt so it can handle the rendering.
+	intValue := new(big.Int).SetBytes(processingValue[:])
+	apdBigInt := new(apd.BigInt).SetMathBigInt(intValue)
+	dec := apd.NewWithBigInt(apdBigInt, -scale)
+
+	coefficient := dec.Coeff
+	if scaleDiff > 0 {
+		multiplier := apd.NewBigInt(1).Exp(apd.NewBigInt(10), apd.NewBigInt(int64(scaleDiff)), nil)
+		coefficient.Mul(&dec.Coeff, multiplier)
+	} else if scaleDiff < 0 {
+		divisor := apd.NewBigInt(1).Exp(apd.NewBigInt(10), apd.NewBigInt(int64(-scaleDiff)), nil)
+		coefficient.Quo(&dec.Coeff, divisor)
+	}
+
+	if dec.Exponent > 0 {
+		precision = int32(apd.NumDigits(&dec.Coeff)) + dec.Exponent
+		scale = 0
+	} else {
+		scale = -dec.Exponent
+		precision = max(int32(apd.NumDigits(&dec.Coeff)), scale+1)
+	}
+
+	if targetPrecision < precision {
+		return result, precision, scale, fmt.Errorf("number %v exceeds maximum precision of %d, number needs minimum precision %d with target scale %d",
+			decimalBytes, targetPrecision, precision, targetScale)
+	}
+	//if targetScale < scale {
+	//	return result, precision, scale, fmt.Errorf("number %v exceeds target scale of %d, number needs minimum scale of %d",
+	//		decimalBytes, targetScale, scale)
+	//}
+
+	// Convert the coefficient to a byte array.
+	byteArray := coefficient.Bytes()
+	if len(byteArray) > 16 {
+		return decimalBytes, 0, 0, fmt.Errorf("number exceeds 16 bytes")
+	}
+	copy(result[16-len(byteArray):], byteArray)
+
+	// Handle the sign by taking the two's complement for negative numbers.
+	if isNegative {
+		negate(result[:])
+	}
+
+	// Reverse the byte array to little-endian.
+	for i, j := 0, len(result)-1; i < j; i, j = i+1, j-1 {
+		result[i], result[j] = result[j], result[i]
+	}
+
+	return result, targetPrecision, targetScale, nil
+}
