@@ -1655,3 +1655,30 @@ func (t TimestampTz) ToIsoTimeString() string {
 	tm := any(t).(TimeConverter).ToTime()
 	return tm.UTC().Format("2006-01-02T15:04:05.999999999")
 }
+
+func GetTimeValueByPrecision(tm time.Time, precision TimePrecision) int64 {
+	switch precision {
+	case PrecisionSeconds:
+		return tm.Unix()
+	case PrecisionDeciSeconds:
+		return tm.UnixMilli() / 100
+	case PrecisionCentiSeconds:
+		return tm.UnixMilli() / 10
+	case PrecisionMilliSeconds:
+		return tm.UnixMilli()
+	case PrecisionEMinus4Seconds:
+		return tm.UnixMicro() / 100
+	case PrecisionEMinus5Seconds:
+		return tm.UnixMicro() / 10
+	case PrecisionMicroSeconds:
+		return tm.UnixMicro()
+	case PrecisionEMinus7Seconds:
+		return tm.UnixNano() / 100
+	case PrecisionEMinus8Seconds:
+		return tm.UnixNano() / 10
+	case PrecisionNanoSeconds:
+		return tm.UnixNano()
+	default:
+		panic(fmt.Sprintf("unknown TimePrecision %v", precision))
+	}
+}

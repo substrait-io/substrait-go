@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 	"time"
@@ -30,6 +31,10 @@ type PrimitiveLiteralValue interface {
 
 type nestedLiteral interface {
 	StructLiteralValue | ListLiteralValue
+}
+
+type WithTypeLiteral interface {
+	WithType(types.Type) (Literal, error)
 }
 
 // Easy type aliases for multi-value types that also
@@ -318,6 +323,17 @@ func (t *NestedLiteral[T]) Visit(VisitFunc) Expression {
 }
 func (*NestedLiteral[T]) IsScalar() bool { return true }
 
+func (t *NestedLiteral[T]) WithType(newType types.Type) (Literal, error) {
+	switch newType.(type) {
+	case *types.ListType:
+		return &NestedLiteral[ListLiteralValue]{
+			Value: ListLiteralValue(t.Value),
+			Type:  newType,
+		}, nil
+	}
+	return nil, fmt.Errorf("invalid type %T for nested literal", newType)
+}
+
 // MapLiteral is represented as a slice of Key/Value structs consisting
 // of other literals.
 type MapLiteral struct {
@@ -453,11 +469,43 @@ func (t *ByteSliceLiteral[T]) ToProtoFuncArg() *proto.FunctionArgument {
 func (t *ByteSliceLiteral[T]) Visit(VisitFunc) Expression { return t }
 func (*ByteSliceLiteral[T]) IsScalar() bool               { return true }
 
+func (t *ByteSliceLiteral[T]) WithType(newType types.Type) (Literal, error) {
+	switch newType.(type) {
+	case *types.FixedBinaryType:
+		return &ByteSliceLiteral[types.FixedBinary]{
+			Value: types.FixedBinary(t.Value),
+			Type:  newType,
+		}, nil
+	case *types.UUIDType:
+		return &ByteSliceLiteral[types.UUID]{
+			Value: types.UUID(t.Value),
+			Type:  newType,
+		}, nil
+	}
+	return nil, fmt.Errorf("byte slice literal withType is not supported for %T ", newType)
+}
+
 // ProtoLiteral is a literal that is represented using its protobuf
 // message type such as a Decimal or UserDefinedType.
 type ProtoLiteral struct {
 	Value any
 	Type  types.Type
+}
+
+func (t *ProtoLiteral) WithType(newType types.Type) (Literal, error) {
+	switch typ := newType.(type) {
+	case *types.DecimalType:
+		return newDecimalWithType(t, typ)
+	case *types.VarCharType:
+		return newVarCharWithType(t, typ)
+	case *types.PrecisionTimestampType:
+		return newPrecisionTimestampWithType(t, typ)
+	case *types.PrecisionTimestampTzType:
+		return newPrecisionTimestampTzWithType(t, typ)
+	case *types.IntervalDayType:
+		return newIntervalDayWithType(t, typ)
+	}
+	return nil, fmt.Errorf("protoLiteral withType is not supported for %T ", newType)
 }
 
 func (t *ProtoLiteral) ValueString() string {
@@ -498,27 +546,16 @@ func (t *ProtoLiteral) IsoValueString() string {
 	case *types.IntervalDayType:
 		x, _ := t.Value.(*proto.Expression_Literal_IntervalDayToSecond)
 		// Validity is required by construction.
-		seconds := x.GetSeconds()
-		minutes := seconds / 60
-		hours := minutes / 60
-		seconds = seconds % 60
-		minutes = minutes % 60
 		sb := strings.Builder{}
 		sb.WriteString("P")
 		if x.GetDays() > 0 {
 			sb.WriteString(fmt.Sprintf("%dD", x.GetDays()))
 		}
-		if minutes > 0 || seconds > 0 {
+		if x.GetSeconds() > 0 || x.GetSubseconds() > 0 {
 			sb.WriteString("T")
-			if hours > 0 {
-				sb.WriteString(fmt.Sprintf("%dH", hours))
-			}
-			if minutes > 0 {
-				sb.WriteString(fmt.Sprintf("%dM", minutes))
-			}
-			if seconds > 0 {
-				sb.WriteString(fmt.Sprintf("%dS", seconds))
-			}
+			duration := time.Duration(x.GetSeconds()) * time.Second
+			duration += types.SubSecondsToDuration(x.GetSubseconds(), literalType.Precision)
+			sb.WriteString(strings.ToUpper(duration.String()))
 		}
 		return sb.String()
 	}
@@ -624,6 +661,72 @@ func (t *ProtoLiteral) ToProtoFuncArg() *proto.FunctionArgument {
 
 func (t *ProtoLiteral) Visit(VisitFunc) Expression { return t }
 func (*ProtoLiteral) IsScalar() bool               { return true }
+
+func newDecimalWithType(literal *ProtoLiteral, decType *types.DecimalType) (Literal, error) {
+	litType, ok := literal.GetType().(*types.DecimalType)
+	if !ok {
+		return nil, fmt.Errorf("literal type is not decimal")
+	}
+	inDecimalBytes := [16]byte(literal.Value.([]byte))
+	decimalBytes, precision, scale, err := modifyDecimalPrecisionAndScale(inDecimalBytes, litType.Scale, decType.Precision, decType.Scale)
+	if err != nil {
+		return nil, err
+	}
+	return NewLiteral[*types.Decimal](&types.Decimal{Value: decimalBytes[:16], Precision: precision, Scale: scale}, decType.GetNullability() == types.NullabilityNullable)
+}
+
+func newVarCharWithType(literal *ProtoLiteral, vcharType *types.VarCharType) (Literal, error) {
+	if _, ok := literal.GetType().(*types.VarCharType); !ok {
+		return nil, fmt.Errorf("literal type is not varchar")
+	}
+	if len(literal.Value.(string)) > int(vcharType.GetLength()) {
+		return nil, fmt.Errorf("varchar litearl value length is greater than type length")
+	}
+	return &ProtoLiteral{Value: literal.Value, Type: vcharType}, nil
+}
+
+func newPrecisionTimestampWithType(literal *ProtoLiteral, ptsType *types.PrecisionTimestampType) (Literal, error) {
+	if litType, ok := literal.GetType().(*types.PrecisionTimestampType); ok {
+		value := types.GetTimeValueByPrecision(types.Timestamp(literal.Value.(int64)).ToPrecisionTime(litType.Precision), ptsType.Precision)
+		return &ProtoLiteral{Value: value, Type: ptsType}, nil
+	}
+	return nil, fmt.Errorf("literal type is not precision timestamp")
+}
+
+func newPrecisionTimestampTzWithType(literal *ProtoLiteral, ptstzType *types.PrecisionTimestampTzType) (Literal, error) {
+	if litType, ok := literal.GetType().(*types.PrecisionTimestampTzType); ok {
+		value := types.GetTimeValueByPrecision(types.Timestamp(literal.Value.(int64)).ToPrecisionTime(litType.Precision), ptstzType.Precision)
+		return &ProtoLiteral{Value: value, Type: ptstzType}, nil
+	}
+	return nil, fmt.Errorf("literal type is not precision timestamp tz")
+}
+
+func newIntervalDayWithType(literal *ProtoLiteral, intervalDayType *types.IntervalDayType) (Literal, error) {
+	if _, ok := literal.GetType().(*types.IntervalDayType); ok {
+		intervalValue := literal.Value.(*proto.Expression_Literal_IntervalDayToSecond)
+		precisionDiff := intervalValue.GetPrecision() - intervalDayType.Precision.ToProtoVal()
+		ss := intervalValue.GetSubseconds()
+		if precisionDiff != 0 {
+			factor := int64(math.Pow10(int(math.Abs(float64(precisionDiff)))))
+			if precisionDiff > 0 {
+				ss /= factor
+			} else {
+				ss *= factor
+			}
+		}
+		return &ProtoLiteral{
+			Value: &types.IntervalDayToSecond{
+				Days:       intervalValue.GetDays(),
+				Seconds:    intervalValue.GetSeconds(),
+				Subseconds: ss,
+				PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{
+					Precision: intervalDayType.Precision.ToProtoVal(),
+				},
+			}, Type: intervalDayType,
+		}, nil
+	}
+	return nil, fmt.Errorf("literal type is not interval day")
+}
 
 func getNullability(nullable bool) types.Nullability {
 	if nullable {

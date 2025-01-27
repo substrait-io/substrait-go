@@ -105,3 +105,86 @@ func decimalBytesToString(decimalBytes [16]byte, scale int32) string {
 	apdBigInt := new(apd.BigInt).SetMathBigInt(intValue)
 	return apd.NewWithBigInt(apdBigInt, -scale).String()
 }
+
+func modifyDecimalPrecisionAndScale(decimalBytes [16]byte, scale, targetPrecision, targetScale int32) ([16]byte, int32, int32, error) {
+	var result [16]byte
+	if targetPrecision > 38 {
+		return result, 0, 0, fmt.Errorf("target precision %d exceeds maximum allowed precision of 38", targetPrecision)
+	}
+
+	isNegative := decimalBytes[15]&0x80 != 0
+
+	// Reverse the byte array to convert from little-endian to big-endian.
+	processingValue := make([]byte, 16)
+	for i := 0; i < 16; i++ {
+		processingValue[i] = decimalBytes[15-i]
+	}
+	if isNegative {
+		negate(processingValue[:])
+	}
+
+	// Convert the bytes into a big.Int and wrap it into an apd.Decimal.
+	intValue := new(big.Int).SetBytes(processingValue[:])
+	apdBigInt := new(apd.BigInt).SetMathBigInt(intValue)
+	dec := apd.NewWithBigInt(apdBigInt, -scale)
+
+	// Normalize the decimal by removing trailing zeros.
+	dec.Reduce(dec)
+
+	// Adjust the scale to the target scale
+	ctx := apd.BaseContext.WithPrecision(uint32(targetPrecision))
+	_, err := ctx.Quantize(dec, dec, -targetScale)
+	if err != nil {
+		return result, 0, 0, fmt.Errorf("error adjusting scale: %v", err)
+	}
+
+	err2 := validatePrecisionAndScale(dec, targetPrecision, targetScale)
+	if err2 != nil {
+		return result, 0, 0, err2
+	}
+
+	// Convert the adjusted decimal coefficient to a byte array.
+	byteArray := dec.Coeff.Bytes()
+	if len(byteArray) > 16 {
+		return result, 0, 0, fmt.Errorf("number exceeds 16 bytes")
+	}
+	copy(result[16-len(byteArray):], byteArray)
+
+	// Handle the sign by applying two's complement for negative numbers.
+	if isNegative {
+		negate(result[:])
+	}
+
+	// Reverse the byte array back to little-endian.
+	for i, j := 0, 15; i < j; i, j = i+1, j-1 {
+		result[i], result[j] = result[j], result[i]
+	}
+
+	return result, targetPrecision, targetScale, nil
+}
+
+func validatePrecisionAndScale(dec *apd.Decimal, targetPrecision int32, targetScale int32) error {
+	// Validate the minimum precision and scale.
+	minPrecision, minScale := getMinimumPrecisionAndScale(dec)
+	if targetPrecision < minPrecision {
+		return fmt.Errorf("number %s exceeds target precision %d, minimum precision needed is %d with target scale %d", dec.String(), targetPrecision, minPrecision, targetScale)
+	}
+	if targetScale < minScale {
+		return fmt.Errorf("number %v exceeds target scale %d, minimum scale needed is %d", dec.String(), targetScale, minScale)
+	}
+	if targetPrecision-targetScale < minPrecision-minScale {
+		return fmt.Errorf("number %v exceeds target precision %d with target scale %d, minimum precision needed is %d with minimum scale %d", dec.String(), targetPrecision, targetScale, minPrecision, minScale)
+	}
+	return nil
+}
+
+func getMinimumPrecisionAndScale(dec *apd.Decimal) (precision int32, scale int32) {
+	if dec.Exponent > 0 {
+		precision = int32(apd.NumDigits(&dec.Coeff)) + dec.Exponent
+		scale = 0
+	} else {
+		scale = -dec.Exponent
+		precision = max(int32(apd.NumDigits(&dec.Coeff)), scale+1)
+	}
+	return precision, scale
+}

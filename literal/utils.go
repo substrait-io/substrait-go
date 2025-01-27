@@ -323,7 +323,7 @@ func NewDecimalFromString(value string) (expr.Literal, error) {
 
 // NewPrecisionTimestampFromTime creates a new PrecisionTimestamp literal from a time.Time timestamp value with given precision.
 func NewPrecisionTimestampFromTime(precision types.TimePrecision, tm time.Time) (expr.Literal, error) {
-	return NewPrecisionTimestamp(precision, getTimeValueByPrecision(tm, precision))
+	return NewPrecisionTimestamp(precision, types.GetTimeValueByPrecision(tm, precision))
 }
 
 // NewPrecisionTimestamp creates a new PrecisionTimestamp literal with given precision and value.
@@ -346,7 +346,7 @@ func NewPrecisionTimestampFromString(precision types.TimePrecision, value string
 
 // NewPrecisionTimestampTzFromTime creates a new PrecisionTimestampTz literal from a time.Time timestamp value with given precision.
 func NewPrecisionTimestampTzFromTime(precision types.TimePrecision, tm time.Time) (expr.Literal, error) {
-	return NewPrecisionTimestampTz(precision, getTimeValueByPrecision(tm, precision))
+	return NewPrecisionTimestampTz(precision, types.GetTimeValueByPrecision(tm, precision))
 }
 
 // NewPrecisionTimestampTz creates a new PrecisionTimestampTz literal with given precision and value.
@@ -365,33 +365,6 @@ func NewPrecisionTimestampTzFromString(precision types.TimePrecision, value stri
 		return nil, err
 	}
 	return NewPrecisionTimestampTzFromTime(precision, tm)
-}
-
-func getTimeValueByPrecision(tm time.Time, precision types.TimePrecision) int64 {
-	switch precision {
-	case types.PrecisionSeconds:
-		return tm.Unix()
-	case types.PrecisionDeciSeconds:
-		return tm.UnixMilli() / 100
-	case types.PrecisionCentiSeconds:
-		return tm.UnixMilli() / 10
-	case types.PrecisionMilliSeconds:
-		return tm.UnixMilli()
-	case types.PrecisionEMinus4Seconds:
-		return tm.UnixMicro() / 100
-	case types.PrecisionEMinus5Seconds:
-		return tm.UnixMicro() / 10
-	case types.PrecisionMicroSeconds:
-		return tm.UnixMicro()
-	case types.PrecisionEMinus7Seconds:
-		return tm.UnixNano() / 100
-	case types.PrecisionEMinus8Seconds:
-		return tm.UnixNano() / 10
-	case types.PrecisionNanoSeconds:
-		return tm.UnixNano()
-	default:
-		panic(fmt.Sprintf("unknown TimePrecision %v", precision))
-	}
 }
 
 func NewList(elements []expr.Literal) (expr.Literal, error) {

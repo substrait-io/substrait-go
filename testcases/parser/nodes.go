@@ -78,6 +78,28 @@ func (c *CaseLiteral) AsAggregateArgumentString() string {
 	return c.Value.ValueString() + "::" + c.Type.String()
 }
 
+// updateLiteralType updates the type of the literal CaseLiteral.Value to use the CaseLiteral.Type
+// Parser creates a literal with a type using existing util functions.
+// For ParameterizedTypes utils functions use minimum required values for the parameters.
+// This function changes the type to use requested type, so that the function invocation object is created correctly.
+func (c *CaseLiteral) updateLiteralType() error {
+	if len(c.Type.GetParameters()) == 0 {
+		return nil
+	}
+	switch proLit := c.Value.(type) {
+	case *expr.NullLiteral:
+		return nil
+	case expr.WithTypeLiteral:
+		lit, err := proLit.WithType(c.Type)
+		if err != nil {
+			return err
+		}
+		c.Value = lit
+		return nil
+	}
+	return fmt.Errorf("literal type %T is not handled to update the type", c.Value)
+}
+
 type TestFileHeader struct {
 	Version     string
 	FuncType    TestFuncType

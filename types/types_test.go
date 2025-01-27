@@ -5,6 +5,7 @@ package types_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	. "github.com/substrait-io/substrait-go/v3/types"
@@ -469,4 +470,30 @@ func TestMatchParameterizedNestedTypeResultMatch(t *testing.T) {
 
 func markNullable(t FuncDefArgType) FuncDefArgType {
 	return t.SetNullability(NullabilityNullable)
+}
+
+func TestGetTimeValueByPrecision(t *testing.T) {
+	timeStr := "2021-08-10T15:01:05.123456789Z"
+	tests := []struct {
+		name      string
+		precision TimePrecision
+		want      int64
+	}{
+		{"PrecisionSeconds", PrecisionSeconds, 1628607665},
+		{"PrecisionDeciSeconds", PrecisionDeciSeconds, 16286076651},
+		{"PrecisionCentiSeconds", PrecisionCentiSeconds, 162860766512},
+		{"PrecisionMilliSeconds", PrecisionMilliSeconds, 1628607665123},
+		{"PrecisionEMinus4Seconds", PrecisionEMinus4Seconds, 16286076651234},
+		{"PrecisionEMinus5Seconds", PrecisionEMinus5Seconds, 162860766512345},
+		{"PrecisionMicroSeconds", PrecisionMicroSeconds, 1628607665123456},
+		{"PrecisionEMinus7Seconds", PrecisionEMinus7Seconds, 16286076651234567},
+		{"PrecisionEMinus8Seconds", PrecisionEMinus8Seconds, 162860766512345678},
+		{"PrecisionNanoSeconds", PrecisionNanoSeconds, 1628607665123456789},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tm, _ := time.Parse(time.RFC3339Nano, timeStr)
+			assert.Equalf(t, tt.want, GetTimeValueByPrecision(tm, tt.precision), "GetTimeValueByPrecision(%v, %v)", timeStr, tt.precision)
+		})
+	}
 }
