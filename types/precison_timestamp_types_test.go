@@ -5,6 +5,7 @@ package types
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
@@ -120,5 +121,30 @@ func assertPrecisionTimeStampTzProto(t *testing.T, expectedPrecision TimePrecisi
 	}}
 	if diff := cmp.Diff(toVerifyType.ToProtoFuncArg(), expectedFuncArgProto, protocmp.Transform()); diff != "" {
 		t.Errorf("precisionTimeStampTz proto didn't match, diff:\n%v", diff)
+	}
+}
+
+func TestSubSecondsToDuration(t *testing.T) {
+	tests := []struct {
+		name       string
+		subSeconds int64
+		precision  TimePrecision
+		want       time.Duration
+	}{
+		{"0.000000001s", 1, PrecisionNanoSeconds, time.Nanosecond},
+		{"0.00000001s", 1, PrecisionEMinus8Seconds, time.Nanosecond * 10},
+		{"0.0000001s", 1, PrecisionEMinus7Seconds, time.Nanosecond * 100},
+		{"0.000001s", 1, PrecisionMicroSeconds, time.Microsecond},
+		{"0.00001s", 1, PrecisionEMinus5Seconds, time.Microsecond * 10},
+		{"0.0001s", 1, PrecisionEMinus4Seconds, time.Microsecond * 100},
+		{"0.001s", 1, PrecisionMilliSeconds, time.Millisecond},
+		{"0.01s", 1, PrecisionCentiSeconds, time.Millisecond * 10},
+		{"0.1s", 1, PrecisionDeciSeconds, time.Millisecond * 100},
+		{"1s", 1, PrecisionSeconds, time.Second},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, SubSecondsToDuration(tt.subSeconds, tt.precision), "SubSecondsToDuration(%v, %v)", tt.subSeconds, tt.precision)
+		})
 	}
 }

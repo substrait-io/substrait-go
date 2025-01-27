@@ -5,6 +5,7 @@ package types
 import (
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/substrait-io/substrait-go/v3/proto"
 )
@@ -29,6 +30,33 @@ const (
 
 func (m TimePrecision) ToProtoVal() int32 {
 	return int32(m)
+}
+
+func SubSecondsToDuration(subSeconds int64, precision TimePrecision) time.Duration {
+	switch precision {
+	case PrecisionSeconds:
+		return time.Duration(subSeconds) * time.Second
+	case PrecisionDeciSeconds:
+		return time.Duration(subSeconds) * time.Second / 10
+	case PrecisionCentiSeconds:
+		return time.Duration(subSeconds) * time.Second / 100
+	case PrecisionMilliSeconds:
+		return time.Duration(subSeconds) * time.Millisecond
+	case PrecisionEMinus4Seconds:
+		return time.Duration(subSeconds) * 100 * time.Microsecond
+	case PrecisionEMinus5Seconds:
+		return time.Duration(subSeconds) * 10 * time.Microsecond
+	case PrecisionMicroSeconds:
+		return time.Duration(subSeconds) * time.Microsecond
+	case PrecisionEMinus7Seconds:
+		return time.Duration(subSeconds) * 100 * time.Nanosecond
+	case PrecisionEMinus8Seconds:
+		return time.Duration(subSeconds) * 10 * time.Nanosecond
+	case PrecisionNanoSeconds:
+		return time.Duration(subSeconds) * time.Nanosecond
+	default:
+		panic(fmt.Sprintf("invalid precision %d", precision))
+	}
 }
 
 func ProtoToTimePrecision(val int32) (TimePrecision, error) {

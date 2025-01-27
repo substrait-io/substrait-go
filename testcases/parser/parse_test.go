@@ -729,10 +729,14 @@ func testGetFunctionInvocation(t *testing.T, tc *TestCase, reg *expr.ExtensionRe
 		invocation, err := tc.GetScalarFunctionInvocation(reg, registry)
 		require.NoError(t, err, "GetScalarFunctionInvocation failed with error in test case: %s", tc.CompoundFunctionName())
 		require.Equal(t, tc.ID().URI, invocation.ID().URI)
+		argTypes := invocation.GetArgTypes()
+		require.Equal(t, tc.GetArgTypes(), argTypes, "unexpected arg types in test case: %s", tc.CompoundFunctionName())
 	case AggregateFuncType:
 		invocation, err := tc.GetAggregateFunctionInvocation(reg, registry)
 		require.NoError(t, err, "GetAggregateFunctionInvocation failed with error in test case: %s", tc.CompoundFunctionName())
 		require.Equal(t, tc.ID().URI, invocation.ID().URI)
+		argTypes := invocation.GetArgTypes()
+		require.Equal(t, tc.GetArgTypes(), argTypes, "unexpected arg types in test case: %s", tc.CompoundFunctionName())
 	}
 }
 

@@ -338,7 +338,7 @@ func (v *TestCaseVisitor) VisitArguments(ctx *baseparser.ArgumentsContext) inter
 	args := make([]*CaseLiteral, 0, len(ctx.AllArgument()))
 	for _, argument := range ctx.AllArgument() {
 		testArg := v.Visit(argument).(*CaseLiteral)
-		if err := testArg.fixTypeInTheLiteral(); err != nil {
+		if err := testArg.updateLiteralType(); err != nil {
 			v.ErrorListener.ReportVisitError(fmt.Errorf("invalid argument %v", err))
 		}
 		args = append(args, testArg)
@@ -747,7 +747,7 @@ func (v *TestCaseVisitor) VisitResult(ctx *baseparser.ResultContext) interface{}
 		return v.Visit(ctx.SubstraitError())
 	}
 	result := v.Visit(ctx.Argument()).(*CaseLiteral)
-	if err := result.fixTypeInTheLiteral(); err != nil {
+	if err := result.updateLiteralType(); err != nil {
 		v.ErrorListener.ReportVisitError(fmt.Errorf("invalid result: %v", err))
 	}
 	return result

@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/v3/expr"
 	"github.com/substrait-io/substrait-go/v3/literal"
+	"github.com/substrait-io/substrait-go/v3/proto"
 	"github.com/substrait-io/substrait-go/v3/types"
 )
 
@@ -29,7 +30,7 @@ func TestNewDecimalWithType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			lit, err := literal.NewDecimalFromString(tt.name)
 			require.NoError(t, err)
-			got, err := expr.NewDecimalWithType(lit.(*expr.ProtoLiteral), tt.decType)
+			got, err := lit.(*expr.ProtoLiteral).WithType(tt.decType)
 			if tt.expectedToFail {
 				require.Error(t, err)
 				return
@@ -52,7 +53,7 @@ func TestNewFixedLenWithType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			input, _ := literal.NewVarChar(tt.name)
-			got, err := expr.NewVarCharWithType(input.(*expr.ProtoLiteral), tt.inputType.(*types.VarCharType))
+			got, err := input.(*expr.ProtoLiteral).WithType(tt.inputType.(*types.VarCharType))
 			if tt.wantErr {
 				require.Error(t, err)
 				return
@@ -78,7 +79,7 @@ func TestNewPrecisionTimestampWithType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			lit, err := literal.NewPrecisionTimestampFromString(tt.inputPrecision, tt.name)
 			require.NoError(t, err)
-			got, err := expr.NewPrecisionTimestampWithType(lit.(*expr.ProtoLiteral), tt.inputType)
+			got, err := lit.(*expr.ProtoLiteral).WithType(tt.inputType)
 			if tt.wantErr {
 				require.NoError(t, err)
 				return
@@ -106,7 +107,7 @@ func TestNewPrecisionTimestampTzWithType(t *testing.T) {
 			lit, err := literal.NewPrecisionTimestampTzFromString(tt.inputPrecision, tt.name)
 			require.NoError(t, err)
 			inputType := &types.PrecisionTimestampTzType{PrecisionTimestampType: tt.inputType}
-			got, err := expr.NewPrecisionTimestampTzWithType(lit.(*expr.ProtoLiteral), inputType)
+			got, err := lit.(*expr.ProtoLiteral).WithType(inputType)
 			if tt.wantErr {
 				require.NoError(t, err)
 				return
@@ -123,18 +124,19 @@ func TestNewIntervalDayWithType(t *testing.T) {
 		name             string
 		inputType        *types.IntervalDayType
 		expLiteralString string
+		expSubSeconds    int64
 		wantErr          bool
 	}{
-		{"PT23H59M59.999S", &types.IntervalDayType{Precision: 3, Nullability: types.NullabilityNullable}, "PT23H59M59.999S", false},
-		{"PT23H59M59.999S", &types.IntervalDayType{Precision: 2, Nullability: types.NullabilityNullable}, "PT23H59M59.99S", false},
-		{"PT23H59M59.999S", &types.IntervalDayType{Precision: 6, Nullability: types.NullabilityRequired}, "PT23H59M59.999000S", false},
-		{"PT23H59M59.999S", &types.IntervalDayType{Precision: 9, Nullability: types.NullabilityRequired}, "PT23H59M59.999000000S", false},
+		{"PT23H59M59.999S", &types.IntervalDayType{Precision: 3, Nullability: types.NullabilityNullable}, "PT23H59M59.999S", 999, false},
+		{"PT23H59M59.999S", &types.IntervalDayType{Precision: 2, Nullability: types.NullabilityNullable}, "PT23H59M59.99S", 99, false},
+		{"PT23H59M59.999S", &types.IntervalDayType{Precision: 6, Nullability: types.NullabilityRequired}, "PT23H59M59.999S", 999000, false},
+		{"PT23H59M59.999S", &types.IntervalDayType{Precision: 9, Nullability: types.NullabilityRequired}, "PT23H59M59.999S", 999000000, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			lit, err := literal.NewIntervalDaysToSecondFromString(tt.name)
 			require.NoError(t, err)
-			got, err := expr.NewIntervalDayWithType(lit.(*expr.ProtoLiteral), tt.inputType)
+			got, err := lit.(*expr.ProtoLiteral).WithType(tt.inputType)
 			if tt.wantErr {
 				require.NoError(t, err)
 				return
@@ -142,6 +144,9 @@ func TestNewIntervalDayWithType(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.inputType, got.GetType())
 			assert.Equal(t, tt.expLiteralString, got.(types.IsoValuePrinter).IsoValueString())
+			iday := got.(*expr.ProtoLiteral).Value.(*proto.Expression_Literal_IntervalDayToSecond)
+			assert.Equal(t, tt.inputType.Precision.ToProtoVal(), iday.GetPrecision())
+			assert.Equal(t, tt.expSubSeconds, iday.GetSubseconds())
 		})
 	}
 }
