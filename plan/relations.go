@@ -1172,7 +1172,7 @@ func (ar *AggregateRel) rewriteAggregateFunc(rewriteFunc RewriteFunc, f *expr.Ag
 	if f == nil {
 		return f, nil
 	}
-	newF := f
+	newF := f.Clone()
 	argsAreEqual := true
 	for i := 0; i < f.NArgs(); i++ {
 		arg := f.Arg(i)

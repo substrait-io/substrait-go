@@ -37,10 +37,15 @@ func TestRelations_Copy(t *testing.T) {
 		aggregateFnID, nil, types.AggInvocationAll,
 		types.AggPhaseInitialToResult, nil, createPrimitiveFloat(1.0))
 	require.NoError(t, err)
+	aggregateFnRevised, err := expr.NewAggregateFunc(extReg,
+		aggregateFnID, nil, types.AggInvocationAll,
+		types.AggPhaseInitialToResult, nil, createPrimitiveFloat(9.0))
+	require.NoError(t, err)
 
 	aggregateRel := &AggregateRel{input: createVirtualTableReadRel(1),
-		groupingExpressions: []expr.Expression{createPrimitiveFloat(1.0)}, groupingReferences: [][]uint32{{0}},
-		measures: []AggRelMeasure{{measure: aggregateFn, filter: expr.NewPrimitiveLiteral(false, false)}}}
+		groupingExpressions: []expr.Expression{createPrimitiveFloat(1.0)},
+		groupingReferences:  [][]uint32{{0}},
+		measures:            []AggRelMeasure{{measure: aggregateFn, filter: expr.NewPrimitiveLiteral(false, false)}}}
 	crossRel := &CrossRel{left: createVirtualTableReadRel(1), right: createVirtualTableReadRel(2)}
 	extensionLeafRel := &ExtensionLeafRel{}
 	extensionMultiRel := &ExtensionMultiRel{inputs: []Rel{createVirtualTableReadRel(1), createVirtualTableReadRel(2)}}
@@ -73,10 +78,13 @@ func TestRelations_Copy(t *testing.T) {
 	}
 	testCases := []relationTestCase{
 		{
-			name:        "AggregateRel Copy with new inputs",
-			relation:    aggregateRel,
-			newInputs:   []Rel{createVirtualTableReadRel(6)},
-			expectedRel: &AggregateRel{input: createVirtualTableReadRel(6), groupingReferences: aggregateRel.groupingReferences, groupingExpressions: aggregateRel.groupingExpressions, measures: aggregateRel.measures},
+			name:      "AggregateRel Copy with new inputs",
+			relation:  aggregateRel,
+			newInputs: []Rel{createVirtualTableReadRel(6)},
+			expectedRel: &AggregateRel{input: createVirtualTableReadRel(6),
+				groupingReferences:  aggregateRel.groupingReferences,
+				groupingExpressions: aggregateRel.groupingExpressions,
+				measures:            aggregateRel.measures},
 		},
 		{
 			name:            "AggregateRel Copy with same inputs and noOpRewrite",
@@ -86,13 +94,16 @@ func TestRelations_Copy(t *testing.T) {
 			expectedSameRel: true,
 		},
 		{
-			name:        "AggregateRel Copy with new Inputs and noOpReWrite",
-			relation:    aggregateRel,
-			newInputs:   []Rel{createVirtualTableReadRel(7)},
-			expectedRel: &AggregateRel{input: createVirtualTableReadRel(7), groupingExpressions: aggregateRel.groupingExpressions, groupingReferences: aggregateRel.groupingReferences, measures: aggregateRel.measures},
+			name:      "AggregateRel Copy with new Inputs and noOpReWrite",
+			relation:  aggregateRel,
+			newInputs: []Rel{createVirtualTableReadRel(7)},
+			expectedRel: &AggregateRel{input: createVirtualTableReadRel(7),
+				groupingExpressions: aggregateRel.groupingExpressions,
+				groupingReferences:  aggregateRel.groupingReferences,
+				measures:            aggregateRel.measures},
 		},
 		{
-			name:      "AggregateRel Copy with new Inputs and reWriteFunc",
+			name:      "AggregateRel Copy with new Inputs and rewriteFunc",
 			relation:  aggregateRel,
 			newInputs: []Rel{createVirtualTableReadRel(8)},
 			rewriteFunc: func(expression expr.Expression) (expr.Expression, error) {
@@ -107,7 +118,7 @@ func TestRelations_Copy(t *testing.T) {
 			expectedRel: &AggregateRel{input: createVirtualTableReadRel(8),
 				groupingExpressions: []expr.Expression{createPrimitiveFloat(9.0)},
 				groupingReferences:  [][]uint32{{0}},
-				measures:            []AggRelMeasure{{filter: expr.NewPrimitiveLiteral(true, false)}}},
+				measures:            []AggRelMeasure{{measure: aggregateFnRevised, filter: expr.NewPrimitiveLiteral(true, false)}}},
 		},
 		{
 			name:            "ExtensionLeafRel Copy with new inputs",
