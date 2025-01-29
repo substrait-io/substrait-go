@@ -32,6 +32,7 @@ func (e *ExtensionRegistry) LookupScalarFunction(anchor uint32) (*extensions.Sca
 	return e.Set.LookupScalarFunction(anchor, e.c)
 }
 
+// LookupAggregateFunction returns an AggregateFunctionVariant associated with a previously used function's anchor.
 func (e *ExtensionRegistry) LookupAggregateFunction(anchor uint32) (*extensions.AggregateFunctionVariant, bool) {
 	return e.Set.LookupAggregateFunction(anchor, e.c)
 }

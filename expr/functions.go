@@ -811,6 +811,11 @@ func (a *AggregateFunction) IntermediateType() (types.FuncDefArgType, error) {
 	return a.declaration.Intermediate()
 }
 
+// SetArg sets the specified argument to the provided value.  The index is not checked for validity.
+func (a *AggregateFunction) SetArg(i int, arg types.FuncArg) {
+	a.args[i] = arg
+}
+
 func (a *AggregateFunction) String() string {
 	var b strings.Builder
 

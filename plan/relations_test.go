@@ -1,6 +1,8 @@
 package plan
 
 import (
+	"github.com/stretchr/testify/require"
+	"github.com/substrait-io/substrait-go/v3/extensions"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -26,8 +28,19 @@ func createPrimitiveBool(value bool) expr.Expression {
 }
 
 func TestRelations_Copy(t *testing.T) {
-	aggregateRel := &AggregateRel{input: createVirtualTableReadRel(1), groupingExpressions: []expr.Expression{createPrimitiveFloat(1.0)}, groupingReferences: [][]uint32{{0}},
-		measures: []AggRelMeasure{{filter: expr.NewPrimitiveLiteral(false, false)}}}
+	extReg := expr.NewExtensionRegistry(extensions.NewSet(), &extensions.DefaultCollection)
+	aggregateFnID := extensions.ID{
+		URI:  extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+		Name: "avg",
+	}
+	aggregateFn, err := expr.NewAggregateFunc(extReg,
+		aggregateFnID, nil, types.AggInvocationAll,
+		types.AggPhaseInitialToResult, nil, createPrimitiveFloat(1.0))
+	require.NoError(t, err)
+
+	aggregateRel := &AggregateRel{input: createVirtualTableReadRel(1),
+		groupingExpressions: []expr.Expression{createPrimitiveFloat(1.0)}, groupingReferences: [][]uint32{{0}},
+		measures: []AggRelMeasure{{measure: aggregateFn, filter: expr.NewPrimitiveLiteral(false, false)}}}
 	crossRel := &CrossRel{left: createVirtualTableReadRel(1), right: createVirtualTableReadRel(2)}
 	extensionLeafRel := &ExtensionLeafRel{}
 	extensionMultiRel := &ExtensionMultiRel{inputs: []Rel{createVirtualTableReadRel(1), createVirtualTableReadRel(2)}}
@@ -91,8 +104,10 @@ func TestRelations_Copy(t *testing.T) {
 				}
 				panic("unexpected expression type")
 			},
-			expectedRel: &AggregateRel{input: createVirtualTableReadRel(8), groupingExpressions: []expr.Expression{createPrimitiveFloat(9.0)}, groupingReferences: [][]uint32{{0}},
-				measures: []AggRelMeasure{{filter: expr.NewPrimitiveLiteral(true, false)}}},
+			expectedRel: &AggregateRel{input: createVirtualTableReadRel(8),
+				groupingExpressions: []expr.Expression{createPrimitiveFloat(9.0)},
+				groupingReferences:  [][]uint32{{0}},
+				measures:            []AggRelMeasure{{filter: expr.NewPrimitiveLiteral(true, false)}}},
 		},
 		{
 			name:            "ExtensionLeafRel Copy with new inputs",

@@ -1168,6 +1168,30 @@ func (ar *AggregateRel) Copy(newInputs ...Rel) (Rel, error) {
 	return &aggregate, nil
 }
 
+func (ar *AggregateRel) rewriteAggregateFunc(rewriteFunc RewriteFunc, f *expr.AggregateFunction) (*expr.AggregateFunction, error) {
+	if f == nil {
+		return f, nil
+	}
+	newF := f
+	argsAreEqual := true
+	for i := 0; i < f.NArgs(); i++ {
+		arg := f.Arg(i)
+		if exp, ok := arg.(expr.Expression); ok {
+			var newExp expr.Expression
+			var err error
+			if newExp, err = rewriteFunc(exp); err != nil {
+				return nil, err
+			}
+			newF.SetArg(i, newExp)
+			argsAreEqual = argsAreEqual && exp == newExp
+		}
+	}
+	if argsAreEqual {
+		return f, nil
+	}
+	return newF, nil
+}
+
 func (ar *AggregateRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error) {
 	if len(newInputs) != 1 {
 		return nil, substraitgo.ErrInvalidInputCount
@@ -1187,8 +1211,10 @@ func (ar *AggregateRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newIn
 		if newMeasures[i].filter, err = rewriteFunc(m.filter); err != nil {
 			return nil, err
 		}
-		measuresAreEqual = measuresAreEqual && newMeasures[i].filter == m.filter
-		newMeasures[i].measure = m.measure
+		if newMeasures[i].measure, err = ar.rewriteAggregateFunc(rewriteFunc, m.measure); err != nil {
+			return nil, err
+		}
+		measuresAreEqual = measuresAreEqual && newMeasures[i].filter == m.filter && newMeasures[i].measure == m.measure
 	}
 	if groupsAreEqual && measuresAreEqual && newInputs[0] == ar.input {
 		return ar, nil
