@@ -811,6 +811,28 @@ func (a *AggregateFunction) IntermediateType() (types.FuncDefArgType, error) {
 	return a.declaration.Intermediate()
 }
 
+func (a *AggregateFunction) Clone() *AggregateFunction {
+	newA := *a
+	if a.args != nil {
+		newA.args = make([]types.FuncArg, len(a.args))
+		copy(newA.args, a.args)
+	}
+	if a.options != nil {
+		newA.options = make([]*types.FunctionOption, len(a.options))
+		copy(newA.options, a.options)
+	}
+	if a.Sorts != nil {
+		newA.Sorts = make([]SortField, len(a.Sorts))
+		copy(newA.Sorts, a.Sorts)
+	}
+	return &newA
+}
+
+// SetArg sets the specified argument to the provided value.  The index is not checked for validity.
+func (a *AggregateFunction) SetArg(i int, arg types.FuncArg) {
+	a.args[i] = arg
+}
+
 func (a *AggregateFunction) String() string {
 	var b strings.Builder
 
