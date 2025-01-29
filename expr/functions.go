@@ -813,17 +813,23 @@ func (a *AggregateFunction) IntermediateType() (types.FuncDefArgType, error) {
 
 func (a *AggregateFunction) Clone() *AggregateFunction {
 	newA := *a
-	newA.args = make([]types.FuncArg, len(a.args), len(a.args))
-	for i := 0; i < len(a.args); i++ {
-		newA.args[i] = a.args[i]
+	if a.args != nil {
+		newA.args = make([]types.FuncArg, len(a.args), len(a.args))
+		for i := 0; i < len(a.args); i++ {
+			newA.args[i] = a.args[i]
+		}
 	}
-	newA.options = make([]*types.FunctionOption, len(a.options), len(a.options))
-	for i := 0; i < len(a.options); i++ {
-		newA.options[i] = a.options[i]
+	if a.options != nil {
+		newA.options = make([]*types.FunctionOption, len(a.options), len(a.options))
+		for i := 0; i < len(a.options); i++ {
+			newA.options[i] = a.options[i]
+		}
 	}
-	newA.Sorts = make([]SortField, len(a.Sorts), len(a.Sorts))
-	for i := 0; i < len(a.Sorts); i++ {
-		newA.Sorts[i] = a.Sorts[i]
+	if a.Sorts != nil {
+		newA.Sorts = make([]SortField, len(a.Sorts), len(a.Sorts))
+		for i := 0; i < len(a.Sorts); i++ {
+			newA.Sorts[i] = a.Sorts[i]
+		}
 	}
 	return &newA
 }
