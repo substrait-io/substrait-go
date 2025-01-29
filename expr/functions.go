@@ -814,15 +814,15 @@ func (a *AggregateFunction) IntermediateType() (types.FuncDefArgType, error) {
 func (a *AggregateFunction) Clone() *AggregateFunction {
 	newA := *a
 	if a.args != nil {
-		newA.args = make([]types.FuncArg, len(a.args), len(a.args))
+		newA.args = make([]types.FuncArg, len(a.args))
 		copy(newA.args, a.args)
 	}
 	if a.options != nil {
-		newA.options = make([]*types.FunctionOption, len(a.options), len(a.options))
+		newA.options = make([]*types.FunctionOption, len(a.options))
 		copy(newA.options, a.options)
 	}
 	if a.Sorts != nil {
-		newA.Sorts = make([]SortField, len(a.Sorts), len(a.Sorts))
+		newA.Sorts = make([]SortField, len(a.Sorts))
 		copy(newA.Sorts, a.Sorts)
 	}
 	return &newA
