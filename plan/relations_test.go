@@ -1,9 +1,10 @@
 package plan
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/v3/extensions"
-	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/substrait-io/substrait-go/v3/expr"
