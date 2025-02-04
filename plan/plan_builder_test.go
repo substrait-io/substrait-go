@@ -1935,6 +1935,80 @@ func TestAggregateRelBuilder(t *testing.T) {
 		_, err = arb.Build()
 		assert.Error(t, err)
 	})
+
+	t.Run("ReplaceInput", func(t *testing.T) {
+		b := plan.NewBuilderDefault()
+
+		e := b.GetExprBuilder()
+		expr1, _ := e.ScalarFunc(addID).Args(
+			e.Wrap(expr.NewLiteral(int32(3), false)),
+			e.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
+
+		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURIPrefix+"functions_aggregate_generic.yaml",
+			"count", nil)
+		require.NoError(t, err)
+		arb := b.GetRelBuilder().AggregateRel(b.NamedScan([]string{"test"}, baseSchema), []plan.AggRelMeasure{b.Measure(aggCount, nil)})
+
+		ref1 := arb.AddExpression(expr1)
+		err = arb.AddCube([]uint32{ref1})
+		assert.NoError(t, err)
+
+		newInput := plan.Rel(b.NamedScan([]string{"test"}, baseSchema))
+		arb.ReplaceInput(&newInput)
+
+		aggregateRel, err := arb.Build()
+		assert.NoError(t, err)
+		assert.Equal(t, newInput, aggregateRel.Input())
+	})
+
+	t.Run("CleanGroupings cleans groupings", func(t *testing.T) {
+		b := plan.NewBuilderDefault()
+
+		e := b.GetExprBuilder()
+		expr1, _ := e.ScalarFunc(addID).Args(
+			e.Wrap(expr.NewLiteral(int32(3), false)),
+			e.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
+
+		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURIPrefix+"functions_aggregate_generic.yaml",
+			"count", nil)
+		require.NoError(t, err)
+		arb := b.GetRelBuilder().AggregateRel(b.NamedScan([]string{"test"}, baseSchema), []plan.AggRelMeasure{b.Measure(aggCount, nil)})
+
+		ref1 := arb.AddExpression(expr1)
+		err = arb.AddCube([]uint32{ref1})
+		assert.NoError(t, err)
+
+		arb.ClearGrouping()
+
+		aggregateRel, err := arb.Build()
+		assert.NoError(t, err)
+		assert.ElementsMatch(t, [][]uint32{}, aggregateRel.GroupingReferences())
+		assert.ElementsMatch(t, []expr.Expression{}, aggregateRel.GroupingExpressions())
+	})
+
+	t.Run("CleanMeasures cleans measures", func(t *testing.T) {
+		b := plan.NewBuilderDefault()
+
+		e := b.GetExprBuilder()
+		expr1, _ := e.ScalarFunc(addID).Args(
+			e.Wrap(expr.NewLiteral(int32(3), false)),
+			e.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
+
+		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURIPrefix+"functions_aggregate_generic.yaml",
+			"count", nil)
+		require.NoError(t, err)
+		arb := b.GetRelBuilder().AggregateRel(b.NamedScan([]string{"test"}, baseSchema), []plan.AggRelMeasure{b.Measure(aggCount, nil)})
+
+		ref1 := arb.AddExpression(expr1)
+		err = arb.AddCube([]uint32{ref1})
+		assert.NoError(t, err)
+
+		arb.ClearMeasures()
+
+		aggregateRel, err := arb.Build()
+		assert.NoError(t, err)
+		assert.ElementsMatch(t, []plan.AggRelMeasure{}, aggregateRel.Measures())
+	})
 }
 
 func expectedJsonWithIceberg(metadataURI string, snapshot plan.IcebergSnapshot) string {
