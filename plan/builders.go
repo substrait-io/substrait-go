@@ -812,6 +812,19 @@ func (arb *AggregateRelBuilder) AddGroupingSet(groupingReferences []uint32) {
 	arb.groupingReferences = append(arb.groupingReferences, groupingReferences)
 }
 
+func (arb *AggregateRelBuilder) ReplaceInput(rel *Rel) {
+	arb.input = *rel
+}
+
+func (arb *AggregateRelBuilder) ClearMeasures() {
+	arb.measures = nil
+}
+
+func (arb *AggregateRelBuilder) ClearGrouping() {
+	arb.groupingExpressions = nil
+	arb.groupingReferences = nil
+}
+
 func (arb *AggregateRelBuilder) Build() (*AggregateRel, error) {
 	if err := arb.validate(); err != nil {
 		return nil, err
