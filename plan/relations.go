@@ -319,7 +319,7 @@ func (v *VirtualTableReadRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc,
 			if err != nil {
 				return nil, err
 			}
-			valuesUnchanged = valuesUnchanged && newExpr == e
+			valuesUnchanged = valuesUnchanged && newExpr.Equals(e)
 			newExprs[j] = newExpr
 		}
 		newValues[i] = newExprs
