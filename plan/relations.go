@@ -310,6 +310,23 @@ func (v *VirtualTableReadRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc,
 	}
 	vtr := *v
 	vtr.updateFilters(newExprs)
+	valuesUnchanged := true
+	newValues := make([]expr.VirtualTableExpressionValue, len(v.values))
+	for i, val := range v.values {
+		newExprs := make([]expr.Expression, len(val))
+		for j, e := range val {
+			newExpr, err := rewriteFunc(e)
+			if err != nil {
+				return nil, err
+			}
+			valuesUnchanged = valuesUnchanged && newExpr.Equals(e)
+			newExprs[j] = newExpr
+		}
+		newValues[i] = newExprs
+	}
+	if !valuesUnchanged {
+		vtr.values = newValues
+	}
 	return &vtr, nil
 }
 

@@ -330,6 +330,19 @@ func TestRelations_Copy(t *testing.T) {
 			expectedSameRel: true,
 		},
 		{
+			name:      "VirtualTableReadRel Copy with rewriteFunc",
+			relation:  virtualTableReadRel,
+			newInputs: []Rel{},
+			rewriteFunc: func(expression expr.Expression) (expr.Expression, error) {
+				return expr.NewPrimitiveLiteral(true, false), nil
+			},
+			expectedRel: &VirtualTableReadRel{
+				baseReadRel: baseReadRel{
+					filter:           &expr.PrimitiveLiteral[bool]{Value: true, Type: &types.BooleanType{Nullability: types.NullabilityRequired}},
+					bestEffortFilter: &expr.PrimitiveLiteral[bool]{Value: true, Type: &types.BooleanType{Nullability: types.NullabilityRequired}}},
+				values: []expr.VirtualTableExpressionValue{[]expr.Expression{expr.NewPrimitiveLiteral(true, false)}}},
+		},
+		{
 			name:        "NamedTableWriteRel Copy with new inputs",
 			relation:    namedTableWriteRel,
 			newInputs:   []Rel{createVirtualTableReadRel(6)},
