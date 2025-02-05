@@ -216,8 +216,7 @@ func TestMatchWithSyncParams(t *testing.T) {
 		funcType parser2.TestFuncType
 		numTests int
 	}{
-		// TODO enable bitwise_or.test after fixing the testcase file
-		//{"tests/cases/arithmetic_decimal/bitwise_or.test", parser2.ScalarFuncType, 14},
+		{"tests/cases/arithmetic_decimal/bitwise_or.test", parser2.ScalarFuncType, 14},
 		{"tests/cases/arithmetic_decimal/bitwise_xor.test", parser2.ScalarFuncType, 14},
 		{"tests/cases/arithmetic_decimal/bitwise_and.test", parser2.ScalarFuncType, 14},
 		{"tests/cases/arithmetic_decimal/sqrt_decimal.test", parser2.ScalarFuncType, 14},
