@@ -707,9 +707,6 @@ func TestLoadAllSubstraitTestFiles(t *testing.T) {
 			case "tests/cases/datetime/extract.test":
 				// TODO deal with enum arguments in testcase
 				t.Skip("Skipping extract.test")
-			case "tests/cases/arithmetic_decimal/bitwise_or.test":
-				// TODO enable this after merging the PR with testcase fix
-				t.Skip("Skipping bitwise_or.test")
 			}
 
 			testFile, err := ParseTestCaseFileFromFS(got, filePath)
