@@ -184,7 +184,7 @@ func getMinimumPrecisionAndScale(dec *apd.Decimal) (precision int32, scale int32
 		scale = 0
 	} else {
 		scale = -dec.Exponent
-		precision = max(int32(apd.NumDigits(&dec.Coeff)), scale+1)
+		precision = max(int32(apd.NumDigits(&dec.Coeff)), scale)
 	}
 	return precision, scale
 }

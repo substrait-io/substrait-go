@@ -45,7 +45,7 @@ func (v *TypeVisitor) VisitTypeLiteral(ctx *baseparser2.TypeLiteralContext) inte
 func (v *TypeVisitor) VisitLiteralNumber(ctx *baseparser2.LiteralNumberContext) interface{} {
 	num, err := strconv.ParseInt(ctx.Number().GetText(), 10, 0)
 	if err != nil {
-		v.ErrorListener.ReportVisitError(fmt.Errorf("error parsing number: %s", err))
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("error parsing number: %s", err))
 		return 0
 	}
 	return &types.LiteralNumber{Value: num}
@@ -202,7 +202,7 @@ func (v *TypeVisitor) VisitUserDefined(ctx *baseparser2.UserDefinedContext) inte
 			params = append(params, &types.StringUDTParam{StringVal: string(param)})
 		default:
 			// TODO handle other user defined type parameters
-			v.ErrorListener.ReportVisitError(fmt.Errorf(
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf(
 				"User defined type parameter is not a FuncDefArgType/int/string, type %T ", param))
 		}
 	}
@@ -315,7 +315,7 @@ func (v *TypeVisitor) VisitMap(ctx *baseparser2.MapContext) interface{} {
 	keyType, keyOk := v.Visit(ctx.GetKey()).(types.FuncDefArgType)
 	valueType, valueOk := v.Visit(ctx.GetValue()).(types.FuncDefArgType)
 	if !keyOk || !valueOk {
-		v.ErrorListener.ReportVisitError(fmt.Errorf("map key or value type is not a FuncDefArgType"))
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("map key or value type is not a FuncDefArgType"))
 	}
 	return &types.ParameterizedMapType{Key: keyType, Value: valueType, Nullability: nullability}
 }
@@ -327,7 +327,7 @@ func (v *TypeVisitor) VisitParameterName(ctx *baseparser2.ParameterNameContext) 
 func (v *TypeVisitor) VisitNumericLiteral(ctx *baseparser2.NumericLiteralContext) interface{} {
 	num, err := strconv.ParseInt(ctx.Number().GetText(), 10, 0)
 	if err != nil {
-		v.ErrorListener.ReportVisitError(fmt.Errorf("error parsing type parameter as number: %s", err))
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("error parsing type parameter as number: %s", err))
 		return integer_parameters.NewConcreteIntParam(0)
 	}
 	return integer_parameters.NewConcreteIntParam(int32(num))
