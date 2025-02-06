@@ -575,6 +575,7 @@ func TestParseTestWithBadScalarTests(t *testing.T) {
 		{"add(123::fp32, 1.4E+::fp32) = 123::fp32", 18, "no viable alternative at input '1.4E'"},
 		{"add(123::fp32, 3.E.5::fp32) = 123::fp32", 17, "no viable alternative at input '3.E'"},
 		{"f1((1, 2, 3, 4)::i64) = 10::fp64", 0, "expected scalar testcase based on test file header, but got aggregate function testcase"},
+		{"add(4.53::dec<1, 0>, 0.25::dec<2, 2>) = 0.78::dec<5, 2>", 0, "Visit error at line 5: invalid argument number 4.53"},
 	}
 	for _, test := range tests {
 		t.Run(test.testCaseStr, func(t *testing.T) {
