@@ -7,7 +7,8 @@ import (
 )
 
 type VisitErrorListener interface {
-	ReportVisitError(err error)
+	ReportVisitError(ctx antlr.ParserRuleContext, err error)
+	ReportPanicError(err error)
 	ErrorCount() int
 	GetErrors() []string
 }
@@ -17,9 +18,14 @@ type SimpleErrorListener struct {
 	errors     []string
 }
 
-func (l *SimpleErrorListener) ReportVisitError(err error) {
+func (l *SimpleErrorListener) ReportVisitError(ctx antlr.ParserRuleContext, err error) {
 	l.errorCount++
-	l.errors = append(l.errors, fmt.Sprintf("Visit error: %s", err))
+	l.errors = append(l.errors, fmt.Sprintf("Visit error at line %d: %s", ctx.GetStart().GetLine(), err))
+}
+
+func (l *SimpleErrorListener) ReportPanicError(err error) {
+	l.errorCount++
+	l.errors = append(l.errors, fmt.Sprintf("Tree Visit panic error %s", err))
 }
 
 func (l *SimpleErrorListener) SyntaxError(recognizer antlr.Recognizer, offendingSymbol interface{}, line, column int, msg string, e antlr.RecognitionException) {
@@ -59,7 +65,7 @@ func TransformPanicToError(err *error, input, ctxStr string, errorListener Visit
 			*err = fmt.Errorf("failed %s %s with unknown panic", ctxStr, input)
 		}
 		if errorListener != nil {
-			errorListener.ReportVisitError(*err)
+			errorListener.ReportPanicError(*err)
 		}
 	}
 }

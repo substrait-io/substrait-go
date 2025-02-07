@@ -131,16 +131,16 @@ func modifyDecimalPrecisionAndScale(decimalBytes [16]byte, scale, targetPrecisio
 	// Normalize the decimal by removing trailing zeros.
 	dec.Reduce(dec)
 
-	// Adjust the scale to the target scale
+	err2 := validatePrecisionAndScale(dec, targetPrecision, targetScale)
+	if err2 != nil {
+		return result, 0, 0, err2
+	}
+
+	// After ensuring the targetScale is sufficient for dec, adjust the scale to the target scale
 	ctx := apd.BaseContext.WithPrecision(uint32(targetPrecision))
 	_, err := ctx.Quantize(dec, dec, -targetScale)
 	if err != nil {
 		return result, 0, 0, fmt.Errorf("error adjusting scale: %v", err)
-	}
-
-	err2 := validatePrecisionAndScale(dec, targetPrecision, targetScale)
-	if err2 != nil {
-		return result, 0, 0, err2
 	}
 
 	// Convert the adjusted decimal coefficient to a byte array.
@@ -166,11 +166,11 @@ func modifyDecimalPrecisionAndScale(decimalBytes [16]byte, scale, targetPrecisio
 func validatePrecisionAndScale(dec *apd.Decimal, targetPrecision int32, targetScale int32) error {
 	// Validate the minimum precision and scale.
 	minPrecision, minScale := getMinimumPrecisionAndScale(dec)
-	if targetPrecision < minPrecision {
-		return fmt.Errorf("number %s exceeds target precision %d, minimum precision needed is %d with target scale %d", dec.String(), targetPrecision, minPrecision, targetScale)
-	}
 	if targetScale < minScale {
 		return fmt.Errorf("number %v exceeds target scale %d, minimum scale needed is %d", dec.String(), targetScale, minScale)
+	}
+	if targetPrecision < minPrecision {
+		return fmt.Errorf("number %s exceeds target precision %d, minimum precision needed is %d with target scale %d", dec.String(), targetPrecision, minPrecision, targetScale)
 	}
 	if targetPrecision-targetScale < minPrecision-minScale {
 		return fmt.Errorf("number %v exceeds target precision %d with target scale %d, minimum precision needed is %d with minimum scale %d", dec.String(), targetPrecision, targetScale, minPrecision, minScale)
@@ -184,7 +184,7 @@ func getMinimumPrecisionAndScale(dec *apd.Decimal) (precision int32, scale int32
 		scale = 0
 	} else {
 		scale = -dec.Exponent
-		precision = max(int32(apd.NumDigits(&dec.Coeff)), scale+1)
+		precision = max(int32(apd.NumDigits(&dec.Coeff)), scale)
 	}
 	return precision, scale
 }

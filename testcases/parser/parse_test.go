@@ -104,12 +104,14 @@ func TestParseDecimalExample(t *testing.T) {
 power(8::dec<38,0>, 2::dec<38, 0>) = 64::fp64
 power(1.0::dec<38, 5>, -1.0::dec<38, 5>) = 1.0::fp64
 power(-1::dec, 0.5::dec<38,1>) [complex_number_result:NAN] = nan::fp64
+
+add(0.5::dec<1, 1>, 0.25::dec<2, 2>) = 0.75::dec<5, 2>
 `
 
 	testFile, err := ParseTestCasesFromString(header + tests)
 	require.NoError(t, err)
 	require.NotNil(t, testFile)
-	assert.Len(t, testFile.TestCases, 3)
+	assert.Len(t, testFile.TestCases, 4)
 	assert.Equal(t, "power", testFile.TestCases[0].FuncName)
 	assert.Equal(t, "power", testFile.TestCases[1].FuncName)
 	assert.Equal(t, "power", testFile.TestCases[2].FuncName)
@@ -136,6 +138,15 @@ power(-1::dec, 0.5::dec<38,1>) [complex_number_result:NAN] = nan::fp64
 	assert.Equal(t, decMinus1, testFile.TestCases[2].Args[0].Value)
 	assert.Equal(t, decPoint5, testFile.TestCases[2].Args[1].Value)
 	assert.Equal(t, "fp64(NaN)", testFile.TestCases[2].Result.Value.String())
+
+	decPoint25Value, _ := literal.NewDecimalFromString("0.25")
+	decPoint75Value, _ := literal.NewDecimalFromString("0.75")
+	decPoint25, _ := decPoint25Value.(expr.WithTypeLiteral).WithType(&types.DecimalType{Precision: 2, Scale: 2, Nullability: types.NullabilityRequired})
+	decPoint75, _ := decPoint75Value.(expr.WithTypeLiteral).WithType(&types.DecimalType{Precision: 5, Scale: 2, Nullability: types.NullabilityRequired})
+	decPoint5, _ = decPoint5Value.(expr.WithTypeLiteral).WithType(&types.DecimalType{Precision: 1, Scale: 1, Nullability: types.NullabilityRequired})
+	assert.Equal(t, decPoint5, testFile.TestCases[3].Args[0].Value)
+	assert.Equal(t, decPoint25, testFile.TestCases[3].Args[1].Value)
+	assert.Equal(t, decPoint75, testFile.TestCases[3].Result.Value)
 }
 
 func TestParseTestWithVariousTypes(t *testing.T) {
@@ -564,6 +575,7 @@ func TestParseTestWithBadScalarTests(t *testing.T) {
 		{"add(123::fp32, 1.4E+::fp32) = 123::fp32", 18, "no viable alternative at input '1.4E'"},
 		{"add(123::fp32, 3.E.5::fp32) = 123::fp32", 17, "no viable alternative at input '3.E'"},
 		{"f1((1, 2, 3, 4)::i64) = 10::fp64", 0, "expected scalar testcase based on test file header, but got aggregate function testcase"},
+		{"add(4.53::dec<1, 0>, 0.25::dec<2, 2>) = 0.78::dec<5, 2>", 0, "Visit error at line 5: invalid argument number 4.53"},
 	}
 	for _, test := range tests {
 		t.Run(test.testCaseStr, func(t *testing.T) {

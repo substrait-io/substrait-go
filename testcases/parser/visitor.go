@@ -83,7 +83,7 @@ func (v *TestCaseVisitor) VisitScalarFuncTestGroup(ctx *baseparser.ScalarFuncTes
 	groupDesc := v.Visit(ctx.TestGroupDescription()).(string)
 	groupTestCases := make([]*TestCase, 0, len(ctx.AllTestCase()))
 	if v.testFuncType != ScalarFuncType {
-		v.ErrorListener.ReportVisitError(fmt.Errorf("expected %v testcase based on test file header, but got scalar function testcase", v.testFuncType))
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("expected %v testcase based on test file header, but got scalar function testcase", v.testFuncType))
 		return groupTestCases
 	}
 	for _, tc := range ctx.AllTestCase() {
@@ -99,7 +99,7 @@ func (v *TestCaseVisitor) VisitAggregateFuncTestGroup(ctx *baseparser.AggregateF
 	groupDesc := v.Visit(ctx.TestGroupDescription()).(string)
 	groupTestCases := make([]*TestCase, 0, len(ctx.AllAggFuncTestCase()))
 	if v.testFuncType != AggregateFuncType {
-		v.ErrorListener.ReportVisitError(fmt.Errorf("expected %v testcase based on test file header, but got aggregate function testcase", v.testFuncType))
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("expected %v testcase based on test file header, but got aggregate function testcase", v.testFuncType))
 		return groupTestCases
 	}
 	for _, tc := range ctx.AllAggFuncTestCase() {
@@ -140,14 +140,14 @@ func (v *TestCaseVisitor) VisitCompactAggregateFuncCall(ctx *baseparser.CompactA
 	columnTypes := make([]types.Type, numberOfColumns)
 	for _, arg := range args {
 		if arg.ColumnIndex >= numberOfColumns {
-			v.ErrorListener.ReportVisitError(fmt.Errorf("invalid column index %d, expected less than %d", arg.ColumnIndex, len(columnTypes)))
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid column index %d, expected less than %d", arg.ColumnIndex, len(columnTypes)))
 			continue
 		}
 		if arg.ColumnType != nil {
 			columnTypes[arg.ColumnIndex] = arg.ColumnType
 		}
 	}
-	columns, newColumnTypes := v.getColumnsFromRows(rows, columnTypes)
+	columns, newColumnTypes := v.getColumnsFromRows(ctx, rows, columnTypes)
 	return &TestCase{
 		FuncName:      ctx.Identifier().GetText(),
 		Columns:       columns,
@@ -168,7 +168,7 @@ func (v *TestCaseVisitor) VisitMultiArgAggregateFuncCall(ctx *baseparser.MultiAr
 		if arg.TableName != "" {
 			if testcase.TableName != arg.TableName {
 				err := fmt.Errorf("table name in argument %s, does not match the table name in the function call %s", arg.TableName, testcase.TableName)
-				v.ErrorListener.ReportVisitError(err)
+				v.ErrorListener.ReportVisitError(ctx, err)
 			}
 		}
 		if !arg.IsScalar {
@@ -195,7 +195,7 @@ func (v *TestCaseVisitor) VisitQualifiedAggregateFuncArg(ctx *baseparser.Qualifi
 	}
 	arg, err := newAggregateArgument(ctx.Identifier().GetText(), ctx.ColumnName().GetText(), nil)
 	if err != nil {
-		v.ErrorListener.ReportVisitError(fmt.Errorf("invalid aggregate func arg %v", err))
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid aggregate func arg %v", err))
 	}
 	return arg
 }
@@ -207,7 +207,7 @@ func (v *TestCaseVisitor) VisitTableData(ctx *baseparser.TableDataContext) inter
 		columnType := v.Visit(dataType).(types.Type)
 		columnTypes = append(columnTypes, columnType)
 	}
-	columns, newColumnTypes := v.getColumnsFromRows(rows, columnTypes)
+	columns, newColumnTypes := v.getColumnsFromRows(ctx, rows, columnTypes)
 	return &TestCase{
 		Columns:     columns,
 		TableName:   ctx.GetTableName().GetText(),
@@ -215,14 +215,14 @@ func (v *TestCaseVisitor) VisitTableData(ctx *baseparser.TableDataContext) inter
 	}
 }
 
-func (v *TestCaseVisitor) getColumnsFromRows(rows [][]expr.Literal, columnTypes []types.Type) ([][]expr.Literal, []types.Type) {
+func (v *TestCaseVisitor) getColumnsFromRows(ctx antlr.ParserRuleContext, rows [][]expr.Literal, columnTypes []types.Type) ([][]expr.Literal, []types.Type) {
 	columns := make([][]expr.Literal, 0, len(columnTypes))
 	retColumnTypes := make([]types.Type, 0, len(columnTypes))
 	for i, columnType := range columnTypes {
 		newColumnType := columnType
 		column := make([]expr.Literal, 0, len(rows))
 		for _, row := range rows {
-			cell := v.getLiteral(row[i], columnType)
+			cell := v.getLiteral(ctx, row[i], columnType)
 			if _, ok := cell.(*expr.NullLiteral); ok {
 				newColumnType = columnType.WithNullability(types.NullabilityNullable)
 				cell = expr.NewNullLiteral(newColumnType)
@@ -249,7 +249,7 @@ func (v *TestCaseVisitor) VisitDataColumn(ctx *baseparser.DataColumnContext) int
 		defer v.clearLiteralTypeInContext()
 		column, err = literal.NewList(columnValues)
 		if err != nil {
-			v.ErrorListener.ReportVisitError(fmt.Errorf("invalid column values %v", err))
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid column values %v", err))
 		}
 	}
 	for _, value := range columnValues {
@@ -298,7 +298,7 @@ func (v *TestCaseVisitor) VisitAggregateFuncArg(ctx *baseparser.AggregateFuncArg
 	argType := v.Visit(ctx.DataType()).(types.Type)
 	arg, err := newAggregateArgument("", ctx.ColumnName().GetText(), argType)
 	if err != nil {
-		v.ErrorListener.ReportVisitError(fmt.Errorf("invalid aggregate func arg %v", err))
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid aggregate func arg %v", err))
 	}
 	return arg
 }
@@ -339,7 +339,7 @@ func (v *TestCaseVisitor) VisitArguments(ctx *baseparser.ArgumentsContext) inter
 	for _, argument := range ctx.AllArgument() {
 		testArg := v.Visit(argument).(*CaseLiteral)
 		if err := testArg.updateLiteralType(); err != nil {
-			v.ErrorListener.ReportVisitError(fmt.Errorf("invalid argument %v", err))
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid argument %v", err))
 		}
 		args = append(args, testArg)
 	}
@@ -402,7 +402,7 @@ func (v *TestCaseVisitor) VisitArgument(ctx *baseparser.ArgumentContext) interfa
 		return v.Visit(ctx.ListArg())
 	}
 
-	v.ErrorListener.ReportVisitError(fmt.Errorf("argument type not implemented, arg %s", ctx.GetText()))
+	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("argument type not implemented, arg %s", ctx.GetText()))
 	return &CaseLiteral{}
 }
 
@@ -417,36 +417,36 @@ func (v *TestCaseVisitor) VisitBooleanArg(ctx *baseparser.BooleanArgContext) int
 	return &CaseLiteral{Value: boolLiteral, ValueText: ctx.BooleanLiteral().GetText(), Type: &types.BooleanType{Nullability: types.NullabilityRequired}}
 }
 
-func (v *TestCaseVisitor) getLiteral(value expr.Literal, elementType types.Type) expr.Literal {
+func (v *TestCaseVisitor) getLiteral(ctx antlr.ParserRuleContext, value expr.Literal, elementType types.Type) expr.Literal {
 	strLiteral, ok := value.(*expr.PrimitiveLiteral[string])
 	if !ok {
 		return value
 	}
-	ret := v.getLiteralFromString(strLiteral.Value, elementType)
+	ret := v.getLiteralFromString(ctx, strLiteral.Value, elementType)
 	if ret == nil {
 		return value
 	}
 	return ret
 }
 
-func (v *TestCaseVisitor) getLiteralFromString(value string, elementType types.Type) expr.Literal {
+func (v *TestCaseVisitor) getLiteralFromString(ctx antlr.ParserRuleContext, value string, elementType types.Type) expr.Literal {
 	switch elementType := elementType.(type) {
 	case *types.Int8Type, *types.Int16Type, *types.Int32Type, *types.Int64Type:
 		intLiteral, err := getIntLiteral(value, elementType)
 		if err != nil {
-			v.ErrorListener.ReportVisitError(fmt.Errorf("invalid int arg %v", err))
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid int arg %v", err))
 		}
 		return intLiteral
 	case *types.Float32Type, *types.Float64Type:
 		floatLiteral, err := getFloatLiteral(value, elementType)
 		if err != nil {
-			v.ErrorListener.ReportVisitError(fmt.Errorf("invalid float arg %v", err))
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid float arg %v", err))
 		}
 		return floatLiteral
 	case *types.DecimalType:
 		decimal, err := literal.NewDecimalFromString(value)
 		if err != nil {
-			v.ErrorListener.ReportVisitError(fmt.Errorf("invalid decimal arg %v", err))
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid decimal arg %v", err))
 		}
 		return decimal
 	default:
@@ -500,7 +500,7 @@ func (v *TestCaseVisitor) VisitIntArg(ctx *baseparser.IntArgContext) interface{}
 	}
 	intLiteral, err := getIntLiteral(ctx.IntegerLiteral().GetText(), typ)
 	if err != nil {
-		v.ErrorListener.ReportVisitError(fmt.Errorf("invalid int arg %v", err))
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid int arg %v", err))
 	}
 	return &CaseLiteral{Value: intLiteral, ValueText: ctx.IntegerLiteral().GetText(), Type: typ}
 }
@@ -514,7 +514,7 @@ func (v *TestCaseVisitor) VisitFloatArg(ctx *baseparser.FloatArgContext) interfa
 		floatLiteral, err = getFloatLiteral(ctx.NumericLiteral().GetText(), &types.Float64Type{Nullability: types.NullabilityRequired})
 	}
 	if err != nil {
-		v.ErrorListener.ReportVisitError(fmt.Errorf("invalid float arg %v", err))
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid float arg %v", err))
 	}
 	return &CaseLiteral{Value: floatLiteral, ValueText: ctx.NumericLiteral().GetText(), Type: floatLiteral.GetType()}
 }
@@ -527,7 +527,7 @@ func (v *TestCaseVisitor) VisitStringArg(ctx *baseparser.StringArgContext) inter
 func (v *TestCaseVisitor) VisitFixedCharArg(ctx *baseparser.FixedCharArgContext) interface{} {
 	value, err := literal.NewFixedChar(getRawStringFromStringLiteral(ctx.StringLiteral().GetText()))
 	if err != nil {
-		v.ErrorListener.ReportVisitError(fmt.Errorf("invalid fixed char arg %v", err))
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid fixed char arg %v", err))
 	}
 	argType := v.Visit(ctx.FixedCharType()).(*types.FixedCharType)
 	return &CaseLiteral{Value: value, ValueText: ctx.StringLiteral().GetText(), Type: argType}
@@ -536,7 +536,7 @@ func (v *TestCaseVisitor) VisitFixedCharArg(ctx *baseparser.FixedCharArgContext)
 func (v *TestCaseVisitor) VisitVarCharArg(ctx *baseparser.VarCharArgContext) interface{} {
 	value, err := literal.NewVarChar(getRawStringFromStringLiteral(ctx.StringLiteral().GetText()))
 	if err != nil {
-		v.ErrorListener.ReportVisitError(fmt.Errorf("invalid fixed char arg %v", err))
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid fixed char arg %v", err))
 	}
 	argType := v.Visit(ctx.VarCharType()).(*types.VarCharType)
 	return &CaseLiteral{Value: value, ValueText: ctx.StringLiteral().GetText(), Type: argType}
@@ -545,7 +545,7 @@ func (v *TestCaseVisitor) VisitVarCharArg(ctx *baseparser.VarCharArgContext) int
 func (v *TestCaseVisitor) VisitFixedBinaryArg(ctx *baseparser.FixedBinaryArgContext) interface{} {
 	value, err := literal.NewFixedBinary([]byte(getRawStringFromStringLiteral(ctx.StringLiteral().GetText())))
 	if err != nil {
-		v.ErrorListener.ReportVisitError(fmt.Errorf("invalid fixed binary arg %v", err))
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid fixed binary arg %v", err))
 	}
 	argType := v.Visit(ctx.FixedBinaryType()).(*types.FixedBinaryType)
 	return &CaseLiteral{Value: value, ValueText: ctx.StringLiteral().GetText(), Type: argType}
@@ -555,7 +555,7 @@ func (v *TestCaseVisitor) VisitTimestampArg(ctx *baseparser.TimestampArgContext)
 	timestampStr := getRawStringFromStringLiteral(ctx.TimestampLiteral().GetText())
 	value, err := literal.NewTimestampFromString(timestampStr)
 	if err != nil {
-		v.ErrorListener.ReportVisitError(fmt.Errorf("invalid timestampTZ arg %v", err))
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid timestampTZ arg %v", err))
 	}
 	return &CaseLiteral{Value: value, ValueText: ctx.TimestampLiteral().GetText(), Type: &types.TimestampType{Nullability: types.NullabilityRequired}}
 }
@@ -567,7 +567,7 @@ func getRawStringFromStringLiteral(text string) string {
 func (v *TestCaseVisitor) VisitTimestampTzArg(ctx *baseparser.TimestampTzArgContext) interface{} {
 	value, err := literal.NewTimestampTZFromString(getRawStringFromStringLiteral(ctx.TimestampTzLiteral().GetText()))
 	if err != nil {
-		v.ErrorListener.ReportVisitError(fmt.Errorf("invalid timestampTZ arg %v", err))
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid timestampTZ arg %v", err))
 	}
 	return &CaseLiteral{Value: value, ValueText: ctx.TimestampTzLiteral().GetText(), Type: &types.TimestampTzType{Nullability: types.NullabilityRequired}}
 }
@@ -575,7 +575,7 @@ func (v *TestCaseVisitor) VisitTimestampTzArg(ctx *baseparser.TimestampTzArgCont
 func (v *TestCaseVisitor) VisitDateArg(ctx *baseparser.DateArgContext) interface{} {
 	value, err := literal.NewDateFromString(getRawStringFromStringLiteral(ctx.DateLiteral().GetText()))
 	if err != nil {
-		v.ErrorListener.ReportVisitError(fmt.Errorf("invalid date arg %v", err))
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid date arg %v", err))
 	}
 	return &CaseLiteral{Value: value, ValueText: ctx.DateLiteral().GetText(), Type: &types.DateType{Nullability: types.NullabilityRequired}}
 }
@@ -583,7 +583,7 @@ func (v *TestCaseVisitor) VisitDateArg(ctx *baseparser.DateArgContext) interface
 func (v *TestCaseVisitor) VisitTimeArg(ctx *baseparser.TimeArgContext) interface{} {
 	value, err := literal.NewTimeFromString(getRawStringFromStringLiteral(ctx.TimeLiteral().GetText()))
 	if err != nil {
-		v.ErrorListener.ReportVisitError(fmt.Errorf("invalid time arg %v", err))
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid time arg %v", err))
 	}
 	return &CaseLiteral{Value: value, ValueText: ctx.TimeLiteral().GetText(), Type: &types.TimeType{Nullability: types.NullabilityRequired}}
 }
@@ -592,7 +592,7 @@ func (v *TestCaseVisitor) VisitIntervalYearArg(ctx *baseparser.IntervalYearArgCo
 	interval := getRawStringFromStringLiteral(ctx.IntervalYearLiteral().GetText())
 	value, err := literal.NewIntervalYearsToMonthFromString(interval)
 	if err != nil {
-		v.ErrorListener.ReportVisitError(fmt.Errorf("invalid interval year arg %v", err))
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid interval year arg %v", err))
 	}
 	return &CaseLiteral{Value: value, ValueText: ctx.IntervalYearLiteral().GetText(), Type: &types.IntervalYearType{Nullability: types.NullabilityRequired}}
 }
@@ -601,7 +601,7 @@ func (v *TestCaseVisitor) VisitIntervalDayArg(ctx *baseparser.IntervalDayArgCont
 	interval := getRawStringFromStringLiteral(ctx.IntervalDayLiteral().GetText())
 	value, err := literal.NewIntervalDaysToSecondFromString(interval)
 	if err != nil {
-		v.ErrorListener.ReportVisitError(fmt.Errorf("invalid interval day arg %v", err))
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid interval day arg %v", err))
 	}
 	idayType := v.Visit(ctx.IntervalDayType()).(*types.IntervalDayType)
 	return &CaseLiteral{Value: value, ValueText: ctx.IntervalDayLiteral().GetText(), Type: idayType}
@@ -610,7 +610,7 @@ func (v *TestCaseVisitor) VisitIntervalDayArg(ctx *baseparser.IntervalDayArgCont
 func (v *TestCaseVisitor) VisitDecimalArg(ctx *baseparser.DecimalArgContext) interface{} {
 	decimal, err := literal.NewDecimalFromString(ctx.NumericLiteral().GetText())
 	if err != nil {
-		v.ErrorListener.ReportVisitError(err)
+		v.ErrorListener.ReportVisitError(ctx, err)
 	}
 	decType := v.Visit(ctx.DecimalType()).(types.Type)
 	return &CaseLiteral{Value: decimal, ValueText: ctx.NumericLiteral().GetText(), Type: decType}
@@ -621,7 +621,7 @@ func (v *TestCaseVisitor) VisitPrecisionTimestampArg(ctx *baseparser.PrecisionTi
 	timestampStr := getRawStringFromStringLiteral(ctx.TimestampLiteral().GetText())
 	value, err := literal.NewPrecisionTimestampFromString(ptsType.Precision, timestampStr)
 	if err != nil {
-		v.ErrorListener.ReportVisitError(fmt.Errorf("invalid precision timestamp arg %v", err))
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid precision timestamp arg %v", err))
 	}
 	return &CaseLiteral{Value: value, ValueText: ctx.TimestampLiteral().GetText(), Type: ptsType}
 }
@@ -631,7 +631,7 @@ func (v *TestCaseVisitor) VisitPrecisionTimestampTZArg(ctx *baseparser.Precision
 	timestampStr := getRawStringFromStringLiteral(ctx.TimestampTzLiteral().GetText())
 	value, err := literal.NewPrecisionTimestampTzFromString(ptszType.Precision, timestampStr)
 	if err != nil {
-		v.ErrorListener.ReportVisitError(fmt.Errorf("invalid precision timestampTZ arg %v", err))
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid precision timestampTZ arg %v", err))
 	}
 	return &CaseLiteral{Value: value, ValueText: ctx.TimestampTzLiteral().GetText(), Type: ptszType}
 }
@@ -645,7 +645,7 @@ func (v *TestCaseVisitor) VisitListArg(ctx *baseparser.ListArgContext) interface
 
 	value, err := literal.NewList(values)
 	if err != nil {
-		v.ErrorListener.ReportVisitError(fmt.Errorf("invalid list arg %v", err))
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid list arg %v", err))
 	}
 	return &CaseLiteral{Value: value, Type: listType}
 }
@@ -667,7 +667,7 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 		dateStr := getRawStringFromStringLiteral(ctx.DateLiteral().GetText())
 		value, err := literal.NewDateFromString(dateStr)
 		if err != nil {
-			v.ErrorListener.ReportVisitError(fmt.Errorf("invalid date arg %v", err))
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid date arg %v", err))
 		}
 		return value
 	}
@@ -675,7 +675,7 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 		timeStr := getRawStringFromStringLiteral(ctx.TimeLiteral().GetText())
 		value, err := literal.NewTimeFromString(timeStr)
 		if err != nil {
-			v.ErrorListener.ReportVisitError(fmt.Errorf("invalid time arg %v", err))
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid time arg %v", err))
 		}
 		return value
 	}
@@ -683,7 +683,7 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 		timestampStr := getRawStringFromStringLiteral(ctx.TimestampLiteral().GetText())
 		value, err := literal.NewTimestampFromString(timestampStr)
 		if err != nil {
-			v.ErrorListener.ReportVisitError(fmt.Errorf("invalid timestampTZ arg %v", err))
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid timestampTZ arg %v", err))
 		}
 		return value
 	}
@@ -691,7 +691,7 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 		timestampStr := getRawStringFromStringLiteral(ctx.TimestampTzLiteral().GetText())
 		value, err := literal.NewTimestampTZFromString(timestampStr)
 		if err != nil {
-			v.ErrorListener.ReportVisitError(fmt.Errorf("invalid timestampTZ arg %v", err))
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid timestampTZ arg %v", err))
 		}
 		return value
 	}
@@ -699,7 +699,7 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 		iyearStr := getRawStringFromStringLiteral(ctx.IntervalYearLiteral().GetText())
 		value, err := literal.NewIntervalYearsToMonthFromString(iyearStr)
 		if err != nil {
-			v.ErrorListener.ReportVisitError(fmt.Errorf("invalid interval year arg %v", err))
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid interval year arg %v", err))
 		}
 		return value
 	}
@@ -707,7 +707,7 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 		idayStr := getRawStringFromStringLiteral(ctx.IntervalDayLiteral().GetText())
 		value, err := literal.NewIntervalDaysToSecondFromString(idayStr)
 		if err != nil {
-			v.ErrorListener.ReportVisitError(fmt.Errorf("invalid interval day arg %v", err))
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid interval day arg %v", err))
 		}
 		return value
 	}
@@ -717,9 +717,9 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 			// in compactAggregateFuncCall context, the type is not set, full schema of table may not be available
 			return literal.NewString(ctx.NumericLiteral().GetText())
 		}
-		value := v.getLiteralFromString(ctx.NumericLiteral().GetText(), v.getLiteralTypeInContext())
+		value := v.getLiteralFromString(nil, ctx.NumericLiteral().GetText(), v.getLiteralTypeInContext())
 		if value == nil {
-			v.ErrorListener.ReportVisitError(fmt.Errorf("invalid numeric arg %v", ctx.GetText()))
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid numeric arg %v", ctx.GetText()))
 		}
 		return value
 	}
@@ -738,7 +738,7 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 		}
 		return expr.NewNullLiteral(nullType)
 	}
-	v.ErrorListener.ReportVisitError(fmt.Errorf("invalid literal arg %v", ctx.GetText()))
+	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid literal arg %v", ctx.GetText()))
 	return nil
 }
 
@@ -748,7 +748,7 @@ func (v *TestCaseVisitor) VisitResult(ctx *baseparser.ResultContext) interface{}
 	}
 	result := v.Visit(ctx.Argument()).(*CaseLiteral)
 	if err := result.updateLiteralType(); err != nil {
-		v.ErrorListener.ReportVisitError(fmt.Errorf("invalid result: %v", err))
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid result: %v", err))
 	}
 	return result
 }
@@ -883,7 +883,7 @@ func (v *TestCaseVisitor) VisitDecimalType(ctx *baseparser.DecimalTypeContext) i
 func (v *TestCaseVisitor) VisitIntegerLiteral(ctx *baseparser.IntegerLiteralContext) interface{} {
 	value, err := strconv.Atoi(ctx.GetText())
 	if err != nil {
-		v.ErrorListener.ReportVisitError(fmt.Errorf("invalid int arg %v", err))
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid int arg %v", err))
 	}
 	return int32(value)
 }
