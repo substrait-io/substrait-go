@@ -413,6 +413,28 @@ func TestRelations_Copy(t *testing.T) {
 	}
 }
 
+func TestAggregateRelToBuilder(t *testing.T) {
+	extReg := expr.NewExtensionRegistry(extensions.NewSet(), &extensions.DefaultCollection)
+	aggregateFnID := extensions.ID{
+		URI:  extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+		Name: "avg",
+	}
+	aggregateFn, err := expr.NewAggregateFunc(extReg,
+		aggregateFnID, nil, types.AggInvocationAll,
+		types.AggPhaseInitialToResult, nil, createPrimitiveFloat(1.0))
+	require.NoError(t, err)
+
+	aggregateRel := &AggregateRel{input: createVirtualTableReadRel(1),
+		groupingExpressions: []expr.Expression{createPrimitiveFloat(1.0)},
+		groupingReferences:  [][]uint32{{0}},
+		measures:            []AggRelMeasure{{measure: aggregateFn, filter: expr.NewPrimitiveLiteral(false, false)}}}
+
+	builder := aggregateRel.ToBuilder()
+	got, err := builder.Build()
+	assert.NoError(t, err)
+	assert.Equal(t, aggregateRel, got)
+}
+
 // fakeRel is a pretend relation that allows direct control of its direct output schema.
 type fakeRel struct {
 	RelCommon

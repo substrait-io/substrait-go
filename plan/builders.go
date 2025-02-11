@@ -799,7 +799,7 @@ func extractGroup(expressionReferences []uint32, combinationIndex int) []uint32 
 	return group
 }
 
-// addRollup constructs the rollup grouping strategy from the provided grouping references.
+// AddRollup constructs the rollup grouping strategy from the provided grouping references.
 func (arb *AggregateRelBuilder) AddRollup(groupingReferences []uint32) {
 	for i := len(groupingReferences); i > 0; i-- {
 		rollupSet := groupingReferences[:i]
@@ -807,9 +807,22 @@ func (arb *AggregateRelBuilder) AddRollup(groupingReferences []uint32) {
 	}
 }
 
-// addGroupingSet adds a new grouping set based on the provided grouping references.
+// AddGroupingSet adds a new grouping set based on the provided grouping references.
 func (arb *AggregateRelBuilder) AddGroupingSet(groupingReferences []uint32) {
 	arb.groupingReferences = append(arb.groupingReferences, groupingReferences)
+}
+
+func (arb *AggregateRelBuilder) ReplaceInput(rel *Rel) {
+	arb.input = *rel
+}
+
+func (arb *AggregateRelBuilder) ClearMeasures() {
+	arb.measures = nil
+}
+
+func (arb *AggregateRelBuilder) ClearGrouping() {
+	arb.groupingExpressions = nil
+	arb.groupingReferences = nil
 }
 
 func (arb *AggregateRelBuilder) Build() (*AggregateRel, error) {

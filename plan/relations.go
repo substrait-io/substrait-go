@@ -1185,6 +1185,21 @@ func (ar *AggregateRel) Copy(newInputs ...Rel) (Rel, error) {
 	return &aggregate, nil
 }
 
+// ToBuilder returns an AggregateRelBuilder made from the current AggregateRel.
+// Copies are made to avoid changes to the original data.
+func (ar *AggregateRel) ToBuilder() *AggregateRelBuilder {
+	newInput := ar.input
+	newMeasures := make([]AggRelMeasure, len(ar.measures))
+	copy(newMeasures, ar.measures)
+	newGroupingExpressions := make([]expr.Expression, len(ar.groupingExpressions))
+	copy(newGroupingExpressions, ar.groupingExpressions)
+	newGroupingReferences := make([][]uint32, len(ar.groupingReferences))
+	copy(newGroupingReferences, ar.groupingReferences)
+	return &AggregateRelBuilder{
+		input: newInput, measures: newMeasures,
+		groupingExpressions: newGroupingExpressions, groupingReferences: newGroupingReferences}
+}
+
 func (ar *AggregateRel) rewriteAggregateFunc(rewriteFunc RewriteFunc, f *expr.AggregateFunction) (*expr.AggregateFunction, error) {
 	if f == nil {
 		return f, nil
