@@ -13,7 +13,7 @@ import (
 
 func TestRelFromProto(t *testing.T) {
 
-	registry := expr.NewEmptyExtensionRegistry(&extensions.DefaultCollection)
+	registry := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
 	literal5 := &proto.Expression_Literal{LiteralType: &proto.Expression_Literal_I64{I64: 5}}
 	exprLiteral5 := &proto.Expression{RexType: &proto.Expression_Literal_{Literal: literal5}}
 

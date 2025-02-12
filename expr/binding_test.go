@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	extReg    = NewEmptyExtensionRegistry(&extensions.DefaultCollection)
+	extReg    = NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
 	uPointRef = extReg.GetTypeAnchor(extensions.ID{
 		URI:  extensions.SubstraitDefaultURIPrefix + "extension_types.yaml",
 		Name: "point",

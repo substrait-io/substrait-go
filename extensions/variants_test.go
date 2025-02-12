@@ -229,7 +229,7 @@ func TestMatchWithSyncParams(t *testing.T) {
 		require.NotNil(t, testFile)
 		assert.Len(t, testFile.TestCases, testFileInfo.numTests)
 
-		reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(&extensions.DefaultCollection)
+		reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(extensions.GetDefaultCollectionWithNoError())
 		for _, tc := range testFile.TestCases {
 			t.Run(tc.FuncName, func(t *testing.T) {
 				switch tc.FuncType {

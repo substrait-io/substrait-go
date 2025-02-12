@@ -154,7 +154,7 @@ type Builder interface {
 const FETCH_COUNT_ALL_RECORDS = -1
 
 func NewBuilderDefault() Builder {
-	return NewBuilder(&extensions.DefaultCollection)
+	return NewBuilder(extensions.GetDefaultCollectionWithNoError())
 }
 
 func NewBuilder(c *extensions.Collection) Builder {

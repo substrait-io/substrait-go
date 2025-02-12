@@ -65,7 +65,7 @@ func TestBasicEmitPlan(t *testing.T) {
 	protoPlan, err := p.ToProto()
 	require.NoError(t, err)
 
-	roundTrip, err := plan.FromProto(protoPlan, &extensions.DefaultCollection)
+	roundTrip, err := plan.FromProto(protoPlan, extensions.GetDefaultCollectionWithNoError())
 	require.NoError(t, err)
 
 	assert.Equal(t, p, roundTrip)
@@ -105,7 +105,7 @@ func TestEmitEmptyPlan(t *testing.T) {
 	protoPlan, err := p.ToProto()
 	require.NoError(t, err)
 
-	roundTrip, err := plan.FromProto(protoPlan, &extensions.DefaultCollection)
+	roundTrip, err := plan.FromProto(protoPlan, extensions.GetDefaultCollectionWithNoError())
 	require.NoError(t, err)
 
 	assert.Equal(t, p, roundTrip)
@@ -169,7 +169,7 @@ func checkRoundTrip(t *testing.T, expectedJSON string, p *plan.Plan) {
 	assert.Truef(t, proto.Equal(&expectedProto, protoPlan), "JSON expected: %s\ngot: %s",
 		protojson.Format(&expectedProto), protojson.Format(protoPlan))
 
-	roundTrip, err := plan.FromProto(&expectedProto, &extensions.DefaultCollection)
+	roundTrip, err := plan.FromProto(&expectedProto, extensions.GetDefaultCollectionWithNoError())
 	require.NoError(t, err)
 
 	roundTripProto, err := roundTrip.ToProto()
