@@ -29,18 +29,18 @@ var (
 	}
 )
 
-// GetDefaultCollection returns a Collection that is loaded with the default Substrait extension definitions.
-// This version is provided for the ease of use of legacy code. Please use GetDefaultCollectionWithError instead.
-func GetDefaultCollection() *Collection {
-	c, err := GetDefaultCollectionWithError()
+// GetDefaultCollectionWithNoError returns a Collection that is loaded with the default Substrait extension definitions.
+// This version is provided for the ease of use of legacy code. Please use GetDefaultCollection instead.
+func GetDefaultCollectionWithNoError() *Collection {
+	c, err := GetDefaultCollection()
 	if err != nil {
 		panic(err)
 	}
 	return c
 }
 
-// GetDefaultCollectionWithError returns a Collection that is loaded with the default Substrait extension definitions.
-func GetDefaultCollectionWithError() (*Collection, error) {
+// GetDefaultCollection returns a Collection that is loaded with the default Substrait extension definitions.
+func GetDefaultCollection() (*Collection, error) {
 	return getDefaultCollectionOnce()
 }
 

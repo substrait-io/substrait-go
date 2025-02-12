@@ -224,7 +224,7 @@ func TestExpressionsRoundtrip(t *testing.T) {
 	}
 	// get the extension set
 	extSet := ext.GetExtensionSet(&plan)
-	reg := expr.NewExtensionRegistry(extSet, ext.GetDefaultCollection())
+	reg := expr.NewExtensionRegistry(extSet, ext.GetDefaultCollectionWithNoError())
 	tests := []expr.Expression{
 		sampleNestedExpr(reg, substraitExtURI),
 	}
@@ -240,7 +240,7 @@ func TestExpressionsRoundtrip(t *testing.T) {
 func ExampleExpression_Visit() {
 	const substraitExtURI = "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
 	var (
-		exp                 = sampleNestedExpr(expr.NewEmptyExtensionRegistry(ext.GetDefaultCollection()), substraitExtURI)
+		exp                 = sampleNestedExpr(expr.NewEmptyExtensionRegistry(ext.GetDefaultCollectionWithNoError()), substraitExtURI)
 		preVisit, postVisit expr.VisitFunc
 	)
 
@@ -347,7 +347,7 @@ func TestRoundTripUsingTestData(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, protojson.Unmarshal(raw, &protoSchema))
 	baseSchema := types.NewNamedStructFromProto(&protoSchema)
-	reg := expr.NewExtensionRegistry(extSet, ext.GetDefaultCollection())
+	reg := expr.NewExtensionRegistry(extSet, ext.GetDefaultCollectionWithNoError())
 	for _, tc := range tmp["cases"].([]any) {
 		tt := tc.(map[string]any)
 		t.Run(tt["name"].(string), func(t *testing.T) {
@@ -403,7 +403,7 @@ func TestRoundTripExtendedExpression(t *testing.T) {
 		var ex proto.ExtendedExpression
 		require.NoError(t, protojson.Unmarshal(buf.Bytes(), &ex))
 
-		result, err := expr.ExtendedFromProto(&ex, ext.GetDefaultCollection())
+		result, err := expr.ExtendedFromProto(&ex, ext.GetDefaultCollectionWithNoError())
 		require.NoError(t, err)
 
 		out := result.ToProto()

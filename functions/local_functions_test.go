@@ -94,7 +94,7 @@ add(120::i8, 10::i8) [overflow:SILENT] = <!UNDEFINED>
 	assert.Len(t, testFile.TestCases, len(testResults))
 	require.GreaterOrEqual(t, len(testFile.TestCases), len(testResults))
 
-	reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(extensions.GetDefaultCollection())
+	reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(extensions.GetDefaultCollectionWithNoError())
 	for i, result := range testResults {
 		tc := testFile.TestCases[i]
 		t.Run(result.name, func(t *testing.T) {
@@ -220,7 +220,7 @@ sum((2.5000007152557373046875, 7.0000007152557373046875, 0, 7.000000715255737304
 	testCases := append(testFile.TestCases, testFile1.TestCases...)
 	require.GreaterOrEqual(t, len(testCases), len(testResults))
 
-	reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(extensions.GetDefaultCollection())
+	reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(extensions.GetDefaultCollectionWithNoError())
 	for i, result := range testResults {
 		tc := testCases[i]
 		t.Run(result.name, func(t *testing.T) {

@@ -277,11 +277,11 @@ func TestDefaultCollection(t *testing.T) {
 			)
 			switch tt.typ {
 			case scalarFunc:
-				variant, ok = extensions.GetDefaultCollection().GetScalarFunc(id)
+				variant, ok = extensions.GetDefaultCollectionWithNoError().GetScalarFunc(id)
 			case aggFunc:
-				variant, ok = extensions.GetDefaultCollection().GetAggregateFunc(id)
+				variant, ok = extensions.GetDefaultCollectionWithNoError().GetAggregateFunc(id)
 			case windowFunc:
-				variant, ok = extensions.GetDefaultCollection().GetWindowFunc(id)
+				variant, ok = extensions.GetDefaultCollectionWithNoError().GetWindowFunc(id)
 			}
 
 			require.True(t, ok)
@@ -295,7 +295,7 @@ func TestDefaultCollection(t *testing.T) {
 		})
 	}
 
-	et, ok := extensions.GetDefaultCollection().GetType(extensions.ID{
+	et, ok := extensions.GetDefaultCollectionWithNoError().GetType(extensions.ID{
 		URI: extensions.SubstraitDefaultURIPrefix + "extension_types.yaml", Name: "point"})
 	assert.True(t, ok)
 	assert.Equal(t, "point", et.Name)
@@ -303,7 +303,7 @@ func TestDefaultCollection(t *testing.T) {
 }
 
 func TestCollection_GetAllScalarFunctions(t *testing.T) {
-	defaultExtensions := extensions.GetDefaultCollection()
+	defaultExtensions := extensions.GetDefaultCollectionWithNoError()
 	scalarFunctions := defaultExtensions.GetAllScalarFunctions()
 	aggregateFunctions := defaultExtensions.GetAllAggregateFunctions()
 	windowFunctions := defaultExtensions.GetAllWindowFunctions()

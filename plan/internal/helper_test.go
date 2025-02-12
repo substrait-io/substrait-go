@@ -41,7 +41,7 @@ func TestVirtualTableExpressionFromProto(t *testing.T) {
 	literal1 := expr.NewPrimitiveLiteral(int32(1), false)
 	expr1 := literal1.ToProto()
 
-	reg := expr.NewExtensionRegistry(extSet, ext.GetDefaultCollection())
+	reg := expr.NewExtensionRegistry(extSet, ext.GetDefaultCollectionWithNoError())
 	rows := &proto.Expression_Nested_Struct{Fields: []*proto.Expression{
 		expr1,
 	}}

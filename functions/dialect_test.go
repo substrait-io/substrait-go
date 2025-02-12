@@ -16,7 +16,7 @@ import (
 var gFunctionRegistry FunctionRegistry
 
 func TestMain(m *testing.M) {
-	gFunctionRegistry = NewFunctionRegistry(extensions.GetDefaultCollection())
+	gFunctionRegistry = NewFunctionRegistry(extensions.GetDefaultCollectionWithNoError())
 	m.Run()
 }
 

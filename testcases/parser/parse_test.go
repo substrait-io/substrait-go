@@ -50,7 +50,7 @@ add(120::i8, 10::i8) [overflow:ERROR] = <!ERROR>
 		{&types.Int16Type{Nullability: types.NullabilityRequired}, &types.Int16Type{Nullability: types.NullabilityRequired}},
 		{&types.Int8Type{Nullability: types.NullabilityRequired}, &types.Int8Type{Nullability: types.NullabilityRequired}},
 	}
-	reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(extensions.GetDefaultCollection())
+	reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(extensions.GetDefaultCollectionWithNoError())
 	basicGroupDesc := "'Basic examples without any special cases'"
 	overflowGroupDesc := "Overflow examples demonstrating overflow behavior"
 	groupDescs := []string{basicGroupDesc, basicGroupDesc, overflowGroupDesc}
@@ -325,7 +325,7 @@ func TestParseAggregateFunc(t *testing.T) {
 avg((1,2,3)::fp32) = 2::fp64
 sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ERROR>`
 
-	reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(extensions.GetDefaultCollection())
+	reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(extensions.GetDefaultCollectionWithNoError())
 	arithUri := "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
 	testFile, err := ParseTestCasesFromString(header + tests)
 	require.NoError(t, err)
@@ -544,7 +544,7 @@ LIST_AGG(t1.col0, ','::string) = 1::fp64
 	require.NotNil(t, testFile)
 	assert.Len(t, testFile.TestCases, 1)
 	assert.Equal(t, AggregateFuncType, testFile.TestCases[0].FuncType)
-	reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollection())
+	reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
 	aggFun, err := testFile.TestCases[0].GetAggregateFunctionInvocation(&reg, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "string_agg", aggFun.Name())
@@ -724,7 +724,7 @@ func TestLoadAllSubstraitTestFiles(t *testing.T) {
 			testFile, err := ParseTestCaseFileFromFS(got, filePath)
 			require.NoError(t, err)
 			require.NotNil(t, testFile)
-			reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(extensions.GetDefaultCollection())
+			reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(extensions.GetDefaultCollectionWithNoError())
 			for _, tc := range testFile.TestCases {
 				testGetFunctionInvocation(t, tc, &reg, funcRegistry)
 			}
