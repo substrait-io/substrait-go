@@ -23,12 +23,14 @@ type AdvancedExtension = extensions.AdvancedExtension
 const SubstraitDefaultURIPrefix = "https://github.com/substrait-io/substrait/blob/main/extensions/"
 
 var (
-	defaultCollection   Collection
-	collectionOnce      sync.Once
-	collectionLoadError error
+	getDefaultCollectionOnce = sync.OnceValues[*Collection, error](loadDefaultCollection)
+	unsupportedExtensions    = map[string]bool{
+		"unknown.yaml": true,
+	}
 )
 
 // GetDefaultCollection returns a Collection that is loaded with the default Substrait extension definitions.
+// This version is provided for the ease of use of legacy code. Please use GetDefaultCollectionWithError instead.
 func GetDefaultCollection() *Collection {
 	c, err := GetDefaultCollectionWithError()
 	if err != nil {
@@ -39,55 +41,46 @@ func GetDefaultCollection() *Collection {
 
 // GetDefaultCollectionWithError returns a Collection that is loaded with the default Substrait extension definitions.
 func GetDefaultCollectionWithError() (*Collection, error) {
-	collectionOnce.Do(func() {
-		collectionLoadError = loadDefaultCollection()
-	})
+	return getDefaultCollectionOnce()
+}
 
-	if collectionLoadError != nil {
-		return nil, collectionLoadError
+func loadDefaultCollection() (*Collection, error) {
+	substraitFS := substrait.GetSubstraitExtensionsFS()
+	entries, err := substraitFS.ReadDir("extensions")
+	if err != nil {
+		return nil, err
+	}
+
+	var defaultCollection Collection
+	for _, ent := range entries {
+		err2 := loadExtensionFile(&defaultCollection, substraitFS, ent)
+		if err2 != nil {
+			return nil, err2
+		}
 	}
 	return &defaultCollection, nil
 }
 
-func loadDefaultCollection() error {
-	substraitFS := substrait.GetSubstraitExtensionsFS()
-	entries, err := substraitFS.ReadDir("extensions")
-	if err != nil {
-		return err
-	}
-
-	for _, ent := range entries {
-		err2, done := loadExtensionFile(substraitFS, ent)
-		if done {
-			return err2
-		}
-	}
-	return nil
-}
-
-func loadExtensionFile(substraitFS embed.FS, ent fs.DirEntry) (error, bool) {
+func loadExtensionFile(collection *Collection, substraitFS embed.FS, ent fs.DirEntry) error {
 	f, err := substraitFS.Open(path.Join("extensions/", ent.Name()))
 	if err != nil {
-		return err, true
+		return err
 	}
 	defer func() {
 		_ = f.Close()
 	}()
 	fileStat, err := f.Stat()
 	if err != nil {
-		return err, true
+		return err
 	}
 	fileName := path.Base(fileStat.Name())
-	err = defaultCollection.Load(SubstraitDefaultURIPrefix+ent.Name(), f)
-	if err != nil {
-		if fileName == "unknown.yaml" {
-			// TODO: Remove this once extension parser is fixed to support unknown.yaml extension file
-			fmt.Printf("Ignoring extension file:%s err:%v, Skipping it \n", fileName, err)
-		} else {
-			return err, true
+	if _, ok := unsupportedExtensions[fileName]; !ok {
+		err = collection.Load(SubstraitDefaultURIPrefix+ent.Name(), f)
+		if err != nil {
+			return err
 		}
 	}
-	return nil, false
+	return nil
 }
 
 // ID is the unique identifier for a substrait object
