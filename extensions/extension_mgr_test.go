@@ -277,11 +277,11 @@ func TestDefaultCollection(t *testing.T) {
 			)
 			switch tt.typ {
 			case scalarFunc:
-				variant, ok = extensions.DefaultCollection.GetScalarFunc(id)
+				variant, ok = extensions.GetDefaultCollection().GetScalarFunc(id)
 			case aggFunc:
-				variant, ok = extensions.DefaultCollection.GetAggregateFunc(id)
+				variant, ok = extensions.GetDefaultCollection().GetAggregateFunc(id)
 			case windowFunc:
-				variant, ok = extensions.DefaultCollection.GetWindowFunc(id)
+				variant, ok = extensions.GetDefaultCollection().GetWindowFunc(id)
 			}
 
 			require.True(t, ok)
@@ -295,7 +295,7 @@ func TestDefaultCollection(t *testing.T) {
 		})
 	}
 
-	et, ok := extensions.DefaultCollection.GetType(extensions.ID{
+	et, ok := extensions.GetDefaultCollection().GetType(extensions.ID{
 		URI: extensions.SubstraitDefaultURIPrefix + "extension_types.yaml", Name: "point"})
 	assert.True(t, ok)
 	assert.Equal(t, "point", et.Name)
@@ -303,9 +303,10 @@ func TestDefaultCollection(t *testing.T) {
 }
 
 func TestCollection_GetAllScalarFunctions(t *testing.T) {
-	scalarFunctions := extensions.DefaultCollection.GetAllScalarFunctions()
-	aggregateFunctions := extensions.DefaultCollection.GetAllAggregateFunctions()
-	windowFunctions := extensions.DefaultCollection.GetAllWindowFunctions()
+	defaultExtensions := extensions.GetDefaultCollection()
+	scalarFunctions := defaultExtensions.GetAllScalarFunctions()
+	aggregateFunctions := defaultExtensions.GetAllAggregateFunctions()
+	windowFunctions := defaultExtensions.GetAllWindowFunctions()
 	assert.GreaterOrEqual(t, len(scalarFunctions), 309)
 	assert.GreaterOrEqual(t, len(aggregateFunctions), 62)
 	assert.GreaterOrEqual(t, len(windowFunctions), 7)
@@ -323,21 +324,20 @@ func TestCollection_GetAllScalarFunctions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.signature, func(t *testing.T) {
 			assert.True(t, tt.isScalar || tt.isAggregate || tt.isWindow)
-			c := extensions.DefaultCollection
 			if tt.isScalar {
-				sf, ok := c.GetScalarFunc(extensions.ID{URI: tt.uri, Name: tt.signature})
+				sf, ok := defaultExtensions.GetScalarFunc(extensions.ID{URI: tt.uri, Name: tt.signature})
 				assert.True(t, ok)
 				assert.Contains(t, scalarFunctions, sf)
 				// verify that default nullability is set to MIRROR
 				assert.Equal(t, extensions.MirrorNullability, sf.Nullability())
 			}
 			if tt.isAggregate {
-				af, ok := c.GetAggregateFunc(extensions.ID{URI: tt.uri, Name: tt.signature})
+				af, ok := defaultExtensions.GetAggregateFunc(extensions.ID{URI: tt.uri, Name: tt.signature})
 				assert.True(t, ok)
 				assert.Contains(t, aggregateFunctions, af)
 			}
 			if tt.isWindow {
-				wf, ok := c.GetWindowFunc(extensions.ID{URI: tt.uri, Name: tt.signature})
+				wf, ok := defaultExtensions.GetWindowFunc(extensions.ID{URI: tt.uri, Name: tt.signature})
 				assert.True(t, ok)
 				assert.Contains(t, windowFunctions, wf)
 			}

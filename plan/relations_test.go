@@ -28,7 +28,7 @@ func createPrimitiveBool(value bool) expr.Expression {
 }
 
 func TestRelations_Copy(t *testing.T) {
-	extReg := expr.NewExtensionRegistry(extensions.NewSet(), &extensions.DefaultCollection)
+	extReg := expr.NewExtensionRegistry(extensions.NewSet(), extensions.GetDefaultCollection())
 	aggregateFnID := extensions.ID{
 		URI:  extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
 		Name: "avg",
@@ -414,7 +414,7 @@ func TestRelations_Copy(t *testing.T) {
 }
 
 func TestAggregateRelToBuilder(t *testing.T) {
-	extReg := expr.NewExtensionRegistry(extensions.NewSet(), &extensions.DefaultCollection)
+	extReg := expr.NewExtensionRegistry(extensions.NewSet(), extensions.GetDefaultCollection())
 	aggregateFnID := extensions.ID{
 		URI:  extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
 		Name: "avg",

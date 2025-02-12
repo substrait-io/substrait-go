@@ -3,15 +3,17 @@
 package extensions
 
 import (
+	"embed"
 	"fmt"
 	"io"
 	"io/fs"
 	"path"
 	"sort"
+	"sync"
 
 	"github.com/creasty/defaults"
 	"github.com/goccy/go-yaml"
-	substrait "github.com/substrait-io/substrait"
+	"github.com/substrait-io/substrait"
 	substraitgo "github.com/substrait-io/substrait-go/v3"
 	"github.com/substrait-io/substrait-go/v3/proto/extensions"
 )
@@ -20,45 +22,72 @@ type AdvancedExtension = extensions.AdvancedExtension
 
 const SubstraitDefaultURIPrefix = "https://github.com/substrait-io/substrait/blob/main/extensions/"
 
-// DefaultCollection is loaded with the default Substrait extension
-// definitions. Not all files are currently parsable.
-// Parser needs to enhanced to support all files
-var DefaultCollection Collection
+var (
+	defaultCollection   Collection
+	collectionOnce      sync.Once
+	collectionLoadError error
+)
 
-func init() {
+// GetDefaultCollection returns a Collection that is loaded with the default Substrait extension definitions.
+func GetDefaultCollection() *Collection {
+	c, err := GetDefaultCollectionWithError()
+	if err != nil {
+		panic(err)
+	}
+	return c
+}
+
+// GetDefaultCollectionWithError returns a Collection that is loaded with the default Substrait extension definitions.
+func GetDefaultCollectionWithError() (*Collection, error) {
+	collectionOnce.Do(func() {
+		collectionLoadError = loadDefaultCollection()
+	})
+
+	if collectionLoadError != nil {
+		return nil, collectionLoadError
+	}
+	return &defaultCollection, nil
+}
+
+func loadDefaultCollection() error {
 	substraitFS := substrait.GetSubstraitExtensionsFS()
 	entries, err := substraitFS.ReadDir("extensions")
 	if err != nil {
-		return
+		return err
 	}
 
 	for _, ent := range entries {
-		f, err := substraitFS.Open(path.Join("extensions/", ent.Name()))
-		if err != nil {
-			panic(err)
-		}
-		fileStat, err := f.Stat()
-		if err != nil {
-			panic(err)
-		}
-		fileName := path.Base(fileStat.Name())
-		// Catch and ignore load error for a file
-		// Currently extension grammar is not fully parseable
-		// There is a parser fix planned, once that is done,
-		// we can panic instead of ignoring failed extension file load
-		defer func(f fs.File, fileName string) {
-			if r := recover(); r != nil {
-				fmt.Printf("Ignoring extension file:%s, Recovered from panic: %v\n", fileName, r)
-			}
-			if err1 := f.Close(); err1 != nil {
-				panic(err1)
-			}
-		}(f, fileName)
-		err1 := DefaultCollection.Load(SubstraitDefaultURIPrefix+ent.Name(), f)
-		if err1 != nil {
-			fmt.Printf("Ignoring extension file:%s err:%v, Skipping it \n", fileName, err1)
+		err2, done := loadExtensionFile(substraitFS, ent)
+		if done {
+			return err2
 		}
 	}
+	return nil
+}
+
+func loadExtensionFile(substraitFS embed.FS, ent fs.DirEntry) (error, bool) {
+	f, err := substraitFS.Open(path.Join("extensions/", ent.Name()))
+	if err != nil {
+		return err, true
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+	fileStat, err := f.Stat()
+	if err != nil {
+		return err, true
+	}
+	fileName := path.Base(fileStat.Name())
+	err = defaultCollection.Load(SubstraitDefaultURIPrefix+ent.Name(), f)
+	if err != nil {
+		if fileName == "unknown.yaml" {
+			// TODO: Remove this once extension parser is fixed to support unknown.yaml extension file
+			fmt.Printf("Ignoring extension file:%s err:%v, Skipping it \n", fileName, err)
+		} else {
+			return err, true
+		}
+	}
+	return nil, false
 }
 
 // ID is the unique identifier for a substrait object
