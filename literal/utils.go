@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cockroachdb/apd/v3"
 	"github.com/google/uuid"
 	"github.com/substrait-io/substrait-go/v3/expr"
 	"github.com/substrait-io/substrait-go/v3/proto"
@@ -319,6 +320,14 @@ func NewDecimalFromString(value string) (expr.Literal, error) {
 		return nil, err
 	}
 	return expr.NewLiteral[*types.Decimal](&types.Decimal{Value: v[:16], Precision: precision, Scale: scale}, false)
+}
+
+func NewDecimalFromApdDecimal(value *apd.Decimal, nullable bool) (expr.Literal, error) {
+	v, precision, scale, err := expr.DecimalToBytes(value)
+	if err != nil {
+		return nil, err
+	}
+	return expr.NewLiteral[*types.Decimal](&types.Decimal{Value: v[:16], Precision: precision, Scale: scale}, nullable)
 }
 
 // NewPrecisionTimestampFromTime creates a new PrecisionTimestamp literal from a time.Time timestamp value with given precision.

@@ -909,6 +909,9 @@ func NewLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {
 			},
 		}, nil
 	case *types.Decimal:
+		if len(v.Value) != 16 {
+			return nil, fmt.Errorf("decimal value must be 16 bytes")
+		}
 		return &ProtoLiteral{
 			Value: v.Value,
 			Type: &types.DecimalType{

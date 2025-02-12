@@ -41,6 +41,33 @@ func TestNewDecimalWithType(t *testing.T) {
 	}
 }
 
+func TestNewLiteralWithDecimalBytes(t *testing.T) {
+	tests := []struct {
+		name           string
+		value          []byte
+		precision      int32
+		scale          int32
+		expectedToFail bool
+	}{
+		{"[0]byte", []byte{}, 2, 0, true},
+		{"[2]byte", []byte{0x1, 0x0}, 2, 0, true},
+		{"[3]byte", []byte{0x1, 0x2, 0x0}, 3, 0, true},
+		{"[17]byte", []byte{0x1, 0x0, 0x0, 0x0, 0x5, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, 16, 0, true},
+
+		{"[16]byte", []byte{0x1, 0x0, 0x0, 0x0, 0x5, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, 16, 0, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := expr.NewLiteral[*types.Decimal](&types.Decimal{Value: tt.value, Precision: tt.precision, Scale: tt.scale}, false)
+			if tt.expectedToFail {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestNewFixedLenWithType(t *testing.T) {
 	tests := []struct {
 		name      string

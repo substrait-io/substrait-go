@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cockroachdb/apd/v3"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -58,22 +59,36 @@ func TestNewDecimalFromString(t *testing.T) {
 	tests := []struct {
 		value   string
 		want    expr.Literal
-		wantErr assert.ErrorAssertionFunc
+		wantErr bool
 	}{
-		{"0", createDecimalLiteral([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 1, 0, false), assert.NoError},
-		{"111111.222222", createDecimalLiteral([]byte{0xce, 0xb3, 0xbe, 0xde, 0x19, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 12, 6, false), assert.NoError},
-		{"-111111.222222", createDecimalLiteral([]byte{0x32, 0x4c, 0x41, 0x21, 0xe6, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, 12, 6, false), assert.NoError},
-		{"+1", createDecimalLiteral([]byte{0x1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 1, 0, false), assert.NoError},
-		{"-1", createDecimalLiteral([]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, 1, 0, false), assert.NoError},
-		{"not a decimal", nil, assert.Error},
+		{"0", createDecimalLiteral([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 1, 0, false), false},
+		{"111111.222222", createDecimalLiteral([]byte{0xce, 0xb3, 0xbe, 0xde, 0x19, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 12, 6, false), false},
+		{"-111111.222222", createDecimalLiteral([]byte{0x32, 0x4c, 0x41, 0x21, 0xe6, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, 12, 6, false), false},
+		{"+1", createDecimalLiteral([]byte{0x1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 1, 0, false), false},
+		{"-1", createDecimalLiteral([]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, 1, 0, false), false},
+		{"not a decimal", nil, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.value, func(t *testing.T) {
 			got, err := NewDecimalFromString(tt.value)
-			if !tt.wantErr(t, err, fmt.Sprintf("NewDecimalFromString(%v)", tt.value)) {
+			if tt.wantErr {
+				require.Error(t, err, fmt.Sprintf("NewDecimalFromString(%v) expected error", tt.value))
 				return
 			}
+			require.NoError(t, err)
 			assert.Equalf(t, tt.want, got, "NewDecimalFromString(%v)", tt.value)
+
+			dec, _, err := apd.NewFromString(tt.value)
+			require.NoError(t, err)
+			got, err = NewDecimalFromApdDecimal(dec, false)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got, "NewDecimalFromApdDecimal(%v)", tt.value)
+
+			got, err = NewDecimalFromApdDecimal(dec, true)
+			require.NoError(t, err)
+			expected, err := protoLiteralWithNullability(tt.want.(*expr.ProtoLiteral), true)
+			require.NoError(t, err)
+			assert.Equal(t, expected, got, "NewDecimalFromApdDecimal(%v)", tt.value)
 		})
 	}
 }
@@ -92,6 +107,17 @@ func createDecimalLiteral(value []byte, precision int32, scale int32, isNullable
 		},
 	}
 }
+
+func protoLiteralWithNullability(lit *expr.ProtoLiteral, nullable bool) (expr.Literal, error) {
+	nullability := proto.Type_NULLABILITY_REQUIRED
+	if nullable {
+		nullability = proto.Type_NULLABILITY_NULLABLE
+	}
+	decType := lit.GetType().WithNullability(nullability)
+
+	return lit.WithType(decType)
+}
+
 func TestNewDecimalFromTwosComplement(t *testing.T) {
 	type args struct {
 		twosComplement []byte
