@@ -17,11 +17,7 @@ var decimalPattern = regexp.MustCompile(`^[+-]?\d*(\.\d*)?([eE][+-]?\d*)?$`)
 // The precision is the total number of digits in the decimal value. The precision is limited to 38 digits.
 // The scale is the number of digits to the right of the decimal point. The scale is limited to the precision.
 func DecimalStringToBytes(decimalStr string) ([16]byte, int32, int32, error) {
-	var (
-		result    [16]byte
-		precision int32
-		scale     int32
-	)
+	var result [16]byte
 
 	strings.Trim(decimalStr, " ")
 	if !decimalPattern.MatchString(decimalStr) {
@@ -34,6 +30,19 @@ func DecimalStringToBytes(decimalStr string) ([16]byte, int32, int32, error) {
 		return result, 0, 0, fmt.Errorf("invalid decimal string %s: %v", decimalStr, err)
 	}
 
+	return DecimalToBytes(dec)
+}
+
+// DecimalToBytes converts apd.Decimal to a 16-byte byte array.
+// 16-byte bytes represents a little-endian 128-bit integer, to be divided by 10^Scale to get the decimal value.
+// This function also returns the precision and scale of the decimal value.
+func DecimalToBytes(dec *apd.Decimal) ([16]byte, int32, int32, error) {
+	var (
+		result    [16]byte
+		precision int32
+		scale     int32
+	)
+
 	if dec.Exponent > 0 {
 		precision = int32(apd.NumDigits(&dec.Coeff)) + dec.Exponent
 		scale = 0
@@ -42,7 +51,7 @@ func DecimalStringToBytes(decimalStr string) ([16]byte, int32, int32, error) {
 		precision = max(int32(apd.NumDigits(&dec.Coeff)), scale+1)
 	}
 	if precision > 38 {
-		return result, precision, scale, fmt.Errorf("number %s exceeds maximum precision of 38 (%d)", decimalStr, precision)
+		return result, precision, scale, fmt.Errorf("number %s exceeds maximum precision of 38 (%d)", dec.String(), precision)
 	}
 
 	coefficient := dec.Coeff
