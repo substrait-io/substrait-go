@@ -47,8 +47,8 @@ func TestLiteralToString(t *testing.T) {
 		{expr.NewPrecisionTimestampTzLiteral(123456, types.PrecisionMilliSeconds, types.NullabilityNullable), "precision_timestamp_tz?<3>(1970-01-01T00:02:03.456Z)"},
 		{expr.NewPrecisionTimestampTzLiteral(123456, types.PrecisionMicroSeconds, types.NullabilityNullable), "precision_timestamp_tz?<6>(1970-01-01T00:00:00.123456Z)"},
 		{expr.NewPrecisionTimestampTzLiteral(123456, types.PrecisionNanoSeconds, types.NullabilityNullable), "precision_timestamp_tz?<9>(1970-01-01T00:00:00.000123456Z)"},
-		{MustLiteral(literal.NewDecimalFromString("12.345")), "decimal<5,3>(12.345)"},
-		{MustLiteral(literal.NewDecimalFromString("-12.345")), "decimal<5,3>(-12.345)"},
+		{MustLiteral(literal.NewDecimalFromString("12.345", false)), "decimal<5,3>(12.345)"},
+		{MustLiteral(literal.NewDecimalFromString("-12.345", false)), "decimal<5,3>(-12.345)"},
 	}
 
 	for _, tt := range tests {
@@ -64,33 +64,32 @@ func TestLiteralToValueString(t *testing.T) {
 		exp string
 	}{
 		{expr.NewNullLiteral(&types.Float32Type{}), "null"},
-		{literal.NewBool(true), "true"},
-		{literal.NewInt8(12), "12"},
+		{literal.NewBool(true, false), "true"},
+		{literal.NewInt8(12, false), "12"},
 		{expr.NewPrimitiveLiteral[int8](0, true), "0"},
-		{literal.NewInt16(0), "0"},
-		{literal.NewInt32(99), "99"},
-		{literal.NewFloat32(99.10), "99.1"},
-		{literal.NewFloat64(99.20), "99.2"},
-		{literal.NewString("99.30"), "99.30"},
-		{MustLiteral(literal.NewDate(365)), "1971-01-01"},
-		{MustLiteral(literal.NewTimeFromString("12:34:56")), "12:34:56"},
-		{MustLiteral(literal.NewTimestampFromString("2021-03-05T12:34:56")), "2021-03-05 12:34:56"},
-		{MustLiteral(literal.NewTimestampTZFromString("2021-03-05T12:34:56")), "2021-03-05T12:34:56Z"},
+		{literal.NewInt16(0, false), "0"},
+		{literal.NewInt32(99, false), "99"},
+		{literal.NewFloat32(99.10, false), "99.1"},
+		{literal.NewFloat64(99.20, false), "99.2"},
+		{literal.NewString("99.30", false), "99.30"},
+		{MustLiteral(literal.NewDate(365, false)), "1971-01-01"},
+		{MustLiteral(literal.NewTimeFromString("12:34:56", false)), "12:34:56"},
+		{MustLiteral(literal.NewTimestampFromString("2021-03-05T12:34:56", false)), "2021-03-05 12:34:56"},
+		{MustLiteral(literal.NewTimestampTZFromString("2021-03-05T12:34:56", false)), "2021-03-05T12:34:56Z"},
 		// Test the first implementation.
-		{MustLiteral(literal.NewIntervalYearsToMonth(5, 4)), "5 years, 4 months"},
+		{MustLiteral(literal.NewIntervalYearsToMonth(5, 4, false)), "5 years, 4 months"},
 		// Test the other implementation.
 		{&expr.IntervalYearToMonthLiteral{Years: 7, Months: 6}, "7 years, 6 months"},
-		{MustLiteral(literal.NewIntervalDaysToSecond(5, 4, 3)), "5 days, 4 seconds, 3 subseconds"},
+		{MustLiteral(literal.NewIntervalDaysToSecond(5, 4, 3, false)), "5 days, 4 seconds, 3 subseconds"},
 		{t: &expr.IntervalCompoundLiteral{
 			Years: 5, Months: 4, Days: 3,
 			Seconds: 2, SubSeconds: 1, SubSecondPrecision: types.PrecisionMicroSeconds,
 			Nullability: types.NullabilityRequired}, exp: "5 years, 4 months, 3 days, 2 seconds, 1 subseconds"},
-		{MustLiteral(literal.NewUUIDFromBytes(
-			[]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16})),
+		{MustLiteral(literal.NewUUIDFromBytes([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}, false)),
 			"01020304-0506-0708-090a-0b0c0d0e0f10"},
-		{MustLiteral(literal.NewFixedChar("text")), "text"},
-		{MustLiteral(literal.NewFixedBinary([]byte{1, 2, 3})), "0x010203"},
-		{MustLiteral(literal.NewVarChar("vartext")), "vartext"},
+		{MustLiteral(literal.NewFixedChar("text", false)), "text"},
+		{MustLiteral(literal.NewFixedBinary([]byte{1, 2, 3}, false)), "0x010203"},
+		{MustLiteral(literal.NewVarChar("vartext", false)), "vartext"},
 		{expr.NewNestedLiteral(expr.ListLiteralValue{
 			expr.NewNestedLiteral(expr.MapLiteralValue{
 				{
@@ -135,9 +134,9 @@ func TestLiteralToValueString(t *testing.T) {
 		{expr.NewPrecisionTimestampTzLiteral(123456, types.PrecisionEMinus7Seconds, types.NullabilityNullable), "1970-01-01T00:00:00.0123456Z"},
 		{expr.NewPrecisionTimestampTzLiteral(123456, types.PrecisionEMinus8Seconds, types.NullabilityNullable), "1970-01-01T00:00:00.00123456Z"},
 		{expr.NewPrecisionTimestampTzLiteral(123456, types.PrecisionNanoSeconds, types.NullabilityNullable), "1970-01-01T00:00:00.000123456Z"},
-		{MustLiteral(literal.NewDecimalFromString("12.345")), "12.345"},
-		{MustLiteral(literal.NewDecimalFromString("-12.345")), "-12.345"},
-		{MustLiteral(literal.NewList([]expr.Literal{literal.NewInt8(2), literal.NewInt8(4), literal.NewInt8(6)})), "[2, 4, 6]"},
+		{MustLiteral(literal.NewDecimalFromString("12.345", false)), "12.345"},
+		{MustLiteral(literal.NewDecimalFromString("-12.345", false)), "-12.345"},
+		{MustLiteral(literal.NewList([]expr.Literal{literal.NewInt8(2, false), literal.NewInt8(4, false), literal.NewInt8(6, false)}, false)), "[2, 4, 6]"},
 	}
 
 	for _, tt := range tests {
@@ -148,7 +147,7 @@ func TestLiteralToValueString(t *testing.T) {
 }
 
 func TestLiteralToStringBrokenDecimal(t *testing.T) {
-	brokenDecimalLit, _ := literal.NewDecimalFromString("1234.56")
+	brokenDecimalLit, _ := literal.NewDecimalFromString("1234.56", false)
 	brokenDecimalLitAsProtoLit := brokenDecimalLit.(*expr.ProtoLiteral)
 	brokenDecimalLitAsProtoLit.Value = []byte{1, 2, 3}
 
