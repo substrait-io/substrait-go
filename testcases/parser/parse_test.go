@@ -185,6 +185,7 @@ func TestParseTestWithVariousTypes(t *testing.T) {
 		{testCaseStr: "concat('abcd'::varchar<9>, null::string) [null_handling:ACCEPT_NULLS] = null::string", expTestStr: "concat('abcd'::varchar<9>, null::string?) [null_handling:ACCEPT_NULLS] = null::string?"},
 		{testCaseStr: "concat('abcd'::varchar<9>, null::varchar?<9>) [null_handling:ACCEPT_NULLS] = null::varchar?<9>"},
 		{testCaseStr: "concat('abcd'::vchar<9>, 'ef'::varchar<9>) = 'abcdef'::vchar<9>", expTestStr: "concat('abcd'::varchar<9>, 'ef'::varchar<9>) = 'abcdef'::varchar<9>"},
+		{testCaseStr: "concat('abcd'::fchar<9>, 'ef'::fixedchar<9>) = 'abcdef'::fchar<9>", expTestStr: "concat('abcd'::fixedchar<9>, 'ef'::fixedchar<9>) = 'abcdef'::fixedchar<9>"},
 		{testCaseStr: "concat('abcd'::vchar<9>, Null::varchar<9>) = Null::vchar<9>", expTestStr: "concat('abcd'::varchar<9>, null::varchar?<9>) = null::varchar?<9>"},
 		{testCaseStr: "concat('abcd'::vchar<9>, Null::fixedchar<9>) = Null::fchar<9>", expTestStr: "concat('abcd'::varchar<9>, null::fixedchar?<9>) = null::fixedchar?<9>"},
 		{testCaseStr: "concat('abcd'::fbin<9>, Null::fixedbinary<9>) = Null::fbin<9>", expTestStr: "concat('0x61626364'::fixedbinary<9>, null::fixedbinary?<9>) = null::fixedbinary?<9>"},
@@ -383,7 +384,7 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 	assert.Equal(t, []types.Type{&types.Float32Type{Nullability: types.NullabilityNullable}}, tc.GetArgTypes())
 	assert.Equal(t, tc.Result.Type, &types.Float64Type{Nullability: types.NullabilityNullable})
 	argValues := newFloat32Values(true, 1, 2, 3)
-	argValues = append(argValues, &expr.NullLiteral{&types.Float32Type{Nullability: types.NullabilityNullable}})
+	argValues = append(argValues, &expr.NullLiteral{Type: &types.Float32Type{Nullability: types.NullabilityNullable}})
 	argList, _ := literal.NewList(argValues, false)
 	assert.Equal(t, argList, tc.AggregateArgs[0].Argument.Value)
 
