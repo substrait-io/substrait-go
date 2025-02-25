@@ -426,9 +426,27 @@ func TestCastVisit(t *testing.T) {
 		expr.NewLiteral[float64](12.0, true)),
 		&types.Float64Type{Nullability: types.NullabilityRequired}).FailBehavior(
 		types.BehaviorThrowException).BuildExpr())
-	visitedCastExpr := castExpr.Visit(func(ex expr.Expression) expr.Expression {
-		return ex
-	})
-	visitedCastProto := visitedCastExpr.ToProto()
-	assert.IsType(t, &proto.Expression_Cast_{}, visitedCastProto.GetRexType())
+
+	type relationTestCase struct {
+		name            string
+		rewriteFunction func(rex expr.Expression) expr.Expression
+	}
+	testCases := []relationTestCase{
+		{"no change", func(ex expr.Expression) expr.Expression { return ex }},
+		{"changed", func(ex expr.Expression) expr.Expression {
+			lit, err := expr.NewLiteral[float64](16.0, true)
+			if err != nil {
+				// Should not happen.
+				panic(err)
+			}
+			return lit
+		}},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			visitedCastExpr := castExpr.Visit(tc.rewriteFunction)
+			visitedCastProto := visitedCastExpr.ToProto()
+			assert.IsType(t, &proto.Expression_Cast_{}, visitedCastProto.GetRexType())
+		})
+	}
 }
