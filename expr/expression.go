@@ -611,7 +611,13 @@ func (ex *Cast) Equals(other Expression) bool {
 }
 
 func (ex *Cast) Visit(visit VisitFunc) Expression {
-	return visit(ex.Input)
+	newInput := visit(ex.Input)
+	if newInput == ex.Input {
+		return ex
+	}
+	newCast := *ex
+	newCast.Input = newInput
+	return &newCast
 }
 
 type SwitchExpr struct {

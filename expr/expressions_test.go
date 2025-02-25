@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/substrait-io/substrait-go/v3/plan"
 	"os"
 	"sort"
 	"strings"
@@ -417,4 +418,17 @@ func TestRoundTripExtendedExpression(t *testing.T) {
 		})
 		assert.Truef(t, pb.Equal(&ex, out), "expected: %s\ngot: %s", &ex, out)
 	}
+}
+
+func TestCastVisit(t *testing.T) {
+	var builder = plan.NewBuilderDefault()
+	castExpr := expr.MustExpr(builder.GetExprBuilder().Cast(builder.GetExprBuilder().Wrap(
+		expr.NewLiteral[float64](12.0, true)),
+		&types.Float64Type{Nullability: types.NullabilityRequired}).FailBehavior(
+		types.BehaviorThrowException).BuildExpr())
+	visitedCastExpr := castExpr.Visit(func(ex expr.Expression) expr.Expression {
+		return ex
+	})
+	visitedCastProto := visitedCastExpr.ToProto()
+	assert.IsType(t, &proto.Expression_Cast_{}, visitedCastProto.GetRexType())
 }
