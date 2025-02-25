@@ -437,10 +437,7 @@ func TestCastVisit(t *testing.T) {
 			"literal:{fp64:12 nullable:true}"},
 		{"changed", func(ex expr.Expression) expr.Expression {
 			lit, err := expr.NewLiteral[float64](16.0, true)
-			if err != nil {
-				// Should not happen.
-				panic(err)
-			}
+			require.NoError(t, err)
 			return lit
 		}, "literal:{fp64:16 nullable:true}"},
 	}
