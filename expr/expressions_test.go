@@ -430,9 +430,11 @@ func TestCastVisit(t *testing.T) {
 	type relationTestCase struct {
 		name            string
 		rewriteFunction func(rex expr.Expression) expr.Expression
+		want            string
 	}
 	testCases := []relationTestCase{
-		{"no change", func(ex expr.Expression) expr.Expression { return ex }},
+		{"no change", func(ex expr.Expression) expr.Expression { return ex },
+			"literal:{fp64:12 nullable:true}"},
 		{"changed", func(ex expr.Expression) expr.Expression {
 			lit, err := expr.NewLiteral[float64](16.0, true)
 			if err != nil {
@@ -440,13 +442,14 @@ func TestCastVisit(t *testing.T) {
 				panic(err)
 			}
 			return lit
-		}},
+		}, "literal:{fp64:16 nullable:true}"},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			visitedCastExpr := castExpr.Visit(tc.rewriteFunction)
 			visitedCastProto := visitedCastExpr.ToProto()
 			assert.IsType(t, &proto.Expression_Cast_{}, visitedCastProto.GetRexType())
+			assert.Equal(t, tc.want, visitedCastProto.GetCast().GetInput().String())
 		})
 	}
 }
