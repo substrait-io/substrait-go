@@ -4,10 +4,13 @@ package types_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/substrait-io/substrait-go/v3/functions"
 	. "github.com/substrait-io/substrait-go/v3/types"
 	"github.com/substrait-io/substrait-go/v3/types/integer_parameters"
 )
@@ -496,4 +499,46 @@ func TestGetTimeValueByPrecision(t *testing.T) {
 			assert.Equalf(t, tt.want, GetTimeValueByPrecision(tm, tt.precision), "GetTimeValueByPrecision(%v, %v)", timeStr, tt.precision)
 		})
 	}
+}
+
+func TestGetSupportedTypes(t *testing.T) {
+	dialect, err := functions.LoadDialect("test_dialect",
+		strings.NewReader(`
+name: test_dialect
+type: sql
+dependencies:
+  arithmetic:
+    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+supported_types:
+  fp64:
+    sql_type_name: float
+  bool:
+    sql_type_name: boolean
+  varchar:
+    sql_type_name: varchar
+  date:
+    sql_type_name: date
+  time:
+    sql_type_name: time
+  pts:
+    sql_type_name: timestamp
+  ptstz:
+    sql_type_name: timestamptz
+  dec:
+    sql_type_name: numeric
+scalar_functions:
+  - name: arithmetic.add
+    local_name: '+'
+    infix: true
+    required_options:
+      overflow: SILENT
+      rounding: TIE_TO_EVEN
+    supported_kernels:
+      - fp64_fp64
+`))
+	require.NoError(t, err)
+	typeRegistry, err := dialect.GetLocalTypeRegistry()
+	require.NoError(t, err)
+	st := typeRegistry.GetSupportedTypes()
+	assert.Len(t, st, 8)
 }

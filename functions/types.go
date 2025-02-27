@@ -214,6 +214,10 @@ func (t *localTypeRegistryImpl) GetLocalTypeFromSubstraitType(typ types.Type) (s
 	return "", substraitgo.ErrNotFound
 }
 
+func (t *localTypeRegistryImpl) GetSupportedTypes() map[string]types.Type {
+	return t.localNameToType
+}
+
 func (t *localTypeRegistryImpl) IsTypeSupportedInTables(typ types.Type) bool {
 	if ti, ok := t.typeInfoMap[typ.ShortString()]; ok {
 		return ti.supportedAsColumn

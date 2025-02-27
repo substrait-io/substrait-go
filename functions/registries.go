@@ -28,6 +28,9 @@ type LocalTypeRegistry interface {
 
 	//GetTypeClasses() []types.TypeClass // TODO
 
+	// GetSupportedTypes returns the types supported by this dialect.
+	GetSupportedTypes() map[string]types.Type
+
 	// IsTypeSupportedInTables checks whether a particular type is supported in tables.
 	// Some types (such as INTERVAL) may only be supported in literal contexts.
 	IsTypeSupportedInTables(typ types.Type) bool
@@ -46,6 +49,10 @@ type Dialect interface {
 	// the subset of types supported by this dialect. This will return an error if there are
 	// types declared in the dialect that are not available within the provided registry.
 	LocalizeTypeRegistry(registry TypeRegistry) (LocalTypeRegistry, error)
+
+	// GetLocalTypeRegistry returns the last created type registry using this dialect or constructs
+	// one using LocalizeTypeRegistry and a default type registry if one hasn't yet been made.
+	GetLocalTypeRegistry() (LocalTypeRegistry, error)
 }
 
 type FunctionName interface {
