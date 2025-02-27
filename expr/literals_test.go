@@ -215,6 +215,8 @@ func TestByteSliceLiteral_WithType(t1 *testing.T) {
 	list := expr.NewNestedLiteral(expr.ListLiteralValue{
 		literal.NewString("sun", false), literal.NewString("moon", false), literal.NewString("mars", false),
 	}, false)
+
+	fchar := expr.NewFixedCharLiteral("moon", false)
 	type testCase struct {
 		name    string
 		t       expr.WithTypeLiteral
@@ -224,6 +226,7 @@ func TestByteSliceLiteral_WithType(t1 *testing.T) {
 	}
 	tests := []testCase{
 		{"FixedBinary", fbin, &types.FixedBinaryType{Length: 3, Nullability: types.NullabilityNullable}, nil, assert.NoError},
+		{"FixedChar", fchar, &types.FixedCharType{Length: 3, Nullability: types.NullabilityNullable}, nil, assert.NoError},
 		{"UUID", uuid, &types.UUIDType{Nullability: types.NullabilityNullable}, nil, assert.NoError},
 		{"List", list.(expr.WithTypeLiteral), &types.ListType{Type: &types.StringType{Nullability: types.NullabilityNullable}, Nullability: types.NullabilityNullable}, nil, assert.NoError},
 	}
