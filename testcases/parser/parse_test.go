@@ -461,9 +461,6 @@ func TestParseAggregateFuncCompact(t *testing.T) {
 	assert.Len(t, tc.AggregateArgs, 2)
 	assert.Equal(t, newFloat32Values(false, 20, -3, 1, 10, 5), tc.Columns[0])
 	assert.Equal(t, newFloat32Values(false, 20, -3, 1, 10, 5), tc.Columns[1])
-	assert.Len(t, tc.GetColumnData(), 2)
-	assert.Equal(t, newFloat32Values(false, 20, -3, 1, 10, 5), tc.GetColumnData()[0])
-	assert.Equal(t, newFloat32Values(false, 20, -3, 1, 10, 5), tc.GetColumnData()[1])
 	f32Type := &types.Float32Type{Nullability: types.NullabilityRequired}
 	args := []*AggregateArgument{
 		createAggregateArg(t, "", "col0", f32Type),
@@ -510,9 +507,6 @@ corr(t1.col1, t1.col0) = 1::fp64
 	assert.Len(t, testFile.TestCases[0].AggregateArgs, 2)
 	assert.Equal(t, newFloat32Values(false, 20, -3, 1, 10, 5), testFile.TestCases[0].Columns[0])
 	assert.Equal(t, newFloat32Values(false, 20, -3, 1, 10, 5.5), testFile.TestCases[0].Columns[1])
-	assert.Len(t, testFile.TestCases[0].GetColumnData(), 2)
-	assert.Equal(t, newFloat32Values(false, 20, -3, 1, 10, 5), testFile.TestCases[0].GetColumnData()[0])
-	assert.Equal(t, newFloat32Values(false, 20, -3, 1, 10, 5.5), testFile.TestCases[0].GetColumnData()[1])
 	assert.Equal(t, "col0", testFile.TestCases[0].AggregateArgs[0].ColumnName)
 	assert.Equal(t, "col1", testFile.TestCases[0].AggregateArgs[1].ColumnName)
 	assert.Equal(t, testStrings[0], testFile.TestCases[0].String())
@@ -524,15 +518,31 @@ corr(t1.col1, t1.col0) = 1::fp64
 	assert.Len(t, testFile.TestCases[1].AggregateArgs, 2)
 	assert.Equal(t, newInt64Values(20, -3, 1, 10, 5), testFile.TestCases[1].Columns[0])
 	assert.Equal(t, newFloat32Values(false, 20, -3, 1, 10, 5.5), testFile.TestCases[1].Columns[1])
-	assert.Len(t, testFile.TestCases[1].GetColumnData(), 2)
-	assert.Equal(t, newInt64Values(20, -3, 1, 10, 5), testFile.TestCases[1].GetColumnData()[0])
-	assert.Equal(t, newFloat32Values(false, 20, -3, 1, 10, 5.5), testFile.TestCases[1].GetColumnData()[1])
 	assert.Equal(t, "col1", testFile.TestCases[1].AggregateArgs[0].ColumnName)
 	assert.Equal(t, "col0", testFile.TestCases[1].AggregateArgs[1].ColumnName)
 	assert.Equal(t, testStrings[1], testFile.TestCases[1].String())
 }
 
 func TestParseAggregateFuncWithVariousTypes(t *testing.T) {
+	header := makeAggregateTestHeader("v1.0", "/extensions/functions_arithmetic.yaml")
+	header += "# basic\n"
+
+	tests := []struct {
+		testCaseStr string
+	}{
+		{"avg((1,2,3)::i8) = 2::fp64"},
+	}
+	for _, test := range tests {
+		t.Run(test.testCaseStr, func(t *testing.T) {
+			testFile, err := ParseTestCasesFromString(header + test.testCaseStr)
+			require.NoError(t, err)
+			require.NotNil(t, testFile)
+			assert.Len(t, testFile.TestCases, 1)
+		})
+	}
+}
+
+func TestParseAggregateFuncAllFormats(t *testing.T) {
 	header := makeAggregateTestHeader("v1.0", "/extensions/functions_arithmetic.yaml")
 	header += "# basic\n"
 
@@ -549,8 +559,20 @@ func TestParseAggregateFuncWithVariousTypes(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, testFile)
 			assert.Len(t, testFile.TestCases, 1)
-			assert.Len(t, testFile.TestCases[0].GetColumnData(), 1)
-			assert.Equal(t, newInt64Values(1, 2, 3), testFile.TestCases[0].GetColumnData()[0])
+			tc := testFile.TestCases[0]
+			assert.Equal(t, "avg", tc.FuncName)
+			assert.Equal(t, testFile.TestCases[0].GroupDesc, "basic")
+			assert.Equal(t, testFile.TestCases[0].BaseURI, "/extensions/functions_arithmetic.yaml")
+			assert.Len(t, testFile.TestCases[0].Args, 0)
+			assert.Equal(t, AggregateFuncType, tc.FuncType)
+			_, err = tc.GetScalarFunctionInvocation(nil, nil)
+			require.Error(t, err)
+			reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
+			testGetFunctionInvocation(t, tc, &reg, nil)
+			data, err := tc.GetAggregateColumnsData()
+			require.NoError(t, err)
+			assert.Len(t, data, 1)
+			assert.Equal(t, newInt64Values(1, 2, 3), data[0])
 		})
 	}
 }
@@ -571,8 +593,40 @@ func TestParseAggregateFuncWithEmptyInputs(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, testFile)
 			assert.Len(t, testFile.TestCases, 1)
-			assert.Len(t, testFile.TestCases[0].GetColumnData(), 1)
-			assert.Len(t, testFile.TestCases[0].GetColumnData()[0], 0)
+			data, err := testFile.TestCases[0].GetAggregateColumnsData()
+			require.NoError(t, err)
+			assert.Len(t, data, 1)
+			assert.Len(t, data[0], 0)
+		})
+	}
+}
+
+func TestBadInputsToGetAggregateColumnsData(t *testing.T) {
+	tests := []struct {
+		name          string
+		testCase      *TestCase
+		expectedError error
+	}{
+		{
+			name:          "invalid function type",
+			testCase:      &TestCase{FuncType: ScalarFuncType},
+			expectedError: fmt.Errorf("expected function type %v, but got %v", AggregateFuncType, ScalarFuncType),
+		},
+		{
+			name: "invalid argument type",
+			testCase: &TestCase{
+				FuncType:      AggregateFuncType,
+				AggregateArgs: []*AggregateArgument{{Argument: &CaseLiteral{Value: expr.NewNullLiteral(&types.Float32Type{})}}},
+			},
+			expectedError: fmt.Errorf("column 0: expected NestedLiteral[ListLiteralValue], but got %T", expr.NewNullLiteral(&types.Float32Type{})),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := tt.testCase.GetAggregateColumnsData()
+			assert.Error(t, err)
+			assert.Equal(t, tt.expectedError.Error(), err.Error())
 		})
 	}
 }
