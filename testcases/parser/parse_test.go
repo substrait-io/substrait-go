@@ -548,10 +548,15 @@ func TestParseAggregateFuncAllFormats(t *testing.T) {
 
 	tests := []struct {
 		testCaseStr string
+		wantData    [][]expr.Literal
 	}{
-		{"avg((1,2,3)::i64) = 2::fp64"},
-		{"((1), (2), (3)) avg(col0::i64) = 2::fp64"},
-		{"DEFINE t1(i64) = ((1), (2), (3))\navg(t1.col0) = 2::fp64"},
+		{"avg((1,2,3)::i64) = 2::fp64", [][]expr.Literal{newInt64Values(1, 2, 3)}},
+		{"((1), (2), (3)) avg(col0::i64) = 2::fp64", [][]expr.Literal{newInt64Values(1, 2, 3)}},
+		{"DEFINE t1(i64) = ((1), (2), (3))\navg(t1.col0) = 2::fp64", [][]expr.Literal{newInt64Values(1, 2, 3)}},
+
+		// tests with empty input data
+		{"avg(()::i64) = 2::fp64", [][]expr.Literal{{}}},
+		{"DEFINE t1(i64) = ()\navg(t1.col0) = 2::fp64", [][]expr.Literal{{}}},
 	}
 	for _, test := range tests {
 		t.Run(test.testCaseStr, func(t *testing.T) {
@@ -561,9 +566,12 @@ func TestParseAggregateFuncAllFormats(t *testing.T) {
 			assert.Len(t, testFile.TestCases, 1)
 			tc := testFile.TestCases[0]
 			assert.Equal(t, "avg", tc.FuncName)
-			assert.Equal(t, testFile.TestCases[0].GroupDesc, "basic")
-			assert.Equal(t, testFile.TestCases[0].BaseURI, "/extensions/functions_arithmetic.yaml")
-			assert.Len(t, testFile.TestCases[0].Args, 0)
+			assert.Equal(t, tc.GroupDesc, "basic")
+			assert.Equal(t, tc.BaseURI, "/extensions/functions_arithmetic.yaml")
+			assert.Len(t, tc.Args, 0)
+			argTypes := tc.GetArgTypes()
+			assert.Len(t, argTypes, 1)
+			assert.Equal(t, &types.Int64Type{Nullability: types.NullabilityRequired}, argTypes[0])
 			assert.Equal(t, AggregateFuncType, tc.FuncType)
 			_, err = tc.GetScalarFunctionInvocation(nil, nil)
 			require.Error(t, err)
@@ -572,31 +580,7 @@ func TestParseAggregateFuncAllFormats(t *testing.T) {
 			data, err := tc.GetAggregateColumnsData()
 			require.NoError(t, err)
 			assert.Len(t, data, 1)
-			assert.Equal(t, newInt64Values(1, 2, 3), data[0])
-		})
-	}
-}
-
-func TestParseAggregateFuncWithEmptyInputs(t *testing.T) {
-	header := makeAggregateTestHeader("v1.0", "/extensions/functions_arithmetic.yaml")
-	header += "# basic\n"
-
-	tests := []struct {
-		testCaseStr string
-	}{
-		{"avg(()::i64) = 2::fp64"},
-		{"DEFINE t1(i64) = ()\navg() = 2::fp64"},
-	}
-	for _, test := range tests {
-		t.Run(test.testCaseStr, func(t *testing.T) {
-			testFile, err := ParseTestCasesFromString(header + test.testCaseStr)
-			require.NoError(t, err)
-			require.NotNil(t, testFile)
-			assert.Len(t, testFile.TestCases, 1)
-			data, err := testFile.TestCases[0].GetAggregateColumnsData()
-			require.NoError(t, err)
-			assert.Len(t, data, 1)
-			assert.Len(t, data[0], 0)
+			assert.Equal(t, test.wantData, data)
 		})
 	}
 }
