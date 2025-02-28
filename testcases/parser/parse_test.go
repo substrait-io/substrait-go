@@ -29,6 +29,7 @@ func TestParseBasicExample(t *testing.T) {
 	tests := `#  'Basic examples without any special cases'
 add(120::i8, 5::i8) = 125::i8
 add(100::i16, 100::i16) = 200::i16
+add(1::i8?, 2::i8?) = 3::i8?
 
 # Overflow examples demonstrating overflow behavior  
 add(120::i8, 10::i8) [overflow:ERROR] = <!ERROR>
@@ -37,23 +38,25 @@ add(120::i8, 10::i8) [overflow:ERROR] = <!ERROR>
 	testStrings := []string{
 		"add(120::i8, 5::i8) = 125::i8",
 		"add(100::i16, 100::i16) = 200::i16",
+		"add(1::i8?, 2::i8?) = 3::i8?",
 		"add(120::i8, 10::i8) [overflow:ERROR] = <!ERROR>",
 	}
 	testFile, err := ParseTestCasesFromString(header + tests)
 	require.NoError(t, err)
-	assert.Len(t, testFile.TestCases, 3)
+	assert.Len(t, testFile.TestCases, 4)
 
 	arithURI := "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
-	ids := []string{"add:i8_i8", "add:i16_i16", "add:i8_i8"}
+	ids := []string{"add:i8_i8", "add:i16_i16", "add:i8_i8", "add:i8_i8"}
 	argTypes := [][]types.Type{
 		{&types.Int8Type{Nullability: types.NullabilityRequired}, &types.Int8Type{Nullability: types.NullabilityRequired}},
 		{&types.Int16Type{Nullability: types.NullabilityRequired}, &types.Int16Type{Nullability: types.NullabilityRequired}},
+		{&types.Int8Type{Nullability: types.NullabilityNullable}, &types.Int8Type{Nullability: types.NullabilityNullable}},
 		{&types.Int8Type{Nullability: types.NullabilityRequired}, &types.Int8Type{Nullability: types.NullabilityRequired}},
 	}
 	reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(extensions.GetDefaultCollectionWithNoError())
 	basicGroupDesc := "'Basic examples without any special cases'"
 	overflowGroupDesc := "Overflow examples demonstrating overflow behavior"
-	groupDescs := []string{basicGroupDesc, basicGroupDesc, overflowGroupDesc}
+	groupDescs := []string{basicGroupDesc, basicGroupDesc, basicGroupDesc, overflowGroupDesc}
 	for i, tc := range testFile.TestCases {
 		assert.Equal(t, extensions.ID{URI: arithURI, Name: ids[i]}, tc.ID())
 		scalarFunc, err1 := tc.GetScalarFunctionInvocation(&reg, funcRegistry)
@@ -83,13 +86,13 @@ lt('2016-12-31T13:30:15'::ts, '2017-12-31T13:30:15'::ts) = true::bool
 	assert.Equal(t, testFile.TestCases[0].BaseURI, "/extensions/functions_datetime.yaml")
 	assert.Equal(t, testFile.TestCases[0].GroupDesc, "timestamp examples using the timestamp type")
 	assert.Len(t, testFile.TestCases[0].Args, 2)
-	tsLiteral, err := literal.NewTimestampFromString("2016-12-31T13:30:15")
+	tsLiteral, err := literal.NewTimestampFromString("2016-12-31T13:30:15", false)
 	require.NoError(t, err)
 	assert.Equal(t, tsLiteral, testFile.TestCases[0].Args[0].Value)
-	tsLiteral, err = literal.NewTimestampFromString("2017-12-31T13:30:15")
+	tsLiteral, err = literal.NewTimestampFromString("2017-12-31T13:30:15", false)
 	require.NoError(t, err)
 	assert.Equal(t, tsLiteral, testFile.TestCases[0].Args[1].Value)
-	boolLiteral := literal.NewBool(true)
+	boolLiteral := literal.NewBool(true, false)
 	assert.Equal(t, boolLiteral, testFile.TestCases[0].Result.Value)
 	assert.Equal(t, &types.BooleanType{Nullability: types.NullabilityRequired}, testFile.TestCases[0].Result.Type)
 	timestampType := &types.TimestampType{Nullability: types.NullabilityRequired}
@@ -115,20 +118,20 @@ add(0.5::dec<1, 1>, 0.25::dec<2, 2>) = 0.75::dec<5, 2>
 	assert.Equal(t, "power", testFile.TestCases[0].FuncName)
 	assert.Equal(t, "power", testFile.TestCases[1].FuncName)
 	assert.Equal(t, "power", testFile.TestCases[2].FuncName)
-	dec8Value, _ := literal.NewDecimalFromString("8")
-	dec2Value, _ := literal.NewDecimalFromString("2")
-	dec1Value, _ := literal.NewDecimalFromString("1.0")
-	decMinus1Value, _ := literal.NewDecimalFromString("-1")
-	decMinus1Point0Value, _ := literal.NewDecimalFromString("-1.0")
-	decPoint5Value, _ := literal.NewDecimalFromString("0.5")
+	dec8Value, _ := literal.NewDecimalFromString("8", false)
+	dec2Value, _ := literal.NewDecimalFromString("2", false)
+	dec1Value, _ := literal.NewDecimalFromString("1.0", false)
+	decMinus1Value, _ := literal.NewDecimalFromString("-1", false)
+	decMinus1Point0Value, _ := literal.NewDecimalFromString("-1.0", false)
+	decPoint5Value, _ := literal.NewDecimalFromString("0.5", false)
 	dec8, _ := dec8Value.(expr.WithTypeLiteral).WithType(&types.DecimalType{Precision: 38, Scale: 0, Nullability: types.NullabilityRequired})
 	dec2, _ := dec2Value.(expr.WithTypeLiteral).WithType(&types.DecimalType{Precision: 38, Scale: 0, Nullability: types.NullabilityRequired})
 	dec1, _ := dec1Value.(expr.WithTypeLiteral).WithType(&types.DecimalType{Precision: 38, Scale: 5, Nullability: types.NullabilityRequired})
 	decMinus1, _ := decMinus1Value.(expr.WithTypeLiteral).WithType(&types.DecimalType{Precision: 38, Scale: 0, Nullability: types.NullabilityRequired})
 	decMinus1Point0, _ := decMinus1Point0Value.(expr.WithTypeLiteral).WithType(&types.DecimalType{Precision: 38, Scale: 5, Nullability: types.NullabilityRequired})
 	decPoint5, _ := decPoint5Value.(expr.WithTypeLiteral).WithType(&types.DecimalType{Precision: 38, Scale: 1, Nullability: types.NullabilityRequired})
-	f6464 := literal.NewFloat64(64)
-	f641 := literal.NewFloat64(1)
+	f6464 := literal.NewFloat64(64, false)
+	f641 := literal.NewFloat64(1, false)
 	assert.Equal(t, dec8, testFile.TestCases[0].Args[0].Value)
 	assert.Equal(t, dec2, testFile.TestCases[0].Args[1].Value)
 	assert.Equal(t, f6464, testFile.TestCases[0].Result.Value)
@@ -139,8 +142,8 @@ add(0.5::dec<1, 1>, 0.25::dec<2, 2>) = 0.75::dec<5, 2>
 	assert.Equal(t, decPoint5, testFile.TestCases[2].Args[1].Value)
 	assert.Equal(t, "fp64(NaN)", testFile.TestCases[2].Result.Value.String())
 
-	decPoint25Value, _ := literal.NewDecimalFromString("0.25")
-	decPoint75Value, _ := literal.NewDecimalFromString("0.75")
+	decPoint25Value, _ := literal.NewDecimalFromString("0.25", false)
+	decPoint75Value, _ := literal.NewDecimalFromString("0.75", false)
 	decPoint25, _ := decPoint25Value.(expr.WithTypeLiteral).WithType(&types.DecimalType{Precision: 2, Scale: 2, Nullability: types.NullabilityRequired})
 	decPoint75, _ := decPoint75Value.(expr.WithTypeLiteral).WithType(&types.DecimalType{Precision: 5, Scale: 2, Nullability: types.NullabilityRequired})
 	decPoint5, _ = decPoint5Value.(expr.WithTypeLiteral).WithType(&types.DecimalType{Precision: 1, Scale: 1, Nullability: types.NullabilityRequired})
@@ -155,7 +158,7 @@ func TestParseTestWithVariousTypes(t *testing.T) {
 		testCaseStr string
 		expTestStr  string
 	}{
-		{testCaseStr: "f1(1::i8, 2::i16, 3::i32, 4::i64) = -7.0::fp32", expTestStr: "f1(1::i8, 2::i16, 3::i32, 4::i64) = -7::fp32"},
+		{testCaseStr: "f1(1::i8, 2::i16, 3::i32, 4::i64?) = -7.0::fp32?", expTestStr: "f1(1::i8, 2::i16, 3::i32, 4::i64?) = -7::fp32?"},
 		{testCaseStr: "f2(1.0::fp32, 2.0::fp64) = -7.0::fp32", expTestStr: "f2(1::fp32, 2::fp64) = -7::fp32"},
 		{testCaseStr: "f3('a'::str, 'b'::string) = 'c'::str", expTestStr: "f3('a'::string, 'b'::string) = 'c'::string"},
 		{testCaseStr: "f4(false::bool, true::boolean) = false::bool", expTestStr: "f4(false::boolean, true::boolean) = false::boolean"},
@@ -164,7 +167,7 @@ func TestParseTestWithVariousTypes(t *testing.T) {
 		{testCaseStr: "f7(1.1::dec<38,1>, 2.2::decimal<38,1>) = 3.3::decimal<38,1>", expTestStr: "f7(1.1::decimal<38,1>, 2.2::decimal<38,1>) = 3.3::decimal<38,1>"},
 		{testCaseStr: "f8('1991-01-01'::date) = '2001-01-01'::date"},
 		{testCaseStr: "f8('13:01:01.2345678'::time) = 123456::i64", expTestStr: "f8('13:01:01.234567'::time) = 123456::i64"},
-		{testCaseStr: "f8('13:01:01.234'::time) = 123::i32", expTestStr: "f8('13:01:01.234000'::time) = 123::i32"},
+		{testCaseStr: "f8('13:01:01.234'::time?) = 123::i32?", expTestStr: "f8('13:01:01.234000'::time?) = 123::i32?"},
 		{testCaseStr: "f8('1991-01-01T01:02:03.456'::ts, '1991-01-01T00:00:00'::timestamp) = '1991-01-01T22:33:44'::ts", expTestStr: "f8('1991-01-01T01:02:03.456'::timestamp, '1991-01-01T00:00:00'::timestamp) = '1991-01-01T22:33:44'::timestamp"},
 		{testCaseStr: "f8('1991-01-01T01:02:03.456+05:30'::tstz, '1991-01-01T00:00:00+15:30'::timestamp_tz) = 23::i32", expTestStr: "f8('1990-12-31T19:32:03.456'::timestamp_tz, '1990-12-31T08:30:00'::timestamp_tz) = 23::i32"},
 		{testCaseStr: "f9('1991-01-01'::date, 5::i64) = '1991-01-01T00:00:00+15:30'::timestamp_tz", expTestStr: "f9('1991-01-01'::date, 5::i64) = '1990-12-31T08:30:00'::timestamp_tz"},
@@ -182,6 +185,7 @@ func TestParseTestWithVariousTypes(t *testing.T) {
 		{testCaseStr: "concat('abcd'::varchar<9>, null::string) [null_handling:ACCEPT_NULLS] = null::string", expTestStr: "concat('abcd'::varchar<9>, null::string?) [null_handling:ACCEPT_NULLS] = null::string?"},
 		{testCaseStr: "concat('abcd'::varchar<9>, null::varchar?<9>) [null_handling:ACCEPT_NULLS] = null::varchar?<9>"},
 		{testCaseStr: "concat('abcd'::vchar<9>, 'ef'::varchar<9>) = 'abcdef'::vchar<9>", expTestStr: "concat('abcd'::varchar<9>, 'ef'::varchar<9>) = 'abcdef'::varchar<9>"},
+		{testCaseStr: "concat('abcd'::fchar<9>, 'ef'::fixedchar<9>) = 'abcdef'::fchar<9>", expTestStr: "concat('abcd'::fixedchar<9>, 'ef'::fixedchar<9>) = 'abcdef'::fixedchar<9>"},
 		{testCaseStr: "concat('abcd'::vchar<9>, Null::varchar<9>) = Null::vchar<9>", expTestStr: "concat('abcd'::varchar<9>, null::varchar?<9>) = null::varchar?<9>"},
 		{testCaseStr: "concat('abcd'::vchar<9>, Null::fixedchar<9>) = Null::fchar<9>", expTestStr: "concat('abcd'::varchar<9>, null::fixedchar?<9>) = null::fixedchar?<9>"},
 		{testCaseStr: "concat('abcd'::fbin<9>, Null::fixedbinary<9>) = Null::fbin<9>", expTestStr: "concat('0x61626364'::fixedbinary<9>, null::fixedbinary?<9>) = null::fixedbinary?<9>"},
@@ -214,7 +218,7 @@ func TestParseTestWithVariousTypes(t *testing.T) {
 
 func checkNullability(t *testing.T, lit expr.Literal, argType types.Type) {
 	if _, ok := lit.(*expr.NullLiteral); !ok {
-		assert.Equal(t, types.NullabilityRequired, argType.GetNullability())
+		assert.Equal(t, lit.GetType().GetNullability(), argType.GetNullability())
 	} else {
 		assert.Equal(t, types.NullabilityNullable, argType.GetNullability())
 	}
@@ -239,30 +243,30 @@ starts_with('abcd'::str, 'AB'::str) [case_sensitivity:CASE_INSENSITIVE] = true::
 	assert.Equal(t, "octet_length", testFile.TestCases[2].FuncName)
 	assert.Equal(t, "octet_length", testFile.TestCases[3].FuncName)
 
-	strAbc := literal.NewString("abc")
-	strDef := literal.NewString("def")
-	strRes := literal.NewString("abcdef")
+	strAbc := literal.NewString("abc", false)
+	strDef := literal.NewString("def", false)
+	strRes := literal.NewString("abcdef", false)
 	assert.Equal(t, strAbc, testFile.TestCases[0].Args[0].Value)
 	assert.Equal(t, strDef, testFile.TestCases[0].Args[1].Value)
 	assert.Equal(t, strRes, testFile.TestCases[0].Result.Value)
 
-	strArg1 := literal.NewString("HHHelloooo")
-	strArg2 := literal.NewString("Hel+")
+	strArg1 := literal.NewString("HHHelloooo", false)
+	strArg2 := literal.NewString("Hel+", false)
 	//listStr := &types.ListType{Type: &types.StringType{}}
 	assert.Equal(t, strArg1, testFile.TestCases[1].Args[0].Value)
 	assert.Equal(t, strArg2, testFile.TestCases[1].Args[1].Value)
-	strRes1 := literal.NewString("HH")
-	strRes2 := literal.NewString("oooo")
-	result, _ := literal.NewList([]expr.Literal{strRes1, strRes2})
+	strRes1 := literal.NewString("HH", false)
+	strRes2 := literal.NewString("oooo", false)
+	result, _ := literal.NewList([]expr.Literal{strRes1, strRes2}, false)
 	assert.Equal(t, result, testFile.TestCases[1].Result.Value)
 
-	str1 := literal.NewString("à")
-	i642 := literal.NewInt64(2)
+	str1 := literal.NewString("à", false)
+	i642 := literal.NewInt64(2, false)
 	assert.Equal(t, str1, testFile.TestCases[2].Args[0].Value)
 	assert.Equal(t, i642, testFile.TestCases[2].Result.Value)
 
-	str2 := literal.NewString("😄")
-	i644 := literal.NewInt64(4)
+	str2 := literal.NewString("😄", false)
+	i644 := literal.NewInt64(4, false)
 	assert.Equal(t, str2, testFile.TestCases[3].Args[0].Value)
 	assert.Equal(t, i644, testFile.TestCases[3].Result.Value)
 
@@ -279,15 +283,15 @@ some_func('abc'::str, 'def'::str) = [1, 2, 3, 4, 5, 6]::List<i8>`
 	assert.Len(t, testFile.TestCases, 1)
 
 	assert.Equal(t, "some_func", testFile.TestCases[0].FuncName)
-	strAbc := literal.NewString("abc")
-	strDef := literal.NewString("def")
+	strAbc := literal.NewString("abc", false)
+	strDef := literal.NewString("def", false)
 	assert.Equal(t, strAbc, testFile.TestCases[0].Args[0].Value)
 	assert.Equal(t, strDef, testFile.TestCases[0].Args[1].Value)
 	i8List := &types.ListType{Type: &types.Int8Type{Nullability: types.NullabilityRequired}, Nullability: types.NullabilityRequired}
 	list, _ := literal.NewList([]expr.Literal{
-		literal.NewInt8(1), literal.NewInt8(2), literal.NewInt8(3),
-		literal.NewInt8(4), literal.NewInt8(5), literal.NewInt8(6),
-	})
+		literal.NewInt8(1, false), literal.NewInt8(2, false), literal.NewInt8(3, false),
+		literal.NewInt8(4, false), literal.NewInt8(5, false), literal.NewInt8(6, false),
+	}, false)
 	assert.Equal(t, list, testFile.TestCases[0].Result.Value)
 	assert.Equal(t, i8List, testFile.TestCases[0].Result.Type)
 }
@@ -323,6 +327,7 @@ func TestParseAggregateFunc(t *testing.T) {
 	header := makeAggregateTestHeader("v1.0", "/extensions/functions_arithmetic.yaml")
 	tests := `# basic
 avg((1,2,3)::fp32) = 2::fp64
+avg((1,2,3, NULL)::fp32?) = 2::fp64?
 sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ERROR>`
 
 	reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(extensions.GetDefaultCollectionWithNoError())
@@ -330,7 +335,7 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 	testFile, err := ParseTestCasesFromString(header + tests)
 	require.NoError(t, err)
 	require.NotNil(t, testFile)
-	assert.Len(t, testFile.TestCases, 2)
+	assert.Len(t, testFile.TestCases, 3)
 	assert.Equal(t, "avg", testFile.TestCases[0].FuncName)
 	tc := testFile.TestCases[0]
 	assert.Equal(t, testFile.TestCases[0].GroupDesc, "basic")
@@ -345,14 +350,15 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 
 	testStrings := []string{
 		"avg((1, 2, 3)::fp32) = 2::fp64",
+		"avg((1, 2, 3, NULL)::fp32?) = 2::fp64?",
 		"sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ERROR>",
 	}
-	assert.Equal(t, newFloat32List(1, 2, 3), testFile.TestCases[0].AggregateArgs[0].Argument.Value)
-	assert.Equal(t, listType, testFile.TestCases[0].AggregateArgs[0].Argument.Value.GetType())
-	assert.Equal(t, "fp64", testFile.TestCases[0].Result.Type.String())
-	assert.Equal(t, literal.NewFloat64(2), testFile.TestCases[0].Result.Value)
-	assert.Equal(t, AggregateFuncType, testFile.TestCases[0].FuncType)
-	_, err = testFile.TestCases[0].GetScalarFunctionInvocation(nil, nil)
+	assert.Equal(t, newFloat32List(1, 2, 3), tc.AggregateArgs[0].Argument.Value)
+	assert.Equal(t, listType, tc.AggregateArgs[0].Argument.Value.GetType())
+	assert.Equal(t, "fp64", tc.Result.Type.String())
+	assert.Equal(t, literal.NewFloat64(2, false), tc.Result.Value)
+	assert.Equal(t, AggregateFuncType, tc.FuncType)
+	_, err = tc.GetScalarFunctionInvocation(nil, nil)
 	require.Error(t, err)
 	assert.Equal(t, extensions.ID{URI: arithUri, Name: "avg:fp32"}, tc.ID())
 	assert.Equal(t, "avg:fp32", tc.CompoundFunctionName())
@@ -368,18 +374,33 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 	assert.Equal(t, testStrings[0], tc.String())
 
 	tc = testFile.TestCases[1]
-	assert.Equal(t, "sum", testFile.TestCases[1].FuncName)
+	aggregateFunc, err1 = tc.GetAggregateFunctionInvocation(&reg, funcRegistry)
+	require.NoError(t, err1)
+	aggArg, ok = aggregateFunc.Arg(0).(*expr.FieldReference)
+	require.True(t, ok)
+	assert.Equal(t, tc.FuncName, aggregateFunc.Name())
+	require.Equal(t, 1, aggregateFunc.NArgs())
+	assert.Equal(t, &types.Float32Type{Nullability: types.NullabilityNullable}, aggArg.GetType())
+	assert.Equal(t, []types.Type{&types.Float32Type{Nullability: types.NullabilityNullable}}, tc.GetArgTypes())
+	assert.Equal(t, tc.Result.Type, &types.Float64Type{Nullability: types.NullabilityNullable})
+	argValues := newFloat32Values(true, 1, 2, 3)
+	argValues = append(argValues, &expr.NullLiteral{Type: &types.Float32Type{Nullability: types.NullabilityNullable}})
+	argList, _ := literal.NewList(argValues, false)
+	assert.Equal(t, argList, tc.AggregateArgs[0].Argument.Value)
+
+	tc = testFile.TestCases[2]
+	assert.Equal(t, "sum", tc.FuncName)
 	assert.Equal(t, testFile.TestCases[1].GroupDesc, "basic")
 	assert.Equal(t, testFile.TestCases[1].BaseURI, "/extensions/functions_arithmetic.yaml")
 	assert.Len(t, testFile.TestCases[1].Args, 0)
 	assert.Len(t, testFile.TestCases[1].AggregateArgs, 1)
-	assert.Equal(t, AggregateFuncType, testFile.TestCases[1].FuncType)
-	assert.Equal(t, "i64", testFile.TestCases[1].AggregateArgs[0].ColumnType.String())
-	assert.Equal(t, newInt64List(9223372036854775806, 1, 1, 1, 1, 10000000000), testFile.TestCases[1].AggregateArgs[0].Argument.Value)
-	assert.Equal(t, "ERROR", testFile.TestCases[1].Options["overflow"])
-	assert.Equal(t, testStrings[1], tc.String())
+	assert.Equal(t, AggregateFuncType, tc.FuncType)
+	assert.Equal(t, "i64", tc.AggregateArgs[0].ColumnType.String())
+	assert.Equal(t, newInt64List(9223372036854775806, 1, 1, 1, 1, 10000000000), tc.AggregateArgs[0].Argument.Value)
+	assert.Equal(t, "ERROR", tc.Options["overflow"])
+	assert.Equal(t, testStrings[2], tc.String())
 
-	_, err = testFile.TestCases[0].GetScalarFunctionInvocation(nil, nil)
+	_, err = tc.GetScalarFunctionInvocation(nil, nil)
 	require.Error(t, err)
 	assert.Equal(t, extensions.ID{URI: arithUri, Name: "sum:i64"}, tc.ID())
 	assert.Equal(t, "sum:i64", tc.CompoundFunctionName())
@@ -395,27 +416,27 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 }
 
 func newInt64List(values ...int64) interface{} {
-	list, _ := literal.NewList(newInt64Values(values...))
+	list, _ := literal.NewList(newInt64Values(values...), false)
 	return list
 }
 
 func newInt64Values(values ...int64) []expr.Literal {
 	literals := make([]expr.Literal, len(values))
 	for i, v := range values {
-		literals[i] = literal.NewInt64(v)
+		literals[i] = literal.NewInt64(v, false)
 	}
 	return literals
 }
 
 func newFloat32List(values ...float32) expr.Literal {
-	list, _ := literal.NewList(newFloat32Values(values...))
+	list, _ := literal.NewList(newFloat32Values(false, values...), false)
 	return list
 }
 
-func newFloat32Values(values ...float32) []expr.Literal {
+func newFloat32Values(nullable bool, values ...float32) []expr.Literal {
 	literals := make([]expr.Literal, len(values))
 	for i, v := range values {
-		literals[i] = literal.NewFloat32(v)
+		literals[i] = literal.NewFloat32(v, nullable)
 	}
 	return literals
 }
@@ -424,29 +445,36 @@ func TestParseAggregateFuncCompact(t *testing.T) {
 	header := makeAggregateTestHeader("v1.0", "/extensions/functions_arithmetic.yaml")
 	tests := `# basic
 ((20, 20), (-3, -3), (1, 1), (10,10), (5,5)) corr(col0::fp32, col1::fp32) = 1::fp64
+((20, 20), (-3, -3), (1, 1), (10,10), (5,5)) corr(col0::fp32, col1::fp32?) = 1::fp64?
 `
 
 	testString := "((20, 20), (-3, -3), (1, 1), (10, 10), (5, 5)) corr(col0::fp32, col1::fp32) = 1::fp64"
 	testFile, err := ParseTestCasesFromString(header + tests)
 	require.NoError(t, err)
 	require.NotNil(t, testFile)
-	assert.Len(t, testFile.TestCases, 1)
-	assert.Equal(t, "corr", testFile.TestCases[0].FuncName)
-	assert.Equal(t, testFile.TestCases[0].GroupDesc, "basic")
-	assert.Equal(t, testFile.TestCases[0].BaseURI, "/extensions/functions_arithmetic.yaml")
-	assert.Len(t, testFile.TestCases[0].Args, 0)
-	assert.Len(t, testFile.TestCases[0].AggregateArgs, 2)
-	assert.Equal(t, newFloat32Values(20, -3, 1, 10, 5), testFile.TestCases[0].Columns[0])
-	assert.Equal(t, newFloat32Values(20, -3, 1, 10, 5), testFile.TestCases[0].Columns[1])
+	assert.Len(t, testFile.TestCases, 2)
+	tc := testFile.TestCases[0]
+	assert.Equal(t, "corr", tc.FuncName)
+	assert.Equal(t, tc.GroupDesc, "basic")
+	assert.Equal(t, tc.BaseURI, "/extensions/functions_arithmetic.yaml")
+	assert.Len(t, tc.Args, 0)
+	assert.Len(t, tc.AggregateArgs, 2)
+	assert.Equal(t, newFloat32Values(false, 20, -3, 1, 10, 5), tc.Columns[0])
+	assert.Equal(t, newFloat32Values(false, 20, -3, 1, 10, 5), tc.Columns[1])
 	f32Type := &types.Float32Type{Nullability: types.NullabilityRequired}
 	args := []*AggregateArgument{
 		createAggregateArg(t, "", "col0", f32Type),
 		createAggregateArg(t, "", "col1", f32Type),
 	}
-	assert.Equal(t, args, testFile.TestCases[0].AggregateArgs)
-	assert.Equal(t, "fp64", testFile.TestCases[0].Result.Type.String())
-	assert.Equal(t, literal.NewFloat64(1), testFile.TestCases[0].Result.Value)
-	assert.Equal(t, testString, testFile.TestCases[0].String())
+	assert.Equal(t, args, tc.AggregateArgs)
+	assert.Equal(t, "fp64", tc.Result.Type.String())
+	assert.Equal(t, literal.NewFloat64(1, false), tc.Result.Value)
+	assert.Equal(t, testString, tc.String())
+
+	tc = testFile.TestCases[1]
+	args[1] = createAggregateArg(t, "", "col1", f32Type.WithNullability(types.NullabilityNullable))
+	assert.Equal(t, args, tc.AggregateArgs)
+	assert.Equal(t, "fp64?", tc.Result.Type.String())
 }
 
 func createAggregateArg(t *testing.T, tableName, columnName string, columnType types.Type) *AggregateArgument {
@@ -477,8 +505,8 @@ corr(t1.col1, t1.col0) = 1::fp64
 	assert.Equal(t, testFile.TestCases[0].BaseURI, "/extensions/functions_arithmetic.yaml")
 	assert.Len(t, testFile.TestCases[0].Args, 0)
 	assert.Len(t, testFile.TestCases[0].AggregateArgs, 2)
-	assert.Equal(t, newFloat32Values(20, -3, 1, 10, 5), testFile.TestCases[0].Columns[0])
-	assert.Equal(t, newFloat32Values(20, -3, 1, 10, 5.5), testFile.TestCases[0].Columns[1])
+	assert.Equal(t, newFloat32Values(false, 20, -3, 1, 10, 5), testFile.TestCases[0].Columns[0])
+	assert.Equal(t, newFloat32Values(false, 20, -3, 1, 10, 5.5), testFile.TestCases[0].Columns[1])
 	assert.Equal(t, "col0", testFile.TestCases[0].AggregateArgs[0].ColumnName)
 	assert.Equal(t, "col1", testFile.TestCases[0].AggregateArgs[1].ColumnName)
 	assert.Equal(t, testStrings[0], testFile.TestCases[0].String())
@@ -489,7 +517,7 @@ corr(t1.col1, t1.col0) = 1::fp64
 	assert.Len(t, testFile.TestCases[1].Args, 0)
 	assert.Len(t, testFile.TestCases[1].AggregateArgs, 2)
 	assert.Equal(t, newInt64Values(20, -3, 1, 10, 5), testFile.TestCases[1].Columns[0])
-	assert.Equal(t, newFloat32Values(20, -3, 1, 10, 5.5), testFile.TestCases[1].Columns[1])
+	assert.Equal(t, newFloat32Values(false, 20, -3, 1, 10, 5.5), testFile.TestCases[1].Columns[1])
 	assert.Equal(t, "col1", testFile.TestCases[1].AggregateArgs[0].ColumnName)
 	assert.Equal(t, "col0", testFile.TestCases[1].AggregateArgs[1].ColumnName)
 	assert.Equal(t, testStrings[1], testFile.TestCases[1].String())
@@ -625,16 +653,22 @@ func TestParseAggregateTestWithVariousTypes(t *testing.T) {
 		{testCaseStr: "f1((1, 2, 3, 4)::i64) = 10::fp64"},
 		{testCaseStr: "f1((1, 2, 3, 4)::i16) = 10.0::fp32", expTestStr: "f1((1, 2, 3, 4)::i16) = 10::fp32"},
 		{testCaseStr: "f1((1, 2, 3, 4)::i32) = 10::i64"},
+		{testCaseStr: "f1((1, 2, 3, 4)::i32?) = 10::i64?"},
 		{testCaseStr: "f3(('a', 'b')::string) = 'c'::str", expTestStr: "f3(('a', 'b')::string) = 'c'::string"},
+		{testCaseStr: "f3(('a', 'b')::string?) = 'c'::str?", expTestStr: "f3(('a', 'b')::string?) = 'c'::string?"},
 		{testCaseStr: "f4((false, true)::boolean) = false::bool", expTestStr: "f4((false, true)::boolean) = false::boolean"},
+		{testCaseStr: "f4((false, true)::boolean?) = false::bool?", expTestStr: "f4((false, true)::boolean?) = false::boolean?"},
 		{testCaseStr: "f5((1.1, 2.2)::fp32) = 3.3::fp32"},
 		{testCaseStr: "f5((1.1, 2.2)::fp64) = 3.3::fp64"},
+		{testCaseStr: "f5((1.1, 2.2)::fp64?) = 3.3::fp64?"},
 		{testCaseStr: "f5((1, 2)::decimal) = 3::dec", expTestStr: "f5((1, 2)::decimal<38,0>) = 3::decimal<38,0>"},
 		{testCaseStr: "f5((1.1, 2.2)::dec<38,1>) = 3.3::dec<38,1>", expTestStr: "f5((1.1, 2.2)::decimal<38,1>) = 3.3::decimal<38,1>"},
 		{testCaseStr: "f6((1.1, 2.2)::dec<38,10>) = 3.3::dec<38,10>", expTestStr: "f6((1.1, 2.2)::decimal<38,10>) = 3.3000000000::decimal<38,10>"},
 		{testCaseStr: "f7((1.0, 2)::decimal<38,0>) = 3::decimal<38,0>"},
+		{testCaseStr: "f7((1.0, 2)::decimal?<38,0>) = 3::decimal?<38,0>"},
 		{testCaseStr: "f6((1.1, 2.2, null)::dec?<38,10>) = 3.3::dec<38,10>", expTestStr: "f6((1.1, 2.2, null)::decimal?<38,10>) = 3.3000000000::decimal<38,10>"},
 		{testCaseStr: "f8(('1991-01-01', '1991-02-02')::date) = '2001-01-01'::date"},
+		{testCaseStr: "f8(('1991-01-01', '1991-02-02')::date?) = '2001-01-01'::date?"},
 		{testCaseStr: "f8(('13:01:01.2345678', '14:01:01.333')::time) = 123456::i64", expTestStr: "f8(('13:01:01.234567', '14:01:01.333000')::time) = 123456::i64"},
 		{testCaseStr: "f8(('1991-01-01T01:02:03.456', '1991-01-01T00:00:00')::timestamp) = '1991-01-01T22:33:44'::ts", expTestStr: "f8(('1991-01-01T01:02:03.456', '1991-01-01T00:00:00')::timestamp) = '1991-01-01T22:33:44'::timestamp"},
 		{testCaseStr: "f8(('1991-01-01T01:02:03.456+05:30', '1991-01-01T00:00:00+15:30')::tstz) = 23::i32", expTestStr: "f8(('1990-12-31T19:32:03.456', '1990-12-31T08:30:00')::timestamp_tz) = 23::i32"},

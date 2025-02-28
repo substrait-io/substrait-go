@@ -28,7 +28,7 @@ func TestNewBool(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewBool(tt.value)
+			got := NewBool(tt.value, false)
 			assert.Equalf(t, tt.want, got, "NewBool(%v)", tt.value)
 		})
 	}
@@ -46,7 +46,7 @@ func TestNewDate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewDate(tt.days)
+			got, err := NewDate(tt.days, false)
 			if !tt.wantErr(t, err, fmt.Sprintf("NewDate(%v)", tt.days)) {
 				return
 			}
@@ -70,7 +70,7 @@ func TestNewDecimalFromString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.value, func(t *testing.T) {
-			got, err := NewDecimalFromString(tt.value)
+			got, err := NewDecimalFromString(tt.value, false)
 			if tt.wantErr {
 				require.Error(t, err, fmt.Sprintf("NewDecimalFromString(%v) expected error", tt.value))
 				return
@@ -148,7 +148,7 @@ func TestNewDecimalFromTwosComplement(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewDecimalFromTwosComplement(tt.args.twosComplement, tt.args.precision, tt.args.scale)
+			got, err := NewDecimalFromTwosComplement(tt.args.twosComplement, tt.args.precision, tt.args.scale, false)
 			if !tt.wantErr(t, err, fmt.Sprintf("NewDecimalFromTwosComplement(%v, %v, %v)", tt.args.twosComplement, tt.args.precision, tt.args.scale)) {
 				return
 			}
@@ -170,7 +170,7 @@ func TestNewFixedBinary(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewFixedBinary(tt.value)
+			got, err := NewFixedBinary(tt.value, false)
 			if !tt.wantErr(t, err, fmt.Sprintf("NewFixedBinary(%v)", tt.value)) {
 				return
 			}
@@ -192,7 +192,7 @@ func TestNewFixedChar(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewFixedChar(tt.value)
+			got, err := NewFixedChar(tt.value, false)
 			if !tt.wantErr(t, err, fmt.Sprintf("NewFixedChar(%v)", tt.value)) {
 				return
 			}
@@ -218,7 +218,7 @@ func TestNewFloat32(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewFloat32(tt.value)
+			got := NewFloat32(tt.value, false)
 			if !math.IsNaN(float64(tt.value)) {
 				assert.Equalf(t, tt.want, got, "NewFloat32(%v)", tt.value)
 			} else {
@@ -246,7 +246,7 @@ func TestNewFloat64(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewFloat64(tt.value)
+			got := NewFloat64(tt.value, false)
 			if !math.IsNaN(tt.value) {
 				assert.Equalf(t, tt.want, got, "NewFloat64(%v)", tt.value)
 			} else {
@@ -272,7 +272,7 @@ func TestNewInt16(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewInt16(tt.value)
+			got := NewInt16(tt.value, false)
 			assert.Equalf(t, tt.want, got, "NewInt16(%v)", tt.value)
 		})
 	}
@@ -293,7 +293,7 @@ func TestNewInt32(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewInt32(tt.value)
+			got := NewInt32(tt.value, false)
 			assert.Equalf(t, tt.want, got, "NewInt32(%v)", tt.value)
 		})
 	}
@@ -314,7 +314,7 @@ func TestNewInt64(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewInt64(tt.value)
+			got := NewInt64(tt.value, false)
 			assert.Equalf(t, tt.want, got, "NewInt64(%v)", tt.value)
 		})
 	}
@@ -334,7 +334,7 @@ func TestNewInt8(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewInt8(tt.value)
+			got := NewInt8(tt.value, false)
 			assert.Equalf(t, tt.want, got, "NewInt8(%v)", tt.value)
 		})
 	}
@@ -357,7 +357,7 @@ func TestNewIntervalDaysToSecond(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewIntervalDaysToSecond(tt.days, tt.seconds, tt.micros)
+			got, err := NewIntervalDaysToSecond(tt.days, tt.seconds, tt.micros, false)
 			if !tt.wantErr(t, err, fmt.Sprintf("NewIntervalDaysToSecond(%v, %v, %v)", tt.days, tt.seconds, tt.micros)) {
 				return
 			}
@@ -443,7 +443,7 @@ func TestNewIntervalDaysToSecondFromString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewIntervalDaysToSecondFromString(tt.name)
+			got, err := NewIntervalDaysToSecondFromString(tt.name, false)
 			if !tt.wantErr(t, err, fmt.Sprintf("NewIntervalDaysToSecondFromString(%v)", tt.name)) {
 				return
 			}
@@ -467,7 +467,7 @@ func TestNewIntervalYearsToMonth(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewIntervalYearsToMonth(tt.years, tt.months)
+			got, err := NewIntervalYearsToMonth(tt.years, tt.months, false)
 			if !tt.wantErr(t, err, fmt.Sprintf("NewIntervalYearsToMonth(%v, %v)", tt.years, tt.months)) {
 				return
 			}
@@ -507,7 +507,7 @@ func TestNewIntervalYearsToMonthFromString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewIntervalYearsToMonthFromString(tt.name)
+			got, err := NewIntervalYearsToMonthFromString(tt.name, false)
 			if !tt.wantErr(t, err, fmt.Sprintf("NewIntervalYearsToMonth(%v)", tt.name)) {
 				return
 			}
@@ -529,7 +529,7 @@ func TestNewString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewString(tt.value)
+			got := NewString(tt.value, false)
 			assert.Equalf(t, tt.want, got, "NewString(%v)", tt.value)
 		})
 	}
@@ -554,7 +554,7 @@ func TestNewTime(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewTime(tt.hours, tt.minutes, tt.seconds, tt.micros)
+			got, err := NewTime(tt.hours, tt.minutes, tt.seconds, tt.micros, false)
 			assert.NoError(t, err)
 			want := expr.NewPrimitiveLiteral(types.Time(getMicroSeconds(tt.hours, tt.minutes, tt.seconds, tt.micros)), false)
 			assert.Equal(t, want, got)
@@ -574,7 +574,7 @@ func TestNewTime(t *testing.T) {
 	}
 	for _, tt := range negTests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewTime(tt.hours, tt.minutes, tt.seconds, tt.micros)
+			_, err := NewTime(tt.hours, tt.minutes, tt.seconds, tt.micros, false)
 			assert.Error(t, err)
 		})
 	}
@@ -599,7 +599,7 @@ func TestNewTimeFromMicros(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewTimeFromMicros(tt.micros)
+			got, err := NewTimeFromMicros(tt.micros, false)
 			if !tt.wantErr(t, err, fmt.Sprintf("NewTimeFromMicros(%v)", tt.micros)) {
 				return
 			}
@@ -621,7 +621,7 @@ func TestNewTimestamp(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewTimestamp(tt.tm)
+			got, err := NewTimestamp(tt.tm, false)
 			if !tt.wantErr(t, err, fmt.Sprintf("NewTimestamp(%v)", tt.tm)) {
 				return
 			}
@@ -643,7 +643,7 @@ func TestNewTimestampFromMicros(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewTimestampFromMicros(tt.micros)
+			got, err := NewTimestampFromMicros(tt.micros, false)
 			if !tt.wantErr(t, err, fmt.Sprintf("NewTimestampFromMicros(%v)", tt.micros)) {
 				return
 			}
@@ -665,7 +665,7 @@ func TestNewTimestampTZ(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewTimestampTZ(tt.tm)
+			got, err := NewTimestampTZ(tt.tm, false)
 			if !tt.wantErr(t, err, fmt.Sprintf("NewTimestampTZ(%v)", tt.tm)) {
 				return
 			}
@@ -687,7 +687,7 @@ func TestNewTimestampTZFromMicros(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewTimestampTZFromMicros(tt.micros)
+			got, err := NewTimestampTZFromMicros(tt.micros, false)
 			if !tt.wantErr(t, err, fmt.Sprintf("NewTimestampTZFromMicros(%v)", tt.micros)) {
 				return
 			}
@@ -708,7 +708,7 @@ func TestNewUUID(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewUUID(tt.guid)
+			got, err := NewUUID(tt.guid, false)
 			if !tt.wantErr(t, err, fmt.Sprintf("NewUUID(%v)", tt.guid)) {
 				return
 			}
@@ -729,7 +729,7 @@ func TestNewUUIDFromBytes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewUUIDFromBytes(tt.value)
+			got, err := NewUUIDFromBytes(tt.value, false)
 			if !tt.wantErr(t, err, fmt.Sprintf("NewUUIDFromBytes(%v)", tt.value)) {
 				return
 			}
@@ -753,7 +753,7 @@ func TestNewVarChar(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewVarChar(tt.value)
+			got, err := NewVarChar(tt.value, false)
 			if !tt.wantErr(t, err, fmt.Sprintf("NewVarChar(%v)", tt.value)) {
 				return
 			}
@@ -799,7 +799,7 @@ func TestNewPrecisionTimestampFromTime(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewPrecisionTimestampFromTime(tt.precision, tt.tm)
+			got, err := NewPrecisionTimestampFromTime(tt.precision, tt.tm, false)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 			assert.True(t, tt.want.Equals(got))
@@ -829,7 +829,7 @@ func TestNewPrecisionTimestampTz(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewPrecisionTimestampTzFromTime(tt.precision, tt.tm)
+			got, err := NewPrecisionTimestampTzFromTime(tt.precision, tt.tm, false)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 			assert.True(t, tt.want.Equals(got))
@@ -849,7 +849,7 @@ func TestNewTimestampFromString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewTimestampFromString(tt.name)
+			got, err := NewTimestampFromString(tt.name, false)
 			if !tt.wantErr(t, err, fmt.Sprintf("NewTimestampFromString(%v)", tt.name)) {
 				return
 			}
@@ -872,7 +872,7 @@ func TestNewTimestampTZFromString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewTimestampTZFromString(tt.name)
+			got, err := NewTimestampTZFromString(tt.name, false)
 			if !tt.wantErr(t, err, fmt.Sprintf("NewTimestampFromString(%v)", tt.name)) {
 				return
 			}
@@ -882,10 +882,10 @@ func TestNewTimestampTZFromString(t *testing.T) {
 }
 
 func TestNewList(t *testing.T) {
-	i8Lit1 := NewInt8(1)
-	i8Lit2 := NewInt8(2)
-	i32Lit1 := NewInt32(1)
-	i32Lit2 := NewInt32(2)
+	i8Lit1 := NewInt8(1, false)
+	i8Lit2 := NewInt8(2, false)
+	i32Lit1 := NewInt32(1, false)
+	i32Lit2 := NewInt32(2, false)
 	listLiteral, _ := expr.NewLiteral[expr.ListLiteralValue]([]expr.Literal{i8Lit1, i8Lit2}, false)
 	int8Type := &types.Int8Type{Nullability: types.NullabilityRequired}
 	int32Type := &types.Int32Type{Nullability: types.NullabilityRequired}
@@ -908,7 +908,7 @@ func TestNewList(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewList(tt.elements)
+			got, err := NewList(tt.elements, false)
 			if !tt.wantErr(t, err, fmt.Sprintf("NewList(%v)", tt.elements)) {
 				return
 			}
@@ -936,7 +936,7 @@ func TestNewDateFromString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewDateFromString(tt.value)
+			got, err := NewDateFromString(tt.value, false)
 			if !tt.wantErr(t, err, fmt.Sprintf("NewDateFromString(%v)", tt.value)) {
 				return
 			}
@@ -961,7 +961,7 @@ func TestNewTimeFromString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewTimeFromString(tt.value)
+			got, err := NewTimeFromString(tt.value, false)
 			if !tt.wantErr(t, err, fmt.Sprintf("NewTimeFromString(%v)", tt.value)) {
 				return
 			}

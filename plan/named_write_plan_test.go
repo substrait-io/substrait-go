@@ -16,7 +16,7 @@ func getFilterForTest1(t *testing.T, b plan.Builder) plan.Rel {
 
 	// column 0 from the output of namedTableReadRel is name
 	// Build the filter with condition `name LIKE 'Alice'`
-	l := literal.NewString("Alice")
+	l := literal.NewString("Alice", false)
 	nameLikeAlice := makeConditionExprForLike(t, b, namedTableReadRel, 0, l)
 	return makeFilterRel(t, b, namedTableReadRel, nameLikeAlice)
 }

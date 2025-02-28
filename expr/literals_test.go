@@ -28,7 +28,7 @@ func TestNewDecimalWithType(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			lit, err := literal.NewDecimalFromString(tt.name)
+			lit, err := literal.NewDecimalFromString(tt.name, false)
 			require.NoError(t, err)
 			got, err := lit.(*expr.ProtoLiteral).WithType(tt.decType)
 			if tt.expectedToFail {
@@ -79,7 +79,7 @@ func TestNewFixedLenWithType(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			input, _ := literal.NewVarChar(tt.name)
+			input, _ := literal.NewVarChar(tt.name, false)
 			got, err := input.(*expr.ProtoLiteral).WithType(tt.inputType.(*types.VarCharType))
 			if tt.wantErr {
 				require.Error(t, err)
@@ -104,7 +104,7 @@ func TestNewPrecisionTimestampWithType(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			lit, err := literal.NewPrecisionTimestampFromString(tt.inputPrecision, tt.name)
+			lit, err := literal.NewPrecisionTimestampFromString(tt.inputPrecision, tt.name, false)
 			require.NoError(t, err)
 			got, err := lit.(*expr.ProtoLiteral).WithType(tt.inputType)
 			if tt.wantErr {
@@ -131,7 +131,7 @@ func TestNewPrecisionTimestampTzWithType(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			lit, err := literal.NewPrecisionTimestampTzFromString(tt.inputPrecision, tt.name)
+			lit, err := literal.NewPrecisionTimestampTzFromString(tt.inputPrecision, tt.name, false)
 			require.NoError(t, err)
 			inputType := &types.PrecisionTimestampTzType{PrecisionTimestampType: tt.inputType}
 			got, err := lit.(*expr.ProtoLiteral).WithType(inputType)
@@ -161,7 +161,7 @@ func TestNewIntervalDayWithType(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			lit, err := literal.NewIntervalDaysToSecondFromString(tt.name)
+			lit, err := literal.NewIntervalDaysToSecondFromString(tt.name, false)
 			require.NoError(t, err)
 			got, err := lit.(*expr.ProtoLiteral).WithType(tt.inputType)
 			if tt.wantErr {
@@ -179,11 +179,11 @@ func TestNewIntervalDayWithType(t *testing.T) {
 }
 
 func TestProtoLiteral_WithType(t1 *testing.T) {
-	dec123, _ := literal.NewDecimalFromString("123.45")
-	iday, _ := literal.NewIntervalDaysToSecondFromString("PT23H59M59.999S")
-	pts, _ := literal.NewPrecisionTimestampFromString(3, "1991-01-01T01:02:03.456")
-	ptstz, _ := literal.NewPrecisionTimestampTzFromString(3, "1991-01-01T01:02:03.456")
-	vchar, _ := literal.NewVarChar("sun")
+	dec123, _ := literal.NewDecimalFromString("123.45", false)
+	iday, _ := literal.NewIntervalDaysToSecondFromString("PT23H59M59.999S", false)
+	pts, _ := literal.NewPrecisionTimestampFromString(3, "1991-01-01T01:02:03.456", false)
+	ptstz, _ := literal.NewPrecisionTimestampTzFromString(3, "1991-01-01T01:02:03.456", false)
+	vchar, _ := literal.NewVarChar("sun", false)
 	tests := []struct {
 		name         string
 		protoLiteral *expr.ProtoLiteral
@@ -213,8 +213,10 @@ func TestByteSliceLiteral_WithType(t1 *testing.T) {
 	uuid := expr.NewByteSliceLiteral[types.UUID]([]byte{0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf, 0x10}, false)
 
 	list := expr.NewNestedLiteral(expr.ListLiteralValue{
-		literal.NewString("sun"), literal.NewString("moon"), literal.NewString("mars"),
+		literal.NewString("sun", false), literal.NewString("moon", false), literal.NewString("mars", false),
 	}, false)
+
+	fchar := expr.NewFixedCharLiteral("moon", false)
 	type testCase struct {
 		name    string
 		t       expr.WithTypeLiteral
@@ -224,6 +226,7 @@ func TestByteSliceLiteral_WithType(t1 *testing.T) {
 	}
 	tests := []testCase{
 		{"FixedBinary", fbin, &types.FixedBinaryType{Length: 3, Nullability: types.NullabilityNullable}, nil, assert.NoError},
+		{"FixedChar", fchar, &types.FixedCharType{Length: 3, Nullability: types.NullabilityNullable}, nil, assert.NoError},
 		{"UUID", uuid, &types.UUIDType{Nullability: types.NullabilityNullable}, nil, assert.NoError},
 		{"List", list.(expr.WithTypeLiteral), &types.ListType{Type: &types.StringType{Nullability: types.NullabilityNullable}, Nullability: types.NullabilityNullable}, nil, assert.NoError},
 	}

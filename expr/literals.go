@@ -239,6 +239,19 @@ func (t *PrimitiveLiteral[T]) ToProtoFuncArg() *proto.FunctionArgument {
 func (t *PrimitiveLiteral[T]) Visit(VisitFunc) Expression { return t }
 func (*PrimitiveLiteral[T]) IsScalar() bool               { return true }
 
+func (t *PrimitiveLiteral[T]) WithType(newType types.Type) (Literal, error) {
+	switch newType.(type) {
+	case *types.FixedLenType[types.FixedChar]:
+		if val, ok := any(t.Value).(types.FixedChar); ok {
+			return &PrimitiveLiteral[types.FixedChar]{
+				Value: val,
+				Type:  newType,
+			}, nil
+		}
+	}
+	return nil, fmt.Errorf("invalid type %T for primitive literal", newType)
+}
+
 // NestedLiteral is either a Struct or List literal, both of which are
 // represented as a slice of other literals.
 type NestedLiteral[T nestedLiteral] struct {
@@ -680,7 +693,7 @@ func newVarCharWithType(literal *ProtoLiteral, vcharType *types.VarCharType) (Li
 		return nil, fmt.Errorf("literal type is not varchar")
 	}
 	if len(literal.Value.(string)) > int(vcharType.GetLength()) {
-		return nil, fmt.Errorf("varchar litearl value length is greater than type length")
+		return nil, fmt.Errorf("varchar literal value length is greater than type length")
 	}
 	return &ProtoLiteral{Value: literal.Value, Type: vcharType}, nil
 }
