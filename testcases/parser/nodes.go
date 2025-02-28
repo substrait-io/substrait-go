@@ -396,20 +396,7 @@ func (tc *TestCase) GetColumnData() [][]expr.Literal {
 		return tc.Columns
 	}
 
-	if len(tc.AggregateArgs) == 0 {
-		return nil
-	}
-
-	firstArg, ok := tc.AggregateArgs[0].Argument.Value.(*expr.NestedLiteral[expr.ListLiteralValue])
-	if !ok {
-		return nil
-	}
-	numRows := len(firstArg.Value)
-
 	columns := make([][]expr.Literal, len(tc.AggregateArgs))
-	for i := range columns {
-		columns[i] = make([]expr.Literal, numRows)
-	}
 
 	for colIdx, arg := range tc.AggregateArgs {
 		values, ok := arg.Argument.Value.(*expr.NestedLiteral[expr.ListLiteralValue])
@@ -417,6 +404,7 @@ func (tc *TestCase) GetColumnData() [][]expr.Literal {
 			return nil
 		}
 
+		columns[colIdx] = make([]expr.Literal, len(values.Value))
 		copy(columns[colIdx], values.Value)
 	}
 

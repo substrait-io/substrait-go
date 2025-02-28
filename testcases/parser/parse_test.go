@@ -555,6 +555,28 @@ func TestParseAggregateFuncWithVariousTypes(t *testing.T) {
 	}
 }
 
+func TestParseAggregateFuncWithEmptyInputs(t *testing.T) {
+	header := makeAggregateTestHeader("v1.0", "/extensions/functions_arithmetic.yaml")
+	header += "# basic\n"
+
+	tests := []struct {
+		testCaseStr string
+	}{
+		{"avg(()::i64) = 2::fp64"},
+		{"DEFINE t1(i64) = ()\navg() = 2::fp64"},
+	}
+	for _, test := range tests {
+		t.Run(test.testCaseStr, func(t *testing.T) {
+			testFile, err := ParseTestCasesFromString(header + test.testCaseStr)
+			require.NoError(t, err)
+			require.NotNil(t, testFile)
+			assert.Len(t, testFile.TestCases, 1)
+			assert.Len(t, testFile.TestCases[0].GetColumnData(), 1)
+			assert.Len(t, testFile.TestCases[0].GetColumnData()[0], 0)
+		})
+	}
+}
+
 func TestParseAggregateFuncWithMixedArgs(t *testing.T) {
 	header := makeAggregateTestHeader("v1.0", "/extensions/functions_arithmetic.yaml")
 	tests := `# basic
