@@ -557,6 +557,10 @@ func TestParseAggregateFuncAllFormats(t *testing.T) {
 		// tests with empty input data
 		{"avg(()::i64) = 2::fp64", [][]expr.Literal{{}}},
 		{"DEFINE t1(i64) = ()\navg(t1.col0) = 2::fp64", [][]expr.Literal{{}}},
+
+		//tests with multiple columns
+		{"((20, 20), (-3, -3), (1, 1), (10,10), (5,5)) corr(col0::fp32, col1::fp32?) = 1::fp64?", [][]expr.Literal{newFloat32Values(false, 20, -3, 1, 10, 5), newFloat32Values(true, 20, -3, 1, 10, 5)}},
+		{"DEFINE t1(fp32, fp32?) = ((20, 20), (-3, -3), (1, 1), (10,10), (5,5))\ncorr(t1.col0, t1.col1) = 1::fp64?", [][]expr.Literal{newFloat32Values(false, 20, -3, 1, 10, 5), newFloat32Values(true, 20, -3, 1, 10, 5)}},
 	}
 	for _, test := range tests {
 		t.Run(test.testCaseStr, func(t *testing.T) {
@@ -565,21 +569,34 @@ func TestParseAggregateFuncAllFormats(t *testing.T) {
 			require.NotNil(t, testFile)
 			assert.Len(t, testFile.TestCases, 1)
 			tc := testFile.TestCases[0]
-			assert.Equal(t, "avg", tc.FuncName)
+			assert.Contains(t, test.testCaseStr, tc.FuncName)
 			assert.Equal(t, tc.GroupDesc, "basic")
 			assert.Equal(t, tc.BaseURI, "/extensions/functions_arithmetic.yaml")
 			assert.Len(t, tc.Args, 0)
+
+			// check that the types are correct
 			argTypes := tc.GetArgTypes()
-			assert.Len(t, argTypes, 1)
-			assert.Equal(t, &types.Int64Type{Nullability: types.NullabilityRequired}, argTypes[0])
+			assert.Len(t, argTypes, len(test.wantData))
+			if len(test.wantData[0]) > 0 {
+				for i, argType := range argTypes {
+					assert.Equal(t, argType, test.wantData[i][0].GetType())
+				}
+			} else {
+				// check that the type is correct for empty input data
+				assert.Equal(t, &types.Int64Type{Nullability: types.NullabilityRequired}, argTypes[0])
+			}
+
 			assert.Equal(t, AggregateFuncType, tc.FuncType)
 			_, err = tc.GetScalarFunctionInvocation(nil, nil)
 			require.Error(t, err)
+
 			reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
 			testGetFunctionInvocation(t, tc, &reg, nil)
 			data, err := tc.GetAggregateColumnsData()
 			require.NoError(t, err)
-			assert.Len(t, data, 1)
+
+			// check that the data is correct
+			assert.Len(t, data, len(test.wantData))
 			assert.Equal(t, test.wantData, data)
 		})
 	}
