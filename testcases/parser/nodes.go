@@ -391,6 +391,30 @@ func (tc *TestCase) GetAggregateFunctionInvocation(reg *expr.ExtensionRegistry, 
 	return nil, fmt.Errorf("%w: no matching function found  or %s", substraitgo.ErrNotFound, id)
 }
 
+func (tc *TestCase) GetAggregateColumnsData() ([][]expr.Literal, error) {
+	if tc.FuncType != AggregateFuncType {
+		return nil, fmt.Errorf("expected function type %v, but got %v", AggregateFuncType, tc.FuncType)
+	}
+
+	if len(tc.Columns) > 0 {
+		return tc.Columns, nil
+	}
+
+	columns := make([][]expr.Literal, len(tc.AggregateArgs))
+
+	for colIdx, arg := range tc.AggregateArgs {
+		values, ok := arg.Argument.Value.(*expr.NestedLiteral[expr.ListLiteralValue])
+		if !ok {
+			return nil, fmt.Errorf("column %d: expected NestedLiteral[ListLiteralValue], but got %T", colIdx, arg.Argument.Value)
+		}
+
+		columns[colIdx] = make([]expr.Literal, len(values.Value))
+		copy(columns[colIdx], values.Value)
+	}
+
+	return columns, nil
+}
+
 type TestGroup struct {
 	Description string
 	TestCases   []*TestCase
