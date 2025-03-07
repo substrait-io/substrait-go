@@ -277,9 +277,7 @@ func TypeFromProto(t *proto.Type) Type {
 			Precision:        precision,
 		}
 	case *proto.Type_IntervalCompound_:
-		var precision = PrecisionMicroSeconds
-		var err error
-		precision, err = ProtoToTimePrecision(t.IntervalCompound.Precision)
+		precision, err := ProtoToTimePrecision(t.IntervalCompound.Precision)
 		if err != nil {
 			panic(fmt.Sprintf("Invalid precision %v", err))
 		}
@@ -324,9 +322,7 @@ func TypeFromProto(t *proto.Type) Type {
 			Precision:        t.Decimal.Precision,
 		}
 	case *proto.Type_PrecisionTimestamp_:
-		var precision = PrecisionMicroSeconds
-		var err error
-		precision, err = ProtoToTimePrecision(t.PrecisionTimestamp.Precision)
+		precision, err := ProtoToTimePrecision(t.PrecisionTimestamp.Precision)
 		if err != nil {
 			panic(fmt.Sprintf("Invalid precision %v", err))
 		}
@@ -336,9 +332,7 @@ func TypeFromProto(t *proto.Type) Type {
 			Precision:        precision,
 		}
 	case *proto.Type_PrecisionTimestampTz:
-		var precision = PrecisionMicroSeconds
-		var err error
-		precision, err = ProtoToTimePrecision(t.PrecisionTimestampTz.Precision)
+		precision, err := ProtoToTimePrecision(t.PrecisionTimestampTz.Precision)
 		if err != nil {
 			panic(fmt.Sprintf("Invalid precision %v", err))
 		}
