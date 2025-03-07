@@ -655,6 +655,13 @@ func TypeToProto(t Type) *proto.Type {
 				Precision:              &precision,
 				Nullability:            t.Nullability,
 				TypeVariationReference: t.TypeVariationRef}}}
+	case *IntervalCompoundType:
+		precision := t.precision.ToProtoVal()
+		return &proto.Type{Kind: &proto.Type_IntervalCompound_{
+			IntervalCompound: &proto.Type_IntervalCompound{
+				Precision:              precision,
+				Nullability:            t.nullability,
+				TypeVariationReference: t.typeVariationRef}}}
 	case *UUIDType:
 		return &proto.Type{Kind: &proto.Type_Uuid{
 			Uuid: &proto.Type_UUID{
@@ -680,6 +687,18 @@ func TypeToProto(t Type) *proto.Type {
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *DecimalType:
 		return t.ToProto()
+	case *PrecisionTimestampType:
+		return &proto.Type{Kind: &proto.Type_PrecisionTimestamp_{
+			PrecisionTimestamp: &proto.Type_PrecisionTimestamp{
+				Precision:              int32(t.Precision),
+				Nullability:            t.Nullability,
+				TypeVariationReference: t.TypeVariationRef}}}
+	case *PrecisionTimestampTzType:
+		return &proto.Type{Kind: &proto.Type_PrecisionTimestampTz{
+			PrecisionTimestampTz: &proto.Type_PrecisionTimestampTZ{
+				Precision:              int32(t.Precision),
+				Nullability:            t.Nullability,
+				TypeVariationReference: t.TypeVariationRef}}}
 	case *StructType:
 		return t.ToProto()
 	case *ListType:
