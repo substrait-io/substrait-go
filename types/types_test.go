@@ -66,7 +66,6 @@ func TestTypeRoundtrip(t *testing.T) {
 				n = NullabilityNullable
 			}
 
-			compound := NewIntervalCompoundType().WithPrecision(PrecisionEMinus7Seconds).WithNullability(n)
 			tests := []Type{
 				&BooleanType{Nullability: n},
 				&Int8Type{Nullability: n},
@@ -88,7 +87,7 @@ func TestTypeRoundtrip(t *testing.T) {
 				&FixedBinaryType{Nullability: n, Length: 45},
 				&IntervalDayType{Nullability: n, Precision: 5},
 				&IntervalDayType{Nullability: n, Precision: 0},
-				compound,
+				NewIntervalCompoundType().WithPrecision(PrecisionEMinus7Seconds).WithNullability(n),
 
 				&DecimalType{Nullability: n, Precision: 34, Scale: 3},
 				&PrecisionTimestampType{Nullability: n, Precision: PrecisionEMinus4Seconds},
