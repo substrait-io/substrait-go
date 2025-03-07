@@ -49,6 +49,9 @@ func (m IntervalCompoundType) Equals(rhs Type) bool {
 	if o, ok := rhs.(IntervalCompoundType); ok {
 		return o == m
 	}
+	if o, ok := rhs.(*IntervalCompoundType); ok {
+		return *o == m
+	}
 	return false
 }
 
