@@ -276,6 +276,18 @@ func TypeFromProto(t *proto.Type) Type {
 			TypeVariationRef: t.IntervalDay.TypeVariationReference,
 			Precision:        precision,
 		}
+	case *proto.Type_IntervalCompound_:
+		var precision = PrecisionMicroSeconds
+		var err error
+		precision, err = ProtoToTimePrecision(t.IntervalCompound.Precision)
+		if err != nil {
+			panic(fmt.Sprintf("Invalid precision %v", err))
+		}
+		return &IntervalCompoundType{
+			nullability:      t.IntervalCompound.Nullability,
+			typeVariationRef: t.IntervalCompound.TypeVariationReference,
+			precision:        precision,
+		}
 	case *proto.Type_TimestampTz:
 		return &TimestampTzType{
 			Nullability:      t.TimestampTz.Nullability,
@@ -311,6 +323,30 @@ func TypeFromProto(t *proto.Type) Type {
 			Scale:            t.Decimal.Scale,
 			Precision:        t.Decimal.Precision,
 		}
+	case *proto.Type_PrecisionTimestamp_:
+		var precision = PrecisionMicroSeconds
+		var err error
+		precision, err = ProtoToTimePrecision(t.PrecisionTimestamp.Precision)
+		if err != nil {
+			panic(fmt.Sprintf("Invalid precision %v", err))
+		}
+		return &PrecisionTimestampType{
+			Nullability:      t.PrecisionTimestamp.Nullability,
+			TypeVariationRef: t.PrecisionTimestamp.TypeVariationReference,
+			Precision:        precision,
+		}
+	case *proto.Type_PrecisionTimestampTz:
+		var precision = PrecisionMicroSeconds
+		var err error
+		precision, err = ProtoToTimePrecision(t.PrecisionTimestampTz.Precision)
+		if err != nil {
+			panic(fmt.Sprintf("Invalid precision %v", err))
+		}
+		return &PrecisionTimestampTzType{PrecisionTimestampType{
+			Nullability:      t.PrecisionTimestampTz.Nullability,
+			TypeVariationRef: t.PrecisionTimestampTz.TypeVariationReference,
+			Precision:        precision,
+		}}
 	case *proto.Type_Struct_:
 		fields := make([]Type, len(t.Struct.Types))
 		for i, f := range t.Struct.Types {
@@ -655,7 +691,7 @@ func TypeToProto(t Type) *proto.Type {
 				Precision:              &precision,
 				Nullability:            t.Nullability,
 				TypeVariationReference: t.TypeVariationRef}}}
-	case *IntervalCompoundType:
+	case IntervalCompoundType:
 		precision := t.precision.ToProtoVal()
 		return &proto.Type{Kind: &proto.Type_IntervalCompound_{
 			IntervalCompound: &proto.Type_IntervalCompound{
@@ -713,8 +749,8 @@ func TypeToProto(t Type) *proto.Type {
 
 type primitiveTypeIFace interface {
 	bool | int8 | int16 | ~int32 | ~int64 |
-		float32 | float64 | ~string |
-		[]byte | IntervalYearToMonth | IntervalDayToSecond | UUID
+	float32 | float64 | ~string |
+	[]byte | IntervalYearToMonth | IntervalDayToSecond | UUID
 }
 
 var emptyFixedChar FixedChar
