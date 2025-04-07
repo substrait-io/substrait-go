@@ -20,6 +20,7 @@ func TestAnyType(t *testing.T) {
 		expectedString     string
 	}{
 		{"any", "any", []FuncDefArgType{&AnyType{Name: "any"}}, []Type{decP30S9}, decP30S9, NullabilityNullable, "any?"},
+		{"List<any>", "any", []FuncDefArgType{&AnyType{Name: "any"}}, []Type{&ListType{Type: decP30S9}}, &ListType{Type: decP30S9}, NullabilityNullable, "any?"},
 		{"anyrequired", "any2", []FuncDefArgType{&Int16Type{}, &AnyType{Name: "any2"}}, []Type{&Int16Type{}, &Int64Type{}}, &Int64Type{}, NullabilityRequired, "any2"},
 		{"anyOtherName", "any1", []FuncDefArgType{&AnyType{Name: "any1"}, &Int32Type{}}, []Type{varchar37, &Int32Type{}}, varchar37, NullabilityNullable, "any1?"},
 		{"T name", "T", []FuncDefArgType{&AnyType{Name: "U"}}, []Type{varchar37}, nil, NullabilityNullable, "T?"},

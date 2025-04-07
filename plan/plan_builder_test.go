@@ -166,6 +166,10 @@ func checkRoundTrip(t *testing.T, expectedJSON string, p *plan.Plan) {
 	var expectedProto substraitproto.Plan
 	require.NoError(t, protojson.Unmarshal([]byte(expectedJSON), &expectedProto))
 
+	// Equalize producer field; it may differ between golden JSON and protoPlan
+	// depending on which OS (GOOS, ARCH, and the like) this test runs.
+	protoPlan.Version.Producer = expectedProto.Version.Producer
+
 	assert.Truef(t, proto.Equal(&expectedProto, protoPlan), "JSON expected: %s\ngot: %s",
 		protojson.Format(&expectedProto), protojson.Format(protoPlan))
 
