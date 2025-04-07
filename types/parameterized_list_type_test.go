@@ -4,7 +4,7 @@ package types_test
 
 import (
 	"testing"
-
+	
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/v3/types"
@@ -29,8 +29,9 @@ func TestParameterizedListType(t *testing.T) {
 		expectedParameterizedParams    []interface{}
 		expectedReturnType             types.Type
 	}{
-		{"parameterized param", decimalType, []any{dec30PS5}, "list?<decimal<P,S>>", "list<decimal<P,S>>", true, []interface{}{decimalType}, nil},
+		{"parameterized param", decimalType, []any{dec30PS5}, "list?<decimal<P,S>>", "list<decimal<P,S>>", true, []interface{}{decimalType}, &types.ListType{Nullability: types.NullabilityRequired, Type: dec30PS5}},
 		{"concrete param", int8Type, []any{int8Type}, "list?<i8>", "list<i8>", false, nil, &types.ListType{Nullability: types.NullabilityRequired, Type: int8Type}},
+		{"list<any>", &types.AnyType{Name: "any"}, []any{int8Type}, "list?<any>", "list<any>", false, nil, &types.ListType{Nullability: types.NullabilityRequired, Type: int8Type}},
 	} {
 		t.Run(td.name, func(t *testing.T) {
 			pd := &types.ParameterizedListType{Type: td.param}
@@ -41,7 +42,7 @@ func TestParameterizedListType(t *testing.T) {
 			require.Equal(t, td.expectedHasParameterizedParam, pd.HasParameterizedParam())
 			require.Equal(t, td.expectedParameterizedParams, pd.GetParameterizedParams())
 			assert.Equal(t, "list", pd.ShortString())
-			retType, err := pd.ReturnType(nil, nil)
+			retType, err := pd.ReturnType([]types.FuncDefArgType{td.param}, []types.Type{td.args[0].(types.Type)})
 			if td.expectedReturnType == nil {
 				assert.Error(t, err)
 				require.True(t, pd.HasParameterizedParam())
