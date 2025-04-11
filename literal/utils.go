@@ -10,8 +10,8 @@ import (
 	"github.com/cockroachdb/apd/v3"
 	"github.com/google/uuid"
 	"github.com/substrait-io/substrait-go/v3/expr"
-	"github.com/substrait-io/substrait-go/v3/proto"
 	"github.com/substrait-io/substrait-go/v3/types"
+	proto "github.com/substrait-io/substrait-protobuf/substraitpb-go/substrait"
 )
 
 func NewBool(value bool, nullable bool) expr.Literal {

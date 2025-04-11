@@ -16,8 +16,9 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.10.0
 	github.com/substrait-io/substrait v0.66.1-0.20250205013839-a30b3e2d7ec6
+	github.com/substrait-io/substrait-protobuf v0.0.0-20250411204027-a8b98d288ae4
 	golang.org/x/exp v0.0.0-20240909161429-701f63a606c0
-	google.golang.org/protobuf v1.35.2
+	google.golang.org/protobuf v1.36.3
 	gopkg.in/yaml.v3 v3.0.1
 )
 
