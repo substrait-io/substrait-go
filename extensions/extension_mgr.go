@@ -15,7 +15,7 @@ import (
 	"github.com/goccy/go-yaml"
 	"github.com/substrait-io/substrait"
 	substraitgo "github.com/substrait-io/substrait-go/v3"
-	"github.com/substrait-io/substrait-go/v3/proto/extensions"
+	"github.com/substrait-io/substrait-protobuf/substraitpb-go/substrait/extensions"
 )
 
 type AdvancedExtension = extensions.AdvancedExtension
