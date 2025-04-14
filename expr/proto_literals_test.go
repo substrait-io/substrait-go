@@ -5,8 +5,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
-	"github.com/substrait-io/substrait-go/v3/proto"
 	"github.com/substrait-io/substrait-go/v3/types"
+	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 

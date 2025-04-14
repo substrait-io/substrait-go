@@ -10,8 +10,8 @@ import (
 	"github.com/substrait-io/substrait-go/v3/extensions"
 	"github.com/substrait-io/substrait-go/v3/literal"
 	"github.com/substrait-io/substrait-go/v3/plan"
-	substraitproto "github.com/substrait-io/substrait-go/v3/proto"
 	"github.com/substrait-io/substrait-go/v3/types"
+	substraitproto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
 // Embed test JSON files for expected output comparison.

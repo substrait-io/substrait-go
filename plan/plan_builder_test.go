@@ -14,8 +14,8 @@ import (
 	"github.com/substrait-io/substrait-go/v3/expr"
 	"github.com/substrait-io/substrait-go/v3/extensions"
 	"github.com/substrait-io/substrait-go/v3/plan"
-	substraitproto "github.com/substrait-io/substrait-go/v3/proto"
 	"github.com/substrait-io/substrait-go/v3/types"
+	substraitproto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )

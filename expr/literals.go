@@ -15,8 +15,8 @@ import (
 
 	"github.com/google/uuid"
 	substraitgo "github.com/substrait-io/substrait-go/v3"
-	"github.com/substrait-io/substrait-go/v3/proto"
 	"github.com/substrait-io/substrait-go/v3/types"
+	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/anypb"
 )

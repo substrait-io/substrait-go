@@ -3,7 +3,7 @@ package types
 import (
 	"fmt"
 
-	"github.com/substrait-io/substrait-go/v3/proto"
+	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
 // IntervalDayType this is used to represent a type of interval day.
