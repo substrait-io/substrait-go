@@ -4,8 +4,8 @@ package plan
 
 import (
 	"github.com/substrait-io/substrait-go/v3/extensions"
-	"github.com/substrait-io/substrait-go/v3/proto"
 	"github.com/substrait-io/substrait-go/v3/types"
+	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
 type (

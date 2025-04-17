@@ -13,7 +13,7 @@ import (
 
 	"cloud.google.com/go/civil"
 	substraitgo "github.com/substrait-io/substrait-go/v3"
-	"github.com/substrait-io/substrait-go/v3/proto"
+	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
 type Version = proto.Version
