@@ -18,53 +18,150 @@ import (
 
 func TestEvaluateTypeExpression(t *testing.T) {
 	var (
-		i64Null, _    = parser.ParseType("i64?")
-		i64NonNull, _ = parser.ParseType("i64")
-		strNull, _    = parser.ParseType("string?")
+		// Function definition argument type shortcuts.
+		i64Null, _      = parser.ParseType("i64?")
+		i64NonNull, _   = parser.ParseType("i64")
+		strNull, _      = parser.ParseType("string?")
+		strNonNull, _   = parser.ParseType("string")
+		any1NonNull, _  = parser.ParseType("any1")
+		any1listNonNull = mkFuncArgList(any1NonNull)
+
+		// Few shortcut type definitions.
+		i64TypeReq     = &types.Int64Type{Nullability: types.NullabilityRequired}
+		strTypeReq     = &types.StringType{Nullability: types.NullabilityRequired}
+		i64listNonNull = mkList(i64TypeReq)
 	)
 
 	tests := []struct {
-		name     string
-		nulls    extensions.NullabilityHandling
-		ret      types.FuncDefArgType
-		extArgs  extensions.FuncParameterList
-		args     []types.Type
-		expected types.Type
-		err      string
+		name      string
+		nulls     extensions.NullabilityHandling
+		ret       types.FuncDefArgType
+		extArgs   extensions.FuncParameterList
+		args      []types.Type
+		expected  types.Type
+		expectErr string
 	}{
-		{"defaults", extensions.MirrorNullability, i64NonNull, extensions.FuncParameterList{
-			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64Null}}},
-			[]types.Type{&types.Int64Type{Nullability: types.NullabilityNullable}},
-			&types.Int64Type{Nullability: types.NullabilityNullable}, ""},
-		{"arg mismatch", extensions.MirrorNullability, strNull, extensions.FuncParameterList{extensions.ValueArg{Value: &parser.TypeExpression{ValueType: strNull}}},
-			[]types.Type{}, nil, "invalid expression: mismatch in number of arguments provided. got 0, expected 1"},
-		{"missing enum arg", extensions.MirrorNullability, i64Null, extensions.FuncParameterList{
-			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64NonNull}}, extensions.EnumArg{Name: "foo"}},
-			[]types.Type{&types.Int64Type{}, &types.Int64Type{}}, nil, "invalid type: arg #1 (foo) should be an enum"},
-		{"discrete null handling", extensions.DiscreteNullability, strNull, extensions.FuncParameterList{
-			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: strNull}}},
-			[]types.Type{&types.StringType{Nullability: types.NullabilityRequired}},
-			nil, "invalid type: discrete nullability did not match for arg #0"},
-		{"mirror", extensions.MirrorNullability, strNull, extensions.FuncParameterList{
-			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64NonNull}}, extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64Null}}},
-			[]types.Type{
-				&types.Int64Type{Nullability: types.NullabilityRequired},
-				&types.Int64Type{Nullability: types.NullabilityRequired}},
-			&types.StringType{Nullability: types.NullabilityRequired}, ""},
-		{"declared output", extensions.DeclaredOutputNullability, strNull, extensions.FuncParameterList{
-			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: strNull}}},
-			[]types.Type{&types.StringType{Nullability: types.NullabilityRequired}},
-			&types.StringType{Nullability: types.NullabilityNullable}, ""},
+		{
+			name:     "defaults",
+			nulls:    extensions.MirrorNullability,
+			ret:      i64NonNull,
+			extArgs:  extensions.FuncParameterList{valArg(i64Null)},
+			args:     []types.Type{&types.Int64Type{Nullability: types.NullabilityNullable}},
+			expected: &types.Int64Type{Nullability: types.NullabilityNullable},
+		},
+		{
+			name:      "arg mismatch",
+			nulls:     extensions.MirrorNullability,
+			ret:       strNull,
+			extArgs:   extensions.FuncParameterList{valArg(strNull)},
+			args:      []types.Type{},
+			expectErr: "invalid expression: mismatch in number of arguments provided. got 0, expected 1",
+		},
+		{
+			name:      "missing enum arg",
+			nulls:     extensions.MirrorNullability,
+			ret:       i64Null,
+			extArgs:   extensions.FuncParameterList{valArg(i64NonNull), extensions.EnumArg{Name: "foo"}},
+			args:      []types.Type{&types.Int64Type{}, &types.Int64Type{}},
+			expectErr: "invalid type: arg #1 (foo) should be an enum"},
+		{
+			name:      "discrete null handling",
+			nulls:     extensions.DiscreteNullability,
+			ret:       strNull,
+			extArgs:   extensions.FuncParameterList{valArg(strNull)},
+			args:      []types.Type{&types.StringType{Nullability: types.NullabilityRequired}},
+			expectErr: "invalid type: discrete nullability did not match for arg #0",
+		},
+		{
+			name:     "mirror",
+			nulls:    extensions.MirrorNullability,
+			ret:      strNull,
+			extArgs:  extensions.FuncParameterList{valArg(i64NonNull), valArg(i64Null)},
+			args:     []types.Type{i64TypeReq, i64TypeReq},
+			expected: strTypeReq,
+		},
+		{
+			name:     "nullif(any1, any1) -> any1",
+			nulls:    extensions.MirrorNullability,
+			ret:      any1NonNull,
+			extArgs:  extensions.FuncParameterList{valArg(any1NonNull), valArg(any1NonNull)},
+			args:     []types.Type{i64TypeReq, i64TypeReq},
+			expected: i64TypeReq,
+		},
+		{
+			name:     "element_at(list<any1>, i64) -> any1",
+			nulls:    extensions.DeclaredOutputNullability,
+			ret:      any1NonNull,
+			extArgs:  extensions.FuncParameterList{valArg(any1listNonNull), valArg(i64NonNull)},
+			args:     []types.Type{i64listNonNull, i64TypeReq},
+			expected: i64TypeReq,
+		},
+		{
+			name:  "deeply nested element_at(list<list<list<any1>>>, i64, i64, i64) -> any1",
+			nulls: extensions.DeclaredOutputNullability,
+			ret:   any1NonNull,
+			extArgs: extensions.FuncParameterList{
+				valArg(mkFuncArgList(mkFuncArgList(mkFuncArgList(any1NonNull)))),
+				valArg(i64NonNull), valArg(i64NonNull), valArg(i64NonNull),
+			},
+			args:     []types.Type{mkList(mkList(i64listNonNull)), i64TypeReq, i64TypeReq, i64TypeReq},
+			expected: i64TypeReq,
+		},
+		{
+			name:  "map_element_at(map<string, map<string, list<any1>>>, string, string, i64) -> any1",
+			nulls: extensions.DeclaredOutputNullability,
+			ret:   any1NonNull,
+			extArgs: extensions.FuncParameterList{
+				// map string -> map string -> list<any1>
+				valArg(mkFuncArgMap(strTypeReq, mkFuncArgMap(strTypeReq, mkFuncArgList(any1NonNull)))),
+				valArg(strNonNull), valArg(strNonNull), valArg(i64NonNull),
+			},
+			args: []types.Type{
+				mkMap(strTypeReq, mkMap(strTypeReq, mkList(i64TypeReq))),
+				strTypeReq, strTypeReq, i64TypeReq,
+			},
+			expected: i64TypeReq,
+		},
+		{
+			name:  "get_any(struct<string?, any1>) -> any1",
+			nulls: extensions.DeclaredOutputNullability,
+			ret:   any1NonNull,
+			extArgs: extensions.FuncParameterList{
+				valArg(&types.ParameterizedStructType{
+					Nullability: types.NullabilityRequired,
+					Types:       []types.FuncDefArgType{strNull, any1NonNull},
+				}),
+			},
+			args: []types.Type{
+				&types.StructType{
+					Nullability: types.NullabilityRequired,
+					Types: []types.Type{
+						&types.StringType{Nullability: types.NullabilityNullable},
+						strTypeReq,
+					},
+				},
+			},
+			expected: strTypeReq,
+		},
+		{
+			name:     "declared output",
+			nulls:    extensions.DeclaredOutputNullability,
+			ret:      strNull,
+			extArgs:  extensions.FuncParameterList{valArg(strNull)},
+			args:     []types.Type{strTypeReq},
+			expected: &types.StringType{Nullability: types.NullabilityNullable},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := extensions.EvaluateTypeExpression(tt.nulls, tt.ret, tt.extArgs, nil, tt.args)
-			if tt.err == "" {
-				assert.NoError(t, err)
-				assert.Truef(t, tt.expected.Equals(result), "expected: %s\ngot: %s", tt.expected, result)
+			if tt.expectErr == "" {
+				require.NoError(t, err)
+				require.Truef(t, tt.expected.Equals(result),
+					"expected: %s\ngot: %s", tt.expected, result)
 			} else {
-				assert.EqualError(t, err, tt.err)
+				require.EqualError(t, err, tt.expectErr)
 			}
 		})
 	}
@@ -245,4 +342,32 @@ func TestMatchWithSyncParams(t *testing.T) {
 			})
 		}
 	}
+}
+
+func mkFuncArgList(typ types.FuncDefArgType) *types.ParameterizedListType {
+	return &types.ParameterizedListType{Type: typ, Nullability: types.NullabilityRequired}
+}
+
+func mkList(typ types.Type) *types.ListType {
+	return &types.ListType{Type: typ, Nullability: types.NullabilityRequired}
+}
+
+func mkFuncArgMap(kt, vt types.FuncDefArgType) *types.ParameterizedMapType {
+	return &types.ParameterizedMapType{
+		Nullability: types.NullabilityRequired,
+		Key:         kt,
+		Value:       vt,
+	}
+}
+
+func mkMap(kt, vt types.Type) *types.MapType {
+	return &types.MapType{
+		Nullability: types.NullabilityRequired,
+		Key:         kt,
+		Value:       vt,
+	}
+}
+
+func valArg(typ types.FuncDefArgType) extensions.ValueArg {
+	return extensions.ValueArg{Value: &parser.TypeExpression{ValueType: typ}}
 }
