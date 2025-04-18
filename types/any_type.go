@@ -4,6 +4,7 @@ package types
 
 import (
 	"fmt"
+	"slices"
 )
 
 // AnyType to represent AnyType, this type is to indicate "any" type of argument
@@ -49,23 +50,71 @@ func (m *AnyType) ShortString() string {
 	return "any"
 }
 
-func (m *AnyType) ReturnType(funcParameters []FuncDefArgType, argumentTypes []Type) (Type, error) {
-	index := -1
-	for i, param := range funcParameters {
-		if anyArg, ok := param.(*AnyType); ok {
-			if anyArg.Name == m.Name {
-				index = i
-				break
+// unwrapAnyTypeWithName searches for AnyType in p with the specified name,
+// and if found, returns argType.  If p is a composite type,
+// recursively unwraps p to search for AnyType in p's parameters.
+// Returns nil Type if AnyType was not found.
+func unwrapAnyTypeWithName(name string, p FuncDefArgType, argType Type) (Type, error) {
+	switch arg := p.(type) {
+	case *AnyType:
+		if arg.Name == name {
+			return argType, nil
+		}
+	case *ParameterizedListType:
+		argParams := argType.GetParameters()
+		if len(argParams) != 1 || argParams[0] == nil {
+			return nil, fmt.Errorf(
+				"expected ListType to have non-nil 1 parameter, found %v", argParams)
+		}
+		return unwrapAnyTypeWithName(name, arg.Type, argParams[0].(Type))
+	case *ParameterizedMapType:
+		argParams := argType.GetParameters()
+		if len(argParams) != 2 || argParams[0] == nil || argParams[1] == nil {
+			return nil, fmt.Errorf(
+				"expected MapType to have 2 non-nil parameters, found %v", argParams)
+		}
+		keyType, err := unwrapAnyTypeWithName(name, arg.Key, argParams[0].(Type))
+		if err != nil {
+			return nil, err
+		}
+		if keyType != nil {
+			return keyType, nil
+		}
+		return unwrapAnyTypeWithName(name, arg.Value, argParams[1].(Type))
+	case *ParameterizedStructType:
+		argParams := argType.GetParameters()
+		if len(argParams) != len(arg.Types) || slices.Contains(argParams, nil) {
+			return nil, fmt.Errorf("expected StructType to have %d non-nil parameters, found %v",
+				len(arg.Types), argParams)
+		}
+		for i, param := range argParams {
+			pt, err := unwrapAnyTypeWithName(name, arg.Types[i], param.(Type))
+			if err != nil {
+				return nil, err
+			}
+			if pt != nil {
+				return pt, nil
 			}
 		}
 	}
-	if index == -1 {
-		return nil, fmt.Errorf("no matching any type found in function parameters")
+	// Didn't find matching AnyType.
+	return nil, nil
+}
+
+func (m *AnyType) ReturnType(funcParameters []FuncDefArgType, argumentTypes []Type) (Type, error) {
+	// iterate through smaller of the funcParameters and argumentTypes;
+	// argumentTypes may be larger than funcParameters due to variadic parameters.
+	for i := 0; i < min(len(funcParameters), len(argumentTypes)); i++ {
+		typ, err := unwrapAnyTypeWithName(m.Name, funcParameters[i], argumentTypes[i])
+		if err != nil {
+			return nil, err
+		}
+		if typ != nil {
+			return typ, nil
+		}
 	}
-	if index >= len(argumentTypes) {
-		return nil, fmt.Errorf("no matching argument found for any type")
-	}
-	return argumentTypes[index], nil
+
+	return nil, fmt.Errorf("no matching any type found in function parameters")
 }
 
 func (m *AnyType) WithParameters([]interface{}) (Type, error) {
