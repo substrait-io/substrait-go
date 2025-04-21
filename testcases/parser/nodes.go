@@ -5,11 +5,11 @@ import (
 	"strconv"
 	"strings"
 
-	substraitgo "github.com/substrait-io/substrait-go/v3"
-	"github.com/substrait-io/substrait-go/v3/expr"
-	"github.com/substrait-io/substrait-go/v3/extensions"
-	"github.com/substrait-io/substrait-go/v3/functions"
-	"github.com/substrait-io/substrait-go/v3/types"
+	substraitgo "github.com/substrait-io/substrait-go/v4"
+	"github.com/substrait-io/substrait-go/v4/expr"
+	"github.com/substrait-io/substrait-go/v4/extensions"
+	"github.com/substrait-io/substrait-go/v4/functions"
+	"github.com/substrait-io/substrait-go/v4/types"
 )
 
 type TestFuncType string

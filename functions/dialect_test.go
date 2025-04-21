@@ -8,9 +8,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/v3/extensions"
-	. "github.com/substrait-io/substrait-go/v3/functions"
-	"github.com/substrait-io/substrait-go/v3/types"
+	"github.com/substrait-io/substrait-go/v4/extensions"
+	. "github.com/substrait-io/substrait-go/v4/functions"
+	"github.com/substrait-io/substrait-go/v4/types"
 )
 
 var gFunctionRegistry FunctionRegistry
