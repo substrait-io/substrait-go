@@ -6,9 +6,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/v3/extensions"
-	"github.com/substrait-io/substrait-go/v3/functions"
-	parser2 "github.com/substrait-io/substrait-go/v3/testcases/parser"
+	"github.com/substrait-io/substrait-go/v4/extensions"
+	"github.com/substrait-io/substrait-go/v4/functions"
+	parser2 "github.com/substrait-io/substrait-go/v4/testcases/parser"
 )
 
 func makeHeader(version, include string) string {

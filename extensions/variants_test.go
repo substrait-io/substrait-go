@@ -8,12 +8,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait"
-	"github.com/substrait-io/substrait-go/v3/extensions"
-	"github.com/substrait-io/substrait-go/v3/functions"
-	parser2 "github.com/substrait-io/substrait-go/v3/testcases/parser"
-	"github.com/substrait-io/substrait-go/v3/types"
-	"github.com/substrait-io/substrait-go/v3/types/integer_parameters"
-	"github.com/substrait-io/substrait-go/v3/types/parser"
+	"github.com/substrait-io/substrait-go/v4/extensions"
+	"github.com/substrait-io/substrait-go/v4/functions"
+	parser2 "github.com/substrait-io/substrait-go/v4/testcases/parser"
+	"github.com/substrait-io/substrait-go/v4/types"
+	"github.com/substrait-io/substrait-go/v4/types/integer_parameters"
+	"github.com/substrait-io/substrait-go/v4/types/parser"
 )
 
 func TestEvaluateTypeExpression(t *testing.T) {

@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	substraitgo "github.com/substrait-io/substrait-go/v3"
-	"github.com/substrait-io/substrait-go/v3/extensions"
-	"github.com/substrait-io/substrait-go/v3/types"
+	substraitgo "github.com/substrait-io/substrait-go/v4"
+	"github.com/substrait-io/substrait-go/v4/extensions"
+	"github.com/substrait-io/substrait-go/v4/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"golang.org/x/exp/slices"
 	pb "google.golang.org/protobuf/proto"

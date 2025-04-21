@@ -3,8 +3,8 @@ package functions
 import (
 	"fmt"
 
-	"github.com/substrait-io/substrait-go/v3/expr"
-	"github.com/substrait-io/substrait-go/v3/extensions"
+	"github.com/substrait-io/substrait-go/v4/expr"
+	"github.com/substrait-io/substrait-go/v4/extensions"
 )
 
 type localFunctionRegistryImpl struct {

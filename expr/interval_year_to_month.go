@@ -3,7 +3,7 @@ package expr
 import (
 	"fmt"
 
-	"github.com/substrait-io/substrait-go/v3/types"
+	"github.com/substrait-io/substrait-go/v4/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
