@@ -9,6 +9,7 @@ import (
 	"github.com/substrait-io/substrait-go/v4/expr"
 	"github.com/substrait-io/substrait-go/v4/extensions"
 	"github.com/substrait-io/substrait-go/v4/types"
+	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"golang.org/x/exp/slices"
 )
 
@@ -149,6 +150,16 @@ type Builder interface {
 	// GetRelBuilder returns an expr.RelBuilder that can be used to construct
 	// relations which need multiple stages to build them.
 	GetRelBuilder() *RelBuilder
+
+	// Subquery expression builder methods
+
+	// InPredicateSubquery creates an IN predicate subquery expression that checks
+	// if the needles (left expressions) are contained in the haystack (right subquery).
+	InPredicateSubquery(needles []expr.Expression, haystack Rel) (*expr.InPredicateSubquery, error)
+
+	// SetPredicateSubquery creates a set predicate subquery expression that checks
+	// if the subquery returns any rows.
+	SetPredicateSubquery(input Rel, exists bool) (*expr.SetPredicateSubquery, error)
 }
 
 const FETCH_COUNT_ALL_RECORDS = -1
@@ -869,4 +880,47 @@ func (arb *AggregateRelBuilder) validate() error {
 	}
 
 	return nil
+}
+
+func (b *builder) InPredicateSubquery(needles []expr.Expression, haystack Rel) (*expr.InPredicateSubquery, error) {
+	if haystack == nil {
+		return nil, errNilInputRel
+	}
+
+	if len(needles) == 0 {
+		return nil, fmt.Errorf("%w: IN predicate subquery must have at least one needle expression",
+			substraitgo.ErrInvalidExpr)
+	}
+
+	for i, needle := range needles {
+		if needle == nil {
+			return nil, fmt.Errorf("%w: needle expression %d cannot be nil",
+				substraitgo.ErrInvalidExpr, i)
+		}
+	}
+
+	// Validate that the number of needle expressions matches the number of columns in the haystack
+	haystackSchema := haystack.RecordType()
+	if len(needles) != int(haystackSchema.FieldCount()) {
+		return nil, fmt.Errorf("%w: number of needle expressions (%d) must match number of columns in haystack (%d)",
+			substraitgo.ErrInvalidExpr, len(needles), haystackSchema.FieldCount())
+	}
+
+	return expr.NewInPredicateSubquery(needles, haystack), nil
+}
+
+func (b *builder) SetPredicateSubquery(input Rel, exists bool) (*expr.SetPredicateSubquery, error) {
+	if input == nil {
+		return nil, errNilInputRel
+	}
+
+	op := proto.Expression_Subquery_SetPredicate_PREDICATE_OP_EXISTS
+	if !exists {
+		op = proto.Expression_Subquery_SetPredicate_PREDICATE_OP_UNSPECIFIED
+	}
+
+	return expr.NewSetPredicateSubquery(
+		op,
+		input,
+	), nil
 }
