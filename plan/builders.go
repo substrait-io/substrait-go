@@ -160,6 +160,13 @@ type Builder interface {
 	// SetPredicateSubquery creates a set predicate subquery expression that checks
 	// if the subquery returns any rows.
 	SetPredicateSubquery(input Rel, exists bool) (*expr.SetPredicateSubquery, error)
+
+	// ScalarSubquery creates a scalar subquery expression that returns a single value.
+	ScalarSubquery(input Rel) (*expr.ScalarSubquery, error)
+
+	// SetComparisonSubquery creates a set comparison subquery expression that checks
+	// if the left expression is contained in the right subquery.
+	SetComparisonSubquery(left expr.Expression, right Rel) (*expr.SetComparisonSubquery, error)
 }
 
 const FETCH_COUNT_ALL_RECORDS = -1
@@ -922,5 +929,26 @@ func (b *builder) SetPredicateSubquery(input Rel, exists bool) (*expr.SetPredica
 	return expr.NewSetPredicateSubquery(
 		op,
 		input,
+	), nil
+}
+
+func (b *builder) ScalarSubquery(input Rel) (*expr.ScalarSubquery, error) {
+	if input == nil {
+		return nil, errNilInputRel
+	}
+
+	return expr.NewScalarSubquery(input), nil
+}
+
+func (b *builder) SetComparisonSubquery(left expr.Expression, right Rel) (*expr.SetComparisonSubquery, error) {
+	if left == nil {
+		return nil, errNilInputRel
+	}
+
+	return expr.NewSetComparisonSubquery(
+		proto.Expression_Subquery_SetComparison_REDUCTION_OP_UNSPECIFIED,
+		proto.Expression_Subquery_SetComparison_COMPARISON_OP_UNSPECIFIED,
+		left,
+		right,
 	), nil
 }
