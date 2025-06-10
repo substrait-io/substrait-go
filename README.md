@@ -18,7 +18,7 @@ This is work in progress still, things still to do:
   - [x] MultiOrList
   - [x] Cast
   - [x] Nested
-  - [ ] Subquery
+  - [x] Subquery
 - [ ] Serialization/Deserialization of Plan and Relations
   - [x] Plan
   - [x] PlanRel
