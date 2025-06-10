@@ -70,8 +70,6 @@ func (s *ScalarSubquery) Equals(other Expression) bool {
 	if !ok {
 		return false
 	}
-	// Note: This is a simplified equality check. In a full implementation,
-	// you'd need to implement deep equality for plan.Rel
 	return s.Input == rhs.Input
 }
 
