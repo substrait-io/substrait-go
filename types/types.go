@@ -161,7 +161,7 @@ const (
 	SortAscNullsFirst  = SortDirection(proto.SortField_SORT_DIRECTION_ASC_NULLS_FIRST)
 	SortAscNullsLast   = SortDirection(proto.SortField_SORT_DIRECTION_ASC_NULLS_LAST)
 	SortDescNullsFirst = SortDirection(proto.SortField_SORT_DIRECTION_DESC_NULLS_FIRST)
-	SortDescNullsLast  = SortDirection(proto.SortField_SORT_DIRECTION_ASC_NULLS_LAST)
+	SortDescNullsLast  = SortDirection(proto.SortField_SORT_DIRECTION_DESC_NULLS_LAST)
 	SortClustered      = SortDirection(proto.SortField_SORT_DIRECTION_CLUSTERED)
 )
 
