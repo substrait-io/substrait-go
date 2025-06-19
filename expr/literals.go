@@ -511,6 +511,8 @@ func (t *ProtoLiteral) WithType(newType types.Type) (Literal, error) {
 		return newDecimalWithType(t, typ)
 	case *types.VarCharType:
 		return newVarCharWithType(t, typ)
+	case *types.PrecisionTimeType:
+		return newPrecisionTimeWithType(t, typ)
 	case *types.PrecisionTimestampType:
 		return newPrecisionTimestampWithType(t, typ)
 	case *types.PrecisionTimestampTzType:
@@ -523,6 +525,9 @@ func (t *ProtoLiteral) WithType(newType types.Type) (Literal, error) {
 
 func (t *ProtoLiteral) ValueString() string {
 	switch literalType := t.Type.(type) {
+	case *types.PrecisionTimeType:
+		tm := types.Time(t.Value.(int64)).ToPrecisionTime(literalType.Precision)
+		return tm.UTC().Format("15:04:05.999999999")
 	case *types.PrecisionTimestampType:
 		tm := types.Timestamp(t.Value.(int64)).ToPrecisionTime(literalType.Precision)
 		return tm.UTC().Format("2006-01-02 15:04:05.999999999")
@@ -546,6 +551,9 @@ func (t *ProtoLiteral) ValueString() string {
 // IsoValueString handles precision timestamp and interval literals to return a string in ISO 8601 format
 func (t *ProtoLiteral) IsoValueString() string {
 	switch literalType := t.Type.(type) {
+	case *types.PrecisionTimeType:
+		tm := types.Time(t.Value.(int64)).ToPrecisionTime(literalType.Precision)
+		return tm.UTC().Format("15:04:05.999999999")
 	case *types.PrecisionTimestampType:
 		tm := types.Timestamp(t.Value.(int64)).ToPrecisionTime(literalType.Precision)
 		return tm.UTC().Format("2006-01-02T15:04:05.999999999")
@@ -578,10 +586,10 @@ func (t *ProtoLiteral) IsoValueString() string {
 func (*ProtoLiteral) isRootRef()            {}
 func (t *ProtoLiteral) GetType() types.Type { return t.Type }
 func (t *ProtoLiteral) String() string {
-	switch literalType := t.Type.(type) {
-	case *types.PrecisionTimestampType, *types.PrecisionTimestampTzType:
-		return fmt.Sprintf("%s(%s)", literalType, t.ValueString())
-	}
+	// switch literalType := t.Type.(type) {
+	// case *types.PrecisionTimestampType, *types.PrecisionTimestampTzType:
+	// 	return fmt.Sprintf("%s(%s)", literalType, t.ValueString())
+	// }
 	return fmt.Sprintf("%s(%s)", t.Type, t.ValueString())
 }
 func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
@@ -630,6 +638,14 @@ func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
 				Value:     v,
 				Precision: literalType.Precision,
 				Scale:     literalType.Scale,
+			},
+		}
+	case *types.PrecisionTimeType:
+		v := t.Value.(int64)
+		lit.LiteralType = &proto.Expression_Literal_PrecisionTime_{
+			PrecisionTime: &proto.Expression_Literal_PrecisionTime{
+				Precision: literalType.GetPrecisionProtoVal(),
+				Value:     v,
 			},
 		}
 	case *types.PrecisionTimestampType:
@@ -696,6 +712,14 @@ func newVarCharWithType(literal *ProtoLiteral, vcharType *types.VarCharType) (Li
 		return nil, fmt.Errorf("varchar literal value length is greater than type length")
 	}
 	return &ProtoLiteral{Value: literal.Value, Type: vcharType}, nil
+}
+
+func newPrecisionTimeWithType(literal *ProtoLiteral, ptType *types.PrecisionTimeType) (Literal, error) {
+	if litType, ok := literal.GetType().(*types.PrecisionTimeType); ok {
+		value := types.GetTimeValueByPrecision(types.Time(literal.Value.(int64)).ToPrecisionTime(litType.Precision), ptType.Precision)
+		return &ProtoLiteral{Value: value, Type: ptType}, nil
+	}
+	return nil, fmt.Errorf("literal type is not precision time")
 }
 
 func newPrecisionTimestampWithType(literal *ProtoLiteral, ptsType *types.PrecisionTimestampType) (Literal, error) {
@@ -864,7 +888,7 @@ type allLiteralTypes interface {
 	PrimitiveLiteralValue | nestedLiteral | MapLiteralValue |
 		[]byte | types.UUID | types.FixedBinary | *types.IntervalYearToMonth |
 		*types.IntervalDayToSecond | *types.VarChar | *types.Decimal | *types.UserDefinedLiteral |
-		*types.PrecisionTimestamp | *types.PrecisionTimestampTz
+		*types.PrecisionTime | *types.PrecisionTimestamp | *types.PrecisionTimestampTz
 }
 
 func NewLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {
@@ -955,6 +979,8 @@ func NewLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {
 				Length:      int32(v.Length),
 			},
 		}, nil
+	case *types.PrecisionTime:
+		return NewPrecisionTimeLiteral(v.Value, types.TimePrecision(v.Precision), getNullability(nullable)), nil
 	case *types.PrecisionTimestamp:
 		return NewPrecisionTimestampLiteral(v.PrecisionTimestamp.Value, types.TimePrecision(v.PrecisionTimestamp.Precision), getNullability(nullable)), nil
 	case *types.PrecisionTimestampTz:
@@ -1222,6 +1248,18 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 		return intervalCompoundLiteralFromProto(l)
 	}
 	panic("unimplemented literal type")
+}
+
+// NewPrecisionTimeLiteral it takes time value which is in specified precision
+// and nullable property (n) and returns a PrecisionTime Literal
+func NewPrecisionTimeLiteral(value int64, precision types.TimePrecision, n types.Nullability) Literal {
+	return &ProtoLiteral{
+		Value: value,
+		Type: &types.PrecisionTimeType{
+			Precision:   precision,
+			Nullability: n,
+		},
+	}
 }
 
 // NewPrecisionTimestampLiteral it takes timestamp value which is in specified precision

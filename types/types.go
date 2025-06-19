@@ -52,6 +52,7 @@ const (
 	TypeNameFixedChar            TypeName = "fixedchar"
 	TypeNameVarChar              TypeName = "varchar"
 	TypeNameDecimal              TypeName = "decimal"
+	TypeNamePrecisionTime        TypeName = "precision_time"
 	TypeNamePrecisionTimestamp   TypeName = "precision_timestamp"
 	TypeNamePrecisionTimestampTz TypeName = "precision_timestamp_tz"
 )
@@ -96,6 +97,7 @@ var shortTypeNames = map[TypeName]string{
 	TypeNameVarChar:     "vchar",
 
 	TypeNameDecimal:              "dec",
+	TypeNamePrecisionTime:        "pt",
 	TypeNamePrecisionTimestamp:   "pts",
 	TypeNamePrecisionTimestampTz: "ptstz",
 }
@@ -131,6 +133,7 @@ func GetTypeNameToTypeMap() map[string]Type {
 	}
 	typeMap[string(TypeNameDecimal)] = &DecimalType{}
 	typeMap[string(TypeNameIntervalDay)] = &IntervalDayType{}
+	typeMap[string(TypeNamePrecisionTime)] = &PrecisionTimeType{}
 	typeMap[string(TypeNamePrecisionTimestamp)] = &PrecisionTimestampType{}
 	typeMap[string(TypeNamePrecisionTimestampTz)] = &PrecisionTimestampTzType{}
 	return typeMap
@@ -189,6 +192,7 @@ type (
 	VarChar              = proto.Expression_Literal_VarChar
 	Decimal              = proto.Expression_Literal_Decimal
 	UserDefinedLiteral   = proto.Expression_Literal_UserDefined
+	PrecisionTime        = proto.Expression_Literal_PrecisionTime
 	PrecisionTimestamp   = proto.Expression_Literal_PrecisionTimestamp_
 	PrecisionTimestampTz = proto.Expression_Literal_PrecisionTimestampTz
 )
@@ -320,6 +324,16 @@ func TypeFromProto(t *proto.Type) Type {
 			TypeVariationRef: t.Decimal.TypeVariationReference,
 			Scale:            t.Decimal.Scale,
 			Precision:        t.Decimal.Precision,
+		}
+	case *proto.Type_PrecisionTime_:
+		precision, err := ProtoToTimePrecision(t.PrecisionTime.Precision)
+		if err != nil {
+			panic(fmt.Sprintf("Invalid precision %v", err))
+		}
+		return &PrecisionTimeType{
+			Nullability:      t.PrecisionTime.Nullability,
+			TypeVariationRef: t.PrecisionTime.TypeVariationReference,
+			Precision:        precision,
 		}
 	case *proto.Type_PrecisionTimestamp_:
 		precision, err := ProtoToTimePrecision(t.PrecisionTimestamp.Precision)
@@ -717,6 +731,12 @@ func TypeToProto(t Type) *proto.Type {
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *DecimalType:
 		return t.ToProto()
+	case *PrecisionTimeType:
+		return &proto.Type{Kind: &proto.Type_PrecisionTime_{
+			PrecisionTime: &proto.Type_PrecisionTime{
+				Precision:              int32(t.Precision),
+				Nullability:            t.Nullability,
+				TypeVariationReference: t.TypeVariationRef}}}
 	case *PrecisionTimestampType:
 		return &proto.Type{Kind: &proto.Type_PrecisionTimestamp_{
 			PrecisionTimestamp: &proto.Type_PrecisionTimestamp{
@@ -769,6 +789,7 @@ var typeNames = map[reflect.Type]string{
 	reflect.TypeOf(&FixedBinary{}):                    "fixedbinary",
 	reflect.TypeOf(&emptyFixedChar):                   "fixedchar",
 	reflect.TypeOf(&VarChar{}):                        "varchar",
+	reflect.TypeOf(&PrecisionTimeType{}):              "precision_time",
 	reflect.TypeOf(&PrecisionTimestampType{}):         "precision_timestamp",
 	reflect.TypeOf(&PrecisionTimestampTzType{}):       "precision_timestamp_tz",
 }
@@ -918,6 +939,7 @@ type (
 	ParameterizedVarCharType              = parameterizedTypeSingleIntegerParam[*VarCharType]
 	ParameterizedFixedCharType            = parameterizedTypeSingleIntegerParam[*FixedCharType]
 	ParameterizedFixedBinaryType          = parameterizedTypeSingleIntegerParam[*FixedBinaryType]
+	ParameterizedPrecisionTimeType        = parameterizedTypeSingleIntegerParam[*PrecisionTimeType]
 	ParameterizedPrecisionTimestampType   = parameterizedTypeSingleIntegerParam[*PrecisionTimestampType]
 	ParameterizedPrecisionTimestampTzType = parameterizedTypeSingleIntegerParam[*PrecisionTimestampTzType]
 	ParameterizedIntervalDayType          = parameterizedTypeSingleIntegerParam[*IntervalDayType]
@@ -1667,6 +1689,10 @@ func (t Time) ToTimeString() string {
 func (t Time) ToIsoTimeString() string {
 	tm := time.UnixMicro(int64(t))
 	return tm.UTC().Format("15:04:05.000000")
+}
+
+func (t Time) ToPrecisionTime(precision TimePrecision) time.Time {
+	return timeFromPrecisionUnits(int64(t), precision)
 }
 
 func (t Timestamp) ToTime() time.Time {

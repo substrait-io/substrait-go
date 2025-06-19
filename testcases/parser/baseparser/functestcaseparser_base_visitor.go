@@ -171,6 +171,10 @@ func (v *BaseFuncTestCaseParserVisitor) VisitFixedBinaryArg(ctx *FixedBinaryArgC
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseFuncTestCaseParserVisitor) VisitPrecisionTimeArg(ctx *PrecisionTimeArgContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseFuncTestCaseParserVisitor) VisitPrecisionTimestampArg(ctx *PrecisionTimestampArgContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -296,6 +300,10 @@ func (v *BaseFuncTestCaseParserVisitor) VisitFixedBinaryType(ctx *FixedBinaryTyp
 }
 
 func (v *BaseFuncTestCaseParserVisitor) VisitDecimalType(ctx *DecimalTypeContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseFuncTestCaseParserVisitor) VisitPrecisionTimeType(ctx *PrecisionTimeTypeContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

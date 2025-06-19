@@ -73,6 +73,9 @@ type SubstraitTypeListener interface {
 	// EnterPrecisionIntervalDay is called when entering the precisionIntervalDay production.
 	EnterPrecisionIntervalDay(c *PrecisionIntervalDayContext)
 
+	// EnterPrecisionTime is called when entering the precisionTime production.
+	EnterPrecisionTime(c *PrecisionTimeContext)
+
 	// EnterPrecisionTimestamp is called when entering the precisionTimestamp production.
 	EnterPrecisionTimestamp(c *PrecisionTimestampContext)
 
@@ -204,6 +207,9 @@ type SubstraitTypeListener interface {
 
 	// ExitPrecisionIntervalDay is called when exiting the precisionIntervalDay production.
 	ExitPrecisionIntervalDay(c *PrecisionIntervalDayContext)
+
+	// ExitPrecisionTime is called when exiting the precisionTime production.
+	ExitPrecisionTime(c *PrecisionTimeContext)
 
 	// ExitPrecisionTimestamp is called when exiting the precisionTimestamp production.
 	ExitPrecisionTimestamp(c *PrecisionTimestampContext)

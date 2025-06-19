@@ -90,6 +90,7 @@ func TestTypeRoundtrip(t *testing.T) {
 				NewIntervalCompoundType().WithPrecision(PrecisionEMinus7Seconds).WithNullability(n),
 
 				&DecimalType{Nullability: n, Precision: 34, Scale: 3},
+				&PrecisionTimeType{Nullability: n, Precision: PrecisionEMinus4Seconds},
 				&PrecisionTimestampType{Nullability: n, Precision: PrecisionEMinus4Seconds},
 				&PrecisionTimestampTzType{PrecisionTimestampType: PrecisionTimestampType{Nullability: n, Precision: PrecisionEMinus5Seconds}},
 				&MapType{Nullability: n, Key: &Int8Type{}, Value: &Int16Type{Nullability: n}},
@@ -128,6 +129,7 @@ func TestGetTypeNameToTypeMap(t *testing.T) {
 		{"fixedchar", &FixedCharType{}, false, false, false},
 		{"varchar", &VarCharType{}, false, false, false},
 		{"decimal", &DecimalType{}, false, true, false},
+		{"precision_time", &PrecisionTimeType{}, false, true, false},
 		{"precision_timestamp", &PrecisionTimestampType{}, false, true, false},
 		{"precision_timestamp_tz", &PrecisionTimestampTzType{}, false, true, false},
 
@@ -391,6 +393,8 @@ func TestMatchParameterizedNonNestedTypeResultMatch(t *testing.T) {
 	paramVarChar := &ParameterizedVarCharType{IntegerOption: intParamLen}
 	argFixedBinaryLen := &FixedBinaryType{Length: 5}
 	paramFixedBinary := &ParameterizedFixedBinaryType{IntegerOption: intParamLen}
+	argPrecisionTime := &PrecisionTimeType{Precision: PrecisionEMinus4Seconds}
+	paramPrecisionTime := &ParameterizedPrecisionTimeType{IntegerOption: intParamLen}
 	argPrecisionTimeStamp := &PrecisionTimestampType{Precision: PrecisionEMinus5Seconds}
 	paramPrecisionTimeStamp := &ParameterizedPrecisionTimestampType{IntegerOption: intParamLen}
 	argPrecisionTimeStampTzType := &PrecisionTimestampTzType{PrecisionTimestampType: PrecisionTimestampType{Precision: PrecisionMicroSeconds}}
@@ -412,6 +416,7 @@ func TestMatchParameterizedNonNestedTypeResultMatch(t *testing.T) {
 		{"varChar", paramVarChar, argVarChar},
 		{"fixBinary", paramFixedBinary, argFixedBinaryLen},
 		{"intervalDay", paramIntervalDayType, argIntervalDayType},
+		{"precisionTime", paramPrecisionTime, argPrecisionTime},
 		{"precisionTimestamp", paramPrecisionTimeStamp, argPrecisionTimeStamp},
 		{"precisionTimestampTz", paramPrecisionTimeStampTz, argPrecisionTimeStampTzType},
 		{"decimalType", paramDecimalType, argDecimalType},

@@ -49,8 +49,9 @@ func literalToString(literal expr.Literal) string {
 		switch literal.GetType().(type) {
 		// for these types enclose in single quotes
 		case *types.IntervalYearType, *types.IntervalDayType,
-			*types.PrecisionTimestampType, *types.PrecisionTimestampTzType,
-			*types.TimestampType, *types.TimeType, *types.TimestampTzType:
+			*types.PrecisionTimeType, *types.PrecisionTimestampType,
+			*types.PrecisionTimestampTzType, *types.TimestampType,
+			*types.TimeType, *types.TimestampTzType:
 			return fmt.Sprintf("'%s'", lit.IsoValueString())
 		}
 	}
