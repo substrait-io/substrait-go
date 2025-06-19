@@ -323,6 +323,8 @@ type Rel interface {
 	RecordType() types.RecordType
 
 	GetAdvancedExtension() *extensions.AdvancedExtension
+	SetAdvancedExtension(extension *extensions.AdvancedExtension) error
+
 	ToProto() *proto.Rel
 	ToProtoPlanRel() *proto.PlanRel
 
