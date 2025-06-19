@@ -1593,7 +1593,7 @@ scalar_functions:
       - args:
           - name: x
             value: "DECIMAL<P,S>"
-      return: fp64
+        return: fp64
 `
 
 	dialectYaml := `
