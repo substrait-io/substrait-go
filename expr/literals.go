@@ -586,10 +586,6 @@ func (t *ProtoLiteral) IsoValueString() string {
 func (*ProtoLiteral) isRootRef()            {}
 func (t *ProtoLiteral) GetType() types.Type { return t.Type }
 func (t *ProtoLiteral) String() string {
-	// switch literalType := t.Type.(type) {
-	// case *types.PrecisionTimestampType, *types.PrecisionTimestampTzType:
-	// 	return fmt.Sprintf("%s(%s)", literalType, t.ValueString())
-	// }
 	return fmt.Sprintf("%s(%s)", t.Type, t.ValueString())
 }
 func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
