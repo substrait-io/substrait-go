@@ -134,7 +134,6 @@ scalar_functions:
 		{`unsupported type`, `name: testdb
 type: sql
 dependencies:
-dependencies:
   arithmetic: 
     https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
 supported_types:
@@ -220,7 +219,6 @@ window_functions:
 	badTypeTestcases := []testcase{
 		{`unknown type`, `name: testdb
 type: sql
-dependencies:
 dependencies:
   arithmetic: 
     https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
