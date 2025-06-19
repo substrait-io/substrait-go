@@ -152,6 +152,12 @@ func (s *BaseSubstraitTypeListener) EnterPrecisionIntervalDay(ctx *PrecisionInte
 // ExitPrecisionIntervalDay is called when production precisionIntervalDay is exited.
 func (s *BaseSubstraitTypeListener) ExitPrecisionIntervalDay(ctx *PrecisionIntervalDayContext) {}
 
+// EnterPrecisionTime is called when production precisionTime is entered.
+func (s *BaseSubstraitTypeListener) EnterPrecisionTime(ctx *PrecisionTimeContext) {}
+
+// ExitPrecisionTime is called when production precisionTime is exited.
+func (s *BaseSubstraitTypeListener) ExitPrecisionTime(ctx *PrecisionTimeContext) {}
+
 // EnterPrecisionTimestamp is called when production precisionTimestamp is entered.
 func (s *BaseSubstraitTypeListener) EnterPrecisionTimestamp(ctx *PrecisionTimestampContext) {}
 

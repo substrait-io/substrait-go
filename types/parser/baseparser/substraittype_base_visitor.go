@@ -95,6 +95,10 @@ func (v *BaseSubstraitTypeVisitor) VisitPrecisionIntervalDay(ctx *PrecisionInter
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSubstraitTypeVisitor) VisitPrecisionTime(ctx *PrecisionTimeContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSubstraitTypeVisitor) VisitPrecisionTimestamp(ctx *PrecisionTimestampContext) interface{} {
 	return v.VisitChildren(ctx)
 }

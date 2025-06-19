@@ -58,7 +58,7 @@ func TestNewLiteralWithDecimalBytes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := expr.NewLiteral[*types.Decimal](&types.Decimal{Value: tt.value, Precision: tt.precision, Scale: tt.scale}, false)
+			_, err := expr.NewLiteral(&types.Decimal{Value: tt.value, Precision: tt.precision, Scale: tt.scale}, false)
 			if tt.expectedToFail {
 				require.Error(t, err)
 			} else {
@@ -87,6 +87,33 @@ func TestNewFixedLenWithType(t *testing.T) {
 			}
 			require.NoError(t, err)
 			assert.Equal(t, tt.inputType, got.GetType())
+		})
+	}
+}
+
+func TestNewPrecisionTimeWithType(t *testing.T) {
+	tests := []struct {
+		name           string
+		inputPrecision types.TimePrecision
+		inputType      *types.PrecisionTimeType
+		want           expr.Literal
+		wantErr        bool
+	}{
+		{"01:02:03.456", 3, &types.PrecisionTimeType{Precision: 3, Nullability: types.NullabilityNullable}, nil, false},
+		{"01:02:03.456", 3, &types.PrecisionTimeType{Precision: 6, Nullability: types.NullabilityNullable}, nil, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lit, err := literal.NewPrecisionTimeFromString(tt.inputPrecision, tt.name, false)
+			require.NoError(t, err)
+			got, err := lit.(*expr.ProtoLiteral).WithType(tt.inputType)
+			if tt.wantErr {
+				require.NoError(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.inputType, got.GetType())
+			assert.Equal(t, tt.name, got.(types.IsoValuePrinter).IsoValueString())
 		})
 	}
 }

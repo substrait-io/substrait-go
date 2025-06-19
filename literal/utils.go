@@ -15,39 +15,39 @@ import (
 )
 
 func NewBool(value bool, nullable bool) expr.Literal {
-	return expr.NewPrimitiveLiteral[bool](value, nullable)
+	return expr.NewPrimitiveLiteral(value, nullable)
 }
 
 func NewInt8(value int8, nullable bool) expr.Literal {
-	return expr.NewPrimitiveLiteral[int8](value, nullable)
+	return expr.NewPrimitiveLiteral(value, nullable)
 }
 
 func NewInt16(value int16, nullable bool) expr.Literal {
-	return expr.NewPrimitiveLiteral[int16](value, nullable)
+	return expr.NewPrimitiveLiteral(value, nullable)
 }
 
 func NewInt32(value int32, nullable bool) expr.Literal {
-	return expr.NewPrimitiveLiteral[int32](value, nullable)
+	return expr.NewPrimitiveLiteral(value, nullable)
 }
 
 func NewInt64(value int64, nullable bool) expr.Literal {
-	return expr.NewPrimitiveLiteral[int64](value, nullable)
+	return expr.NewPrimitiveLiteral(value, nullable)
 }
 
 func NewFloat32(value float32, nullable bool) expr.Literal {
-	return expr.NewPrimitiveLiteral[float32](value, nullable)
+	return expr.NewPrimitiveLiteral(value, nullable)
 }
 
 func NewFloat64(value float64, nullable bool) expr.Literal {
-	return expr.NewPrimitiveLiteral[float64](value, nullable)
+	return expr.NewPrimitiveLiteral(value, nullable)
 }
 
 func NewString(value string, nullable bool) expr.Literal {
-	return expr.NewPrimitiveLiteral[string](value, nullable)
+	return expr.NewPrimitiveLiteral(value, nullable)
 }
 
 func NewDate(days int, nullable bool) (expr.Literal, error) {
-	return expr.NewLiteral[types.Date](types.Date(days), nullable)
+	return expr.NewLiteral(types.Date(days), nullable)
 }
 
 func NewDateFromString(value string, nullable bool) (expr.Literal, error) {
@@ -66,7 +66,7 @@ func NewTime(hours, minutes, seconds, microseconds int32, nullable bool) (expr.L
 	if micros < 0 || micros >= (24*time.Hour).Microseconds() {
 		return nil, fmt.Errorf("invalid time value %d:%d:%d.%d", hours, minutes, seconds, microseconds)
 	}
-	return expr.NewLiteral[types.Time](types.Time(duration.Microseconds()), nullable)
+	return expr.NewLiteral(types.Time(duration.Microseconds()), nullable)
 }
 
 // NewTimeFromMicros creates a new Time literal from the given microseconds.
@@ -74,7 +74,7 @@ func NewTimeFromMicros(micros int64, nullable bool) (expr.Literal, error) {
 	if micros < 0 || micros >= (24*time.Hour).Microseconds() {
 		return nil, fmt.Errorf("invalid time value %d", micros)
 	}
-	return expr.NewLiteral[types.Time](types.Time(micros), nullable)
+	return expr.NewLiteral(types.Time(micros), nullable)
 }
 
 func NewTimeFromString(value string, nullable bool) (expr.Literal, error) {
@@ -107,7 +107,7 @@ func parseTimeFromString(value string) (time.Time, error) {
 // NewTimestamp creates a new Timestamp literal from a time.Time timestamp value.
 // This uses the number of microseconds elapsed since January 1, 1970 00:00:00 UTC
 func NewTimestamp(timestamp time.Time, nullable bool) (expr.Literal, error) {
-	return expr.NewLiteral[types.Timestamp](types.Timestamp(timestamp.UnixMicro()), nullable)
+	return expr.NewLiteral(types.Timestamp(timestamp.UnixMicro()), nullable)
 }
 
 func NewTimestampFromString(value string, nullable bool) (expr.Literal, error) {
@@ -119,13 +119,13 @@ func NewTimestampFromString(value string, nullable bool) (expr.Literal, error) {
 }
 
 func NewTimestampFromMicros(micros int64, nullable bool) (expr.Literal, error) {
-	return expr.NewLiteral[types.Timestamp](types.Timestamp(micros), nullable)
+	return expr.NewLiteral(types.Timestamp(micros), nullable)
 }
 
 // NewTimestampTZ creates a new TimestampTz literal from a time.Time timestamp value.
 // This uses the number of microseconds elapsed since January 1, 1970 00:00:00 UTC
 func NewTimestampTZ(timestamp time.Time, nullable bool) (expr.Literal, error) {
-	return expr.NewLiteral[types.TimestampTz](types.TimestampTz(timestamp.UnixMicro()), nullable)
+	return expr.NewLiteral(types.TimestampTz(timestamp.UnixMicro()), nullable)
 }
 
 func NewTimestampTZFromString(value string, nullable bool) (expr.Literal, error) {
@@ -137,7 +137,7 @@ func NewTimestampTZFromString(value string, nullable bool) (expr.Literal, error)
 }
 
 func NewTimestampTZFromMicros(micros int64, nullable bool) (expr.Literal, error) {
-	return expr.NewLiteral[types.TimestampTz](types.TimestampTz(micros), nullable)
+	return expr.NewLiteral(types.TimestampTz(micros), nullable)
 }
 
 func NewIntervalYearsToMonthFromString(yearsToMonth string, nullable bool) (expr.Literal, error) {
@@ -185,7 +185,7 @@ func parseIntervalYearsToMonth(interval string) (int32, int32, error) {
 }
 
 func NewIntervalYearsToMonth(years, months int32, nullable bool) (expr.Literal, error) {
-	return expr.NewLiteral[*types.IntervalYearToMonth](&types.IntervalYearToMonth{Years: years, Months: months}, nullable)
+	return expr.NewLiteral(&types.IntervalYearToMonth{Years: years, Months: months}, nullable)
 }
 
 func NewIntervalDaysToSecondFromString(daysToSecond string, nullable bool) (expr.Literal, error) {
@@ -193,7 +193,7 @@ func NewIntervalDaysToSecondFromString(daysToSecond string, nullable bool) (expr
 	if err != nil {
 		return nil, err
 	}
-	return expr.NewLiteral[*types.IntervalDayToSecond](&types.IntervalDayToSecond{
+	return expr.NewLiteral(&types.IntervalDayToSecond{
 		Days:    days,
 		Seconds: seconds,
 		PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{
@@ -263,7 +263,7 @@ func parseIntervalDaysToSecond(interval string) (int32, int32, int64, int32, err
 }
 
 func NewIntervalDaysToSecond(days, seconds int32, micros int64, nullable bool) (expr.Literal, error) {
-	return expr.NewLiteral[*types.IntervalDayToSecond](&types.IntervalDayToSecond{
+	return expr.NewLiteral(&types.IntervalDayToSecond{
 		Days:    days,
 		Seconds: seconds,
 		PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{
@@ -286,7 +286,7 @@ func NewUUIDFromBytes(value []byte, nullable bool) (expr.Literal, error) {
 }
 
 func NewFixedChar(value string, nullable bool) (expr.Literal, error) {
-	return expr.NewLiteral[types.FixedChar](types.FixedChar(value), nullable)
+	return expr.NewLiteral(types.FixedChar(value), nullable)
 }
 
 func NewFixedBinary(value []byte, nullable bool) (expr.Literal, error) {
@@ -294,7 +294,7 @@ func NewFixedBinary(value []byte, nullable bool) (expr.Literal, error) {
 }
 
 func NewVarChar(value string, nullable bool) (expr.Literal, error) {
-	return expr.NewLiteral[*types.VarChar](&types.VarChar{Value: value, Length: uint32(len(value))}, nullable)
+	return expr.NewLiteral(&types.VarChar{Value: value, Length: uint32(len(value))}, nullable)
 }
 
 // NewDecimalFromTwosComplement create a Decimal literal from twosComplement.
@@ -309,7 +309,7 @@ func NewDecimalFromTwosComplement(twosComplement []byte, precision, scale int32,
 	if scale < 0 || scale > precision {
 		return nil, fmt.Errorf("scale must be in range [0, precision]")
 	}
-	return expr.NewLiteral[*types.Decimal](&types.Decimal{Value: twosComplement, Precision: precision, Scale: scale}, nullable)
+	return expr.NewLiteral(&types.Decimal{Value: twosComplement, Precision: precision, Scale: scale}, nullable)
 
 }
 
@@ -319,7 +319,7 @@ func NewDecimalFromString(value string, nullable bool) (expr.Literal, error) {
 	if err != nil {
 		return nil, err
 	}
-	return expr.NewLiteral[*types.Decimal](&types.Decimal{Value: v[:16], Precision: precision, Scale: scale}, nullable)
+	return expr.NewLiteral(&types.Decimal{Value: v[:16], Precision: precision, Scale: scale}, nullable)
 }
 
 func NewDecimalFromApdDecimal(value *apd.Decimal, nullable bool) (expr.Literal, error) {
@@ -327,7 +327,30 @@ func NewDecimalFromApdDecimal(value *apd.Decimal, nullable bool) (expr.Literal, 
 	if err != nil {
 		return nil, err
 	}
-	return expr.NewLiteral[*types.Decimal](&types.Decimal{Value: v[:16], Precision: precision, Scale: scale}, nullable)
+	return expr.NewLiteral(&types.Decimal{Value: v[:16], Precision: precision, Scale: scale}, nullable)
+}
+
+func NewPrecisionTime(precision types.TimePrecision, value int64, nullable bool) (expr.Literal, error) {
+	return expr.NewLiteral(&types.PrecisionTime{
+		Precision: int32(precision),
+		Value:     value,
+	}, nullable)
+}
+
+var epochTM = time.Unix(0, 0).UTC()
+
+func NewPrecisionTimeFromTime(precision types.TimePrecision, tm time.Time, nullable bool) (expr.Literal, error) {
+	// truncate the date so that we only keep the duration since midnight
+	tm = epochTM.Add(tm.Sub(tm.Truncate(24 * time.Hour)))
+	return NewPrecisionTime(precision, types.GetTimeValueByPrecision(tm, precision), nullable)
+}
+
+func NewPrecisionTimeFromString(precision types.TimePrecision, value string, nullable bool) (expr.Literal, error) {
+	tm, err := parseTimeFromString(value)
+	if err != nil {
+		return nil, err
+	}
+	return NewPrecisionTimeFromTime(precision, tm, nullable)
 }
 
 // NewPrecisionTimestampFromTime creates a new PrecisionTimestamp literal from a time.Time timestamp value with given precision.
@@ -337,7 +360,7 @@ func NewPrecisionTimestampFromTime(precision types.TimePrecision, tm time.Time, 
 
 // NewPrecisionTimestamp creates a new PrecisionTimestamp literal with given precision and value.
 func NewPrecisionTimestamp(precision types.TimePrecision, value int64, nullable bool) (expr.Literal, error) {
-	return expr.NewLiteral[*types.PrecisionTimestamp](&types.PrecisionTimestamp{
+	return expr.NewLiteral(&types.PrecisionTimestamp{
 		PrecisionTimestamp: &proto.Expression_Literal_PrecisionTimestamp{
 			Precision: int32(precision),
 			Value:     value,
@@ -360,7 +383,7 @@ func NewPrecisionTimestampTzFromTime(precision types.TimePrecision, tm time.Time
 
 // NewPrecisionTimestampTz creates a new PrecisionTimestampTz literal with given precision and value.
 func NewPrecisionTimestampTz(precision types.TimePrecision, value int64, nullable bool) (expr.Literal, error) {
-	return expr.NewLiteral[*types.PrecisionTimestampTz](&types.PrecisionTimestampTz{
+	return expr.NewLiteral(&types.PrecisionTimestampTz{
 		PrecisionTimestampTz: &proto.Expression_Literal_PrecisionTimestamp{
 			Precision: int32(precision),
 			Value:     value,

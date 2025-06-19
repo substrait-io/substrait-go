@@ -223,3 +223,88 @@ func (m *PrecisionTimestampTzType) GetReturnType(length int32, nullability Nulla
 	out.Nullability = nullability
 	return &out
 }
+
+type PrecisionTimeType struct {
+	Precision        TimePrecision
+	TypeVariationRef uint32
+	Nullability      Nullability
+}
+
+func NewPrecisionTimeType(precision TimePrecision) *PrecisionTimeType {
+	return &PrecisionTimeType{
+		Precision:   precision,
+		Nullability: NullabilityNullable,
+	}
+}
+
+func (m *PrecisionTimeType) GetPrecisionProtoVal() int32 {
+	return m.Precision.ToProtoVal()
+}
+
+func (*PrecisionTimeType) isRootRef() {}
+func (m *PrecisionTimeType) WithNullability(n Nullability) Type {
+	return m.withNullability(n)
+}
+
+func (m *PrecisionTimeType) GetParameters() []interface{} {
+	return []interface{}{m.Precision}
+}
+
+func (m *PrecisionTimeType) withNullability(n Nullability) *PrecisionTimeType {
+	return &PrecisionTimeType{
+		Precision:   m.Precision,
+		Nullability: n,
+	}
+}
+
+func (m *PrecisionTimeType) GetType() Type                     { return m }
+func (m *PrecisionTimeType) GetNullability() Nullability       { return m.Nullability }
+func (m *PrecisionTimeType) GetTypeVariationReference() uint32 { return m.TypeVariationRef }
+func (m *PrecisionTimeType) Equals(rhs Type) bool {
+	if o, ok := rhs.(*PrecisionTimeType); ok {
+		return *o == *m
+	}
+	return false
+}
+
+func (m *PrecisionTimeType) ToProtoFuncArg() *proto.FunctionArgument {
+	return &proto.FunctionArgument{
+		ArgType: &proto.FunctionArgument_Type{Type: m.ToProto()},
+	}
+}
+
+func (m *PrecisionTimeType) ToProto() *proto.Type {
+	return &proto.Type{Kind: &proto.Type_PrecisionTime_{
+		PrecisionTime: &proto.Type_PrecisionTime{
+			Precision:              m.Precision.ToProtoVal(),
+			Nullability:            m.Nullability,
+			TypeVariationReference: m.TypeVariationRef}}}
+}
+
+func (*PrecisionTimeType) ShortString() string {
+	return GetShortTypeName(TypeNamePrecisionTime)
+}
+
+func (m *PrecisionTimeType) String() string {
+	return fmt.Sprintf("%s%s<%d>", TypeNamePrecisionTime, strNullable(m),
+		m.Precision.ToProtoVal())
+}
+
+func (m *PrecisionTimeType) ParameterString() string {
+	return fmt.Sprintf("%d", m.Precision.ToProtoVal())
+}
+
+func (m *PrecisionTimeType) BaseString() string {
+	return typeNames[reflect.TypeOf(m)]
+}
+
+func (m *PrecisionTimeType) GetPrecision() TimePrecision {
+	return m.Precision
+}
+
+func (m *PrecisionTimeType) GetReturnType(length int32, nullability Nullability) Type {
+	out := *m
+	out.Precision = TimePrecision(length)
+	out.Nullability = nullability
+	return &out
+}

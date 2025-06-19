@@ -73,6 +73,9 @@ type SubstraitTypeVisitor interface {
 	// Visit a parse tree produced by SubstraitTypeParser#precisionIntervalDay.
 	VisitPrecisionIntervalDay(ctx *PrecisionIntervalDayContext) interface{}
 
+	// Visit a parse tree produced by SubstraitTypeParser#precisionTime.
+	VisitPrecisionTime(ctx *PrecisionTimeContext) interface{}
+
 	// Visit a parse tree produced by SubstraitTypeParser#precisionTimestamp.
 	VisitPrecisionTimestamp(ctx *PrecisionTimestampContext) interface{}
 

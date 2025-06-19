@@ -16,6 +16,10 @@ func TestToProtoLiteral(t *testing.T) {
 		constructedLiteral        *ProtoLiteral
 		expectedExpressionLiteral *proto.Expression_Literal
 	}{
+		{"TimeType",
+			&ProtoLiteral{Value: int64(12345678), Type: types.NewPrecisionTimeType(types.PrecisionEMinus4Seconds).WithNullability(types.NullabilityNullable)},
+			&proto.Expression_Literal{LiteralType: &proto.Expression_Literal_PrecisionTime_{PrecisionTime: &proto.Expression_Literal_PrecisionTime{Precision: 4, Value: 12345678}}, Nullable: true},
+		},
 		{"TimeStampType",
 			&ProtoLiteral{Value: int64(12345678), Type: types.NewPrecisionTimestampType(types.PrecisionEMinus4Seconds).WithNullability(types.NullabilityNullable)},
 			&proto.Expression_Literal{LiteralType: &proto.Expression_Literal_PrecisionTimestamp_{PrecisionTimestamp: &proto.Expression_Literal_PrecisionTimestamp{Precision: 4, Value: 12345678}}, Nullable: true},
@@ -42,6 +46,10 @@ func TestLiteralFromProtoLiteral(t *testing.T) {
 		constructedProto *proto.Expression_Literal
 		expectedLiteral  interface{}
 	}{
+		{"TimeType",
+			&proto.Expression_Literal{LiteralType: &proto.Expression_Literal_PrecisionTime_{PrecisionTime: &proto.Expression_Literal_PrecisionTime{Precision: 4, Value: 12345678}}, Nullable: true},
+			&ProtoLiteral{Value: int64(12345678), Type: types.NewPrecisionTimeType(types.PrecisionEMinus4Seconds).WithNullability(types.NullabilityNullable)},
+		},
 		{"TimeStampType",
 			&proto.Expression_Literal{LiteralType: &proto.Expression_Literal_PrecisionTimestamp_{PrecisionTimestamp: &proto.Expression_Literal_PrecisionTimestamp{Precision: 4, Value: 12345678}}, Nullable: true},
 			&ProtoLiteral{Value: int64(12345678), Type: types.NewPrecisionTimestampType(types.PrecisionEMinus4Seconds).WithNullability(types.NullabilityNullable)},

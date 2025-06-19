@@ -403,6 +403,9 @@ func (v *TestCaseVisitor) VisitArgument(ctx *baseparser.ArgumentContext) interfa
 	if ctx.FixedBinaryArg() != nil {
 		return v.Visit(ctx.FixedBinaryArg())
 	}
+	if ctx.PrecisionTimeArg() != nil {
+		return v.Visit(ctx.PrecisionTimeArg())
+	}
 	if ctx.PrecisionTimestampArg() != nil {
 		return v.Visit(ctx.PrecisionTimestampArg())
 	}
@@ -638,6 +641,16 @@ func (v *TestCaseVisitor) VisitDecimalArg(ctx *baseparser.DecimalArgContext) int
 	return &CaseLiteral{Value: decimal, ValueText: ctx.NumericLiteral().GetText(), Type: decType}
 }
 
+func (v *TestCaseVisitor) VisitPrecisionTimeArg(ctx *baseparser.PrecisionTimeArgContext) interface{} {
+	ptsType := v.Visit(ctx.PrecisionTimeType()).(*types.PrecisionTimeType)
+	timestampStr := getRawStringFromStringLiteral(ctx.TimeLiteral().GetText())
+	value, err := literal.NewPrecisionTimeFromString(ptsType.Precision, timestampStr, ptsType.GetNullability() == types.NullabilityNullable)
+	if err != nil {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid precision time arg %v", err))
+	}
+	return &CaseLiteral{Value: value, ValueText: ctx.TimeLiteral().GetText(), Type: ptsType}
+}
+
 func (v *TestCaseVisitor) VisitPrecisionTimestampArg(ctx *baseparser.PrecisionTimestampArgContext) interface{} {
 	ptsType := v.Visit(ctx.PrecisionTimestampType()).(*types.PrecisionTimestampType)
 	timestampStr := getRawStringFromStringLiteral(ctx.TimestampLiteral().GetText())
@@ -865,6 +878,9 @@ func (v *TestCaseVisitor) VisitParameterizedType(ctx *baseparser.ParameterizedTy
 	if ctx.DecimalType() != nil {
 		return v.Visit(ctx.DecimalType())
 	}
+	if ctx.PrecisionTimeType() != nil {
+		return v.Visit(ctx.PrecisionTimeType())
+	}
 	if ctx.PrecisionTimestampType() != nil {
 		return v.Visit(ctx.PrecisionTimestampType())
 	}
@@ -903,6 +919,11 @@ func (v *TestCaseVisitor) VisitIntegerLiteral(ctx *baseparser.IntegerLiteralCont
 		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid int arg %v", err))
 	}
 	return int32(value)
+}
+
+func (v *TestCaseVisitor) VisitPrecisionTimeType(ctx *baseparser.PrecisionTimeTypeContext) interface{} {
+	length := v.Visit(ctx.GetPrecision()).(int32)
+	return &types.PrecisionTimeType{Precision: types.TimePrecision(length), Nullability: getNullability(ctx)}
 }
 
 func (v *TestCaseVisitor) VisitPrecisionTimestampType(ctx *baseparser.PrecisionTimestampTypeContext) interface{} {

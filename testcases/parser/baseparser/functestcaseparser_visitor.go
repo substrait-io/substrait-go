@@ -130,6 +130,9 @@ type FuncTestCaseParserVisitor interface {
 	// Visit a parse tree produced by FuncTestCaseParser#fixedBinaryArg.
 	VisitFixedBinaryArg(ctx *FixedBinaryArgContext) interface{}
 
+	// Visit a parse tree produced by FuncTestCaseParser#precisionTimeArg.
+	VisitPrecisionTimeArg(ctx *PrecisionTimeArgContext) interface{}
+
 	// Visit a parse tree produced by FuncTestCaseParser#precisionTimestampArg.
 	VisitPrecisionTimestampArg(ctx *PrecisionTimestampArgContext) interface{}
 
@@ -225,6 +228,9 @@ type FuncTestCaseParserVisitor interface {
 
 	// Visit a parse tree produced by FuncTestCaseParser#decimalType.
 	VisitDecimalType(ctx *DecimalTypeContext) interface{}
+
+	// Visit a parse tree produced by FuncTestCaseParser#precisionTimeType.
+	VisitPrecisionTimeType(ctx *PrecisionTimeTypeContext) interface{}
 
 	// Visit a parse tree produced by FuncTestCaseParser#precisionTimestampType.
 	VisitPrecisionTimestampType(ctx *PrecisionTimestampTypeContext) interface{}

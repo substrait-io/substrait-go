@@ -777,6 +777,41 @@ func createVarCharLiteral(value string) *expr.ProtoLiteral {
 	}
 }
 
+func TestNewPrecisionTimeFromTime(t *testing.T) {
+	now := time.Now()
+
+	epoch := time.Unix(0, 0).UTC()
+
+	truncatedNow := epoch.Add(now.Sub(now.Truncate(24 * time.Hour)))
+	tests := []struct {
+		name      string
+		precision types.TimePrecision
+		tm        time.Time
+		want      expr.Literal
+	}{
+		//{"zero", types.PrecisionSeconds, time.Unix(0, 0), expr.NewPrimitiveLiteral(types.Timestamp(0), false), assert.NoError},
+		{"nowInSecs", types.PrecisionSeconds, now, &expr.ProtoLiteral{Value: truncatedNow.Unix(), Type: &types.PrecisionTimeType{Precision: types.PrecisionSeconds, Nullability: types.NullabilityRequired}}},
+		{"nowInDeciSecs", types.PrecisionDeciSeconds, now, &expr.ProtoLiteral{Value: truncatedNow.UnixMilli() / 100, Type: &types.PrecisionTimeType{Precision: types.PrecisionDeciSeconds, Nullability: types.NullabilityRequired}}},
+		{"nowInCentiSecs", types.PrecisionCentiSeconds, now, &expr.ProtoLiteral{Value: truncatedNow.UnixMilli() / 10, Type: &types.PrecisionTimeType{Precision: types.PrecisionCentiSeconds, Nullability: types.NullabilityRequired}}},
+		{"nowInMilliSecs", types.PrecisionMilliSeconds, now, &expr.ProtoLiteral{Value: truncatedNow.UnixMilli(), Type: &types.PrecisionTimeType{Precision: types.PrecisionMilliSeconds, Nullability: types.NullabilityRequired}}},
+		{"nowIn100MicroSecs", types.PrecisionEMinus4Seconds, now, &expr.ProtoLiteral{Value: truncatedNow.UnixMicro() / 100, Type: &types.PrecisionTimeType{Precision: types.PrecisionEMinus4Seconds, Nullability: types.NullabilityRequired}}},
+		{"nowIn10MicroSecs", types.PrecisionEMinus5Seconds, now, &expr.ProtoLiteral{Value: truncatedNow.UnixMicro() / 10, Type: &types.PrecisionTimeType{Precision: types.PrecisionEMinus5Seconds, Nullability: types.NullabilityRequired}}},
+		{"nowInMicros", types.PrecisionMicroSeconds, now, &expr.ProtoLiteral{Value: truncatedNow.UnixMicro(), Type: &types.PrecisionTimeType{Precision: types.PrecisionMicroSeconds, Nullability: types.NullabilityRequired}}},
+		{"nowIn100NanoSecs", types.PrecisionEMinus7Seconds, now, &expr.ProtoLiteral{Value: truncatedNow.UnixNano() / 100, Type: &types.PrecisionTimeType{Precision: types.PrecisionEMinus7Seconds, Nullability: types.NullabilityRequired}}},
+		{"nowIn10NanoSecs", types.PrecisionEMinus8Seconds, now, &expr.ProtoLiteral{Value: truncatedNow.UnixNano() / 10, Type: &types.PrecisionTimeType{Precision: types.PrecisionEMinus8Seconds, Nullability: types.NullabilityRequired}}},
+		{"nowInNanoSecs", types.PrecisionNanoSeconds, now, &expr.ProtoLiteral{Value: truncatedNow.UnixNano(), Type: &types.PrecisionTimeType{Precision: types.PrecisionNanoSeconds, Nullability: types.NullabilityRequired}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewPrecisionTimeFromTime(tt.precision, tt.tm, false)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+			assert.True(t, tt.want.Equals(got))
+		})
+	}
+
+}
+
 func TestNewPrecisionTimestampFromTime(t *testing.T) {
 	now := time.Now()
 	tests := []struct {

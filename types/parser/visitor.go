@@ -252,6 +252,16 @@ func (v *TypeVisitor) VisitDecimal(ctx *baseparser2.DecimalContext) interface{} 
 	return &types.ParameterizedDecimalType{Precision: precision, Scale: scale, Nullability: nullability}
 }
 
+func (v *TypeVisitor) VisitPrecisionTime(ctx *baseparser2.PrecisionTimeContext) interface{} {
+	nullability := types.NullabilityRequired
+	if ctx.GetIsnull() != nil {
+		nullability = types.NullabilityNullable
+	}
+
+	length := v.Visit(ctx.GetPrecision()).(integer_parameters.IntegerParameter)
+	return &types.ParameterizedPrecisionTimeType{IntegerOption: length, Nullability: nullability}
+}
+
 func (v *TypeVisitor) VisitPrecisionTimestamp(ctx *baseparser2.PrecisionTimestampContext) interface{} {
 	nullability := types.NullabilityRequired
 	if ctx.GetIsnull() != nil {

@@ -29,6 +29,7 @@ func TestExprBuilder(t *testing.T) {
 		err      string
 	}{
 		{"literal", "i8?(5)", b.Wrap(expr.NewLiteral(int8(5), true)), ""},
+		{"preciseTimeLiteral", "precision_time?<4>(00:00:12.3456)", b.Wrap(expr.NewPrecisionTimeLiteral(123456, types.PrecisionEMinus4Seconds, types.NullabilityNullable), nil), ""},
 		{"preciseTimeStampliteral", "precision_timestamp?<3>(1970-01-01 00:02:03.456)", b.Wrap(expr.NewPrecisionTimestampLiteral(123456, types.PrecisionMilliSeconds, types.NullabilityNullable), nil), ""},
 		{"preciseTimeStampTzliteral", "precision_timestamp_tz?<6>(1970-01-01T00:00:00.123456Z)", b.Wrap(expr.NewPrecisionTimestampTzLiteral(123456, types.PrecisionMicroSeconds, types.NullabilityNullable), nil), ""},
 		{"simple add", "add(.field(1) => i8, i8(5)) => i8?",
