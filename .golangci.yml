@@ -1,13 +1,31 @@
-issues:
-  exclude-dirs:
-    - proto
-linters-settings:
-  staticcheck:
-    checks:
-      - "-SA1019" #disabled until deprecation warnings are fixed.
-  gci:
-    custom-order: false
+version: "2"
 linters:
+  settings:
+    staticcheck:
+      checks:
+        - -SA1019
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - proto
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
   enable:
     - gci
-
+  settings:
+    gci:
+      custom-order: false
+  exclusions:
+    generated: lax
+    paths:
+      - proto
+      - third_party$
+      - builtin$
+      - examples$
