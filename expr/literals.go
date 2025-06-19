@@ -1218,6 +1218,16 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 				TypeParameters:   params,
 			},
 		}
+	case *proto.Expression_Literal_PrecisionTime_:
+		precTime := lit.PrecisionTime
+		precision, err := types.ProtoToTimePrecision(precTime.Precision)
+		if err != nil {
+			return nil
+		}
+		if precTime.Value < 0 {
+			return nil
+		}
+		return NewPrecisionTimeLiteral(precTime.Value, precision, nullability)
 	case *proto.Expression_Literal_PrecisionTimestamp_:
 		precTimeStamp := lit.PrecisionTimestamp
 		precision, err := types.ProtoToTimePrecision(precTimeStamp.Precision)
