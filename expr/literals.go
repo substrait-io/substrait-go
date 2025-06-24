@@ -1256,8 +1256,8 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 	panic("unimplemented literal type")
 }
 
-// NewPrecisionTimeLiteral it takes time value which is in specified precision
-// and nullable property (n) and returns a PrecisionTime Literal
+// NewPrecisionTimeLiteral creates a new PrecisionTime from an integer value, representing time since
+// midnight, in the specified precision (nanoseconds to seconds).
 func NewPrecisionTimeLiteral(value int64, precision types.TimePrecision, n types.Nullability) Literal {
 	return &ProtoLiteral{
 		Value: value,
@@ -1268,8 +1268,8 @@ func NewPrecisionTimeLiteral(value int64, precision types.TimePrecision, n types
 	}
 }
 
-// NewPrecisionTimestampLiteral it takes timestamp value which is in specified precision
-// and nullable property (n) and returns a PrecisionTimestamp Literal
+// NewPrecisionTimestampLiteral creates a new PrecisionTimestamp from an integer value, representing time since
+// the unix epoch, in the specified precision (nanoseconds to seconds).
 func NewPrecisionTimestampLiteral(value int64, precision types.TimePrecision, n types.Nullability) Literal {
 	return &ProtoLiteral{
 		Value: value,
