@@ -449,3 +449,172 @@ func TestCastVisit(t *testing.T) {
 		})
 	}
 }
+
+func TestSubqueryExpressionRoundtrip(t *testing.T) {
+	const substraitExtURI = "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	// define extensions with no plan for now
+	const planExt = `{
+		"extensionUris": [
+			{
+				"extensionUriAnchor": 1,
+				"uri": "` + substraitExtURI + `"
+			}
+		],
+		"extensions": [],
+		"relations": []
+	}`
+
+	var planProto proto.Plan
+	if err := protojson.Unmarshal([]byte(planExt), &planProto); err != nil {
+		panic(err)
+	}
+
+	// get the extension set and create registry with subquery handler
+	extSet := ext.GetExtensionSet(&planProto)
+	c := ext.GetDefaultCollectionWithNoError()
+
+	// Create extension registry with subquery handler properly
+	baseReg := expr.NewExtensionRegistry(extSet, c)
+	subqueryReg := &plan.RegistryWithSubqueryHandler{ExtensionRegistry: baseReg}
+
+	// Create a simple mock relation for subqueries - single column of int32
+	mockSchema := types.NamedStruct{
+		Names: []string{"col1"},
+		Struct: types.StructType{
+			Types: []types.Type{&types.Int32Type{}},
+		},
+	}
+	mockRel := plan.NewBuilderDefault().NamedScan([]string{"test_table"}, mockSchema)
+
+	// Create base schema for needle expressions
+	baseSchema := types.NewRecordTypeFromTypes([]types.Type{&types.Int32Type{}, &types.StringType{}})
+
+	tests := []struct {
+		name    string
+		subExpr expr.Expression
+	}{
+		{
+			name:    "ScalarSubquery",
+			subExpr: plan.NewScalarSubquery(mockRel),
+		},
+		{
+			name: "InPredicateSubquery",
+			subExpr: plan.NewInPredicateSubquery(
+				[]expr.Expression{expr.NewPrimitiveLiteral(int32(42), false)},
+				mockRel,
+			),
+		},
+		{
+			name: "InPredicateSubquery_MultipleNeedles",
+			subExpr: func() expr.Expression {
+				// Create a 2-column relation for multi-needle test
+				twoColSchema := types.NamedStruct{
+					Names: []string{"col1", "col2"},
+					Struct: types.StructType{
+						Types: []types.Type{&types.Int32Type{}, &types.StringType{}},
+					},
+				}
+				twoColRel := plan.NewBuilderDefault().NamedScan([]string{"two_col_table"}, twoColSchema)
+
+				return plan.NewInPredicateSubquery(
+					[]expr.Expression{
+						expr.NewPrimitiveLiteral(int32(42), false),
+						expr.NewPrimitiveLiteral("test", false),
+					},
+					twoColRel,
+				)
+			}(),
+		},
+		{
+			name: "SetPredicateSubquery_EXISTS",
+			subExpr: plan.NewSetPredicateSubquery(
+				proto.Expression_Subquery_SetPredicate_PREDICATE_OP_EXISTS,
+				mockRel,
+			),
+		},
+		{
+			name: "SetPredicateSubquery_UNIQUE",
+			subExpr: plan.NewSetPredicateSubquery(
+				proto.Expression_Subquery_SetPredicate_PREDICATE_OP_UNIQUE,
+				mockRel,
+			),
+		},
+		{
+			name: "SetComparisonSubquery_ANY_EQ",
+			subExpr: plan.NewSetComparisonSubquery(
+				proto.Expression_Subquery_SetComparison_REDUCTION_OP_ANY,
+				proto.Expression_Subquery_SetComparison_COMPARISON_OP_EQ,
+				expr.NewPrimitiveLiteral(int32(42), false),
+				mockRel,
+			),
+		},
+		{
+			name: "SetComparisonSubquery_ALL_GT",
+			subExpr: plan.NewSetComparisonSubquery(
+				proto.Expression_Subquery_SetComparison_REDUCTION_OP_ALL,
+				proto.Expression_Subquery_SetComparison_COMPARISON_OP_GT,
+				expr.NewPrimitiveLiteral(int32(100), false),
+				mockRel,
+			),
+		},
+		{
+			name: "SetComparisonSubquery_ANY_NE",
+			subExpr: plan.NewSetComparisonSubquery(
+				proto.Expression_Subquery_SetComparison_REDUCTION_OP_ANY,
+				proto.Expression_Subquery_SetComparison_COMPARISON_OP_NE,
+				expr.NewPrimitiveLiteral(int32(0), false),
+				mockRel,
+			),
+		},
+		{
+			name: "SetComparisonSubquery_ALL_LE",
+			subExpr: plan.NewSetComparisonSubquery(
+				proto.Expression_Subquery_SetComparison_REDUCTION_OP_ALL,
+				proto.Expression_Subquery_SetComparison_COMPARISON_OP_LE,
+				expr.NewPrimitiveLiteral(int32(50), false),
+				mockRel,
+			),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Convert expression to protobuf
+			protoExpr := tt.subExpr.ToProto()
+			require.NotNil(t, protoExpr)
+			require.NotNil(t, protoExpr.GetSubquery())
+
+			// Convert back from protobuf using ExprFromProto with subquery handler
+			regWithHandler := baseReg.WithSubqueryHandler(subqueryReg)
+			fromProto, err := expr.ExprFromProto(protoExpr, baseSchema, regWithHandler)
+			require.NoError(t, err)
+			require.NotNil(t, fromProto)
+
+			// Verify that we got the right type of subquery back
+			switch tt.subExpr.(type) {
+			case *plan.ScalarSubquery:
+				assert.IsType(t, &plan.ScalarSubquery{}, fromProto)
+			case *plan.InPredicateSubquery:
+				assert.IsType(t, &plan.InPredicateSubquery{}, fromProto)
+			case *plan.SetPredicateSubquery:
+				assert.IsType(t, &plan.SetPredicateSubquery{}, fromProto)
+			case *plan.SetComparisonSubquery:
+				assert.IsType(t, &plan.SetComparisonSubquery{}, fromProto)
+			}
+
+			// Verify protobuf roundtrip
+			roundtripProto := fromProto.ToProto()
+			assert.True(t, pb.Equal(protoExpr, roundtripProto), "protobuf roundtrip failed")
+
+			// Verify basic properties
+			assert.Equal(t, tt.subExpr.IsScalar(), fromProto.IsScalar())
+			assert.True(t, tt.subExpr.GetType().Equals(fromProto.GetType()))
+
+			// Note: We don't test Equals() here because the current implementation
+			// of isRelEqual() only does pointer equality, so relations created from
+			// protobuf will never be equal to the original relations, even if they
+			// have identical content. This is a known limitation noted in the TODO
+			// comment in plan/subquery.go
+		})
+	}
+}
