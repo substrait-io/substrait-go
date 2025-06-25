@@ -50,7 +50,7 @@ cases:
     __test:
       type: i32?
       string: |
-        ntile(.field(1) => i8; sort: [{expr: <IfThen>((.field(0) => i32) ?.field(1) => i8)<Else>(i32(1)), SORT_DIRECTION_CLUSTERED}]; [options: {DECOMPOSABLE => [NONE]}]; partitions: [.field(2) => i16]; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_ALL) => i32?
+        ntile(.field(1) => i8; sort: [{expr: <IfThen>((.field(0) => i32) ?.field(1) => i8)<Else>(i32(1)), SORT_DIRECTION_CLUSTERED}]; [options: {DECOMPOSABLE => [NONE]}]; partitions: [.field(2) => i16]; bounds: [UNBOUNDED, CURRENT ROW]; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_ALL) => i32?
     expression:
       windowFunction:
         functionReference: 5

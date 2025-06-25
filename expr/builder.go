@@ -74,7 +74,9 @@ func (e *ExprBuilder) Enum(val string) enumWrapper { return enumWrapper(val) }
 // can be called before actually loading the extensions as long as the
 // extension identified by the ID is loaded into the registry *before*
 // `Build` is called.
-func (e *ExprBuilder) ScalarFunc(id extensions.ID, opts ...*types.FunctionOption) *scalarFuncBuilder {
+func (e *ExprBuilder) ScalarFunc(
+	id extensions.ID, opts ...*types.FunctionOption,
+) *scalarFuncBuilder {
 	return &scalarFuncBuilder{
 		b:    e,
 		id:   id,
@@ -95,7 +97,9 @@ func (e *ExprBuilder) ScalarFunc(id extensions.ID, opts ...*types.FunctionOption
 // can be called before actually loading the extensions as long as the
 // extension identified by the ID is loaded into the registry *before*
 // `Build` is called.
-func (e *ExprBuilder) WindowFunc(id extensions.ID, opts ...*types.FunctionOption) *windowFuncBuilder {
+func (e *ExprBuilder) WindowFunc(
+	id extensions.ID, opts ...*types.FunctionOption,
+) *windowFuncBuilder {
 	return &windowFuncBuilder{
 		b:    e,
 		id:   id,
@@ -116,7 +120,9 @@ func (e *ExprBuilder) WindowFunc(id extensions.ID, opts ...*types.FunctionOption
 // can be called before actually loading the extensions as long as the
 // extension identified by the ID is loaded into the registry *before*
 // `Build` is called.
-func (e *ExprBuilder) AggFunc(id extensions.ID, opts ...*types.FunctionOption) *aggregateFuncBuilder {
+func (e *ExprBuilder) AggFunc(
+	id extensions.ID, opts ...*types.FunctionOption,
+) *aggregateFuncBuilder {
 	return &aggregateFuncBuilder{
 		b:    e,
 		id:   id,
@@ -264,6 +270,7 @@ func (wb *windowFuncBuilder) Build() (*WindowFunction, error) {
 	}
 
 	wf.Sorts, wf.LowerBound, wf.UpperBound = wb.sortList, wb.lowerBound, wb.upperBound
+	wf.Partitions = parts
 	return wf, nil
 }
 
