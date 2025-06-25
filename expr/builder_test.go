@@ -10,6 +10,7 @@ import (
 	"github.com/substrait-io/substrait-go/v4/expr"
 	"github.com/substrait-io/substrait-go/v4/extensions"
 	"github.com/substrait-io/substrait-go/v4/types"
+	"github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
 func TestExprBuilder(t *testing.T) {
@@ -65,6 +66,12 @@ func TestExprBuilder(t *testing.T) {
 			b.WindowFunc(rankID), "invalid expression: non-decomposable window or agg function '{https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml rank}' must use InitialToResult phase"},
 		{"window func", "rank(; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_UNSPECIFIED) => i64?",
 			b.WindowFunc(rankID).Phase(types.AggPhaseInitialToResult), ""},
+		{"window func",
+			"first_value(i32(3); partitions: [.field(0) => boolean]; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_UNSPECIFIED) => i32",
+			b.WindowFunc(firstValueID).Args(
+				b.Wrap(expr.NewLiteral(int32(3), false))).
+				Phase(types.AggPhaseInitialToResult).
+				Partitions(b.RootRef(expr.NewStructFieldRef(0))), ""},
 		{"nested funcs", "add(extract(YEAR, date(2000-01-01)) => i64, rank(; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_ALL) => i64?) => i64?",
 			b.ScalarFunc(addID).Args(
 				b.ScalarFunc(extractID).Args(b.Enum("YEAR"),
@@ -95,6 +102,71 @@ func TestExprBuilder(t *testing.T) {
 				e.ToProto()
 			} else {
 				assert.EqualError(t, err, tt.err)
+			}
+		})
+	}
+}
+
+func TestBoundFromProto(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		proto       *substraitpb.Expression_WindowFunction_Bound
+		expected    expr.Bound
+		expectedStr string
+	}{
+		{
+			name: "nil",
+		},
+		{
+			name:  "nil kind",
+			proto: &substraitpb.Expression_WindowFunction_Bound{},
+		},
+		{
+			name: "unbounded",
+			proto: &substraitpb.Expression_WindowFunction_Bound{
+				Kind: &substraitpb.Expression_WindowFunction_Bound_Unbounded_{},
+			},
+			expected:    expr.Unbounded{},
+			expectedStr: "UNBOUNDED",
+		},
+		{
+			name: "current row",
+			proto: &substraitpb.Expression_WindowFunction_Bound{
+				Kind: &substraitpb.Expression_WindowFunction_Bound_CurrentRow_{},
+			},
+			expected:    expr.CurrentRow{},
+			expectedStr: "CURRENT ROW",
+		},
+		{
+			name: "preceding 42",
+			proto: &substraitpb.Expression_WindowFunction_Bound{
+				Kind: &substraitpb.Expression_WindowFunction_Bound_Preceding_{
+					Preceding: &substraitpb.Expression_WindowFunction_Bound_Preceding{
+						Offset: 42,
+					},
+				},
+			},
+			expected:    expr.PrecedingBound(42),
+			expectedStr: "42 PRECEDING",
+		},
+		{
+			name: "following 42",
+			proto: &substraitpb.Expression_WindowFunction_Bound{
+				Kind: &substraitpb.Expression_WindowFunction_Bound_Following_{
+					Following: &substraitpb.Expression_WindowFunction_Bound_Following{
+						Offset: 42,
+					},
+				},
+			},
+			expected:    expr.FollowingBound(42),
+			expectedStr: "42 FOLLOWING",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			bound := expr.BoundFromProto(tc.proto)
+			require.Equal(t, tc.expected, bound)
+			if bound != nil {
+				require.Equal(t, tc.expectedStr, bound.String())
 			}
 		})
 	}

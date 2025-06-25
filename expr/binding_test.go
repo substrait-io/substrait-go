@@ -30,6 +30,9 @@ var (
 	rankID = extensions.ID{
 		URI:  extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
 		Name: "rank"}
+	firstValueID = extensions.ID{
+		URI:  extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+		Name: "first_value"}
 	extractID = extensions.ID{
 		URI:  extensions.SubstraitDefaultURIPrefix + "functions_datetime.yaml",
 		Name: "extract"}
