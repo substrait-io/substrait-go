@@ -1,25 +1,85 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package expr
+package plan
 
 import (
 	"fmt"
 	"strings"
 
+	substraitgo "github.com/substrait-io/substrait-go/v4"
+	"github.com/substrait-io/substrait-go/v4/expr"
 	"github.com/substrait-io/substrait-go/v4/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
-	"golang.org/x/exp/slices"
 )
 
-// Rel is a forward declaration to avoid import cycle
-type Rel interface {
-	RecordType() types.RecordType
-	ToProto() *proto.Rel
+type RegistryWithSubqueryHandler struct {
+	expr.ExtensionRegistry
+}
+
+// subqueryFromProto creates a subquery expression from a protobuf message
+func (r *RegistryWithSubqueryHandler) HandleSubqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordType, reg expr.ExtensionRegistry) (expr.Expression, error) {
+	switch subType := sub.SubqueryType.(type) {
+	case *proto.Expression_Subquery_Scalar_:
+		rel, err := RelFromProto(subType.Scalar.Input, reg)
+		if err != nil {
+			return nil, err
+		}
+		return NewScalarSubquery(rel), nil
+
+	case *proto.Expression_Subquery_InPredicate_:
+		needles := make([]expr.Expression, len(subType.InPredicate.Needles))
+		for i, needle := range subType.InPredicate.Needles {
+			expr, err := expr.ExprFromProto(needle, baseSchema, reg)
+			if err != nil {
+				return nil, fmt.Errorf("error parsing needle %d in IN predicate: %w", i, err)
+			}
+			needles[i] = expr
+		}
+
+		rel, err := RelFromProto(subType.InPredicate.Haystack, reg)
+		if err != nil {
+			return nil, err
+		}
+
+		return NewInPredicateSubquery(needles, rel), nil
+
+	case *proto.Expression_Subquery_SetPredicate_:
+		tuples, err := RelFromProto(subType.SetPredicate.Tuples, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing tuples in set predicate: %w", err)
+		}
+		return NewSetPredicateSubquery(subType.SetPredicate.PredicateOp, tuples), nil
+	case *proto.Expression_Subquery_SetComparison_:
+		left, err := expr.ExprFromProto(subType.SetComparison.Left, baseSchema, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing left expression in set comparison: %w", err)
+		}
+
+		right, err := RelFromProto(subType.SetComparison.Right, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing right relation in set comparison: %w", err)
+		}
+
+		return NewSetComparisonSubquery(
+			subType.SetComparison.ReductionOp,
+			subType.SetComparison.ComparisonOp,
+			left,
+			right,
+		), nil
+
+	default:
+		return nil, fmt.Errorf("%w: unknown subquery type: %T", substraitgo.ErrNotImplemented, subType)
+	}
 }
 
 // ScalarSubquery is a subquery that returns one row and one column
+type Subquery interface {
+	expr.Expression
+}
+
 type ScalarSubquery struct {
 	Input Rel
+	Subquery
 }
 
 func NewScalarSubquery(input Rel) *ScalarSubquery {
@@ -65,26 +125,28 @@ func (s *ScalarSubquery) ToProtoFuncArg() *proto.FunctionArgument {
 
 func (s *ScalarSubquery) isRootRef() {}
 
-func (s *ScalarSubquery) Equals(other Expression) bool {
-	rhs, ok := other.(*ScalarSubquery)
+func (s *ScalarSubquery) Equals(other expr.Expression) bool {
+	otherScalar, ok := other.(*ScalarSubquery)
 	if !ok {
 		return false
 	}
-	return s.Input == rhs.Input
+	return isRelEqual(s.Input, otherScalar.Input)
 }
 
-func (s *ScalarSubquery) Visit(visit VisitFunc) Expression {
+func (s *ScalarSubquery) Visit(visit expr.VisitFunc) expr.Expression {
 	// ScalarSubquery doesn't contain other expressions that need visiting
 	return s
 }
 
 // InPredicateSubquery checks that the left expressions are contained in the right subquery
 type InPredicateSubquery struct {
-	Needles  []Expression // Expressions whose existence will be checked
-	Haystack Rel          // Subquery to check
+	Needles  []expr.Expression // Expressions whose existence will be checked
+	Haystack Rel               // Subquery to check
+
+	Subquery
 }
 
-func NewInPredicateSubquery(needles []Expression, haystack Rel) *InPredicateSubquery {
+func NewInPredicateSubquery(needles []expr.Expression, haystack Rel) *InPredicateSubquery {
 	return &InPredicateSubquery{
 		Needles:  needles,
 		Haystack: haystack,
@@ -152,28 +214,32 @@ func (s *InPredicateSubquery) ToProtoFuncArg() *proto.FunctionArgument {
 
 func (s *InPredicateSubquery) isRootRef() {}
 
-func (s *InPredicateSubquery) Equals(other Expression) bool {
-	rhs, ok := other.(*InPredicateSubquery)
+func (s *InPredicateSubquery) Equals(other expr.Expression) bool {
+	otherInPredicate, ok := other.(*InPredicateSubquery)
 	if !ok {
 		return false
 	}
 
-	if s.Haystack != rhs.Haystack {
+	if len(s.Needles) != len(otherInPredicate.Needles) {
 		return false
 	}
 
-	return slices.EqualFunc(s.Needles, rhs.Needles, func(a, b Expression) bool {
-		return a.Equals(b)
-	})
+	for i, needle := range s.Needles {
+		if !needle.Equals(otherInPredicate.Needles[i]) {
+			return false
+		}
+	}
+
+	return isRelEqual(s.Haystack, otherInPredicate.Haystack)
 }
 
-func (s *InPredicateSubquery) Visit(visit VisitFunc) Expression {
+func (s *InPredicateSubquery) Visit(visit expr.VisitFunc) expr.Expression {
 	var out *InPredicateSubquery
 	for i, needle := range s.Needles {
 		afterNeedle := visit(needle)
 		if out == nil && afterNeedle != needle {
 			out = &InPredicateSubquery{
-				Needles:  make([]Expression, len(s.Needles)),
+				Needles:  make([]expr.Expression, len(s.Needles)),
 				Haystack: s.Haystack,
 			}
 			copy(out.Needles, s.Needles[:i])
@@ -197,6 +263,8 @@ func (s *InPredicateSubquery) GetSubqueryType() string {
 type SetPredicateSubquery struct {
 	Operation proto.Expression_Subquery_SetPredicate_PredicateOp
 	Tuples    Rel
+
+	Subquery
 }
 
 func NewSetPredicateSubquery(op proto.Expression_Subquery_SetPredicate_PredicateOp, tuples Rel) *SetPredicateSubquery {
@@ -248,15 +316,16 @@ func (s *SetPredicateSubquery) ToProtoFuncArg() *proto.FunctionArgument {
 
 func (s *SetPredicateSubquery) isRootRef() {}
 
-func (s *SetPredicateSubquery) Equals(other Expression) bool {
-	rhs, ok := other.(*SetPredicateSubquery)
+func (s *SetPredicateSubquery) Equals(other expr.Expression) bool {
+	otherSetPredicate, ok := other.(*SetPredicateSubquery)
 	if !ok {
 		return false
 	}
-	return s.Operation == rhs.Operation && s.Tuples == rhs.Tuples
+	return s.Operation == otherSetPredicate.Operation &&
+		isRelEqual(s.Tuples, otherSetPredicate.Tuples)
 }
 
-func (s *SetPredicateSubquery) Visit(visit VisitFunc) Expression {
+func (s *SetPredicateSubquery) Visit(visit expr.VisitFunc) expr.Expression {
 	// SetPredicateSubquery doesn't contain expressions that need visiting
 	return s
 }
@@ -269,14 +338,16 @@ func (s *SetPredicateSubquery) GetSubqueryType() string {
 type SetComparisonSubquery struct {
 	ReductionOp  proto.Expression_Subquery_SetComparison_ReductionOp
 	ComparisonOp proto.Expression_Subquery_SetComparison_ComparisonOp
-	Left         Expression
+	Left         expr.Expression
 	Right        Rel
+
+	Subquery
 }
 
 func NewSetComparisonSubquery(
 	reductionOp proto.Expression_Subquery_SetComparison_ReductionOp,
 	comparisonOp proto.Expression_Subquery_SetComparison_ComparisonOp,
-	left Expression,
+	left expr.Expression,
 	right Rel,
 ) *SetComparisonSubquery {
 	return &SetComparisonSubquery{
@@ -352,18 +423,18 @@ func (s *SetComparisonSubquery) ToProtoFuncArg() *proto.FunctionArgument {
 
 func (s *SetComparisonSubquery) isRootRef() {}
 
-func (s *SetComparisonSubquery) Equals(other Expression) bool {
-	rhs, ok := other.(*SetComparisonSubquery)
+func (s *SetComparisonSubquery) Equals(other expr.Expression) bool {
+	otherSetComparison, ok := other.(*SetComparisonSubquery)
 	if !ok {
 		return false
 	}
-	return s.ReductionOp == rhs.ReductionOp &&
-		s.ComparisonOp == rhs.ComparisonOp &&
-		s.Left.Equals(rhs.Left) &&
-		s.Right == rhs.Right
+	return s.ReductionOp == otherSetComparison.ReductionOp &&
+		s.ComparisonOp == otherSetComparison.ComparisonOp &&
+		s.Left.Equals(otherSetComparison.Left) &&
+		isRelEqual(s.Right, otherSetComparison.Right)
 }
 
-func (s *SetComparisonSubquery) Visit(visit VisitFunc) Expression {
+func (s *SetComparisonSubquery) Visit(visit expr.VisitFunc) expr.Expression {
 	afterLeft := visit(s.Left)
 	if afterLeft == s.Left {
 		return s
@@ -379,4 +450,14 @@ func (s *SetComparisonSubquery) Visit(visit VisitFunc) Expression {
 
 func (s *SetComparisonSubquery) GetSubqueryType() string {
 	return "set_comparison"
+}
+
+// TODO: Implement proper relation equality comparison
+// Currently using pointer equality as a temporary solution.
+// This should be replaced with proper deep equality comparison
+// that compares the actual structure and content of relations.
+// Ideally, we should also add Equals to the Rel interface, instead of
+// relying on this function.
+func isRelEqual(a, b Rel) bool {
+	return a == b
 }

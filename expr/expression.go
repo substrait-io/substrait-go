@@ -40,94 +40,6 @@ func MustExpr(e Expression, err error) Expression {
 	return e
 }
 
-// SubqueryRelFromProtoFunc is a function type for converting proto.Rel to the concrete Rel interface
-// This allows us to inject the plan.RelFromProto function from outside to avoid import cycles
-type SubqueryRelFromProtoFunc func(*proto.Rel, ExtensionRegistry) (interface{}, error)
-
-// globalSubqueryRelFromProto holds a reference to the function that can convert proto.Rel to Rel
-// This will be set by plan package during initialization
-var globalSubqueryRelFromProto SubqueryRelFromProtoFunc
-
-// SetSubqueryRelFromProtoFunc sets the global function for converting proto.Rel to Rel
-func SetSubqueryRelFromProtoFunc(fn SubqueryRelFromProtoFunc) {
-	globalSubqueryRelFromProto = fn
-}
-
-// subqueryFromProto creates a subquery expression from a protobuf message
-func subqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordType, reg ExtensionRegistry) (Expression, error) {
-	if globalSubqueryRelFromProto == nil {
-		return nil, fmt.Errorf("%w: subquery support not initialized - missing plan.RelFromProto function", substraitgo.ErrNotImplemented)
-	}
-
-	switch subType := sub.SubqueryType.(type) {
-	case *proto.Expression_Subquery_Scalar_:
-		input, err := globalSubqueryRelFromProto(subType.Scalar.Input, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing input in scalar subquery: %w", err)
-		}
-		rel, ok := input.(Rel)
-		if !ok {
-			return nil, fmt.Errorf("expected Rel, got %T", input)
-		}
-		return NewScalarSubquery(rel), nil
-	case *proto.Expression_Subquery_InPredicate_:
-		needles := make([]Expression, len(subType.InPredicate.Needles))
-		for i, needle := range subType.InPredicate.Needles {
-			expr, err := ExprFromProto(needle, baseSchema, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error parsing needle %d in IN predicate: %w", i, err)
-			}
-			needles[i] = expr
-		}
-
-		haystack, err := globalSubqueryRelFromProto(subType.InPredicate.Haystack, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing haystack in IN predicate: %w", err)
-		}
-		rel, ok := haystack.(Rel)
-		if !ok {
-			return nil, fmt.Errorf("expected Rel, got %T", haystack)
-		}
-
-		return NewInPredicateSubquery(needles, rel), nil
-
-	case *proto.Expression_Subquery_SetPredicate_:
-		tuples, err := globalSubqueryRelFromProto(subType.SetPredicate.Tuples, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing tuples in set predicate: %w", err)
-		}
-		rel, ok := tuples.(Rel)
-		if !ok {
-			return nil, fmt.Errorf("expected Rel, got %T", tuples)
-		}
-		return NewSetPredicateSubquery(subType.SetPredicate.PredicateOp, rel), nil
-	case *proto.Expression_Subquery_SetComparison_:
-		left, err := ExprFromProto(subType.SetComparison.Left, baseSchema, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing left expression in set comparison: %w", err)
-		}
-
-		right, err := globalSubqueryRelFromProto(subType.SetComparison.Right, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing right relation in set comparison: %w", err)
-		}
-		rel, ok := right.(Rel)
-		if !ok {
-			return nil, fmt.Errorf("expected Rel, got %T", right)
-		}
-
-		return NewSetComparisonSubquery(
-			subType.SetComparison.ReductionOp,
-			subType.SetComparison.ComparisonOp,
-			left,
-			rel,
-		), nil
-
-	default:
-		return nil, fmt.Errorf("%w: unknown subquery type: %T", substraitgo.ErrNotImplemented, subType)
-	}
-}
-
 func FuncArgFromProto(e *proto.FunctionArgument, baseSchema *types.RecordType, reg ExtensionRegistry) (types.FuncArg, error) {
 	switch et := e.ArgType.(type) {
 	case *proto.FunctionArgument_Enum:
@@ -405,7 +317,7 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 	case *proto.Expression_Enum_:
 		return nil, fmt.Errorf("%w: deprecated", substraitgo.ErrNotImplemented)
 	case *proto.Expression_Subquery_:
-		return subqueryFromProto(et.Subquery, baseSchema, reg)
+		return reg.subqueryHandler.HandleSubqueryFromProto(et.Subquery, baseSchema, reg)
 	}
 
 	return nil, fmt.Errorf("%w: ExprFromProto: %s", substraitgo.ErrNotImplemented, e)

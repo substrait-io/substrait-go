@@ -155,18 +155,18 @@ type Builder interface {
 
 	// InPredicateSubquery creates an IN predicate subquery expression that checks
 	// if the needles (left expressions) are contained in the haystack (right subquery).
-	InPredicateSubquery(needles []expr.Expression, haystack Rel) (*expr.InPredicateSubquery, error)
+	InPredicateSubquery(needles []expr.Expression, haystack Rel) (*InPredicateSubquery, error)
 
 	// SetPredicateSubquery creates a set predicate subquery expression that checks
 	// if the subquery returns any rows.
-	SetPredicateSubquery(input Rel, exists bool) (*expr.SetPredicateSubquery, error)
+	SetPredicateSubquery(input Rel, exists bool) (*SetPredicateSubquery, error)
 
 	// ScalarSubquery creates a scalar subquery expression that returns a single value.
-	ScalarSubquery(input Rel) (*expr.ScalarSubquery, error)
+	ScalarSubquery(input Rel) (*ScalarSubquery, error)
 
 	// SetComparisonSubquery creates a set comparison subquery expression that checks
 	// if the left expression is contained in the right subquery.
-	SetComparisonSubquery(left expr.Expression, right Rel) (*expr.SetComparisonSubquery, error)
+	SetComparisonSubquery(left expr.Expression, right Rel, reductionOp proto.Expression_Subquery_SetComparison_ReductionOp, comparisonOp proto.Expression_Subquery_SetComparison_ComparisonOp) (*SetComparisonSubquery, error)
 }
 
 const FETCH_COUNT_ALL_RECORDS = -1
@@ -889,7 +889,7 @@ func (arb *AggregateRelBuilder) validate() error {
 	return nil
 }
 
-func (b *builder) InPredicateSubquery(needles []expr.Expression, haystack Rel) (*expr.InPredicateSubquery, error) {
+func (b *builder) InPredicateSubquery(needles []expr.Expression, haystack Rel) (*InPredicateSubquery, error) {
 	if haystack == nil {
 		return nil, errNilInputRel
 	}
@@ -913,41 +913,57 @@ func (b *builder) InPredicateSubquery(needles []expr.Expression, haystack Rel) (
 			substraitgo.ErrInvalidExpr, len(needles), haystackSchema.FieldCount())
 	}
 
-	return expr.NewInPredicateSubquery(needles, haystack), nil
+	return NewInPredicateSubquery(needles, haystack), nil
 }
 
-func (b *builder) SetPredicateSubquery(input Rel, exists bool) (*expr.SetPredicateSubquery, error) {
+// SetPredicateSubquery creates a subquery that tests for the existence or uniqueness of rows
+// in the input relation. When exists is true, it creates an EXISTS predicate that returns
+// true if the subquery returns at least one row. When exists is false, it creates a UNIQUE
+// predicate that returns true if the subquery returns at most one row.
+func (b *builder) SetPredicateSubquery(input Rel, exists bool) (*SetPredicateSubquery, error) {
 	if input == nil {
 		return nil, errNilInputRel
 	}
 
 	op := proto.Expression_Subquery_SetPredicate_PREDICATE_OP_EXISTS
 	if !exists {
-		op = proto.Expression_Subquery_SetPredicate_PREDICATE_OP_UNSPECIFIED
+		op = proto.Expression_Subquery_SetPredicate_PREDICATE_OP_UNIQUE
 	}
 
-	return expr.NewSetPredicateSubquery(
+	return NewSetPredicateSubquery(
 		op,
 		input,
 	), nil
 }
 
-func (b *builder) ScalarSubquery(input Rel) (*expr.ScalarSubquery, error) {
+func (b *builder) ScalarSubquery(input Rel) (*ScalarSubquery, error) {
 	if input == nil {
 		return nil, errNilInputRel
 	}
 
-	return expr.NewScalarSubquery(input), nil
+	return NewScalarSubquery(input), nil
 }
 
-func (b *builder) SetComparisonSubquery(left expr.Expression, right Rel) (*expr.SetComparisonSubquery, error) {
+// SetComparisonSubquery creates a subquery that compares a single expression against
+// a set of values from a relation using ANY or ALL operations with comparison operators.
+// The reductionOp determines whether to use ANY or ALL semantics, and the comparisonOp
+// specifies the comparison operator (e.g., =, !=, <, >, <=, >=).
+func (b *builder) SetComparisonSubquery(
+	left expr.Expression,
+	right Rel,
+	reductionOp proto.Expression_Subquery_SetComparison_ReductionOp,
+	comparisonOp proto.Expression_Subquery_SetComparison_ComparisonOp,
+) (*SetComparisonSubquery, error) {
 	if left == nil {
 		return nil, errNilInputRel
 	}
+	if right == nil {
+		return nil, errNilInputRel
+	}
 
-	return expr.NewSetComparisonSubquery(
-		proto.Expression_Subquery_SetComparison_REDUCTION_OP_UNSPECIFIED,
-		proto.Expression_Subquery_SetComparison_COMPARISON_OP_UNSPECIFIED,
+	return NewSetComparisonSubquery(
+		reductionOp,
+		comparisonOp,
 		left,
 		right,
 	), nil

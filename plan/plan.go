@@ -48,11 +48,6 @@ func init() {
 			CurrentVersion.Producer += " " + goos + "/" + goarch
 		}
 	}
-
-	// Register the RelFromProto function for subquery support
-	expr.SetSubqueryRelFromProtoFunc(func(rel *proto.Rel, reg expr.ExtensionRegistry) (interface{}, error) {
-		return RelFromProto(rel, reg)
-	})
 }
 
 // groupingExprs takes 2-dimensional slice of expressions and returns

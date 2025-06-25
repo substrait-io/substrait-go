@@ -2,11 +2,21 @@
 
 package expr
 
-import "github.com/substrait-io/substrait-go/v4/extensions"
+import (
+	"github.com/substrait-io/substrait-go/v4/extensions"
+	"github.com/substrait-io/substrait-go/v4/types"
+	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
+)
+
+type SubqueryHandler interface {
+	HandleSubqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordType, reg ExtensionRegistry) (Expression, error)
+}
 
 type ExtensionRegistry struct {
 	extensions.Set
 	c *extensions.Collection
+
+	subqueryHandler SubqueryHandler
 }
 
 // NewExtensionRegistry creates a new registry.  If you have an existing plan you can use GetExtensionSet() to
