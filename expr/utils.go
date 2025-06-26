@@ -58,10 +58,3 @@ func (e *Resolver) LookupAggregateFunction(anchor uint32) (*extensions.Aggregate
 func (e *Resolver) LookupWindowFunction(anchor uint32) (*extensions.WindowFunctionVariant, bool) {
 	return e.Set.LookupWindowFunction(anchor, e.c)
 }
-
-// WithSubqueryHandler returns a new ExtensionRegistry with the provided subquery handler set.
-// This is primarily used for testing purposes.
-func (e Resolver) WithSubqueryHandler(handler SubqueryResolver) Resolver {
-	e.SubqueryResolver = handler
-	return e
-}
