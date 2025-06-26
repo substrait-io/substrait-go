@@ -216,6 +216,6 @@ func newLocalWindowFunctionVariant(wf *extensions.WindowFunctionVariant, dfi *di
 	}
 }
 
-func NewExtensionAndFunctionRegistries(c *extensions.Collection) (expr.ExtensionRegistry, FunctionRegistry) {
+func NewExtensionAndFunctionRegistries(c *extensions.Collection) (expr.Resolver, FunctionRegistry) {
 	return expr.NewEmptyExtensionRegistry(c), NewFunctionRegistry(c)
 }

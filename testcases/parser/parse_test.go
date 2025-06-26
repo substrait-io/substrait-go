@@ -856,7 +856,7 @@ func TestLoadAllSubstraitTestFiles(t *testing.T) {
 	}
 }
 
-func testGetFunctionInvocation(t *testing.T, tc *TestCase, reg *expr.ExtensionRegistry, registry functions.FunctionRegistry) {
+func testGetFunctionInvocation(t *testing.T, tc *TestCase, reg *expr.Resolver, registry functions.FunctionRegistry) {
 	switch tc.FuncType {
 	case ScalarFuncType:
 		invocation, err := tc.GetScalarFunctionInvocation(reg, registry)

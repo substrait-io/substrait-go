@@ -44,7 +44,7 @@ type SingleInputRel interface {
 type ReadRel interface {
 	Rel
 
-	fromProtoReadRel(*proto.ReadRel, expr.ExtensionRegistry) error
+	fromProtoReadRel(*proto.ReadRel, expr.Resolver) error
 
 	BaseSchema() types.NamedStruct
 	Filter() expr.Expression
@@ -62,7 +62,7 @@ type baseReadRel struct {
 	advExtension     *extensions.AdvancedExtension
 }
 
-func (b *baseReadRel) fromProtoReadRel(rel *proto.ReadRel, reg expr.ExtensionRegistry) error {
+func (b *baseReadRel) fromProtoReadRel(rel *proto.ReadRel, reg expr.Resolver) error {
 	if rel.Common != nil {
 		b.RelCommon.fromProtoCommon(rel.Common)
 	}

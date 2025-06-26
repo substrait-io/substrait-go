@@ -369,7 +369,7 @@ func TestHandleSubqueryFromProto(t *testing.T) {
 
 	// Create proper extension registry
 	baseRegistry := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-	registry := &plan.RegistryWithSubqueryHandler{ExtensionRegistry: baseRegistry}
+	registry := &plan.ExpressionResolver{Resolver: baseRegistry}
 
 	// Create a mock relation for testing
 	mockRel := createMockReadRel()
@@ -544,7 +544,7 @@ func TestHandleSubqueryFromProtoErrors(t *testing.T) {
 
 	// Create proper extension registry
 	baseRegistry := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-	registry := &plan.RegistryWithSubqueryHandler{ExtensionRegistry: baseRegistry}
+	registry := &plan.ExpressionResolver{Resolver: baseRegistry}
 
 	t.Run("ScalarSubquery_RelFromProtoError", func(t *testing.T) {
 		// Create invalid relation proto that will cause RelFromProto to fail
@@ -690,7 +690,7 @@ func TestHandleSubqueryFromProtoEdgeCases(t *testing.T) {
 
 	// Create proper extension registry
 	baseRegistry := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-	registry := &plan.RegistryWithSubqueryHandler{ExtensionRegistry: baseRegistry}
+	registry := &plan.ExpressionResolver{Resolver: baseRegistry}
 
 	// Create a mock relation for testing
 	mockRel := createMockReadRel()

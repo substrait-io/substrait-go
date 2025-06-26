@@ -726,7 +726,7 @@ func (f *FieldReference) Visit(v VisitFunc) Expression {
 
 func (*FieldReference) IsScalar() bool { return true }
 
-func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema *types.RecordType, reg ExtensionRegistry) (*FieldReference, error) {
+func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema *types.RecordType, reg Resolver) (*FieldReference, error) {
 	var (
 		ref       Reference
 		root      RootRefType

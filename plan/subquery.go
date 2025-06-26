@@ -12,12 +12,15 @@ import (
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
-type RegistryWithSubqueryHandler struct {
-	expr.ExtensionRegistry
+// ExpressionResolver resolves extensions and subqueries as used in expressions.
+// It extends the base ExtensionRegistry to handle subquery expressions
+// that may appear within other expressions.
+type ExpressionResolver struct {
+	expr.Resolver
 }
 
 // subqueryFromProto creates a subquery expression from a protobuf message
-func (r *RegistryWithSubqueryHandler) HandleSubqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordType, reg expr.ExtensionRegistry) (expr.Expression, error) {
+func (r *ExpressionResolver) HandleSubqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordType, reg expr.Resolver) (expr.Expression, error) {
 	switch subType := sub.SubqueryType.(type) {
 	case *proto.Expression_Subquery_Scalar_:
 		rel, err := RelFromProto(subType.Scalar.Input, reg)
@@ -73,13 +76,9 @@ func (r *RegistryWithSubqueryHandler) HandleSubqueryFromProto(sub *proto.Express
 }
 
 // ScalarSubquery is a subquery that returns one row and one column
-type Subquery interface {
-	expr.Expression
-}
-
 type ScalarSubquery struct {
 	Input Rel
-	Subquery
+	expr.Expression
 }
 
 func NewScalarSubquery(input Rel) *ScalarSubquery {
@@ -143,7 +142,7 @@ type InPredicateSubquery struct {
 	Needles  []expr.Expression // Expressions whose existence will be checked
 	Haystack Rel               // Subquery to check
 
-	Subquery
+	expr.Expression
 }
 
 func NewInPredicateSubquery(needles []expr.Expression, haystack Rel) *InPredicateSubquery {
@@ -264,7 +263,7 @@ type SetPredicateSubquery struct {
 	Operation proto.Expression_Subquery_SetPredicate_PredicateOp
 	Tuples    Rel
 
-	Subquery
+	expr.Expression
 }
 
 func NewSetPredicateSubquery(op proto.Expression_Subquery_SetPredicate_PredicateOp, tuples Rel) *SetPredicateSubquery {
@@ -341,7 +340,7 @@ type SetComparisonSubquery struct {
 	Left         expr.Expression
 	Right        Rel
 
-	Subquery
+	expr.Expression
 }
 
 func NewSetComparisonSubquery(
