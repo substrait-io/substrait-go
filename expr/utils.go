@@ -18,6 +18,7 @@ type Resolver struct {
 	SubqueryResolver
 }
 
+// SubQueryResolver converts subqueries and the Relations within from the native protobuf format into an Expression.
 type SubqueryResolver interface {
 	HandleSubqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordType, reg Resolver) (Expression, error)
 }

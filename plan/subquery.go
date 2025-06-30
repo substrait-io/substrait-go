@@ -78,7 +78,8 @@ func (r *ExpressionResolver) HandleSubqueryFromProto(sub *proto.Expression_Subqu
 // ScalarSubquery is a subquery that returns one row and one column
 type ScalarSubquery struct {
 	Input Rel
-	expr.Expression
+	// Subqueries are expressions and so can be the "root" of a field reference, so we embed this marker interface to denote that.
+	expr.RootRefType
 }
 
 func NewScalarSubquery(input Rel) *ScalarSubquery {
@@ -122,8 +123,6 @@ func (s *ScalarSubquery) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 
-func (s *ScalarSubquery) isRootRef() {}
-
 func (s *ScalarSubquery) Equals(other expr.Expression) bool {
 	otherScalar, ok := other.(*ScalarSubquery)
 	if !ok {
@@ -142,7 +141,8 @@ type InPredicateSubquery struct {
 	Needles  []expr.Expression // Expressions whose existence will be checked
 	Haystack Rel               // Subquery to check
 
-	expr.Expression
+	// Subqueries can be the "root" of a field reference, so we embed this marker interface to denote that.
+	expr.RootRefType
 }
 
 func NewInPredicateSubquery(needles []expr.Expression, haystack Rel) *InPredicateSubquery {
@@ -211,8 +211,6 @@ func (s *InPredicateSubquery) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 
-func (s *InPredicateSubquery) isRootRef() {}
-
 func (s *InPredicateSubquery) Equals(other expr.Expression) bool {
 	otherInPredicate, ok := other.(*InPredicateSubquery)
 	if !ok {
@@ -263,7 +261,8 @@ type SetPredicateSubquery struct {
 	Operation proto.Expression_Subquery_SetPredicate_PredicateOp
 	Tuples    Rel
 
-	expr.Expression
+	// Subqueries can be the "root" of a field reference, so we embed this marker interface to denote that.
+	expr.RootRefType
 }
 
 func NewSetPredicateSubquery(op proto.Expression_Subquery_SetPredicate_PredicateOp, tuples Rel) *SetPredicateSubquery {
@@ -313,8 +312,6 @@ func (s *SetPredicateSubquery) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 
-func (s *SetPredicateSubquery) isRootRef() {}
-
 func (s *SetPredicateSubquery) Equals(other expr.Expression) bool {
 	otherSetPredicate, ok := other.(*SetPredicateSubquery)
 	if !ok {
@@ -340,7 +337,8 @@ type SetComparisonSubquery struct {
 	Left         expr.Expression
 	Right        Rel
 
-	expr.Expression
+	// Subqueries can be the "root" of a field reference, so we embed this marker interface to denote that.
+	expr.RootRefType
 }
 
 func NewSetComparisonSubquery(
@@ -419,8 +417,6 @@ func (s *SetComparisonSubquery) ToProtoFuncArg() *proto.FunctionArgument {
 		ArgType: &proto.FunctionArgument_Value{Value: s.ToProto()},
 	}
 }
-
-func (s *SetComparisonSubquery) isRootRef() {}
 
 func (s *SetComparisonSubquery) Equals(other expr.Expression) bool {
 	otherSetComparison, ok := other.(*SetComparisonSubquery)
