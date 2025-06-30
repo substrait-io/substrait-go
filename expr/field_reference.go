@@ -12,6 +12,13 @@ import (
 	"golang.org/x/exp/slices"
 )
 
+// RootRefType is a marker interface for types that can be used as a Root
+// reference in a FieldReference.
+//
+// A field reference is composed of two parts: a Root reference, which is the
+// output of an expression in this relation or a previous one, and a
+// ReferenceSegment or MaskedExpression, which allows referencing data within
+// that data structure - e.g. a field in a struct, or a value in a list or map.
 type RootRefType interface {
 	isRootRef()
 }
@@ -726,7 +733,7 @@ func (f *FieldReference) Visit(v VisitFunc) Expression {
 
 func (*FieldReference) IsScalar() bool { return true }
 
-func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema *types.RecordType, reg ExtensionRegistry) (*FieldReference, error) {
+func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema *types.RecordType, reg Resolver) (*FieldReference, error) {
 	var (
 		ref       Reference
 		root      RootRefType
