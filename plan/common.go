@@ -3,8 +3,6 @@
 package plan
 
 import (
-	"fmt"
-
 	"github.com/substrait-io/substrait-go/v4/extensions"
 	"github.com/substrait-io/substrait-go/v4/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
@@ -67,12 +65,10 @@ func (rc *RelCommon) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return rc.advExtension
 }
 
-func (rc *RelCommon) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) error {
-	if rc.advExtension != nil {
-		return fmt.Errorf("AdvancedExtension is already set")
-	}
+func (rc *RelCommon) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := rc.advExtension
 	rc.advExtension = advExtension
-	return nil
+	return existing
 }
 
 func (rc *RelCommon) Hint() *Hint {

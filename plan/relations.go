@@ -104,12 +104,10 @@ func (b *baseReadRel) Filter() expr.Expression                             { ret
 func (b *baseReadRel) BestEffortFilter() expr.Expression                   { return b.bestEffortFilter }
 func (b *baseReadRel) Projection() *expr.MaskExpression                    { return b.projection }
 func (b *baseReadRel) GetAdvancedExtension() *extensions.AdvancedExtension { return b.advExtension }
-func (b *baseReadRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) error {
-	if b.advExtension != nil {
-		return fmt.Errorf("AdvancedExtension is already set")
-	}
+func (b *baseReadRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := b.advExtension
 	b.advExtension = advExtension
-	return nil
+	return existing
 }
 
 func (b *baseReadRel) SetProjection(p *expr.MaskExpression) {
@@ -639,12 +637,10 @@ func (lf *LocalFileReadRel) GetAdvancedExtension() *extensions.AdvancedExtension
 	return lf.advExtension
 }
 
-func (lf *LocalFileReadRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) error {
-	if lf.advExtension != nil {
-		return fmt.Errorf("AdvancedExtension is already set")
-	}
+func (lf *LocalFileReadRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := lf.advExtension
 	lf.advExtension = advExtension
-	return nil
+	return existing
 }
 
 func (lf *LocalFileReadRel) ToProto() *proto.Rel {
@@ -725,12 +721,10 @@ func (p *ProjectRel) Expressions() []expr.Expression { return p.exprs }
 func (p *ProjectRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return p.advExtension
 }
-func (p *ProjectRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) error {
-	if p.advExtension != nil {
-		return fmt.Errorf("AdvancedExtension is already set")
-	}
+func (p *ProjectRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := p.advExtension
 	p.advExtension = advExtension
-	return nil
+	return existing
 }
 
 func (p *ProjectRel) ToProto() *proto.Rel {
@@ -884,12 +878,10 @@ func (j *JoinRel) Type() JoinType { return j.joinType }
 func (j *JoinRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return j.advExtension
 }
-func (j *JoinRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) error {
-	if j.advExtension != nil {
-		return fmt.Errorf("AdvancedExtension is already set")
-	}
+func (j *JoinRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := j.advExtension
 	j.advExtension = advExtension
-	return nil
+	return existing
 }
 
 func (j *JoinRel) ToProto() *proto.Rel {
@@ -978,12 +970,10 @@ func (c *CrossRel) Right() Rel { return c.right }
 func (c *CrossRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return c.advExtension
 }
-func (c *CrossRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) error {
-	if c.advExtension != nil {
-		return fmt.Errorf("AdvancedExtension is already set")
-	}
+func (c *CrossRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := c.advExtension
 	c.advExtension = advExtension
-	return nil
+	return existing
 }
 
 func (c *CrossRel) ToProto() *proto.Rel {
@@ -1051,12 +1041,10 @@ func (f *FetchRel) Count() int64  { return f.count }
 func (f *FetchRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return f.advExtension
 }
-func (f *FetchRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) error {
-	if f.advExtension != nil {
-		return fmt.Errorf("AdvancedExtension is already set")
-	}
+func (f *FetchRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := f.advExtension
 	f.advExtension = advExtension
-	return nil
+	return existing
 }
 
 func (f *FetchRel) ToProto() *proto.Rel {
@@ -1174,12 +1162,10 @@ func (ar *AggregateRel) Measures() []AggRelMeasure              { return ar.meas
 func (ar *AggregateRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return ar.advExtension
 }
-func (ar *AggregateRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) error {
-	if ar.advExtension != nil {
-		return fmt.Errorf("AdvancedExtension is already set")
-	}
+func (ar *AggregateRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := ar.advExtension
 	ar.advExtension = advExtension
-	return nil
+	return existing
 }
 
 func (ar *AggregateRel) ToProto() *proto.Rel {
@@ -1347,12 +1333,10 @@ func (sr *SortRel) Sorts() []expr.SortField { return sr.sorts }
 func (sr *SortRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return sr.advExtension
 }
-func (sr *SortRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) error {
-	if sr.advExtension != nil {
-		return fmt.Errorf("AdvancedExtension is already set")
-	}
+func (sr *SortRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := sr.advExtension
 	sr.advExtension = advExtension
-	return nil
+	return existing
 }
 
 func (sr *SortRel) ToProto() *proto.Rel {
@@ -1439,12 +1423,10 @@ func (fr *FilterRel) Condition() expr.Expression { return fr.cond }
 func (fr *FilterRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return fr.advExtension
 }
-func (fr *FilterRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) error {
-	if fr.advExtension != nil {
-		return fmt.Errorf("AdvancedExtension is already set")
-	}
+func (fr *FilterRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := fr.advExtension
 	fr.advExtension = advExtension
-	return nil
+	return existing
 }
 
 func (fr *FilterRel) ToProto() *proto.Rel {
@@ -1532,12 +1514,10 @@ func (s *SetRel) Op() SetOp     { return s.op }
 func (s *SetRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return s.advExtension
 }
-func (s *SetRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) error {
-	if s.advExtension != nil {
-		return fmt.Errorf("AdvancedExtension is already set")
-	}
+func (s *SetRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := s.advExtension
 	s.advExtension = advExtension
-	return nil
+	return existing
 }
 
 func (s *SetRel) ToProto() *proto.Rel {
@@ -1804,12 +1784,10 @@ func (hr *HashJoinRel) Type() HashMergeJoinType { return hr.joinType }
 func (hr *HashJoinRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return hr.advExtension
 }
-func (hr *HashJoinRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) error {
-	if hr.advExtension != nil {
-		return fmt.Errorf("AdvancedExtension is already set")
-	}
+func (hr *HashJoinRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := hr.advExtension
 	hr.advExtension = advExtension
-	return nil
+	return existing
 }
 
 func (hr *HashJoinRel) ToProto() *proto.Rel {
@@ -1919,12 +1897,10 @@ func (mr *MergeJoinRel) Type() HashMergeJoinType { return mr.joinType }
 func (mr *MergeJoinRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return mr.advExtension
 }
-func (mr *MergeJoinRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) error {
-	if mr.advExtension != nil {
-		return fmt.Errorf("AdvancedExtension is already set")
-	}
+func (mr *MergeJoinRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := mr.advExtension
 	mr.advExtension = advExtension
-	return nil
+	return existing
 }
 
 func (mr *MergeJoinRel) ToProto() *proto.Rel {

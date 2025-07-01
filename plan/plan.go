@@ -323,7 +323,8 @@ type Rel interface {
 	RecordType() types.RecordType
 
 	GetAdvancedExtension() *extensions.AdvancedExtension
-	SetAdvancedExtension(extension *extensions.AdvancedExtension) error
+	// SetAdvancedExtension sets an AdvancedExtension on this Rel, returning any existing one on this Rel. Use `nil` to remove any existing AdvancedExtension.
+	SetAdvancedExtension(extension *extensions.AdvancedExtension) (existing *extensions.AdvancedExtension)
 
 	ToProto() *proto.Rel
 	ToProtoPlanRel() *proto.PlanRel
