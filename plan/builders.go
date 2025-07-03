@@ -9,6 +9,7 @@ import (
 	"github.com/substrait-io/substrait-go/v4/expr"
 	"github.com/substrait-io/substrait-go/v4/extensions"
 	"github.com/substrait-io/substrait-go/v4/types"
+	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"golang.org/x/exp/slices"
 )
 
@@ -149,6 +150,23 @@ type Builder interface {
 	// GetRelBuilder returns an expr.RelBuilder that can be used to construct
 	// relations which need multiple stages to build them.
 	GetRelBuilder() *RelBuilder
+
+	// Subquery expression builder methods
+
+	// InPredicateSubquery creates an IN predicate subquery expression that checks
+	// if the needles (left expressions) are contained in the haystack (right subquery).
+	InPredicateSubquery(needles []expr.Expression, haystack Rel) (*InPredicateSubquery, error)
+
+	// SetPredicateSubquery creates a set predicate subquery expression that checks
+	// if the subquery returns any rows.
+	SetPredicateSubquery(input Rel, exists bool) (*SetPredicateSubquery, error)
+
+	// ScalarSubquery creates a scalar subquery expression that returns a single value.
+	ScalarSubquery(input Rel) (*ScalarSubquery, error)
+
+	// SetComparisonSubquery creates a set comparison subquery expression that checks
+	// if the left expression is contained in the right subquery.
+	SetComparisonSubquery(left expr.Expression, right Rel, reductionOp proto.Expression_Subquery_SetComparison_ReductionOp, comparisonOp proto.Expression_Subquery_SetComparison_ComparisonOp) (*SetComparisonSubquery, error)
 }
 
 const FETCH_COUNT_ALL_RECORDS = -1
@@ -179,7 +197,7 @@ type builder struct {
 	ext    *extensions.Collection
 	extSet extensions.Set
 
-	reg expr.ExtensionRegistry
+	reg expr.Resolver
 }
 
 func (b *builder) GetExprBuilder() *expr.ExprBuilder {
@@ -869,4 +887,84 @@ func (arb *AggregateRelBuilder) validate() error {
 	}
 
 	return nil
+}
+
+func (b *builder) InPredicateSubquery(needles []expr.Expression, haystack Rel) (*InPredicateSubquery, error) {
+	if haystack == nil {
+		return nil, errNilInputRel
+	}
+
+	if len(needles) == 0 {
+		return nil, fmt.Errorf("%w: IN predicate subquery must have at least one needle expression",
+			substraitgo.ErrInvalidExpr)
+	}
+
+	for i, needle := range needles {
+		if needle == nil {
+			return nil, fmt.Errorf("%w: needle expression %d cannot be nil",
+				substraitgo.ErrInvalidExpr, i)
+		}
+	}
+
+	// Validate that the number of needle expressions matches the number of columns in the haystack
+	haystackSchema := haystack.RecordType()
+	if len(needles) != int(haystackSchema.FieldCount()) {
+		return nil, fmt.Errorf("%w: number of needle expressions (%d) must match number of columns in haystack (%d)",
+			substraitgo.ErrInvalidExpr, len(needles), haystackSchema.FieldCount())
+	}
+
+	return NewInPredicateSubquery(needles, haystack), nil
+}
+
+// SetPredicateSubquery creates a subquery that tests for the existence or uniqueness of rows
+// in the input relation. When exists is true, it creates an EXISTS predicate that returns
+// true if the subquery returns at least one row. When exists is false, it creates a UNIQUE
+// predicate that returns true if the subquery returns at most one row.
+func (b *builder) SetPredicateSubquery(input Rel, exists bool) (*SetPredicateSubquery, error) {
+	if input == nil {
+		return nil, errNilInputRel
+	}
+
+	op := proto.Expression_Subquery_SetPredicate_PREDICATE_OP_EXISTS
+	if !exists {
+		op = proto.Expression_Subquery_SetPredicate_PREDICATE_OP_UNIQUE
+	}
+
+	return NewSetPredicateSubquery(
+		op,
+		input,
+	), nil
+}
+
+func (b *builder) ScalarSubquery(input Rel) (*ScalarSubquery, error) {
+	if input == nil {
+		return nil, errNilInputRel
+	}
+
+	return NewScalarSubquery(input), nil
+}
+
+// SetComparisonSubquery creates a subquery that compares a single expression against
+// a set of values from a relation using ANY or ALL operations with comparison operators.
+// The reductionOp determines whether to use ANY or ALL semantics, and the comparisonOp
+// specifies the comparison operator (e.g., =, !=, <, >, <=, >=).
+func (b *builder) SetComparisonSubquery(
+	left expr.Expression,
+	right Rel,
+	reductionOp proto.Expression_Subquery_SetComparison_ReductionOp,
+	comparisonOp proto.Expression_Subquery_SetComparison_ComparisonOp,
+) (*SetComparisonSubquery, error) {
+	if left == nil {
+		return nil, errNilInputRel
+	}
+	if right == nil {
+		return nil, errNilInputRel
+	}
+
+	return NewSetComparisonSubquery(
+		reductionOp,
+		comparisonOp,
+		left,
+		right,
+	), nil
 }
