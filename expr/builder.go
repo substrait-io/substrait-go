@@ -84,6 +84,19 @@ func (e *ExprBuilder) ScalarFunc(
 	}
 }
 
+// WindowFuncBuilder is an interface for building window and aggregates-as-window functions.
+type WindowFuncBuilder interface {
+	Builder
+	FuncArgBuilder
+	Args(args ...FuncArgBuilder) WindowFuncBuilder
+	Invocation(i types.AggregationInvocation) WindowFuncBuilder
+	Phase(p types.AggregationPhase) WindowFuncBuilder
+	Sort(fields ...SortField) WindowFuncBuilder
+	Partitions(parts ...Builder) WindowFuncBuilder
+	Bounds(lower, upper Bound) WindowFuncBuilder
+	Build() (*WindowFunction, error)
+}
+
 // WindowFunc returns a builder for the window function represented by the
 // passed in ID and options. Other properties such as Arguments,
 // aggregation phase, invocation, sort fields, etc. can be then added via
@@ -99,11 +112,25 @@ func (e *ExprBuilder) ScalarFunc(
 // `Build` is called.
 func (e *ExprBuilder) WindowFunc(
 	id extensions.ID, opts ...*types.FunctionOption,
-) *windowFuncBuilder {
+) WindowFuncBuilder {
 	return &windowFuncBuilder{
 		b:    e,
 		id:   id,
 		opts: opts,
+	}
+}
+
+// AggregateAsWindowFunc returns a builder for the aggregate function
+// used in window context;
+// Example: `SUM(x) OVER (PARTITION BY y ORDER BY z)`
+func (e *ExprBuilder) AggregateAsWindowFunc(
+	id extensions.ID, opts ...*types.FunctionOption,
+) WindowFuncBuilder {
+	return &windowFuncBuilder{
+		b:                 e,
+		id:                id,
+		opts:              opts,
+		aggregateAsWindow: true,
 	}
 }
 
@@ -246,6 +273,8 @@ type windowFuncBuilder struct {
 	sortList   []SortField
 
 	lowerBound, upperBound Bound
+
+	aggregateAsWindow bool
 }
 
 func (wb *windowFuncBuilder) Build() (*WindowFunction, error) {
@@ -264,7 +293,11 @@ func (wb *windowFuncBuilder) Build() (*WindowFunction, error) {
 		}
 	}
 
-	wf, err := NewWindowFunc(wb.b.Reg, wb.id, wb.opts, wb.invocation, wb.phase, args...)
+	newFn := NewWindowFunc
+	if wb.aggregateAsWindow {
+		newFn = NewAggregateAsWindowFunc
+	}
+	wf, err := newFn(wb.b.Reg, wb.id, wb.opts, wb.invocation, wb.phase, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -284,28 +317,28 @@ func (wb *windowFuncBuilder) BuildExpr() (Expression, error) {
 
 // Args sets the argument list for this builder. Subsequent calls to Args
 // will *replace* the argument list, not append to it.
-func (wb *windowFuncBuilder) Args(args ...FuncArgBuilder) *windowFuncBuilder {
+func (wb *windowFuncBuilder) Args(args ...FuncArgBuilder) WindowFuncBuilder {
 	wb.args = args
 	return wb
 }
 
 // Phase sets the aggregation phase for the resulting WindowFunction
 // expression that will be built by this builder.
-func (wb *windowFuncBuilder) Phase(p types.AggregationPhase) *windowFuncBuilder {
+func (wb *windowFuncBuilder) Phase(p types.AggregationPhase) WindowFuncBuilder {
 	wb.phase = p
 	return wb
 }
 
 // Invocation will set the Aggregation Invocation property for the
 // resulting WindowFunction expression that will be built by this builder.
-func (wb *windowFuncBuilder) Invocation(i types.AggregationInvocation) *windowFuncBuilder {
+func (wb *windowFuncBuilder) Invocation(i types.AggregationInvocation) WindowFuncBuilder {
 	wb.invocation = i
 	return wb
 }
 
 // Sort sets the list of sort fields for this WindowFunction. Subsequent
 // calls to Sort will replace the set of sort fields, not append to it.
-func (wb *windowFuncBuilder) Sort(fields ...SortField) *windowFuncBuilder {
+func (wb *windowFuncBuilder) Sort(fields ...SortField) WindowFuncBuilder {
 	wb.sortList = fields
 	return wb
 }
@@ -314,12 +347,12 @@ func (wb *windowFuncBuilder) Sort(fields ...SortField) *windowFuncBuilder {
 // calls to Partitions will replace the set of partitions, not append to it.
 // This expects to receive other Builders and will validate that they produce
 // valid expressions without errors at the time that `Build` is called.
-func (wb *windowFuncBuilder) Partitions(parts ...Builder) *windowFuncBuilder {
+func (wb *windowFuncBuilder) Partitions(parts ...Builder) WindowFuncBuilder {
 	wb.partitions = parts
 	return wb
 }
 
-func (wb *windowFuncBuilder) Bounds(lower, upper Bound) *windowFuncBuilder {
+func (wb *windowFuncBuilder) Bounds(lower, upper Bound) WindowFuncBuilder {
 	wb.lowerBound, wb.upperBound = lower, upper
 	return wb
 }

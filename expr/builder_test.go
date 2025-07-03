@@ -72,6 +72,11 @@ func TestExprBuilder(t *testing.T) {
 				b.Wrap(expr.NewLiteral(int32(3), false))).
 				Phase(types.AggPhaseInitialToResult).
 				Partitions(b.RootRef(expr.NewStructFieldRef(0))), ""},
+		{"agg as window", "sum(i32?(42); partitions: [.field(0) => boolean]; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_UNSPECIFIED) => i64?",
+			b.AggregateAsWindowFunc(sumID).Args(
+				b.Wrap(expr.NewLiteral(int32(42), true))).
+				Phase(types.AggPhaseInitialToResult).
+				Partitions(b.RootRef(expr.NewStructFieldRef(0))), ""},
 		{"nested funcs", "add(extract(YEAR, date(2000-01-01)) => i64, rank(; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_ALL) => i64?) => i64?",
 			b.ScalarFunc(addID).Args(
 				b.ScalarFunc(extractID).Args(b.Enum("YEAR"),
