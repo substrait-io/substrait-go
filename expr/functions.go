@@ -170,9 +170,38 @@ type FunctionInvocation interface {
 	GetArgTypes() []types.Type
 }
 
+type scalarDeclVariant interface {
+	extensions.FunctionVariant
+	ID() extensions.ID
+	SessionDependent() bool
+	Deterministic() bool
+}
+
+type aggregateNoWindowDeclVariant interface {
+	scalarDeclVariant
+	Decomposability() extensions.DecomposeType
+	Ordered() bool
+	MaxSet() int
+	Intermediate() (types.FuncDefArgType, error)
+}
+
+type aggregateDeclVariant interface {
+	aggregateNoWindowDeclVariant
+	WindowType() extensions.WindowType
+}
+
+type aggregateAsWindowDeclVariant struct {
+	aggregateNoWindowDeclVariant
+	w extensions.WindowType
+}
+
+func (a *aggregateAsWindowDeclVariant) WindowType() extensions.WindowType {
+	return a.w
+}
+
 type ScalarFunction struct {
 	funcRef     uint32
-	declaration *extensions.ScalarFunctionVariant
+	declaration scalarDeclVariant
 
 	args       []types.FuncArg
 	options    []*types.FunctionOption
@@ -466,7 +495,7 @@ func (s *ScalarFunction) Visit(visit VisitFunc) Expression {
 
 type WindowFunction struct {
 	funcRef     uint32
-	declaration *extensions.WindowFunctionVariant
+	declaration aggregateDeclVariant
 
 	args       []types.FuncArg
 	options    []*types.FunctionOption
@@ -526,6 +555,41 @@ func NewWindowFunc(
 		args:        args,
 		invocation:  invoke,
 		phase:       phase,
+	}, nil
+}
+
+// NewAggregateAsWindowFunc constructs an aggregate function used as a window function.
+// Example: `SUM(x) OVER (PARTITION BY y)`
+func NewAggregateAsWindowFunc(
+	reg ExtensionRegistry, id extensions.ID, opts []*types.FunctionOption,
+	invoke types.AggregationInvocation, phase types.AggregationPhase,
+	args ...types.FuncArg,
+) (*WindowFunction, error) {
+	decl, outType, err := resolveVariant(id, reg, reg.c.GetAggregateFunc, args)
+	if err != nil {
+		return nil, err
+	}
+
+	if decl.Decomposability() == extensions.DecomposeNone && phase != types.AggPhaseInitialToResult {
+		return nil, fmt.Errorf("%w: non-decomposable window or agg function '%s' must use InitialToResult phase",
+			substraitgo.ErrInvalidExpr, id)
+	}
+
+	// We use the fully qualified ID for resolving an anchor, to make sure we
+	// are using the correct compound name
+	ref := reg.GetFuncAnchor(decl.ID())
+
+	return &WindowFunction{
+		funcRef: ref,
+		declaration: &aggregateAsWindowDeclVariant{
+			w:                            extensions.PartitionWindow,
+			aggregateNoWindowDeclVariant: decl,
+		},
+		outputType: outType,
+		options:    opts,
+		args:       args,
+		invocation: invoke,
+		phase:      phase,
 	}, nil
 }
 
@@ -753,7 +817,7 @@ func (w *WindowFunction) Visit(visit VisitFunc) Expression {
 
 type AggregateFunction struct {
 	funcRef     uint32
-	declaration *extensions.AggregateFunctionVariant
+	declaration aggregateNoWindowDeclVariant
 
 	args       []types.FuncArg
 	options    []*types.FunctionOption
