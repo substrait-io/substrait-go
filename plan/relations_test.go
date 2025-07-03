@@ -479,7 +479,7 @@ func TestRelations_AdvancedExtensions(t *testing.T) {
 		Enhancement:  val1,
 	}
 
-	val2, err := anypb.New(expr.NewPrimitiveLiteral("foo", false).ToProto())
+	val2, err := anypb.New(expr.NewPrimitiveLiteral("bar", false).ToProto())
 	assert.NoError(t, err)
 
 	exampleAdvancedExtension2 := &extensions.AdvancedExtension{
