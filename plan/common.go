@@ -65,6 +65,12 @@ func (rc *RelCommon) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return rc.advExtension
 }
 
+func (rc *RelCommon) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := rc.advExtension
+	rc.advExtension = advExtension
+	return existing
+}
+
 func (rc *RelCommon) Hint() *Hint {
 	return rc.hint
 }

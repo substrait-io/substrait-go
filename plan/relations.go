@@ -104,6 +104,11 @@ func (b *baseReadRel) Filter() expr.Expression                             { ret
 func (b *baseReadRel) BestEffortFilter() expr.Expression                   { return b.bestEffortFilter }
 func (b *baseReadRel) Projection() *expr.MaskExpression                    { return b.projection }
 func (b *baseReadRel) GetAdvancedExtension() *extensions.AdvancedExtension { return b.advExtension }
+func (b *baseReadRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := b.advExtension
+	b.advExtension = advExtension
+	return existing
+}
 
 func (b *baseReadRel) SetProjection(p *expr.MaskExpression) {
 	b.projection = p
@@ -632,6 +637,12 @@ func (lf *LocalFileReadRel) GetAdvancedExtension() *extensions.AdvancedExtension
 	return lf.advExtension
 }
 
+func (lf *LocalFileReadRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := lf.advExtension
+	lf.advExtension = advExtension
+	return existing
+}
+
 func (lf *LocalFileReadRel) ToProto() *proto.Rel {
 	items := make([]*proto.ReadRel_LocalFiles_FileOrFiles, len(lf.items))
 	for i, f := range lf.items {
@@ -709,6 +720,11 @@ func (p *ProjectRel) Input() Rel                     { return p.input }
 func (p *ProjectRel) Expressions() []expr.Expression { return p.exprs }
 func (p *ProjectRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return p.advExtension
+}
+func (p *ProjectRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := p.advExtension
+	p.advExtension = advExtension
+	return existing
 }
 
 func (p *ProjectRel) ToProto() *proto.Rel {
@@ -862,6 +878,11 @@ func (j *JoinRel) Type() JoinType { return j.joinType }
 func (j *JoinRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return j.advExtension
 }
+func (j *JoinRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := j.advExtension
+	j.advExtension = advExtension
+	return existing
+}
 
 func (j *JoinRel) ToProto() *proto.Rel {
 	outRel := &proto.JoinRel{
@@ -949,6 +970,11 @@ func (c *CrossRel) Right() Rel { return c.right }
 func (c *CrossRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return c.advExtension
 }
+func (c *CrossRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := c.advExtension
+	c.advExtension = advExtension
+	return existing
+}
 
 func (c *CrossRel) ToProto() *proto.Rel {
 	return &proto.Rel{
@@ -1014,6 +1040,11 @@ func (f *FetchRel) Offset() int64 { return f.offset }
 func (f *FetchRel) Count() int64  { return f.count }
 func (f *FetchRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return f.advExtension
+}
+func (f *FetchRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := f.advExtension
+	f.advExtension = advExtension
+	return existing
 }
 
 func (f *FetchRel) ToProto() *proto.Rel {
@@ -1130,6 +1161,11 @@ func (ar *AggregateRel) GroupingReferences() [][]uint32         { return ar.grou
 func (ar *AggregateRel) Measures() []AggRelMeasure              { return ar.measures }
 func (ar *AggregateRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return ar.advExtension
+}
+func (ar *AggregateRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := ar.advExtension
+	ar.advExtension = advExtension
+	return existing
 }
 
 func (ar *AggregateRel) ToProto() *proto.Rel {
@@ -1297,6 +1333,11 @@ func (sr *SortRel) Sorts() []expr.SortField { return sr.sorts }
 func (sr *SortRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return sr.advExtension
 }
+func (sr *SortRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := sr.advExtension
+	sr.advExtension = advExtension
+	return existing
+}
 
 func (sr *SortRel) ToProto() *proto.Rel {
 	sorts := make([]*proto.SortField, len(sr.sorts))
@@ -1381,6 +1422,11 @@ func (fr *FilterRel) Input() Rel                 { return fr.input }
 func (fr *FilterRel) Condition() expr.Expression { return fr.cond }
 func (fr *FilterRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return fr.advExtension
+}
+func (fr *FilterRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := fr.advExtension
+	fr.advExtension = advExtension
+	return existing
 }
 
 func (fr *FilterRel) ToProto() *proto.Rel {
@@ -1467,6 +1513,11 @@ func (s *SetRel) Inputs() []Rel { return s.inputs }
 func (s *SetRel) Op() SetOp     { return s.op }
 func (s *SetRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return s.advExtension
+}
+func (s *SetRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := s.advExtension
+	s.advExtension = advExtension
+	return existing
 }
 
 func (s *SetRel) ToProto() *proto.Rel {
@@ -1733,6 +1784,11 @@ func (hr *HashJoinRel) Type() HashMergeJoinType { return hr.joinType }
 func (hr *HashJoinRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return hr.advExtension
 }
+func (hr *HashJoinRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := hr.advExtension
+	hr.advExtension = advExtension
+	return existing
+}
 
 func (hr *HashJoinRel) ToProto() *proto.Rel {
 	keysLeft := make([]*proto.Expression_FieldReference, len(hr.leftKeys))
@@ -1840,6 +1896,11 @@ func (mr *MergeJoinRel) PostJoinFilter() expr.Expression {
 func (mr *MergeJoinRel) Type() HashMergeJoinType { return mr.joinType }
 func (mr *MergeJoinRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return mr.advExtension
+}
+func (mr *MergeJoinRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := mr.advExtension
+	mr.advExtension = advExtension
+	return existing
 }
 
 func (mr *MergeJoinRel) ToProto() *proto.Rel {

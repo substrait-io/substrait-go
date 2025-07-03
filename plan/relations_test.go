@@ -9,6 +9,7 @@ import (
 	"github.com/substrait-io/substrait-go/v4/extensions"
 	"github.com/substrait-io/substrait-go/v4/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 func noOpRewrite(e expr.Expression) (expr.Expression, error) {
@@ -410,6 +411,99 @@ func TestRelations_Copy(t *testing.T) {
 				assert.Equal(t, tc.expectedRel, got)
 			}
 		})
+	}
+}
+
+func TestRelations_AdvancedExtensions(t *testing.T) {
+	extReg := expr.NewExtensionRegistry(extensions.NewSet(), extensions.GetDefaultCollectionWithNoError())
+	aggregateFnID := extensions.ID{
+		URI:  extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+		Name: "avg",
+	}
+	aggregateFn, err := expr.NewAggregateFunc(extReg,
+		aggregateFnID, nil, types.AggInvocationAll,
+		types.AggPhaseInitialToResult, nil, createPrimitiveFloat(1.0))
+	require.NoError(t, err)
+
+	aggregateRel := &AggregateRel{input: createVirtualTableReadRel(1),
+		groupingExpressions: []expr.Expression{createPrimitiveFloat(1.0)},
+		groupingReferences:  [][]uint32{{0}},
+		measures:            []AggRelMeasure{{measure: aggregateFn, filter: expr.NewPrimitiveLiteral(false, false)}}}
+	crossRel := &CrossRel{left: createVirtualTableReadRel(1), right: createVirtualTableReadRel(2)}
+	extensionLeafRel := &ExtensionLeafRel{}
+	extensionMultiRel := &ExtensionMultiRel{inputs: []Rel{createVirtualTableReadRel(1), createVirtualTableReadRel(2)}}
+	fetchRel := &FetchRel{input: createVirtualTableReadRel(1), offset: 1, count: 2}
+	filterRel := &FilterRel{input: createVirtualTableReadRel(1), cond: expr.NewPrimitiveLiteral(true, false)}
+	hashJoinRel := &HashJoinRel{left: createVirtualTableReadRel(1), right: createVirtualTableReadRel(2), joinType: HashMergeInner, leftKeys: []*expr.FieldReference{}, rightKeys: []*expr.FieldReference{}, postJoinFilter: expr.NewPrimitiveLiteral(true, false)}
+	joinRel := &JoinRel{left: createVirtualTableReadRel(1), right: createVirtualTableReadRel(2), joinType: JoinTypeInner, expr: expr.NewPrimitiveLiteral(true, false), postJoinFilter: expr.NewPrimitiveLiteral(true, false)}
+	localFileReadRel := &LocalFileReadRel{items: []FileOrFiles{{Path: "path"}}, baseReadRel: baseReadRel{filter: expr.NewPrimitiveLiteral(true, false), bestEffortFilter: expr.NewPrimitiveLiteral(true, false)}}
+	mergeJoinRel := &MergeJoinRel{left: createVirtualTableReadRel(1), right: createVirtualTableReadRel(2), joinType: HashMergeInner, leftKeys: []*expr.FieldReference{}, rightKeys: []*expr.FieldReference{}, postJoinFilter: expr.NewPrimitiveLiteral(true, false)}
+	namedTableReadRel := &NamedTableReadRel{names: []string{"mytest"}, baseReadRel: baseReadRel{filter: expr.NewPrimitiveLiteral(true, false), bestEffortFilter: expr.NewPrimitiveLiteral(true, false)}}
+	projectRel := &ProjectRel{input: createVirtualTableReadRel(1), exprs: []expr.Expression{createPrimitiveFloat(1.0), createPrimitiveFloat(2.0)}}
+	setRel := &SetRel{inputs: []Rel{createVirtualTableReadRel(1), createVirtualTableReadRel(2), createVirtualTableReadRel(3)}, op: SetOpUnionAll}
+	sortRel := &SortRel{input: createVirtualTableReadRel(1), sorts: []expr.SortField{{Expr: createPrimitiveFloat(1.0), Kind: types.SortAscNullsFirst}}}
+	virtualTableReadRel := &VirtualTableReadRel{values: []expr.VirtualTableExpressionValue{[]expr.Expression{&expr.PrimitiveLiteral[int64]{Value: 1}}}}
+	namedTableWriteRel := &NamedTableWriteRel{input: namedTableReadRel}
+	icebergTableReadRel := &IcebergTableReadRel{
+		baseReadRel: baseReadRel{filter: expr.NewPrimitiveLiteral(true, false)},
+		tableType: &Direct{
+			MetadataUri: "s3://bucket/path/to/metadata.json",
+		},
+	}
+
+	relations := []Rel{
+		aggregateRel,
+		crossRel,
+		extensionLeafRel,
+		extensionMultiRel,
+		fetchRel,
+		filterRel,
+		hashJoinRel,
+		joinRel,
+		localFileReadRel,
+		mergeJoinRel,
+		namedTableReadRel,
+		projectRel,
+		setRel,
+		sortRel,
+		virtualTableReadRel,
+		namedTableWriteRel,
+		icebergTableReadRel,
+	}
+
+	val1, err := anypb.New(expr.NewPrimitiveLiteral("foo", false).ToProto())
+	assert.NoError(t, err)
+
+	exampleAdvancedExtension1 := &extensions.AdvancedExtension{
+		Optimization: []*anypb.Any{val1},
+		Enhancement:  val1,
+	}
+
+	val2, err := anypb.New(expr.NewPrimitiveLiteral("bar", false).ToProto())
+	assert.NoError(t, err)
+
+	exampleAdvancedExtension2 := &extensions.AdvancedExtension{
+		Optimization: []*anypb.Any{val2},
+		Enhancement:  val2,
+	}
+
+	for _, relation := range relations {
+		// setting an extension should return the old/existing extension
+		// setting an extension for the first time means the old extension should be nil
+		oldExtension := relation.SetAdvancedExtension(exampleAdvancedExtension1)
+		assert.Nil(t, oldExtension)
+		assert.Equal(t, exampleAdvancedExtension1, relation.GetAdvancedExtension())
+
+		// setting it again
+		oldExtension = relation.SetAdvancedExtension(exampleAdvancedExtension2)
+		assert.Equal(t, exampleAdvancedExtension1, oldExtension)
+		assert.Equal(t, exampleAdvancedExtension2, relation.GetAdvancedExtension())
+
+		// setting it to nil
+		oldExtension = relation.SetAdvancedExtension(nil)
+		assert.Equal(t, exampleAdvancedExtension2, oldExtension)
+		assert.Nil(t, relation.GetAdvancedExtension())
+
 	}
 }
 
