@@ -344,3 +344,183 @@ func TestCollection_GetAllScalarFunctions(t *testing.T) {
 		})
 	}
 }
+
+func TestAggregateToWindow(t *testing.T) {
+	const uri = "http://localhost/sample.yaml"
+
+	var c extensions.Collection
+	require.NoError(t, c.Load(uri, strings.NewReader(sampleYAML)))
+
+	t.Run("aggregate functions available as window functions", func(t *testing.T) {
+		// Test that the count function (with args) is available as both aggregate and window function
+		aggFunc, ok := c.GetAggregateFunc(extensions.ID{URI: uri, Name: "count:any"})
+		require.True(t, ok)
+		require.NotNil(t, aggFunc)
+
+		winFunc, ok := c.GetWindowFunc(extensions.ID{URI: uri, Name: "count:any"})
+		require.True(t, ok)
+		require.NotNil(t, winFunc)
+
+		// Test that the count function (without args) is available as both aggregate and window function
+		aggFuncNoArgs, ok := c.GetAggregateFunc(extensions.ID{URI: uri, Name: "count:"})
+		require.True(t, ok)
+		require.NotNil(t, aggFuncNoArgs)
+
+		winFuncNoArgs, ok := c.GetWindowFunc(extensions.ID{URI: uri, Name: "count:"})
+		require.True(t, ok)
+		require.NotNil(t, winFuncNoArgs)
+	})
+
+	t.Run("window functions preserve aggregate properties", func(t *testing.T) {
+		aggFunc, ok := c.GetAggregateFunc(extensions.ID{URI: uri, Name: "count:any"})
+		require.True(t, ok)
+
+		winFunc, ok := c.GetWindowFunc(extensions.ID{URI: uri, Name: "count:any"})
+		require.True(t, ok)
+
+		// Check that basic properties are preserved
+		assert.Equal(t, aggFunc.Name(), winFunc.Name())
+		assert.Equal(t, aggFunc.Description(), winFunc.Description())
+		assert.Equal(t, aggFunc.URI(), winFunc.URI())
+		assert.Equal(t, aggFunc.Args(), winFunc.Args())
+		assert.Equal(t, aggFunc.Options(), winFunc.Options())
+		assert.Equal(t, aggFunc.Variadic(), winFunc.Variadic())
+		assert.Equal(t, aggFunc.Deterministic(), winFunc.Deterministic())
+		assert.Equal(t, aggFunc.SessionDependent(), winFunc.SessionDependent())
+		assert.Equal(t, aggFunc.Nullability(), winFunc.Nullability())
+
+		// Check that aggregate-specific properties are preserved
+		assert.Equal(t, aggFunc.Decomposability(), winFunc.Decomposability())
+		assert.Equal(t, aggFunc.Ordered(), winFunc.Ordered())
+		assert.Equal(t, aggFunc.MaxSet(), winFunc.MaxSet())
+
+		// Check intermediate type
+		aggIntermediate, err := aggFunc.Intermediate()
+		require.NoError(t, err)
+		winIntermediate, err := winFunc.Intermediate()
+		require.NoError(t, err)
+		assert.Equal(t, aggIntermediate, winIntermediate)
+	})
+
+	t.Run("window functions have streaming window type", func(t *testing.T) {
+		winFunc, ok := c.GetWindowFunc(extensions.ID{URI: uri, Name: "count:any"})
+		require.True(t, ok)
+
+		// Check that the window type is STREAMING
+		assert.Equal(t, extensions.StreamingWindow, winFunc.WindowType())
+	})
+
+	t.Run("type resolution works the same", func(t *testing.T) {
+		aggFunc, ok := c.GetAggregateFunc(extensions.ID{URI: uri, Name: "count:any"})
+		require.True(t, ok)
+
+		winFunc, ok := c.GetWindowFunc(extensions.ID{URI: uri, Name: "count:any"})
+		require.True(t, ok)
+
+		// Test type resolution with the same arguments
+		// Use a concrete type for testing resolution
+		i32Type := &types.Int32Type{Nullability: types.NullabilityRequired}
+		aggType, err := aggFunc.ResolveType([]types.Type{i32Type})
+		require.NoError(t, err)
+
+		winType, err := winFunc.ResolveType([]types.Type{i32Type})
+		require.NoError(t, err)
+
+		assert.Equal(t, aggType, winType)
+	})
+}
+
+func TestAggregateToWindowWithDefaultCollection(t *testing.T) {
+	defaultExtensions := extensions.GetDefaultCollectionWithNoError()
+
+	// Test cases for known aggregate functions that should be added as window functions
+	testCases := []struct {
+		uri          string
+		functionName string
+		description  string
+	}{
+		{
+			uri:          extensions.SubstraitDefaultURIPrefix + "functions_aggregate_generic.yaml",
+			functionName: "count:",
+			description:  "count function without arguments",
+		},
+		{
+			uri:          extensions.SubstraitDefaultURIPrefix + "functions_aggregate_generic.yaml",
+			functionName: "count:any",
+			description:  "count function with any argument",
+		},
+		{
+			uri:          extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+			functionName: "variance:fp64",
+			description:  "variance function",
+		},
+		{
+			uri:          extensions.SubstraitDefaultURIPrefix + "functions_boolean.yaml",
+			functionName: "bool_and:bool",
+			description:  "bool_and function",
+		},
+		{
+			uri:          extensions.SubstraitDefaultURIPrefix + "functions_aggregate_approx.yaml",
+			functionName: "approx_count_distinct:any",
+			description:  "approx_count_distinct function",
+		},
+		{
+			uri:          extensions.SubstraitDefaultURIPrefix + "functions_string.yaml",
+			functionName: "string_agg:str_str",
+			description:  "string_agg function",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			id := extensions.ID{URI: tc.uri, Name: tc.functionName}
+
+			// Verify the aggregate function exists
+			aggFunc, ok := defaultExtensions.GetAggregateFunc(id)
+			require.True(t, ok, "aggregate function %s should exist", tc.functionName)
+			require.NotNil(t, aggFunc)
+
+			// Verify the window function exists (added from aggregate)
+			winFunc, ok := defaultExtensions.GetWindowFunc(id)
+			require.True(t, ok, "window function %s should exist (added from aggregate)", tc.functionName)
+			require.NotNil(t, winFunc)
+
+			// Verify properties are preserved
+			assert.Equal(t, aggFunc.Name(), winFunc.Name())
+			assert.Equal(t, aggFunc.Description(), winFunc.Description())
+			assert.Equal(t, aggFunc.URI(), winFunc.URI())
+			assert.Equal(t, aggFunc.CompoundName(), winFunc.CompoundName())
+
+			// Verify window type is STREAMING
+			assert.Equal(t, extensions.StreamingWindow, winFunc.WindowType())
+
+			// Verify aggregate-specific properties are preserved
+			assert.Equal(t, aggFunc.Decomposability(), winFunc.Decomposability())
+			assert.Equal(t, aggFunc.Ordered(), winFunc.Ordered())
+			assert.Equal(t, aggFunc.MaxSet(), winFunc.MaxSet())
+		})
+	}
+}
+
+func TestWindowFunctionCount(t *testing.T) {
+	defaultExtensions := extensions.GetDefaultCollectionWithNoError()
+	windowFunctions := defaultExtensions.GetAllWindowFunctions()
+
+	// Count how many window functions we have
+	// This should include both explicitly defined window functions and added aggregate functions
+	// With the added aggregate functions, we should have significantly more window functions than before
+
+	// Get all aggregate functions to verify the addition
+	aggregateFunctions := defaultExtensions.GetAllAggregateFunctions()
+
+	// We should have at least as many window functions as aggregate functions
+	// (since all aggregates are added as window functions)
+	// Plus any explicitly defined window functions
+	assert.GreaterOrEqual(t, len(windowFunctions), len(aggregateFunctions),
+		"Should have at least as many window functions as aggregate functions due to aggregate function addition")
+
+	// Verify we have substantially more window functions than the original count
+	// The original test expected >= 7, with added aggregate functions we should have much more
+	assert.GreaterOrEqual(t, len(windowFunctions), 60,
+		"Should have significantly more window functions due to added aggregate functions")
+}
