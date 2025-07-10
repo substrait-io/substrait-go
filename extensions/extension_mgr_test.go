@@ -309,7 +309,8 @@ func TestCollection_GetAllScalarFunctions(t *testing.T) {
 	windowFunctions := defaultExtensions.GetAllWindowFunctions()
 	assert.GreaterOrEqual(t, len(scalarFunctions), 309)
 	assert.GreaterOrEqual(t, len(aggregateFunctions), 62)
-	assert.GreaterOrEqual(t, len(windowFunctions), 7)
+	assert.GreaterOrEqual(t, len(windowFunctions), len(aggregateFunctions),
+		"Should have at least as many window functions as aggregate functions due to aggregate function addition")
 	tests := []struct {
 		uri         string
 		signature   string
@@ -318,7 +319,7 @@ func TestCollection_GetAllScalarFunctions(t *testing.T) {
 		isWindow    bool
 	}{
 		{extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml", "add:i32_i32", true, false, false},
-		{extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml", "variance:fp64", false, true, false},
+		{extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml", "variance:fp64", false, true, true},
 		{extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml", "dense_rank:", false, false, true},
 	}
 	for _, tt := range tests {
@@ -380,6 +381,7 @@ func TestAggregateToWindow(t *testing.T) {
 
 		// Check that basic properties are preserved
 		assert.Equal(t, aggFunc.Name(), winFunc.Name())
+		assert.Equal(t, aggFunc.CompoundName(), winFunc.CompoundName())
 		assert.Equal(t, aggFunc.Description(), winFunc.Description())
 		assert.Equal(t, aggFunc.URI(), winFunc.URI())
 		assert.Equal(t, aggFunc.Args(), winFunc.Args())
@@ -402,7 +404,7 @@ func TestAggregateToWindow(t *testing.T) {
 		assert.Equal(t, aggIntermediate, winIntermediate)
 	})
 
-	t.Run("window functions have streaming window type", func(t *testing.T) {
+	t.Run("aggregate functions used as window functions have streaming window type", func(t *testing.T) {
 		winFunc, ok := c.GetWindowFunc(extensions.ID{URI: uri, Name: "count:any"})
 		require.True(t, ok)
 
@@ -484,43 +486,6 @@ func TestAggregateToWindowWithDefaultCollection(t *testing.T) {
 			winFunc, ok := defaultExtensions.GetWindowFunc(id)
 			require.True(t, ok, "window function %s should exist (added from aggregate)", tc.functionName)
 			require.NotNil(t, winFunc)
-
-			// Verify properties are preserved
-			assert.Equal(t, aggFunc.Name(), winFunc.Name())
-			assert.Equal(t, aggFunc.Description(), winFunc.Description())
-			assert.Equal(t, aggFunc.URI(), winFunc.URI())
-			assert.Equal(t, aggFunc.CompoundName(), winFunc.CompoundName())
-
-			// Verify window type is STREAMING
-			assert.Equal(t, extensions.StreamingWindow, winFunc.WindowType())
-
-			// Verify aggregate-specific properties are preserved
-			assert.Equal(t, aggFunc.Decomposability(), winFunc.Decomposability())
-			assert.Equal(t, aggFunc.Ordered(), winFunc.Ordered())
-			assert.Equal(t, aggFunc.MaxSet(), winFunc.MaxSet())
 		})
 	}
-}
-
-func TestWindowFunctionCount(t *testing.T) {
-	defaultExtensions := extensions.GetDefaultCollectionWithNoError()
-	windowFunctions := defaultExtensions.GetAllWindowFunctions()
-
-	// Count how many window functions we have
-	// This should include both explicitly defined window functions and added aggregate functions
-	// With the added aggregate functions, we should have significantly more window functions than before
-
-	// Get all aggregate functions to verify the addition
-	aggregateFunctions := defaultExtensions.GetAllAggregateFunctions()
-
-	// We should have at least as many window functions as aggregate functions
-	// (since all aggregates are added as window functions)
-	// Plus any explicitly defined window functions
-	assert.GreaterOrEqual(t, len(windowFunctions), len(aggregateFunctions),
-		"Should have at least as many window functions as aggregate functions due to aggregate function addition")
-
-	// Verify we have substantially more window functions than the original count
-	// The original test expected >= 7, with added aggregate functions we should have much more
-	assert.GreaterOrEqual(t, len(windowFunctions), 60,
-		"Should have significantly more window functions due to added aggregate functions")
 }
