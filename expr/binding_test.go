@@ -39,6 +39,9 @@ var (
 	ntileID = extensions.ID{
 		URI:  extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
 		Name: "ntile"}
+	sumID = extensions.ID{
+		URI:  extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+		Name: "sum"}
 
 	boringSchema = types.NamedStruct{
 		Names: []string{

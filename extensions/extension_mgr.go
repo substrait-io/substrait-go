@@ -234,6 +234,28 @@ func (c *Collection) Load(uri string, r io.Reader) error {
 		addToMaps[*WindowFunctionVariant](id, &f, c.windowMap, simpleNames)
 	}
 
+	// Aggregate functions can be used as Window Functions
+	for _, f := range file.AggregateFunctions {
+		// Convert each aggregate implementation to a window implementation
+		windowImpls := make([]WindowFunctionImpl, len(f.Impls))
+		for i, aggImpl := range f.Impls {
+			windowImpls[i] = WindowFunctionImpl{
+				AggregateFunctionImpl: aggImpl,
+				WindowType:            StreamingWindow, // Set window type to STREAMING
+			}
+		}
+
+		wf := WindowFunction{
+			Name:        f.Name,
+			Description: f.Description,
+			Impls:       windowImpls,
+		}
+		if err := defaults.Set(&wf); err != nil {
+			return fmt.Errorf("failure setting defaults for window functions: %w", err)
+		}
+		addToMaps[*WindowFunctionVariant](id, &wf, c.windowMap, simpleNames)
+	}
+
 	// add simple name aliases
 	for k, v := range simpleNames {
 		id.Name = k
