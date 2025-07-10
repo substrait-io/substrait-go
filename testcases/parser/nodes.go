@@ -329,7 +329,7 @@ func (tc *TestCase) ID() extensions.ID {
 	}
 }
 
-func (tc *TestCase) GetScalarFunctionInvocation(reg *expr.ExtensionRegistry, funcRegistry functions.FunctionRegistry) (*expr.ScalarFunction, error) {
+func (tc *TestCase) GetScalarFunctionInvocation(reg *expr.Resolver, funcRegistry functions.FunctionRegistry) (*expr.ScalarFunction, error) {
 	if tc.FuncType != ScalarFuncType {
 		return nil, fmt.Errorf("not a scalar function testcase")
 	}
@@ -355,7 +355,7 @@ func (tc *TestCase) GetScalarFunctionInvocation(reg *expr.ExtensionRegistry, fun
 	return nil, fmt.Errorf("%w: no matching function found  or %s", substraitgo.ErrNotFound, id)
 }
 
-func (tc *TestCase) GetAggregateFunctionInvocation(reg *expr.ExtensionRegistry, funcRegistry functions.FunctionRegistry) (*expr.AggregateFunction, error) {
+func (tc *TestCase) GetAggregateFunctionInvocation(reg *expr.Resolver, funcRegistry functions.FunctionRegistry) (*expr.AggregateFunction, error) {
 	if tc.FuncType != AggregateFuncType {
 		return nil, fmt.Errorf("not an aggregate function testcase")
 	}

@@ -78,7 +78,7 @@ func (s *SortField) ToProto() *proto.SortField {
 }
 
 func SortFieldFromProto(
-	f *proto.SortField, baseSchema *types.RecordType, reg ExtensionRegistry,
+	f *proto.SortField, baseSchema *types.RecordType, reg Resolver,
 ) (sf SortField, err error) {
 	sf.Expr, err = ExprFromProto(f.Expr, baseSchema, reg)
 	if err != nil {
@@ -188,7 +188,7 @@ type ScalarFunction struct {
 //
 // Currently an error is only returned if outputType == nil
 func NewCustomScalarFunc(
-	reg ExtensionRegistry, v *extensions.ScalarFunctionVariant, outputType types.Type,
+	reg Resolver, v *extensions.ScalarFunctionVariant, outputType types.Type,
 	opts []*types.FunctionOption, args ...types.FuncArg,
 ) (*ScalarFunction, error) {
 	if outputType == nil {
@@ -210,7 +210,7 @@ type variant interface {
 }
 
 func resolveVariant[T variant](
-	id extensions.ID, reg ExtensionRegistry, getter func(extensions.ID) (T, bool),
+	id extensions.ID, reg Resolver, getter func(extensions.ID) (T, bool),
 	args []types.FuncArg,
 ) (T, types.Type, error) {
 	argTypes := make([]types.Type, 0, len(args))
@@ -274,7 +274,7 @@ func resolveVariant[T variant](
 // but the number of arguments and their types will be validated in order to
 // resolve the output type.
 func NewScalarFunc(
-	reg ExtensionRegistry, id extensions.ID, opts []*types.FunctionOption, args ...types.FuncArg,
+	reg Resolver, id extensions.ID, opts []*types.FunctionOption, args ...types.FuncArg,
 ) (*ScalarFunction, error) {
 	decl, outType, err := resolveVariant(id, reg, reg.c.GetScalarFunc, args)
 	if err != nil {
@@ -481,7 +481,7 @@ type WindowFunction struct {
 }
 
 func NewCustomWindowFunc(
-	reg ExtensionRegistry, v *extensions.WindowFunctionVariant, outputType types.Type,
+	reg Resolver, v *extensions.WindowFunctionVariant, outputType types.Type,
 	opts []*types.FunctionOption, invoke types.AggregationInvocation, phase types.AggregationPhase,
 	args ...types.FuncArg,
 ) (*WindowFunction, error) {
@@ -501,7 +501,7 @@ func NewCustomWindowFunc(
 }
 
 func NewWindowFunc(
-	reg ExtensionRegistry, id extensions.ID, opts []*types.FunctionOption,
+	reg Resolver, id extensions.ID, opts []*types.FunctionOption,
 	invoke types.AggregationInvocation, phase types.AggregationPhase, args ...types.FuncArg,
 ) (*WindowFunction, error) {
 	decl, outType, err := resolveVariant(id, reg, reg.c.GetWindowFunc, args)
@@ -764,7 +764,7 @@ type AggregateFunction struct {
 }
 
 func NewAggregateFunc(
-	reg ExtensionRegistry, id extensions.ID, opts []*types.FunctionOption,
+	reg Resolver, id extensions.ID, opts []*types.FunctionOption,
 	invoke types.AggregationInvocation, phase types.AggregationPhase, sorts []SortField,
 	args ...types.FuncArg,
 ) (*AggregateFunction, error) {
@@ -790,7 +790,7 @@ func NewAggregateFunc(
 }
 
 func NewCustomAggregateFunc(
-	reg ExtensionRegistry, v *extensions.AggregateFunctionVariant, outputType types.Type,
+	reg Resolver, v *extensions.AggregateFunctionVariant, outputType types.Type,
 	opts []*types.FunctionOption, invoke types.AggregationInvocation, phase types.AggregationPhase,
 	sorts []SortField, args ...types.FuncArg,
 ) (*AggregateFunction, error) {
@@ -810,7 +810,7 @@ func NewCustomAggregateFunc(
 }
 
 func NewAggregateFunctionFromProto(
-	agg *proto.AggregateFunction, baseSchema *types.RecordType, reg ExtensionRegistry,
+	agg *proto.AggregateFunction, baseSchema *types.RecordType, reg Resolver,
 ) (*AggregateFunction, error) {
 	if agg.OutputType == nil {
 		return nil, fmt.Errorf("%w: missing output type", substraitgo.ErrInvalidExpr)
