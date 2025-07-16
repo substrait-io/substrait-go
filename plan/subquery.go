@@ -16,11 +16,11 @@ import (
 // It extends the base ExtensionRegistry to handle subquery expressions
 // that may appear within other expressions.
 type ExpressionResolver struct {
-	expr.Resolver
+	expr.ExtensionRegistry
 }
 
 // subqueryFromProto creates a subquery expression from a protobuf message
-func (r *ExpressionResolver) HandleSubqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordType, reg expr.Resolver) (expr.Expression, error) {
+func (r *ExpressionResolver) HandleSubqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordType, reg expr.ExtensionRegistry) (expr.Expression, error) {
 	switch subType := sub.SubqueryType.(type) {
 	case *proto.Expression_Subquery_Scalar_:
 		rel, err := RelFromProto(subType.Scalar.Input, reg)

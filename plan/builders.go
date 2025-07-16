@@ -197,7 +197,7 @@ type builder struct {
 	ext    *extensions.Collection
 	extSet extensions.Set
 
-	reg expr.Resolver
+	reg expr.ExtensionRegistry
 }
 
 func (b *builder) GetExprBuilder() *expr.ExprBuilder {

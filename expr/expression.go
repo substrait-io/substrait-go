@@ -40,7 +40,7 @@ func MustExpr(e Expression, err error) Expression {
 	return e
 }
 
-func FuncArgFromProto(e *proto.FunctionArgument, baseSchema *types.RecordType, reg Resolver) (types.FuncArg, error) {
+func FuncArgFromProto(e *proto.FunctionArgument, baseSchema *types.RecordType, reg ExtensionRegistry) (types.FuncArg, error) {
 	switch et := e.ArgType.(type) {
 	case *proto.FunctionArgument_Enum:
 		return types.Enum(et.Enum), nil
@@ -52,7 +52,7 @@ func FuncArgFromProto(e *proto.FunctionArgument, baseSchema *types.RecordType, r
 	return nil, substraitgo.ErrNotImplemented
 }
 
-func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Resolver) (Expression, error) {
+func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg ExtensionRegistry) (Expression, error) {
 	if e == nil {
 		return nil, fmt.Errorf("%w: protobuf Expression is nil", substraitgo.ErrInvalidExpr)
 	}

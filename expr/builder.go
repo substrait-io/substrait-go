@@ -36,7 +36,7 @@ type Builder interface {
 //
 // See the unit tests for additional examples / constructs.
 type ExprBuilder struct {
-	Reg        Resolver
+	Reg        ExtensionRegistry
 	BaseSchema *types.RecordType
 }
 

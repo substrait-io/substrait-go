@@ -84,7 +84,7 @@ type Relation struct {
 	rel  Rel
 }
 
-func (r *Relation) FromProto(p *proto.PlanRel, reg expr.Resolver) error {
+func (r *Relation) FromProto(p *proto.PlanRel, reg expr.ExtensionRegistry) error {
 	r.root, r.rel = nil, nil
 
 	switch rel := p.RelType.(type) {
@@ -151,7 +151,7 @@ type Plan struct {
 	advExtension     *extensions.AdvancedExtension
 	relations        []Relation
 
-	reg expr.Resolver
+	reg expr.ExtensionRegistry
 }
 
 // Version returns the substrait version of the plan.
@@ -159,7 +159,7 @@ func (p *Plan) Version() Version { return p.version }
 
 // ExtensionRegistry returns the set of registered extensions for this plan
 // that it may depend on.
-func (p *Plan) ExtensionRegistry() expr.Resolver { return p.reg }
+func (p *Plan) ExtensionRegistry() expr.ExtensionRegistry { return p.reg }
 
 // ExpectedTypeURLs is a list of anypb.Any protobuf entities that this plan
 // may use. This can be used to warn if some embedded message types are
@@ -337,7 +337,7 @@ type Rel interface {
 	CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error)
 }
 
-func RelFromProto(rel *proto.Rel, reg expr.Resolver) (Rel, error) {
+func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 	switch rel := rel.RelType.(type) {
 	case *proto.Rel_Read:
 		var out ReadRel

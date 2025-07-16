@@ -8,54 +8,70 @@ import (
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
-// Resolver provides functionality to resolve extension references and handle subquery expressions.
-// It combines an extensions.Set for looking up extension definitions with a Collection for extension metadata,
-// and optionally includes a SubqueryResolver for handling subquery expressions during protobuf deserialization.
-type Resolver struct {
+// ExtensionRegistry provides functionality to resolve extension references and handle subquery expressions.
+// It combines an extensions.Set for looking up extension definitions with a Collection for extension metadata.
+type ExtensionRegistry struct {
 	extensions.Set
 	c *extensions.Collection
 
-	SubqueryResolver
+	// subqueryResolver is injected by the plan package to handle subquery expressions
+	// TODO: We may want to consider refactoring to make a cleaner interface here
+	subqueryResolver
 }
 
-// SubQueryResolver converts subqueries and the Relations within from the native protobuf format into an Expression.
-type SubqueryResolver interface {
-	HandleSubqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordType, reg Resolver) (Expression, error)
+// subqueryResolver converts subqueries and the Relations within from the native
+// protobuf format into an Expression.
+//
+// This interface is private to avoid exposing the dependency cycle - a Subquery
+// contains a Plan, so the implementor of this has to exist in / import the plan
+// package, which we can't do here without creating a cycle with the expr
+// package.
+//
+// TODO: We may want to refactor this interface to be more generic or use a
+// different approach to avoid the cycle.
+type subqueryResolver interface {
+	HandleSubqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordType, reg ExtensionRegistry) (Expression, error)
+}
+
+// SetSubqueryResolver allows the plan package to inject a subquery resolver.
+// This is an internal function used to break the dependency cycle between expr and plan packages.
+func (e *ExtensionRegistry) SetSubqueryResolver(resolver subqueryResolver) {
+	e.subqueryResolver = resolver
 }
 
 // NewExtensionRegistry creates a new registry.  If you have an existing plan you can use GetExtensionSet() to
 // populate an extensions.Set.
-func NewExtensionRegistry(extSet extensions.Set, c *extensions.Collection) Resolver {
+func NewExtensionRegistry(extSet extensions.Set, c *extensions.Collection) ExtensionRegistry {
 	if c == nil {
 		panic("cannot create registry with nil collection")
 	}
-	return Resolver{Set: extSet, c: c}
+	return ExtensionRegistry{Set: extSet, c: c}
 }
 
 // NewEmptyExtensionRegistry creates an empty registry useful starting from scratch.
-func NewEmptyExtensionRegistry(c *extensions.Collection) Resolver {
+func NewEmptyExtensionRegistry(c *extensions.Collection) ExtensionRegistry {
 	return NewExtensionRegistry(extensions.NewSet(), c)
 }
 
-func (e *Resolver) LookupTypeVariation(anchor uint32) (extensions.TypeVariation, bool) {
+func (e *ExtensionRegistry) LookupTypeVariation(anchor uint32) (extensions.TypeVariation, bool) {
 	return e.Set.LookupTypeVariation(anchor, e.c)
 }
 
-func (e *Resolver) LookupType(anchor uint32) (extensions.Type, bool) {
+func (e *ExtensionRegistry) LookupType(anchor uint32) (extensions.Type, bool) {
 	return e.Set.LookupType(anchor, e.c)
 }
 
 // LookupScalarFunction returns a ScalarFunctionVariant associated with a previously used function's anchor.
-func (e *Resolver) LookupScalarFunction(anchor uint32) (*extensions.ScalarFunctionVariant, bool) {
+func (e *ExtensionRegistry) LookupScalarFunction(anchor uint32) (*extensions.ScalarFunctionVariant, bool) {
 	return e.Set.LookupScalarFunction(anchor, e.c)
 }
 
 // LookupAggregateFunction returns an AggregateFunctionVariant associated with a previously used function's anchor.
-func (e *Resolver) LookupAggregateFunction(anchor uint32) (*extensions.AggregateFunctionVariant, bool) {
+func (e *ExtensionRegistry) LookupAggregateFunction(anchor uint32) (*extensions.AggregateFunctionVariant, bool) {
 	return e.Set.LookupAggregateFunction(anchor, e.c)
 }
 
 // LookupWindowFunction returns a WindowFunctionVariant associated with a previously used function's anchor.
-func (e *Resolver) LookupWindowFunction(anchor uint32) (*extensions.WindowFunctionVariant, bool) {
+func (e *ExtensionRegistry) LookupWindowFunction(anchor uint32) (*extensions.WindowFunctionVariant, bool) {
 	return e.Set.LookupWindowFunction(anchor, e.c)
 }
