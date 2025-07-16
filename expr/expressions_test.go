@@ -585,7 +585,7 @@ func TestSubqueryExpressionRoundtrip(t *testing.T) {
 			require.NotNil(t, protoExpr.GetSubquery())
 
 			// Convert back from protobuf using ExprFromProto with subquery handler
-			baseReg.SubqueryResolver = subqueryReg
+			baseReg.SetSubqueryResolver(subqueryReg)
 			fromProto, err := expr.ExprFromProto(protoExpr, baseSchema, baseReg)
 			require.NoError(t, err)
 			require.NotNil(t, fromProto)

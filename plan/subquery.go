@@ -19,7 +19,7 @@ type ExpressionResolver struct {
 	expr.ExtensionRegistry
 }
 
-// subqueryFromProto creates a subquery expression from a protobuf message
+// HandleSubqueryFromProto creates a subquery expression from a protobuf message
 func (r *ExpressionResolver) HandleSubqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordType, reg expr.ExtensionRegistry) (expr.Expression, error) {
 	switch subType := sub.SubqueryType.(type) {
 	case *proto.Expression_Subquery_Scalar_:
