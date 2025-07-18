@@ -166,7 +166,7 @@ type Builder interface {
 
 	// SetComparisonSubquery creates a set comparison subquery expression that checks
 	// if the left expression is contained in the right subquery.
-	SetComparisonSubquery(left expr.Expression, right Rel, reductionOp proto.Expression_Subquery_SetComparison_ReductionOp, comparisonOp proto.Expression_Subquery_SetComparison_ComparisonOp) (*SetComparisonSubquery, error)
+	SetComparisonSubquery(left expr.Expression, right Rel, reductionOp SetComparisonReductionOp, comparisonOp SetComparisonComparisonOp) (*SetComparisonSubquery, error)
 }
 
 const FETCH_COUNT_ALL_RECORDS = -1
@@ -951,8 +951,8 @@ func (b *builder) ScalarSubquery(input Rel) (*ScalarSubquery, error) {
 func (b *builder) SetComparisonSubquery(
 	left expr.Expression,
 	right Rel,
-	reductionOp proto.Expression_Subquery_SetComparison_ReductionOp,
-	comparisonOp proto.Expression_Subquery_SetComparison_ComparisonOp,
+	reductionOp SetComparisonReductionOp,
+	comparisonOp SetComparisonComparisonOp,
 ) (*SetComparisonSubquery, error) {
 	if left == nil {
 		return nil, errNilInputRel

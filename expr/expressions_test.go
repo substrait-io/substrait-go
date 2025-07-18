@@ -475,7 +475,7 @@ func TestSubqueryExpressionRoundtrip(t *testing.T) {
 
 	// Create extension registry with subquery handler properly
 	baseReg := expr.NewExtensionRegistry(extSet, c)
-	subqueryReg := &plan.ExpressionResolver{ExtensionRegistry: baseReg}
+	subqueryReg := &plan.ExpressionConverter{ExtensionRegistry: baseReg}
 
 	// Create a simple mock relation for subqueries - single column of int32
 	mockSchema := types.NamedStruct{
@@ -585,7 +585,7 @@ func TestSubqueryExpressionRoundtrip(t *testing.T) {
 			require.NotNil(t, protoExpr.GetSubquery())
 
 			// Convert back from protobuf using ExprFromProto with subquery handler
-			baseReg.SetSubqueryResolver(subqueryReg)
+			baseReg.SetSubqueryConverter(subqueryReg)
 			fromProto, err := expr.ExprFromProto(protoExpr, baseSchema, baseReg)
 			require.NoError(t, err)
 			require.NotNil(t, fromProto)

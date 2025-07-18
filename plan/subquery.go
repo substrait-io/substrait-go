@@ -12,15 +12,15 @@ import (
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
-// ExpressionResolver resolves extensions and subqueries as used in expressions.
+// ExpressionConverter resolves extensions and subqueries as used in expressions.
 // It extends the base ExtensionRegistry to handle subquery expressions
 // that may appear within other expressions.
-type ExpressionResolver struct {
+type ExpressionConverter struct {
 	expr.ExtensionRegistry
 }
 
-// HandleSubqueryFromProto creates a subquery expression from a protobuf message
-func (r *ExpressionResolver) HandleSubqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordType, reg expr.ExtensionRegistry) (expr.Expression, error) {
+// SubqueryFromProto creates a subquery expression from a protobuf message
+func (r *ExpressionConverter) SubqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordType, reg expr.ExtensionRegistry) (expr.Expression, error) {
 	switch subType := sub.SubqueryType.(type) {
 	case *proto.Expression_Subquery_Scalar_:
 		rel, err := RelFromProto(subType.Scalar.Input, reg)
@@ -330,10 +330,30 @@ func (s *SetPredicateSubquery) GetSubqueryType() string {
 	return "set_predicate"
 }
 
+type SetComparisonReductionOp = proto.Expression_Subquery_SetComparison_ReductionOp
+
+const (
+	SetComparisonReductionOpUnspecified = proto.Expression_Subquery_SetComparison_REDUCTION_OP_UNSPECIFIED
+	SetComparisonReductionOpAny         = proto.Expression_Subquery_SetComparison_REDUCTION_OP_ANY
+	SetComparisonReductionOpAll         = proto.Expression_Subquery_SetComparison_REDUCTION_OP_ALL
+)
+
+type SetComparisonComparisonOp = proto.Expression_Subquery_SetComparison_ComparisonOp
+
+const (
+	SetComparisonComparisonOpUnspecified = proto.Expression_Subquery_SetComparison_COMPARISON_OP_UNSPECIFIED
+	SetComparisonComparisonOpEq          = proto.Expression_Subquery_SetComparison_COMPARISON_OP_EQ
+	SetComparisonComparisonOpNe          = proto.Expression_Subquery_SetComparison_COMPARISON_OP_NE
+	SetComparisonComparisonOpLt          = proto.Expression_Subquery_SetComparison_COMPARISON_OP_LT
+	SetComparisonComparisonOpGt          = proto.Expression_Subquery_SetComparison_COMPARISON_OP_GT
+	SetComparisonComparisonOpLe          = proto.Expression_Subquery_SetComparison_COMPARISON_OP_LE
+	SetComparisonComparisonOpGe          = proto.Expression_Subquery_SetComparison_COMPARISON_OP_GE
+)
+
 // SetComparisonSubquery is a subquery comparison using ANY or ALL operations
 type SetComparisonSubquery struct {
-	ReductionOp  proto.Expression_Subquery_SetComparison_ReductionOp
-	ComparisonOp proto.Expression_Subquery_SetComparison_ComparisonOp
+	ReductionOp  SetComparisonReductionOp
+	ComparisonOp SetComparisonComparisonOp
 	Left         expr.Expression
 	Right        Rel
 
@@ -342,8 +362,8 @@ type SetComparisonSubquery struct {
 }
 
 func NewSetComparisonSubquery(
-	reductionOp proto.Expression_Subquery_SetComparison_ReductionOp,
-	comparisonOp proto.Expression_Subquery_SetComparison_ComparisonOp,
+	reductionOp SetComparisonReductionOp,
+	comparisonOp SetComparisonComparisonOp,
 	left expr.Expression,
 	right Rel,
 ) *SetComparisonSubquery {
@@ -359,26 +379,26 @@ func (s *SetComparisonSubquery) String() string {
 	var reductionStr, comparisonStr string
 
 	switch s.ReductionOp {
-	case proto.Expression_Subquery_SetComparison_REDUCTION_OP_ANY:
+	case SetComparisonReductionOpAny:
 		reductionStr = "ANY"
-	case proto.Expression_Subquery_SetComparison_REDUCTION_OP_ALL:
+	case SetComparisonReductionOpAll:
 		reductionStr = "ALL"
 	default:
 		reductionStr = "UNKNOWN"
 	}
 
 	switch s.ComparisonOp {
-	case proto.Expression_Subquery_SetComparison_COMPARISON_OP_EQ:
+	case SetComparisonComparisonOpEq:
 		comparisonStr = "="
-	case proto.Expression_Subquery_SetComparison_COMPARISON_OP_NE:
+	case SetComparisonComparisonOpNe:
 		comparisonStr = "!="
-	case proto.Expression_Subquery_SetComparison_COMPARISON_OP_LT:
+	case SetComparisonComparisonOpLt:
 		comparisonStr = "<"
-	case proto.Expression_Subquery_SetComparison_COMPARISON_OP_GT:
+	case SetComparisonComparisonOpGt:
 		comparisonStr = ">"
-	case proto.Expression_Subquery_SetComparison_COMPARISON_OP_LE:
+	case SetComparisonComparisonOpLe:
 		comparisonStr = "<="
-	case proto.Expression_Subquery_SetComparison_COMPARISON_OP_GE:
+	case SetComparisonComparisonOpGe:
 		comparisonStr = ">="
 	default:
 		comparisonStr = "?"
@@ -401,8 +421,8 @@ func (s *SetComparisonSubquery) ToProto() *proto.Expression {
 			Subquery: &proto.Expression_Subquery{
 				SubqueryType: &proto.Expression_Subquery_SetComparison_{
 					SetComparison: &proto.Expression_Subquery_SetComparison{
-						ReductionOp:  s.ReductionOp,
-						ComparisonOp: s.ComparisonOp,
+						ReductionOp:  proto.Expression_Subquery_SetComparison_ReductionOp(s.ReductionOp),
+						ComparisonOp: proto.Expression_Subquery_SetComparison_ComparisonOp(s.ComparisonOp),
 						Left:         s.Left.ToProto(),
 						Right:        s.Right.ToProto(),
 					},
@@ -423,6 +443,14 @@ func (s *SetComparisonSubquery) Equals(other expr.Expression) bool {
 	if !ok {
 		return false
 	}
+
+	if s.Left == nil || otherSetComparison.Left == nil {
+		return s.Left == otherSetComparison.Left
+	}
+	if s.Right == nil || otherSetComparison.Right == nil {
+		return s.Right == otherSetComparison.Right
+	}
+
 	return s.ReductionOp == otherSetComparison.ReductionOp &&
 		s.ComparisonOp == otherSetComparison.ComparisonOp &&
 		s.Left.Equals(otherSetComparison.Left) &&

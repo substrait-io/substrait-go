@@ -14,12 +14,12 @@ type ExtensionRegistry struct {
 	extensions.Set
 	c *extensions.Collection
 
-	// subqueryResolver is injected by the plan package to handle subquery expressions
+	// subqueryConverter is injected by the plan package to handle subquery expressions
 	// TODO: We may want to consider refactoring to make a cleaner interface here
-	subqueryResolver
+	subqueryConverter
 }
 
-// subqueryResolver converts subqueries and the Relations within from the native
+// subqueryConverter converts subqueries and the Relations within from the native
 // protobuf format into an Expression.
 //
 // This interface is private to avoid exposing the dependency cycle - a Subquery
@@ -29,14 +29,14 @@ type ExtensionRegistry struct {
 //
 // TODO: We may want to refactor this interface to be more generic or use a
 // different approach to avoid the cycle.
-type subqueryResolver interface {
-	HandleSubqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordType, reg ExtensionRegistry) (Expression, error)
+type subqueryConverter interface {
+	SubqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordType, reg ExtensionRegistry) (Expression, error)
 }
 
-// SetSubqueryResolver allows the plan package to inject a subquery resolver.
+// SetSubqueryConverter allows the plan package to inject a subquery converter.
 // This is an internal function used to break the dependency cycle between expr and plan packages.
-func (e *ExtensionRegistry) SetSubqueryResolver(resolver subqueryResolver) {
-	e.subqueryResolver = resolver
+func (e *ExtensionRegistry) SetSubqueryConverter(converter subqueryConverter) {
+	e.subqueryConverter = converter
 }
 
 // NewExtensionRegistry creates a new registry.  If you have an existing plan you can use GetExtensionSet() to
