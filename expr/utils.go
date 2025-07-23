@@ -2,11 +2,41 @@
 
 package expr
 
-import "github.com/substrait-io/substrait-go/v4/extensions"
+import (
+	"github.com/substrait-io/substrait-go/v4/extensions"
+	"github.com/substrait-io/substrait-go/v4/types"
+	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
+)
 
+// ExtensionRegistry provides functionality to resolve extension references and handle subquery expressions.
+// It combines an extensions.Set for looking up extension definitions with a Collection for extension metadata.
 type ExtensionRegistry struct {
 	extensions.Set
 	c *extensions.Collection
+
+	// subqueryConverter is injected by the plan package to handle subquery expressions
+	// TODO: We may want to consider refactoring to make a cleaner interface here
+	subqueryConverter
+}
+
+// subqueryConverter converts subqueries and the Relations within from the native
+// protobuf format into an Expression.
+//
+// This interface is private to avoid exposing the dependency cycle - a Subquery
+// contains a Plan, so the implementor of this has to exist in / import the plan
+// package, which we can't do here without creating a cycle with the expr
+// package.
+//
+// TODO: We may want to refactor this interface to be more generic or use a
+// different approach to avoid the cycle.
+type subqueryConverter interface {
+	SubqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordType, reg ExtensionRegistry) (Expression, error)
+}
+
+// SetSubqueryConverter allows the plan package to inject a subquery converter.
+// This is an internal function used to break the dependency cycle between expr and plan packages.
+func (e *ExtensionRegistry) SetSubqueryConverter(converter subqueryConverter) {
+	e.subqueryConverter = converter
 }
 
 // NewExtensionRegistry creates a new registry.  If you have an existing plan you can use GetExtensionSet() to

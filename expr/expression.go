@@ -317,6 +317,10 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 	case *proto.Expression_Enum_:
 		return nil, fmt.Errorf("%w: deprecated", substraitgo.ErrNotImplemented)
 	case *proto.Expression_Subquery_:
+		if reg.subqueryConverter == nil {
+			return nil, fmt.Errorf("%w: subquery expressions require a subquery converter to be configured", substraitgo.ErrNotImplemented)
+		}
+		return reg.SubqueryFromProto(et.Subquery, baseSchema, reg)
 	}
 
 	return nil, fmt.Errorf("%w: ExprFromProto: %s", substraitgo.ErrNotImplemented, e)
