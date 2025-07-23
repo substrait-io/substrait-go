@@ -256,16 +256,24 @@ func (s *InPredicateSubquery) GetSubqueryType() string {
 	return "in_predicate"
 }
 
+type SetPredicateOp = proto.Expression_Subquery_SetPredicate_PredicateOp
+
+const (
+	SetPredicateOpUnspecified = proto.Expression_Subquery_SetPredicate_PREDICATE_OP_UNSPECIFIED
+	SetPredicateOpExists      = proto.Expression_Subquery_SetPredicate_PREDICATE_OP_EXISTS
+	SetPredicateOpUnique      = proto.Expression_Subquery_SetPredicate_PREDICATE_OP_UNIQUE
+)
+
 // SetPredicateSubquery is a predicate over a set of rows (EXISTS/UNIQUE)
 type SetPredicateSubquery struct {
-	Operation proto.Expression_Subquery_SetPredicate_PredicateOp
+	Operation SetPredicateOp
 	Tuples    Rel
 
 	// Subqueries can be the "root" of a field reference, so we embed this marker interface to denote that.
 	expr.RootRefType
 }
 
-func NewSetPredicateSubquery(op proto.Expression_Subquery_SetPredicate_PredicateOp, tuples Rel) *SetPredicateSubquery {
+func NewSetPredicateSubquery(op SetPredicateOp, tuples Rel) *SetPredicateSubquery {
 	return &SetPredicateSubquery{
 		Operation: op,
 		Tuples:    tuples,

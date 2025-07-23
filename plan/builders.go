@@ -9,7 +9,6 @@ import (
 	"github.com/substrait-io/substrait-go/v4/expr"
 	"github.com/substrait-io/substrait-go/v4/extensions"
 	"github.com/substrait-io/substrait-go/v4/types"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"golang.org/x/exp/slices"
 )
 
@@ -159,7 +158,7 @@ type Builder interface {
 
 	// SetPredicateSubquery creates a set predicate subquery expression that checks
 	// if the subquery returns any rows.
-	SetPredicateSubquery(input Rel, exists bool) (*SetPredicateSubquery, error)
+	SetPredicateSubquery(input Rel, predicateOp SetPredicateOp) (*SetPredicateSubquery, error)
 
 	// ScalarSubquery creates a scalar subquery expression that returns a single value.
 	ScalarSubquery(input Rel) (*ScalarSubquery, error)
@@ -917,21 +916,18 @@ func (b *builder) InPredicateSubquery(needles []expr.Expression, haystack Rel) (
 }
 
 // SetPredicateSubquery creates a subquery that tests for the existence or uniqueness of rows
-// in the input relation. When exists is true, it creates an EXISTS predicate that returns
-// true if the subquery returns at least one row. When exists is false, it creates a UNIQUE
-// predicate that returns true if the subquery returns at most one row.
-func (b *builder) SetPredicateSubquery(input Rel, exists bool) (*SetPredicateSubquery, error) {
+// in the input relation.
+func (b *builder) SetPredicateSubquery(input Rel, predicateOp SetPredicateOp) (*SetPredicateSubquery, error) {
 	if input == nil {
 		return nil, errNilInputRel
 	}
 
-	op := proto.Expression_Subquery_SetPredicate_PREDICATE_OP_EXISTS
-	if !exists {
-		op = proto.Expression_Subquery_SetPredicate_PREDICATE_OP_UNIQUE
+	if predicateOp == SetPredicateOpUnspecified {
+		return nil, fmt.Errorf("predicateOp must be specified")
 	}
 
 	return NewSetPredicateSubquery(
-		op,
+		predicateOp,
 		input,
 	), nil
 }
@@ -954,6 +950,13 @@ func (b *builder) SetComparisonSubquery(
 	reductionOp SetComparisonReductionOp,
 	comparisonOp SetComparisonComparisonOp,
 ) (*SetComparisonSubquery, error) {
+	if reductionOp == SetComparisonReductionOpUnspecified {
+		return nil, fmt.Errorf("reductionOp must be specified")
+	}
+	if comparisonOp == SetComparisonComparisonOpUnspecified {
+		return nil, fmt.Errorf("comparisonOp must be specified")
+	}
+
 	if left == nil {
 		return nil, errNilInputRel
 	}
