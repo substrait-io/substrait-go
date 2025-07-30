@@ -3,14 +3,17 @@
 package expr_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/v4/expr"
 	"github.com/substrait-io/substrait-go/v4/extensions"
+	"github.com/substrait-io/substrait-go/v4/plan"
 	"github.com/substrait-io/substrait-go/v4/types"
 	"github.com/substrait-io/substrait-protobuf/go/substraitpb"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 func TestExprBuilder(t *testing.T) {
@@ -110,6 +113,103 @@ func TestExprBuilder(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCustomTypesInFunctionOutput(t *testing.T) {
+	custom := `%YAML 1.2
+---
+types:
+  - name: custom_type1
+  - name: custom_type2
+  - name: custom_type3
+
+scalar_functions:
+  - name: custom_function
+    description: "custom function that takes in and returns custom types"
+    impls:
+      - args:
+          - name: arg1
+            value: u!custom_type2
+        return: u!custom_type1
+
+aggregate_functions:
+  - name: "custom_aggr"
+    description: "custom aggregator that takes in and returns custom types"
+    impls:
+      - args:
+          - name: arg1
+            value: u!custom_type2
+        return: u!custom_type1
+
+window_functions:
+  - name: "custom_window"
+    description: "custom window function that takes in and returns custom types"
+    impls:
+      - args:
+          - name: arg1
+            value: u!custom_type2
+        return: u!custom_type1
+`
+
+	customReader := strings.NewReader(custom)
+	collection := extensions.Collection{}
+	collection.Load("custom", customReader)
+
+	planBuilder := plan.NewBuilder(&collection)
+
+	customType1 := planBuilder.UserDefinedType("custom", "custom_type1")
+	customType2 := planBuilder.UserDefinedType("custom", "custom_type2")
+
+	customLiteral := planBuilder.GetExprBuilder().Literal(&expr.ProtoLiteral{
+		Type: &customType2,
+		Value: &anypb.Any{
+			Value: []byte{5},
+		},
+	})
+
+	// check scalar function
+	scalar, err := planBuilder.GetExprBuilder().ScalarFunc(extensions.ID{
+		URI:  "custom",
+		Name: "custom_function",
+	}).Args(
+		customLiteral,
+	).BuildExpr()
+	require.NoError(t, err)
+	scalarProto := scalar.ToProto()
+
+	fnCall := scalarProto.GetScalarFunction()
+	require.Len(t, fnCall.Arguments, 1)
+	require.Equal(t, customType2.TypeReference, fnCall.Arguments[0].GetValue().GetLiteral().GetUserDefined().TypeReference)
+	require.Equal(t, customType1.TypeReference, fnCall.OutputType.GetUserDefined().TypeReference)
+
+	// check aggregate function
+	aggr, err := planBuilder.GetExprBuilder().AggFunc(extensions.ID{
+		URI:  "custom",
+		Name: "custom_aggr",
+	}).Args(
+		customLiteral,
+	).Build()
+	require.NoError(t, err)
+	aggrProto := aggr.ToProto()
+
+	require.Len(t, aggrProto.Arguments, 1)
+	require.Equal(t, customType2.TypeReference, aggrProto.Arguments[0].GetValue().GetLiteral().GetUserDefined().TypeReference)
+	require.Equal(t, customType1.TypeReference, aggrProto.OutputType.GetUserDefined().TypeReference)
+
+	// check window function
+	window, err := planBuilder.GetExprBuilder().WindowFunc(extensions.ID{
+		URI:  "custom",
+		Name: "custom_window",
+	}).Args(
+		customLiteral,
+	).Phase(types.AggPhaseInitialToResult).Build()
+	require.NoError(t, err)
+	windowProto := window.ToProto()
+
+	windowFnCall := windowProto.GetWindowFunction()
+	require.Len(t, windowFnCall.Arguments, 1)
+	require.Equal(t, customType2.TypeReference, windowFnCall.Arguments[0].GetValue().GetLiteral().GetUserDefined().TypeReference)
+	require.Equal(t, customType1.TypeReference, windowFnCall.OutputType.GetUserDefined().TypeReference)
 }
 
 func TestBoundFromProto(t *testing.T) {
