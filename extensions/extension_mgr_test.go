@@ -115,7 +115,7 @@ func TestLoadExtensionCollection(t *testing.T) {
 		}}, add.Options())
 
 		i8Req := &types.Int8Type{Nullability: types.NullabilityRequired}
-		ty, err := add.ResolveType([]types.Type{i8Req, i8Req})
+		ty, err := add.ResolveType([]types.Type{i8Req, i8Req}, extensions.NewSet())
 		assert.NoError(t, err)
 		assert.Equal(t, i8Req, ty)
 	})
@@ -133,7 +133,7 @@ func TestLoadExtensionCollection(t *testing.T) {
 		assert.Equal(t, "subtract:i16_i16", sub.CompoundName())
 
 		i16Req := &types.Int16Type{Nullability: types.NullabilityRequired}
-		ty, err := sub.ResolveType([]types.Type{i16Req, i16Req})
+		ty, err := sub.ResolveType([]types.Type{i16Req, i16Req}, extensions.NewSet())
 		assert.NoError(t, err)
 		assert.Equal(t, i16Req, ty)
 	})
@@ -422,10 +422,10 @@ func TestAggregateToWindow(t *testing.T) {
 		// Test type resolution with the same arguments
 		// Use a concrete type for testing resolution
 		i32Type := &types.Int32Type{Nullability: types.NullabilityRequired}
-		aggType, err := aggFunc.ResolveType([]types.Type{i32Type})
+		aggType, err := aggFunc.ResolveType([]types.Type{i32Type}, extensions.NewSet())
 		require.NoError(t, err)
 
-		winType, err := winFunc.ResolveType([]types.Type{i32Type})
+		winType, err := winFunc.ResolveType([]types.Type{i32Type}, extensions.NewSet())
 		require.NoError(t, err)
 
 		assert.Equal(t, aggType, winType)
