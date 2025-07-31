@@ -19,7 +19,7 @@ type FunctionVariant interface {
 	Args() FuncParameterList
 	Options() map[string]Option
 	URI() string
-	ResolveType(argTypes []types.Type, registry Set) (types.Type, error)
+	ResolveType(argTypes []types.Type) (types.Type, error)
 	Variadic() *VariadicBehavior
 	// Match this function matches input arguments against this functions parameter list
 	// returns (true, nil) if all input argument can type replace the function definition argument
@@ -328,17 +328,11 @@ func (s *ScalarFunctionVariant) Deterministic() bool              { return s.imp
 func (s *ScalarFunctionVariant) SessionDependent() bool           { return s.impl.SessionDependent }
 func (s *ScalarFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
 func (s *ScalarFunctionVariant) URI() string                      { return s.uri }
-func (s *ScalarFunctionVariant) ResolveType(argumentTypes []types.Type, registry Set) (types.Type, error) {
-	typ, err := EvaluateTypeExpression(s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes)
-
-	if err != nil {
-		return nil, err
-	}
-	if udt, ok := typ.(*types.UserDefinedType); ok {
-		name := strings.TrimPrefix(s.impl.Return.ValueType.ShortString(), "u!") // short string contains the u! prefix, but type definitions in the extensions don't
-		udt.TypeReference = registry.GetTypeAnchor(ID{Name: name, URI: s.uri})  // assume that the user defined type is in the same extension as the function
-	}
-	return typ, nil
+func (s *ScalarFunctionVariant) UnresolvedReturnType() types.FuncDefArgType {
+	return s.impl.Return.ValueType
+}
+func (s *ScalarFunctionVariant) ResolveType(argumentTypes []types.Type) (types.Type, error) {
+	return EvaluateTypeExpression(s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes)
 }
 func (s *ScalarFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
@@ -449,17 +443,11 @@ func (s *AggregateFunctionVariant) Deterministic() bool              { return s.
 func (s *AggregateFunctionVariant) SessionDependent() bool           { return s.impl.SessionDependent }
 func (s *AggregateFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
 func (s *AggregateFunctionVariant) URI() string                      { return s.uri }
-func (s *AggregateFunctionVariant) ResolveType(argumentTypes []types.Type, registry Set) (types.Type, error) {
-	typ, err := EvaluateTypeExpression(s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes)
-
-	if err != nil {
-		return nil, err
-	}
-	if udt, ok := typ.(*types.UserDefinedType); ok {
-		name := strings.TrimPrefix(s.impl.Return.ValueType.ShortString(), "u!") // short string contains the u! prefix, but type definitions in the extensions don't
-		udt.TypeReference = registry.GetTypeAnchor(ID{Name: name, URI: s.uri})  // assume that the user defined type is in the same extension as the function
-	}
-	return typ, nil
+func (s *AggregateFunctionVariant) UnresolvedReturnType() types.FuncDefArgType {
+	return s.impl.Return.ValueType
+}
+func (s *AggregateFunctionVariant) ResolveType(argumentTypes []types.Type) (types.Type, error) {
+	return EvaluateTypeExpression(s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes)
 }
 func (s *AggregateFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
@@ -578,17 +566,11 @@ func (s *WindowFunctionVariant) Deterministic() bool              { return s.imp
 func (s *WindowFunctionVariant) SessionDependent() bool           { return s.impl.SessionDependent }
 func (s *WindowFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
 func (s *WindowFunctionVariant) URI() string                      { return s.uri }
-func (s *WindowFunctionVariant) ResolveType(argumentTypes []types.Type, registry Set) (types.Type, error) {
-	typ, err := EvaluateTypeExpression(s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes)
-
-	if err != nil {
-		return nil, err
-	}
-	if udt, ok := typ.(*types.UserDefinedType); ok {
-		name := strings.TrimPrefix(s.impl.Return.ValueType.ShortString(), "u!") // short string contains the u! prefix, but type definitions in the extensions don't
-		udt.TypeReference = registry.GetTypeAnchor(ID{Name: name, URI: s.uri})  // assume that the user defined type is in the same extension as the function
-	}
-	return typ, nil
+func (s *WindowFunctionVariant) UnresolvedReturnType() types.FuncDefArgType {
+	return s.impl.Return.ValueType
+}
+func (s *WindowFunctionVariant) ResolveType(argumentTypes []types.Type) (types.Type, error) {
+	return EvaluateTypeExpression(s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes)
 }
 func (s *WindowFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()

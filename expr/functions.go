@@ -206,7 +206,8 @@ func NewCustomScalarFunc(
 
 type variant interface {
 	*extensions.ScalarFunctionVariant | *extensions.AggregateFunctionVariant | *extensions.WindowFunctionVariant
-	ResolveType([]types.Type, extensions.Set) (types.Type, error)
+	UnresolvedReturnType() types.FuncDefArgType
+	ResolveType([]types.Type) (types.Type, error)
 }
 
 func resolveVariant[T variant](
@@ -253,9 +254,14 @@ func resolveVariant[T variant](
 		}
 	}
 
-	outType, err := decl.ResolveType(argTypes, reg.Set)
+	outType, err := decl.ResolveType(argTypes)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if udt, ok := outType.(*types.UserDefinedType); ok {
+		name := strings.TrimPrefix(decl.UnresolvedReturnType().ShortString(), "u!")   // short string contains the u! prefix, but type definitions in the extensions don't
+		udt.TypeReference = reg.GetTypeAnchor(extensions.ID{Name: name, URI: id.URI}) // assume that the user defined type is in the same extension as the function
 	}
 
 	return decl, outType, nil
