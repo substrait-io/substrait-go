@@ -206,7 +206,7 @@ func NewCustomScalarFunc(
 
 type variant interface {
 	*extensions.ScalarFunctionVariant | *extensions.AggregateFunctionVariant | *extensions.WindowFunctionVariant
-	ResolveType([]types.Type) (types.Type, error)
+	ResolveType([]types.Type, extensions.Set) (types.Type, error)
 }
 
 func resolveVariant[T variant](
@@ -253,7 +253,7 @@ func resolveVariant[T variant](
 		}
 	}
 
-	outType, err := decl.ResolveType(argTypes)
+	outType, err := decl.ResolveType(argTypes, reg.Set)
 	if err != nil {
 		return nil, nil, err
 	}
