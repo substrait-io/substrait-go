@@ -153,7 +153,8 @@ window_functions:
 
 	customReader := strings.NewReader(custom)
 	collection := extensions.Collection{}
-	collection.Load("custom", customReader)
+	err := collection.Load("custom", customReader)
+	require.NoError(t, err)
 
 	planBuilder := plan.NewBuilder(&collection)
 
