@@ -328,6 +328,9 @@ func (s *ScalarFunctionVariant) Deterministic() bool              { return s.imp
 func (s *ScalarFunctionVariant) SessionDependent() bool           { return s.impl.SessionDependent }
 func (s *ScalarFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
 func (s *ScalarFunctionVariant) URI() string                      { return s.uri }
+func (s *ScalarFunctionVariant) UnresolvedReturnType() types.FuncDefArgType {
+	return s.impl.Return.ValueType
+}
 func (s *ScalarFunctionVariant) ResolveType(argumentTypes []types.Type) (types.Type, error) {
 	return EvaluateTypeExpression(s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes)
 }
@@ -440,6 +443,9 @@ func (s *AggregateFunctionVariant) Deterministic() bool              { return s.
 func (s *AggregateFunctionVariant) SessionDependent() bool           { return s.impl.SessionDependent }
 func (s *AggregateFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
 func (s *AggregateFunctionVariant) URI() string                      { return s.uri }
+func (s *AggregateFunctionVariant) UnresolvedReturnType() types.FuncDefArgType {
+	return s.impl.Return.ValueType
+}
 func (s *AggregateFunctionVariant) ResolveType(argumentTypes []types.Type) (types.Type, error) {
 	return EvaluateTypeExpression(s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes)
 }
@@ -560,6 +566,9 @@ func (s *WindowFunctionVariant) Deterministic() bool              { return s.imp
 func (s *WindowFunctionVariant) SessionDependent() bool           { return s.impl.SessionDependent }
 func (s *WindowFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
 func (s *WindowFunctionVariant) URI() string                      { return s.uri }
+func (s *WindowFunctionVariant) UnresolvedReturnType() types.FuncDefArgType {
+	return s.impl.Return.ValueType
+}
 func (s *WindowFunctionVariant) ResolveType(argumentTypes []types.Type) (types.Type, error) {
 	return EvaluateTypeExpression(s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes)
 }
