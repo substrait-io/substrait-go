@@ -152,11 +152,19 @@ func TestEvaluateTypeExpression(t *testing.T) {
 			args:     []types.Type{strTypeReq},
 			expected: &types.StringType{Nullability: types.NullabilityNullable},
 		},
+		{
+			name:     "user defined type",
+			nulls:    extensions.MirrorNullability,
+			ret:      &types.ParameterizedUserDefinedType{Nullability: types.NullabilityRequired, Name: "test_type"},
+			extArgs:  nil,
+			args:     nil,
+			expected: &types.UserDefinedType{Nullability: types.NullabilityRequired, TypeReference: 1},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := extensions.EvaluateTypeExpression(tt.nulls, tt.ret, tt.extArgs, nil, tt.args)
+			result, err := extensions.EvaluateTypeExpression(tt.nulls, tt.ret, tt.extArgs, nil, tt.args, extensions.NewSet(), "/test_uri")
 			if tt.expectErr == "" {
 				require.NoError(t, err)
 				require.Truef(t, tt.expected.Equals(result),
@@ -258,7 +266,7 @@ func TestVariantWithVariadic(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := extensions.EvaluateTypeExpression(tt.nulls, tt.ret, tt.extArgs, &tt.variadic, tt.args)
+			result, err := extensions.EvaluateTypeExpression(tt.nulls, tt.ret, tt.extArgs, &tt.variadic, tt.args, extensions.NewSet(), "test://uri")
 			if tt.err == "" {
 				require.NoError(t, err)
 				assert.Truef(t, tt.expected.Equals(result), "expected: %s\ngot: %s", tt.expected, result)
@@ -418,6 +426,8 @@ func TestResolveType(t *testing.T) {
 				extensions.FuncParameterList{},
 				nil,
 				[]types.Type{},
+				registry,
+				"test://uri",
 			)
 			require.NoError(t, err)
 
@@ -454,6 +464,8 @@ func TestResolveTypeErrorHandling(t *testing.T) {
 		funcParams,
 		nil,
 		[]types.Type{}, // No arguments provided when one is expected
+		extensions.NewSet(),
+		"test://uri",
 	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "mismatch in number of arguments")
