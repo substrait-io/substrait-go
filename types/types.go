@@ -563,15 +563,11 @@ func (e *EnumType) SetNullability(n Nullability) FuncDefArgType {
 }
 
 func (e *EnumType) HasParameterizedParam() bool {
-	return true
+	return false
 }
 
 func (e *EnumType) GetParameterizedParams() []interface{} {
-	params := make([]interface{}, len(e.Options))
-	for i, p := range e.Options {
-		params[i] = p
-	}
-	return params
+	return nil
 }
 
 func (e *EnumType) MatchWithNullability(ot Type) bool {

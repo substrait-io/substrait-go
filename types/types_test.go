@@ -275,6 +275,7 @@ func TestMatchForBasicTypeResultMisMatch(t *testing.T) {
 		{"timestampTzType", &TimestampTzType{}, &BinaryType{}},
 		{"intervalYearType", &IntervalYearType{}, &BinaryType{}},
 		{"uuidType", &UUIDType{}, &BinaryType{}},
+		{"enumType", &EnumType{Options: []string{"A", "B", "C"}, Name: "ABC"}, &BinaryType{}},
 	} {
 		t.Run(td.name, func(t *testing.T) {
 			assert.False(t, td.paramType.MatchWithNullability(td.argOfOtherType))
