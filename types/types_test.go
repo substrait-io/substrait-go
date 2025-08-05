@@ -311,8 +311,8 @@ func TestTypesHaveNoParameterizedParams(t *testing.T) {
 			parameters := td.paramType.GetParameterizedParams()
 			assert.Nil(t, parameters)
 
-			hasParameterizedParams := td.paramType.GetParameterizedParams()
-			assert.Nil(t, hasParameterizedParams)
+			hasParameterizedParams := td.paramType.HasParameterizedParam()
+			assert.False(t, hasParameterizedParams)
 		})
 	}
 }
