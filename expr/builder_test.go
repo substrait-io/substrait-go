@@ -13,6 +13,8 @@ import (
 	"github.com/substrait-io/substrait-go/v4/plan"
 	"github.com/substrait-io/substrait-go/v4/types"
 	"github.com/substrait-io/substrait-protobuf/go/substraitpb"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -161,11 +163,12 @@ window_functions:
 	customType1 := planBuilder.UserDefinedType("custom", "custom_type1")
 	customType2 := planBuilder.UserDefinedType("custom", "custom_type2")
 
+	anyVal, err := anypb.New(expr.NewPrimitiveLiteral("foo", false).ToProto())
+	require.NoError(t, err)
+
 	customLiteral := planBuilder.GetExprBuilder().Literal(&expr.ProtoLiteral{
-		Type: &customType2,
-		Value: &anypb.Any{
-			Value: []byte{5},
-		},
+		Type:  &customType2,
+		Value: anyVal,
 	})
 
 	// check scalar function
@@ -211,6 +214,238 @@ window_functions:
 	require.Len(t, windowFnCall.Arguments, 1)
 	require.Equal(t, customType2.TypeReference, windowFnCall.Arguments[0].GetValue().GetLiteral().GetUserDefined().TypeReference)
 	require.Equal(t, customType1.TypeReference, windowFnCall.OutputType.GetUserDefined().TypeReference)
+
+	// build a full plan
+	table, err := planBuilder.VirtualTable([]string{"col_a", "col_b"}, []expr.Literal{expr.NewPrimitiveLiteral(int64(2), false), expr.NewPrimitiveLiteral(int64(3), false)})
+	require.NoError(t, err)
+
+	aggregated, err := planBuilder.GetRelBuilder().AggregateRel(table, []plan.AggRelMeasure{planBuilder.Measure(aggr, window)}).Build()
+	require.NoError(t, err)
+
+	project, err := planBuilder.Project(aggregated, scalar)
+	require.NoError(t, err)
+
+	p, err := planBuilder.Plan(project, []string{"output1", "output2"})
+	require.NoError(t, err)
+
+	pp, err := p.ToProto()
+	require.NoError(t, err)
+
+	var expectedProto substraitpb.Plan
+	err = protojson.Unmarshal([]byte(`
+{
+  "version": {},
+  "extensionUris": [
+    {
+      "extensionUriAnchor": 1,
+      "uri": "custom"
+    }
+  ],
+  "extensions": [
+    {
+      "extensionType": {
+        "extensionUriReference": 1,
+        "typeAnchor": 1,
+        "name": "custom_type1"
+      }
+    },
+    {
+      "extensionType": {
+        "extensionUriReference": 1,
+        "typeAnchor": 2,
+        "name": "custom_type2"
+      }
+    },
+    {
+      "extensionFunction": {
+        "extensionUriReference": 1,
+        "functionAnchor": 1,
+        "name": "custom_function:u!custom_type2"
+      }
+    },
+    {
+      "extensionFunction": {
+        "extensionUriReference": 1,
+        "functionAnchor": 2,
+        "name": "custom_aggr:u!custom_type2"
+      }
+    },
+    {
+      "extensionFunction": {
+        "extensionUriReference": 1,
+        "functionAnchor": 3,
+        "name": "custom_window:u!custom_type2"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "root": {
+        "input": {
+          "project": {
+            "common": {
+              "direct": {}
+            },
+            "input": {
+              "aggregate": {
+                "common": {
+                  "direct": {}
+                },
+                "input": {
+                  "read": {
+                    "common": {
+                      "direct": {}
+                    },
+                    "baseSchema": {
+                      "names": [
+                        "col_a",
+                        "col_b"
+                      ],
+                      "struct": {
+                        "types": [
+                          {
+                            "i64": {
+                              "nullability": "NULLABILITY_REQUIRED"
+                            }
+                          },
+                          {
+                            "i64": {
+                              "nullability": "NULLABILITY_REQUIRED"
+                            }
+                          }
+                        ],
+                        "nullability": "NULLABILITY_REQUIRED"
+                      }
+                    },
+                    "virtualTable": {
+                      "expressions": [
+                        {
+                          "fields": [
+                            {
+                              "literal": {
+                                "i64": "2"
+                              }
+                            },
+                            {
+                              "literal": {
+                                "i64": "3"
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                },
+                "measures": [
+                  {
+                    "measure": {
+                      "functionReference": 2,
+                      "arguments": [
+                        {
+                          "value": {
+                            "literal": {
+                              "userDefined": {
+                                "typeReference": 2,
+                                "value": {
+                                  "@type": "type.googleapis.com/substrait.Expression",
+                                  "literal": {
+                                    "string": "foo"
+                                  }
+                                }
+                              },
+                              "nullable": true
+                            }
+                          }
+                        }
+                      ],
+                      "outputType": {
+                        "userDefined": {
+                          "typeReference": 1,
+                          "nullability": "NULLABILITY_NULLABLE"
+                        }
+                      }
+                    },
+                    "filter": {
+                      "windowFunction": {
+                        "functionReference": 3,
+                        "arguments": [
+                          {
+                            "value": {
+                              "literal": {
+                                "userDefined": {
+                                  "typeReference": 2,
+                                  "value": {
+                                    "@type": "type.googleapis.com/substrait.Expression",
+                                    "literal": {
+                                      "string": "foo"
+                                    }
+                                  }
+                                },
+                                "nullable": true
+                              }
+                            }
+                          }
+                        ],
+                        "outputType": {
+                          "userDefined": {
+                            "typeReference": 1,
+                            "nullability": "NULLABILITY_NULLABLE"
+                          }
+                        },
+                        "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "expressions": [
+              {
+                "scalarFunction": {
+                  "functionReference": 1,
+                  "arguments": [
+                    {
+                      "value": {
+                        "literal": {
+                          "userDefined": {
+                            "typeReference": 2,
+                            "value": {
+                              "@type": "type.googleapis.com/substrait.Expression",
+                              "literal": {
+                                "string": "foo"
+                              }
+                            }
+                          },
+                          "nullable": true
+                        }
+                      }
+                    }
+                  ],
+                  "outputType": {
+                    "userDefined": {
+                      "typeReference": 1,
+                      "nullability": "NULLABILITY_NULLABLE"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "names": [
+          "output1",
+          "output2"
+        ]
+      }
+    }
+  ]
+}
+	`), &expectedProto)
+
+	expectedProto.Version = pp.Version // equalize version
+	require.NoError(t, err)
+	assert.True(t, proto.Equal(&expectedProto, pp))
 }
 
 func TestBoundFromProto(t *testing.T) {
