@@ -280,9 +280,39 @@ func TestMatchForBasicTypeResultMisMatch(t *testing.T) {
 		t.Run(td.name, func(t *testing.T) {
 			assert.False(t, td.paramType.MatchWithNullability(td.argOfOtherType))
 			assert.False(t, td.paramType.MatchWithoutNullability(td.argOfOtherType))
+		})
+	}
+}
 
+func TestTypesHaveNoParameterizedParams(t *testing.T) {
+	for _, td := range []struct {
+		name           string
+		paramType      FuncDefArgType
+		argOfOtherType Type
+	}{
+		{"binaryType", &BinaryType{}, &BooleanType{}},
+		{"boolType", &BooleanType{}, &BinaryType{}},
+		{"int8Type", &Int8Type{}, &BinaryType{}},
+		{"int16Type", &Int16Type{}, &BinaryType{}},
+		{"int32Type", &Int32Type{}, &BinaryType{}},
+		{"int64Type", &Int64Type{}, &BinaryType{}},
+		{"float32Type", &Float32Type{}, &BinaryType{}},
+		{"float64Type", &Float64Type{}, &BinaryType{}},
+		{"stringType", &StringType{}, &BinaryType{}},
+		{"timestampType", &TimestampType{}, &BinaryType{}},
+		{"dateType", &DateType{}, &BinaryType{}},
+		{"timeType", &TimeType{}, &BinaryType{}},
+		{"timestampTzType", &TimestampTzType{}, &BinaryType{}},
+		{"intervalYearType", &IntervalYearType{}, &BinaryType{}},
+		{"uuidType", &UUIDType{}, &BinaryType{}},
+		{"enumType", &EnumType{Options: []string{"A", "B", "C"}, Name: "ABC"}, &BinaryType{}},
+	} {
+		t.Run(td.name, func(t *testing.T) {
 			parameters := td.paramType.GetParameterizedParams()
 			assert.Nil(t, parameters)
+
+			hasParameterizedParams := td.paramType.GetParameterizedParams()
+			assert.Nil(t, hasParameterizedParams)
 		})
 	}
 }
