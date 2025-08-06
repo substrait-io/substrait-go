@@ -74,10 +74,12 @@ func validateType(funcParameter FuncParameter, actual types.Type, idx int, nullH
 
 // EvaluateTypeExpression evaluates the function return type given the input argumentTypes
 //
+//	uri: the uri of the extension that defines the function. for functions that return user defined types, we assume the uri of the return type is the same as the uri of the function.
 //	funcParameters: the function parameters as defined in the function signature in the extension
 //	argumentTypes: the actual argument types provided to the function
-func EvaluateTypeExpression(nullHandling NullabilityHandling, returnTypeExpr types.FuncDefArgType,
-	funcParameters FuncParameterList, variadic *VariadicBehavior, argumentTypes []types.Type, registry Set, uri string) (types.Type, error) {
+//	registry: the Set of extensions to look up/add user defined types to
+func EvaluateTypeExpression(uri string, nullHandling NullabilityHandling, returnTypeExpr types.FuncDefArgType,
+	funcParameters FuncParameterList, variadic *VariadicBehavior, argumentTypes []types.Type, registry Set) (types.Type, error) {
 	if variadic != nil {
 		numVariadicArgs := len(argumentTypes) - (len(funcParameters) - 1)
 		if numVariadicArgs < 0 {
@@ -137,8 +139,8 @@ func EvaluateTypeExpression(nullHandling NullabilityHandling, returnTypeExpr typ
 	}
 
 	if udt, ok := outType.(*types.UserDefinedType); ok {
-		name := strings.TrimPrefix(returnTypeExpr.ShortString(), "u!")       // short string contains the u! prefix, but type definitions in the extensions don't
-		udt.TypeReference = registry.GetTypeAnchor(ID{Name: name, URI: uri}) // assume that the user defined type is in the same extension as the function
+		name := strings.TrimPrefix(returnTypeExpr.ShortString(), "u!") // short string contains the u! prefix, but type definitions in the extensions don't
+		udt.TypeReference = registry.GetTypeAnchor(ID{Name: name, URI: uri})
 	}
 
 	if nullHandling == MirrorNullability || nullHandling == "" {
@@ -334,7 +336,7 @@ func (s *ScalarFunctionVariant) SessionDependent() bool           { return s.imp
 func (s *ScalarFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
 func (s *ScalarFunctionVariant) URI() string                      { return s.uri }
 func (s *ScalarFunctionVariant) ResolveType(argumentTypes []types.Type, registry Set) (types.Type, error) {
-	return EvaluateTypeExpression(s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry, s.uri)
+	return EvaluateTypeExpression(s.uri, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
 }
 func (s *ScalarFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
@@ -446,7 +448,7 @@ func (s *AggregateFunctionVariant) SessionDependent() bool           { return s.
 func (s *AggregateFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
 func (s *AggregateFunctionVariant) URI() string                      { return s.uri }
 func (s *AggregateFunctionVariant) ResolveType(argumentTypes []types.Type, registry Set) (types.Type, error) {
-	return EvaluateTypeExpression(s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry, s.uri)
+	return EvaluateTypeExpression(s.uri, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
 }
 func (s *AggregateFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
@@ -566,7 +568,7 @@ func (s *WindowFunctionVariant) SessionDependent() bool           { return s.imp
 func (s *WindowFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
 func (s *WindowFunctionVariant) URI() string                      { return s.uri }
 func (s *WindowFunctionVariant) ResolveType(argumentTypes []types.Type, registry Set) (types.Type, error) {
-	return EvaluateTypeExpression(s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry, s.uri)
+	return EvaluateTypeExpression(s.uri, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
 }
 func (s *WindowFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
