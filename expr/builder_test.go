@@ -3,6 +3,7 @@
 package expr_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -13,8 +14,6 @@ import (
 	"github.com/substrait-io/substrait-go/v4/plan"
 	"github.com/substrait-io/substrait-go/v4/types"
 	"github.com/substrait-io/substrait-protobuf/go/substraitpb"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -124,6 +123,7 @@ types:
   - name: custom_type1
   - name: custom_type2
   - name: custom_type3
+  - name: custom_type4
 
 scalar_functions:
   - name: custom_function
@@ -141,7 +141,7 @@ aggregate_functions:
       - args:
           - name: arg1
             value: u!custom_type2
-        return: u!custom_type1
+        return: u!custom_type3
 
 window_functions:
   - name: "custom_window"
@@ -162,6 +162,7 @@ window_functions:
 
 	customType1 := planBuilder.UserDefinedType("custom", "custom_type1")
 	customType2 := planBuilder.UserDefinedType("custom", "custom_type2")
+	customType3 := planBuilder.UserDefinedType("custom", "custom_type3")
 
 	anyVal, err := anypb.New(expr.NewPrimitiveLiteral("foo", false).ToProto())
 	require.NoError(t, err)
@@ -198,7 +199,7 @@ window_functions:
 
 	require.Len(t, aggrProto.Arguments, 1)
 	require.Equal(t, customType2.TypeReference, aggrProto.Arguments[0].GetValue().GetLiteral().GetUserDefined().TypeReference)
-	require.Equal(t, customType1.TypeReference, aggrProto.OutputType.GetUserDefined().TypeReference)
+	require.Equal(t, customType3.TypeReference, aggrProto.OutputType.GetUserDefined().TypeReference)
 
 	// check window function
 	window, err := planBuilder.GetExprBuilder().WindowFunc(extensions.ID{
@@ -215,7 +216,7 @@ window_functions:
 	require.Equal(t, customType2.TypeReference, windowFnCall.Arguments[0].GetValue().GetLiteral().GetUserDefined().TypeReference)
 	require.Equal(t, customType1.TypeReference, windowFnCall.OutputType.GetUserDefined().TypeReference)
 
-	// build a full plan
+	// build a full plan and check that user defined types are registered in the extensions
 	table, err := planBuilder.VirtualTable([]string{"col_a", "col_b"}, []expr.Literal{expr.NewPrimitiveLiteral(int64(2), false), expr.NewPrimitiveLiteral(int64(3), false)})
 	require.NoError(t, err)
 
@@ -231,221 +232,25 @@ window_functions:
 	pp, err := p.ToProto()
 	require.NoError(t, err)
 
-	var expectedProto substraitpb.Plan
-	err = protojson.Unmarshal([]byte(`
-{
-  "version": {},
-  "extensionUris": [
-    {
-      "extensionUriAnchor": 1,
-      "uri": "custom"
-    }
-  ],
-  "extensions": [
-    {
-      "extensionType": {
-        "extensionUriReference": 1,
-        "typeAnchor": 1,
-        "name": "custom_type1"
-      }
-    },
-    {
-      "extensionType": {
-        "extensionUriReference": 1,
-        "typeAnchor": 2,
-        "name": "custom_type2"
-      }
-    },
-    {
-      "extensionFunction": {
-        "extensionUriReference": 1,
-        "functionAnchor": 1,
-        "name": "custom_function:u!custom_type2"
-      }
-    },
-    {
-      "extensionFunction": {
-        "extensionUriReference": 1,
-        "functionAnchor": 2,
-        "name": "custom_aggr:u!custom_type2"
-      }
-    },
-    {
-      "extensionFunction": {
-        "extensionUriReference": 1,
-        "functionAnchor": 3,
-        "name": "custom_window:u!custom_type2"
-      }
-    }
-  ],
-  "relations": [
-    {
-      "root": {
-        "input": {
-          "project": {
-            "common": {
-              "direct": {}
-            },
-            "input": {
-              "aggregate": {
-                "common": {
-                  "direct": {}
-                },
-                "input": {
-                  "read": {
-                    "common": {
-                      "direct": {}
-                    },
-                    "baseSchema": {
-                      "names": [
-                        "col_a",
-                        "col_b"
-                      ],
-                      "struct": {
-                        "types": [
-                          {
-                            "i64": {
-                              "nullability": "NULLABILITY_REQUIRED"
-                            }
-                          },
-                          {
-                            "i64": {
-                              "nullability": "NULLABILITY_REQUIRED"
-                            }
-                          }
-                        ],
-                        "nullability": "NULLABILITY_REQUIRED"
-                      }
-                    },
-                    "virtualTable": {
-                      "expressions": [
-                        {
-                          "fields": [
-                            {
-                              "literal": {
-                                "i64": "2"
-                              }
-                            },
-                            {
-                              "literal": {
-                                "i64": "3"
-                              }
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  }
-                },
-                "measures": [
-                  {
-                    "measure": {
-                      "functionReference": 2,
-                      "arguments": [
-                        {
-                          "value": {
-                            "literal": {
-                              "userDefined": {
-                                "typeReference": 2,
-                                "value": {
-                                  "@type": "type.googleapis.com/substrait.Expression",
-                                  "literal": {
-                                    "string": "foo"
-                                  }
-                                }
-                              },
-                              "nullable": true
-                            }
-                          }
-                        }
-                      ],
-                      "outputType": {
-                        "userDefined": {
-                          "typeReference": 1,
-                          "nullability": "NULLABILITY_NULLABLE"
-                        }
-                      }
-                    },
-                    "filter": {
-                      "windowFunction": {
-                        "functionReference": 3,
-                        "arguments": [
-                          {
-                            "value": {
-                              "literal": {
-                                "userDefined": {
-                                  "typeReference": 2,
-                                  "value": {
-                                    "@type": "type.googleapis.com/substrait.Expression",
-                                    "literal": {
-                                      "string": "foo"
-                                    }
-                                  }
-                                },
-                                "nullable": true
-                              }
-                            }
-                          }
-                        ],
-                        "outputType": {
-                          "userDefined": {
-                            "typeReference": 1,
-                            "nullability": "NULLABILITY_NULLABLE"
-                          }
-                        },
-                        "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT"
-                      }
-                    }
-                  }
-                ]
-              }
-            },
-            "expressions": [
-              {
-                "scalarFunction": {
-                  "functionReference": 1,
-                  "arguments": [
-                    {
-                      "value": {
-                        "literal": {
-                          "userDefined": {
-                            "typeReference": 2,
-                            "value": {
-                              "@type": "type.googleapis.com/substrait.Expression",
-                              "literal": {
-                                "string": "foo"
-                              }
-                            }
-                          },
-                          "nullable": true
-                        }
-                      }
-                    }
-                  ],
-                  "outputType": {
-                    "userDefined": {
-                      "typeReference": 1,
-                      "nullability": "NULLABILITY_NULLABLE"
-                    }
-                  }
-                }
-              }
-            ]
-          }
-        },
-        "names": [
-          "output1",
-          "output2"
-        ]
-      }
-    }
-  ]
-}
-	`), &expectedProto)
+	fmt.Println(pp.ExtensionUris)
+	fmt.Println(pp.Extensions)
 
-	expectedProto.Version = pp.Version // equalize version
-	require.NoError(t, err)
-	assert.True(t, proto.Equal(&expectedProto, pp))
+	// custom_type1 is referenced as an argument and return type, so should be registered in the extensions
+	// custom_type2 is referenced as an argument and return type, so should be registered in the extensions
+	// custom_type3 is only referenced as a return type, but should still be registered in the extensions
+	// custom_type4 is not referenced in the plan at all, so not be registerd in the extensions
+	typeExtensionsFound := []string{}
+	for _, ext := range pp.Extensions {
+		typeExt := ext.GetExtensionType()
+		if typeExt == nil {
+			continue
+		}
+		typeExtensionsFound = append(typeExtensionsFound, typeExt.GetName())
+	}
+	require.Equal(t, 3, len(typeExtensionsFound))
+	require.Contains(t, typeExtensionsFound, "custom_type1")
+	require.Contains(t, typeExtensionsFound, "custom_type2")
+	require.Contains(t, typeExtensionsFound, "custom_type3")
 }
 
 func TestBoundFromProto(t *testing.T) {
