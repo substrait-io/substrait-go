@@ -68,6 +68,66 @@ func TestNewLiteralWithDecimalBytes(t *testing.T) {
 	}
 }
 
+func TestNewLiteralWithIntervalDayToSecond(t *testing.T) {
+	tests := []struct {
+		name        string
+		days        int32
+		seconds     int32
+		subseconds  int64
+		precision   int32
+		nullable    bool
+		expectError bool
+	}{
+		{"nullable interval", 2, 120, 250000, int32(types.PrecisionMicroSeconds), true, false},
+		{"nanosecond precision", 1, 1, 123456789, int32(types.PrecisionNanoSeconds), false, false},
+		{"millisecond precision", 0, 5, 123, int32(types.PrecisionMilliSeconds), true, false},
+		{"second precision", 0, 42, 0, int32(types.PrecisionSeconds), false, false},
+		{"deci-seconds precision", 0, 10, 5, int32(types.PrecisionDeciSeconds), false, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			intervalValue := &types.IntervalDayToSecond{
+				Days:    tt.days,
+				Seconds: tt.seconds,
+				PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{
+					Precision: tt.precision,
+				},
+				Subseconds: tt.subseconds,
+			}
+
+			got, err := expr.NewLiteral(intervalValue, tt.nullable)
+			if tt.expectError {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, got)
+
+			protoLit, _ := got.(*expr.ProtoLiteral)
+
+			// Verify the value is stored correctly
+			storedValue, ok := protoLit.Value.(*types.IntervalDayToSecond)
+			require.True(t, ok, "Expected *types.IntervalDayToSecond value, got %T", protoLit.Value)
+			assert.Equal(t, intervalValue, storedValue)
+
+			// Verify the type is correct
+			intervalType, ok := protoLit.GetType().(*types.IntervalDayType)
+			require.True(t, ok, "Expected *types.IntervalDayType, got %T", protoLit.GetType())
+
+			// Verify type properties
+			expectedNullability := types.NullabilityRequired
+			if tt.nullable {
+				expectedNullability = types.NullabilityNullable
+			}
+			assert.Equal(t, expectedNullability, intervalType.GetNullability())
+
+			// Verify precision is correctly extracted from the value and set in the type
+			assert.Equal(t, types.TimePrecision(tt.precision), intervalType.Precision)
+		})
+	}
+}
+
 func TestNewFixedLenWithType(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -173,7 +233,7 @@ func TestNewPrecisionTimestampTzWithType(t *testing.T) {
 	}
 }
 
-func TestNewIntervalDayWithType(t *testing.T) {
+func TestNewIntervalDayWithType(t *testing.T) { //
 	tests := []struct {
 		name             string
 		inputType        *types.IntervalDayType
@@ -236,7 +296,7 @@ func TestProtoLiteral_WithType(t1 *testing.T) {
 }
 
 func TestByteSliceLiteral_WithType(t1 *testing.T) {
-	fbin := expr.NewByteSliceLiteral[[]byte]([]byte{0x01, 0x02, 0x03}, false)
+	fbin := expr.NewByteSliceLiteral([]byte{0x01, 0x02, 0x03}, false)
 	uuid := expr.NewByteSliceLiteral[types.UUID]([]byte{0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf, 0x10}, false)
 
 	list := expr.NewNestedLiteral(expr.ListLiteralValue{
