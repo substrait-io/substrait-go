@@ -10,6 +10,7 @@ import (
 	"github.com/substrait-io/substrait-go/v4/extensions"
 	"github.com/substrait-io/substrait-go/v4/types"
 	"golang.org/x/exp/slices"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // Builder is the base object for constructing the various elements of a plan.
@@ -166,6 +167,17 @@ type Builder interface {
 	// SetComparisonSubquery creates a set comparison subquery expression that checks
 	// if the left expression is contained in the right subquery.
 	SetComparisonSubquery(left expr.Expression, right Rel, reductionOp SetComparisonReductionOp, comparisonOp SetComparisonComparisonOp) (*SetComparisonSubquery, error)
+
+	// Extension builder methods
+
+	// ExtensionSingle constructs a single extension relation with the given input and detail.
+	ExtensionSingle(input Rel, detail *anypb.Any) (*ExtensionSingleRel, error)
+
+	// ExtensionMulti constructs a multi extension relation with the given inputs and details.
+	ExtensionMulti(inputs []Rel, detail *anypb.Any) (*ExtensionMultiRel, error)
+
+	// ExtensionLeaf constructs a single extension relation with the given input and detail.
+	ExtensionLeaf(detail *anypb.Any) (*ExtensionLeafRel, error)
 }
 
 const FETCH_COUNT_ALL_RECORDS = -1
@@ -970,4 +982,41 @@ func (b *builder) SetComparisonSubquery(
 		left,
 		right,
 	), nil
+}
+
+func (b *builder) ExtensionSingle(input Rel, detail *anypb.Any) (*ExtensionSingleRel, error) {
+	if input == nil {
+		return nil, errNilInputRel
+	}
+
+	return &ExtensionSingleRel{
+		RelCommon: RelCommon{},
+		input:     input,
+		detail:    detail,
+	}, nil
+}
+
+func (b *builder) ExtensionLeaf(detail *anypb.Any) (*ExtensionLeafRel, error) {
+	return &ExtensionLeafRel{
+		RelCommon: RelCommon{},
+		detail:    detail,
+	}, nil
+}
+
+func (b *builder) ExtensionMulti(inputs []Rel, detail *anypb.Any) (*ExtensionMultiRel, error) {
+	if len(inputs) == 0 {
+		return nil, errNilInputRel
+	}
+
+	for _, input := range inputs {
+		if input == nil {
+			return nil, errNilInputRel
+		}
+	}
+
+	return &ExtensionMultiRel{
+		RelCommon: RelCommon{},
+		inputs:    inputs,
+		detail:    detail,
+	}, nil
 }
