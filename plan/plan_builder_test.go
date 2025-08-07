@@ -18,6 +18,7 @@ import (
 	substraitproto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 const versionStruct = `"version": {
@@ -2113,4 +2114,294 @@ func TestIcebergTable(t *testing.T) {
 			checkRoundTrip(t, expectedJsonWithIceberg(td.metadataURI, snapshot), p)
 		})
 	}
+}
+
+func TestExtensionSingleRel(t *testing.T) {
+	b := plan.NewBuilderDefault()
+	input := b.NamedScan([]string{"test"}, baseSchema)
+
+	// Create a test detail using anypb.Any
+	testDetail, err := anypb.New(&substraitproto.NamedTable{
+		Names: []string{"extension_test"},
+	})
+	require.NoError(t, err)
+
+	t.Run("successful creation", func(t *testing.T) {
+		extRel, err := b.ExtensionSingle(input, testDetail)
+		require.NoError(t, err)
+		assert.NotNil(t, extRel)
+
+		// Verify the input is properly set
+		assert.Equal(t, input, extRel.Input())
+
+		// Verify the detail is properly set
+		assert.Equal(t, testDetail, extRel.Detail())
+
+		// Verify the record type matches the input
+		assert.Equal(t, input.RecordType(), extRel.RecordType())
+
+		// Verify it can be converted to proto
+		proto := extRel.ToProto()
+		assert.NotNil(t, proto)
+		assert.NotNil(t, proto.GetExtensionSingle())
+
+		// Verify it can be converted to plan proto
+		planProto := extRel.ToProtoPlanRel()
+		assert.NotNil(t, planProto)
+
+		// Verify GetInputs returns the correct input
+		inputs := extRel.GetInputs()
+		assert.Len(t, inputs, 1)
+		assert.Equal(t, input, inputs[0])
+	})
+
+	t.Run("nil input error", func(t *testing.T) {
+		_, err := b.ExtensionSingle(nil, testDetail)
+		assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+		assert.ErrorContains(t, err, "input Relation must not be nil")
+	})
+
+	t.Run("nil detail allowed", func(t *testing.T) {
+		extRel, err := b.ExtensionSingle(input, nil)
+		require.NoError(t, err)
+		assert.NotNil(t, extRel)
+		assert.Nil(t, extRel.Detail())
+	})
+
+	t.Run("copy functionality", func(t *testing.T) {
+		extRel, err := b.ExtensionSingle(input, testDetail)
+		require.NoError(t, err)
+
+		newInput := b.NamedScan([]string{"test2"}, baseSchema2)
+
+		// Test Copy with correct number of inputs
+		copied, err := extRel.Copy(newInput)
+		require.NoError(t, err)
+		assert.Equal(t, newInput, copied.(*plan.ExtensionSingleRel).Input())
+
+		// Test Copy with wrong number of inputs
+		_, err = extRel.Copy()
+		assert.ErrorIs(t, err, substraitgo.ErrInvalidInputCount)
+
+		_, err = extRel.Copy(input, newInput)
+		assert.ErrorIs(t, err, substraitgo.ErrInvalidInputCount)
+	})
+
+	t.Run("remap functionality", func(t *testing.T) {
+		extRel, err := b.ExtensionSingle(input, testDetail)
+		require.NoError(t, err)
+
+		// Test successful remap
+		remapped, err := extRel.Remap(1, 0)
+		require.NoError(t, err)
+		assert.NotEqual(t, extRel.RecordType(), remapped.RecordType())
+
+		// Test remap with invalid indices
+		_, err = extRel.Remap(-1)
+		assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+		assert.ErrorContains(t, err, "output mapping index out of range")
+
+		_, err = extRel.Remap(5)
+		assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+		assert.ErrorContains(t, err, "output mapping index out of range")
+	})
+}
+
+func TestExtensionLeafRel(t *testing.T) {
+	b := plan.NewBuilderDefault()
+
+	// Create a test detail using anypb.Any
+	testDetail, err := anypb.New(&substraitproto.NamedTable{
+		Names: []string{"extension_leaf_test"},
+	})
+	require.NoError(t, err)
+
+	t.Run("successful creation", func(t *testing.T) {
+		extRel, err := b.ExtensionLeaf(testDetail)
+		require.NoError(t, err)
+		assert.NotNil(t, extRel)
+
+		// Verify the detail is properly set
+		assert.Equal(t, testDetail, extRel.Detail())
+
+		// Verify it has an empty record type (no inputs)
+		recordType := extRel.RecordType()
+		assert.Equal(t, int32(0), recordType.FieldCount())
+
+		// Verify it can be converted to proto
+		proto := extRel.ToProto()
+		assert.NotNil(t, proto)
+		assert.NotNil(t, proto.GetExtensionLeaf())
+
+		// Verify it can be converted to plan proto
+		planProto := extRel.ToProtoPlanRel()
+		assert.NotNil(t, planProto)
+
+		// Verify GetInputs returns empty slice
+		inputs := extRel.GetInputs()
+		assert.Len(t, inputs, 0)
+	})
+
+	t.Run("nil detail allowed", func(t *testing.T) {
+		extRel, err := b.ExtensionLeaf(nil)
+		require.NoError(t, err)
+		assert.NotNil(t, extRel)
+		assert.Nil(t, extRel.Detail())
+	})
+
+	t.Run("copy functionality", func(t *testing.T) {
+		extRel, err := b.ExtensionLeaf(testDetail)
+		require.NoError(t, err)
+
+		// Test Copy with no inputs (should return itself)
+		copied, err := extRel.Copy()
+		require.NoError(t, err)
+		assert.Equal(t, extRel, copied)
+
+		// Copy with any inputs should still work (leaf ignores inputs)
+		input := b.NamedScan([]string{"test"}, baseSchema)
+		copied2, err := extRel.Copy(input)
+		require.NoError(t, err)
+		assert.Equal(t, extRel, copied2)
+	})
+
+	t.Run("remap functionality", func(t *testing.T) {
+		extRel, err := b.ExtensionLeaf(testDetail)
+		require.NoError(t, err)
+
+		// Test remap with empty mapping (should succeed)
+		remapped, err := extRel.Remap()
+		require.NoError(t, err)
+		assert.Equal(t, extRel.RecordType(), remapped.RecordType())
+
+		// Test remap with any indices should fail since there are no fields
+		_, err = extRel.Remap(0)
+		assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+		assert.ErrorContains(t, err, "output mapping index out of range")
+	})
+}
+
+func TestExtensionMultiRel(t *testing.T) {
+	b := plan.NewBuilderDefault()
+	input1 := b.NamedScan([]string{"test1"}, baseSchema)
+	input2 := b.NamedScan([]string{"test2"}, baseSchema2)
+
+	// Create a test detail using anypb.Any
+	testDetail, err := anypb.New(&substraitproto.NamedTable{
+		Names: []string{"extension_multi_test"},
+	})
+	require.NoError(t, err)
+
+	t.Run("successful creation with multiple inputs", func(t *testing.T) {
+		extRel, err := b.ExtensionMulti([]plan.Rel{input1, input2}, testDetail)
+		require.NoError(t, err)
+		assert.NotNil(t, extRel)
+
+		// Verify the inputs are properly set
+		inputs := extRel.Inputs()
+		assert.Len(t, inputs, 2)
+		assert.Equal(t, input1, inputs[0])
+		assert.Equal(t, input2, inputs[1])
+
+		// Verify the detail is properly set
+		assert.Equal(t, testDetail, extRel.Detail())
+
+		// Verify it has an empty record type (extension doesn't define schema)
+		recordType := extRel.RecordType()
+		assert.Equal(t, int32(0), recordType.FieldCount())
+
+		// Verify it can be converted to proto
+		proto := extRel.ToProto()
+		assert.NotNil(t, proto)
+		assert.NotNil(t, proto.GetExtensionMulti())
+		assert.Len(t, proto.GetExtensionMulti().Inputs, 2)
+
+		// Verify it can be converted to plan proto
+		planProto := extRel.ToProtoPlanRel()
+		assert.NotNil(t, planProto)
+
+		// Verify GetInputs returns the correct inputs
+		getInputs := extRel.GetInputs()
+		assert.Len(t, getInputs, 2)
+		assert.Equal(t, input1, getInputs[0])
+		assert.Equal(t, input2, getInputs[1])
+	})
+
+	t.Run("successful creation with single input", func(t *testing.T) {
+		extRel, err := b.ExtensionMulti([]plan.Rel{input1}, testDetail)
+		require.NoError(t, err)
+		assert.NotNil(t, extRel)
+
+		inputs := extRel.Inputs()
+		assert.Len(t, inputs, 1)
+		assert.Equal(t, input1, inputs[0])
+	})
+
+	t.Run("empty inputs error", func(t *testing.T) {
+		_, err := b.ExtensionMulti([]plan.Rel{}, testDetail)
+		assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+		assert.ErrorContains(t, err, "input Relation must not be nil")
+	})
+
+	t.Run("nil inputs slice error", func(t *testing.T) {
+		_, err := b.ExtensionMulti(nil, testDetail)
+		assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+		assert.ErrorContains(t, err, "input Relation must not be nil")
+	})
+
+	t.Run("nil input in slice error", func(t *testing.T) {
+		_, err := b.ExtensionMulti([]plan.Rel{input1, nil, input2}, testDetail)
+		assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+		assert.ErrorContains(t, err, "input Relation must not be nil")
+	})
+
+	t.Run("nil detail allowed", func(t *testing.T) {
+		extRel, err := b.ExtensionMulti([]plan.Rel{input1, input2}, nil)
+		require.NoError(t, err)
+		assert.NotNil(t, extRel)
+		assert.Nil(t, extRel.Detail())
+	})
+
+	t.Run("copy functionality", func(t *testing.T) {
+		extRel, err := b.ExtensionMulti([]plan.Rel{input1, input2}, testDetail)
+		require.NoError(t, err)
+
+		newInput := b.NamedScan([]string{"test3"}, baseSchema)
+
+		// Test Copy with different inputs
+		copied, err := extRel.Copy(newInput)
+		require.NoError(t, err)
+		copiedInputs := copied.(*plan.ExtensionMultiRel).Inputs()
+		assert.Len(t, copiedInputs, 1)
+		assert.Equal(t, newInput, copiedInputs[0])
+
+		// Test Copy with multiple new inputs
+		copied2, err := extRel.Copy(input1, newInput)
+		require.NoError(t, err)
+		copiedInputs2 := copied2.(*plan.ExtensionMultiRel).Inputs()
+		assert.Len(t, copiedInputs2, 2)
+		assert.Equal(t, input1, copiedInputs2[0])
+		assert.Equal(t, newInput, copiedInputs2[1])
+
+		// Test Copy with no inputs
+		copied3, err := extRel.Copy()
+		require.NoError(t, err)
+		copiedInputs3 := copied3.(*plan.ExtensionMultiRel).Inputs()
+		assert.Len(t, copiedInputs3, 0)
+	})
+
+	t.Run("remap functionality", func(t *testing.T) {
+		extRel, err := b.ExtensionMulti([]plan.Rel{input1, input2}, testDetail)
+		require.NoError(t, err)
+
+		// Test remap with empty mapping (should succeed)
+		remapped, err := extRel.Remap()
+		require.NoError(t, err)
+		assert.Equal(t, int32(0), remapped.RecordType().FieldCount())
+
+		// Test remap with any indices should fail since there are no fields
+		_, err = extRel.Remap(0)
+		assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+		assert.ErrorContains(t, err, "output mapping index out of range")
+	})
 }
