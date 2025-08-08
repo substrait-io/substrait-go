@@ -547,7 +547,7 @@ name: test_dialect
 type: sql
 dependencies:
   arithmetic:
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+    urn:substrait:functions_arithmetic
 supported_types:
   fp64:
     sql_type_name: float

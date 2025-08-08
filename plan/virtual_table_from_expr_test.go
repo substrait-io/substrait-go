@@ -19,7 +19,7 @@ var (
 // makeAddExpr constructs expression val1 + val2.
 func makeAddExpr(t *testing.T, b plan.Builder, val1, val2 expr.Literal) expr.Expression {
 	id := extensions.ID{
-		URI:  "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml",
+		URI:  "urn:substrait:functions_arithmetic",
 		Name: "add:i32_i32",
 	}
 	b.GetFunctionRef(id.URI, id.Name)

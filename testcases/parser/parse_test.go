@@ -45,7 +45,7 @@ add(120::i8, 10::i8) [overflow:ERROR] = <!ERROR>
 	require.NoError(t, err)
 	assert.Len(t, testFile.TestCases, 4)
 
-	arithURI := "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	arithURI := "urn:substrait:functions_arithmetic"
 	ids := []string{"add:i8_i8", "add:i16_i16", "add:i8_i8", "add:i8_i8"}
 	argTypes := [][]types.Type{
 		{&types.Int8Type{Nullability: types.NullabilityRequired}, &types.Int8Type{Nullability: types.NullabilityRequired}},
@@ -331,7 +331,7 @@ avg((1,2,3, NULL)::fp32?) = 2::fp64?
 sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ERROR>`
 
 	reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(extensions.GetDefaultCollectionWithNoError())
-	arithUri := "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	arithUri := "urn:substrait:functions_arithmetic"
 	testFile, err := ParseTestCasesFromString(header + tests)
 	require.NoError(t, err)
 	require.NotNil(t, testFile)

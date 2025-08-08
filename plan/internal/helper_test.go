@@ -16,7 +16,7 @@ func TestVirtualTableExpressionFromProto(t *testing.T) {
 		"extensionUris": [
 			{
 				"extensionUriAnchor": 1,
-				"uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+				"uri": "urn:substrait:functions_arithmetic"
 			}
 		],
 		"extensions": [

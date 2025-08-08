@@ -321,7 +321,10 @@ func (tc *TestCase) CompoundFunctionName() string {
 func (tc *TestCase) ID() extensions.ID {
 	baseURI := tc.BaseURI
 	if strings.HasPrefix(baseURI, "/") {
-		baseURI = "https://github.com/substrait-io/substrait/blob/main" + tc.BaseURI
+		// Convert /extensions/functions_arithmetic.yaml to urn:substrait:functions_arithmetic
+		path := strings.TrimPrefix(baseURI, "/extensions/")
+		base := strings.TrimSuffix(path, ".yaml")
+		baseURI = "urn:substrait:" + base
 	}
 	return extensions.ID{
 		URI:  baseURI,
