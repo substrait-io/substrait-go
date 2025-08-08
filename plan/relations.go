@@ -1648,46 +1648,10 @@ func (es *ExtensionSingleRel) Copy(newInputs ...Rel) (Rel, error) {
 }
 
 func (es *ExtensionSingleRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error) {
-	if len(newInputs) != 1 {
-		return nil, substraitgo.ErrInvalidInputCount
-	}
-
-	inputChanged := newInputs[0] != es.input
-	expressionsChanged := false
-
-	if es.definition != nil {
-		inputs := []Rel{newInputs[0]}
-		exprs := es.definition.Expressions(inputs)
-		if len(exprs) > 0 {
-			// Check if any expressions actually changed after rewriting
-			for _, e := range exprs {
-				if e != nil {
-					newExpr, err := rewriteFunc(e)
-					if err != nil {
-						return nil, err
-					}
-					if newExpr != e {
-						expressionsChanged = true
-						break
-					}
-				}
-			}
-		}
-	}
-
-	if !inputChanged && !expressionsChanged {
+	if slices.Equal(newInputs, es.GetInputs()) {
 		return es, nil
 	}
-
-	// Create a copy with the new input
-	newRel := *es
-	newRel.input = newInputs[0]
-
-	// If expressions changed, we would need a way to update the definition
-	// This is a limitation - the ExtensionRelDefinition interface doesn't provide
-	// a way to update expressions. Extension implementers would need to handle this.
-
-	return &newRel, nil
+	return es.Copy(newInputs...)
 }
 
 func (es *ExtensionSingleRel) Remap(mapping ...int32) (Rel, error) {
@@ -1751,38 +1715,6 @@ func (el *ExtensionLeafRel) Copy(_ ...Rel) (Rel, error) {
 }
 
 func (el *ExtensionLeafRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, _ ...Rel) (Rel, error) {
-	if el.definition == nil {
-		return el, nil
-	}
-
-	inputs := []Rel{}
-	exprs := el.definition.Expressions(inputs)
-	if len(exprs) == 0 {
-		return el, nil
-	}
-
-	// Check if any expressions actually changed after rewriting
-	hasChanged := false
-	for _, e := range exprs {
-		if e != nil {
-			newExpr, err := rewriteFunc(e)
-			if err != nil {
-				return nil, err
-			}
-			if newExpr != e {
-				hasChanged = true
-				break
-			}
-		}
-	}
-
-	if !hasChanged {
-		return el, nil
-	}
-
-	// If expressions changed, we would need a way to update the definition
-	// This is a limitation - the ExtensionRelDefinition interface doesn't provide
-	// a way to update expressions. Extension implementers would need to handle this.
 	return el, nil
 }
 
@@ -1857,41 +1789,10 @@ func (em *ExtensionMultiRel) Copy(newInputs ...Rel) (Rel, error) {
 }
 
 func (em *ExtensionMultiRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error) {
-	inputsChanged := !slices.Equal(newInputs, em.GetInputs())
-	expressionsChanged := false
-
-	if em.definition != nil {
-		exprs := em.definition.Expressions(newInputs)
-		if len(exprs) > 0 {
-			// Check if any expressions actually changed after rewriting
-			for _, e := range exprs {
-				if e != nil {
-					newExpr, err := rewriteFunc(e)
-					if err != nil {
-						return nil, err
-					}
-					if newExpr != e {
-						expressionsChanged = true
-						break
-					}
-				}
-			}
-		}
-	}
-
-	if !inputsChanged && !expressionsChanged {
+	if slices.Equal(newInputs, em.GetInputs()) {
 		return em, nil
 	}
-
-	// Create a copy with the new inputs
-	newRel := *em
-	newRel.inputs = newInputs
-
-	// If expressions changed, we would need a way to update the definition
-	// This is a limitation - the ExtensionRelDefinition interface doesn't provide
-	// a way to update expressions. Extension implementers would need to handle this.
-
-	return &newRel, nil
+	return em.Copy(newInputs...)
 }
 
 func (em *ExtensionMultiRel) Remap(mapping ...int32) (Rel, error) {
