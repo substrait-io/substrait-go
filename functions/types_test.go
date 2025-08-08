@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	substraitgo "github.com/substrait-io/substrait-go/v4"
-	. "github.com/substrait-io/substrait-go/v4/functions"
-	"github.com/substrait-io/substrait-go/v4/types"
+	substraitgo "github.com/substrait-io/substrait-go/v5"
+	. "github.com/substrait-io/substrait-go/v5/functions"
+	"github.com/substrait-io/substrait-go/v5/types"
 )
 
 func TestTypeRegistry(t *testing.T) {

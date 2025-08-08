@@ -1,7 +1,7 @@
 package internal
 
 import (
-	"github.com/substrait-io/substrait-go/v4/expr"
+	"github.com/substrait-io/substrait-go/v5/expr"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
