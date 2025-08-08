@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	substraitgo "github.com/substrait-io/substrait-go/v4"
-	"github.com/substrait-io/substrait-go/v4/types"
-	"github.com/substrait-io/substrait-go/v4/types/integer_parameters"
-	"github.com/substrait-io/substrait-go/v4/types/parser"
+	substraitgo "github.com/substrait-io/substrait-go/v5"
+	"github.com/substrait-io/substrait-go/v5/types"
+	"github.com/substrait-io/substrait-go/v5/types/integer_parameters"
+	"github.com/substrait-io/substrait-go/v5/types/parser"
 )
 
 type FunctionVariant interface {
