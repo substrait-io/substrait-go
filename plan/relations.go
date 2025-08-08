@@ -1580,13 +1580,35 @@ type ExtensionRelDefinition interface {
 	Expressions(inputs []Rel) []expr.Expression
 }
 
+// UnknownExtension wraps an *anypb.Any detail for extension relations parsed from protobuf that don't have a definition.
+type UnknownExtension struct {
+	detail *anypb.Any
+}
+
+// Schema returns an empty record type for unknown extensions.
+func (ue *UnknownExtension) Schema(inputs []Rel) types.RecordType {
+	if len(inputs) > 0 {
+		return inputs[0].RecordType()
+	}
+	return types.RecordType{}
+}
+
+// Build returns the wrapped detail.
+func (ue *UnknownExtension) Build(inputs []Rel) *anypb.Any {
+	return ue.detail
+}
+
+// Expressions returns nil as we don't know the structure of unknown extensions.
+func (ue *UnknownExtension) Expressions(inputs []Rel) []expr.Expression {
+	return nil
+}
+
 // ExtensionSingleRel is a stub to support extensions with a single input.
 type ExtensionSingleRel struct {
 	RelCommon
 
 	input      Rel
 	definition ExtensionRelDefinition
-	detail     *anypb.Any // kept for backwards compatibility
 }
 
 func (es *ExtensionSingleRel) directOutputSchema() types.RecordType {
@@ -1603,12 +1625,9 @@ func (es *ExtensionSingleRel) RecordType() types.RecordType {
 
 func (es *ExtensionSingleRel) Input() Rel { return es.input }
 
-// Detail returns the extension details. If a definition is present, it builds the details dynamically.
+// Detail returns the extension details.
 func (es *ExtensionSingleRel) Detail() *anypb.Any {
-	if es.definition != nil {
-		return es.definition.Build([]Rel{es.input})
-	}
-	return es.detail
+	return es.definition.Build([]Rel{es.input})
 }
 
 // Definition returns the extension definition if present.
@@ -1663,7 +1682,6 @@ type ExtensionLeafRel struct {
 	RelCommon
 
 	definition ExtensionRelDefinition
-	detail     *anypb.Any // kept for backwards compatibility
 }
 
 func (el *ExtensionLeafRel) directOutputSchema() types.RecordType {
@@ -1676,12 +1694,9 @@ func (el *ExtensionLeafRel) RecordType() types.RecordType {
 	return el.remap(el.directOutputSchema())
 }
 
-// Detail returns the extension details. If a definition is present, it builds the details dynamically.
+// Detail returns the extension details.
 func (el *ExtensionLeafRel) Detail() *anypb.Any {
-	if el.definition != nil {
-		return el.definition.Build([]Rel{})
-	}
-	return el.detail
+	return el.definition.Build([]Rel{})
 }
 
 // Definition returns the extension definition if present.
@@ -1728,7 +1743,6 @@ type ExtensionMultiRel struct {
 
 	inputs     []Rel
 	definition ExtensionRelDefinition
-	detail     *anypb.Any // kept for backwards compatibility
 }
 
 func (em *ExtensionMultiRel) directOutputSchema() types.RecordType {
@@ -1743,12 +1757,9 @@ func (em *ExtensionMultiRel) RecordType() types.RecordType {
 }
 func (em *ExtensionMultiRel) Inputs() []Rel { return em.inputs }
 
-// Detail returns the extension details. If a definition is present, it builds the details dynamically.
+// Detail returns the extension details.
 func (em *ExtensionMultiRel) Detail() *anypb.Any {
-	if em.definition != nil {
-		return em.definition.Build(em.inputs)
-	}
-	return em.detail
+	return em.definition.Build(em.inputs)
 }
 
 // Definition returns the extension definition if present.

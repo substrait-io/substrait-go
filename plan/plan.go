@@ -658,8 +658,7 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 
 		out := &ExtensionSingleRel{
 			input:      input,
-			detail:     rel.ExtensionSingle.Detail,
-			definition: nil, // Extensions from proto use backward-compatible behavior
+			definition: &UnknownExtension{detail: rel.ExtensionSingle.Detail},
 		}
 		out.fromProtoCommon(rel.ExtensionSingle.Common)
 
@@ -676,16 +675,14 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 
 		out := &ExtensionMultiRel{
 			inputs:     inputs,
-			detail:     rel.ExtensionMulti.Detail,
-			definition: nil, // Extensions from proto use backward-compatible behavior
+			definition: &UnknownExtension{detail: rel.ExtensionMulti.Detail},
 		}
 		out.fromProtoCommon(rel.ExtensionMulti.Common)
 
 		return out, nil
 	case *proto.Rel_ExtensionLeaf:
 		out := &ExtensionLeafRel{
-			detail:     rel.ExtensionLeaf.Detail,
-			definition: nil, // Extensions from proto use backward-compatible behavior
+			definition: &UnknownExtension{detail: rel.ExtensionLeaf.Detail},
 		}
 		out.fromProtoCommon(rel.ExtensionLeaf.Common)
 
