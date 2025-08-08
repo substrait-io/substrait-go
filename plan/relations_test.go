@@ -830,20 +830,20 @@ func TestUnknownExtensionBackwardCompatibility(t *testing.T) {
 
 	// Test UnknownExtension with no inputs
 	unknownExt := &UnknownExtension{detail: detail}
-	
+
 	// Test Schema method with no inputs
 	schema := unknownExt.Schema(nil)
 	assert.Equal(t, types.RecordType{}, schema)
-	
+
 	// Test Schema method with inputs
 	inputs := []Rel{createVirtualTableReadRel(2)}
 	schemaWithInputs := unknownExt.Schema(inputs)
 	assert.Equal(t, inputs[0].RecordType(), schemaWithInputs)
-	
+
 	// Test Build method
 	built := unknownExt.Build(inputs)
 	assert.Equal(t, detail, built)
-	
+
 	// Test Expressions method
 	exprs := unknownExt.Expressions(inputs)
 	assert.Nil(t, exprs)
@@ -853,7 +853,7 @@ func TestExtensionRelFromProtoBackwardCompatibility(t *testing.T) {
 	// This test verifies that extension relations loaded from proto
 	// now have an UnknownExtension definition instead of nil
 	// We'll test this by checking the existing behavior works
-	
+
 	// Test that UnknownExtension behaves correctly
 	detail := &anypb.Any{
 		TypeUrl: "test.extension",
@@ -861,18 +861,18 @@ func TestExtensionRelFromProtoBackwardCompatibility(t *testing.T) {
 	}
 
 	unknownExt := &UnknownExtension{detail: detail}
-	
+
 	// Test that it implements ExtensionRelDefinition
 	var _ ExtensionRelDefinition = unknownExt
-	
+
 	// Test that it returns the correct detail
 	assert.Equal(t, detail, unknownExt.Build(nil))
 	assert.Equal(t, detail, unknownExt.Build([]Rel{}))
-	
+
 	// Test that expressions return nil (unknown extensions don't have expressions)
 	assert.Nil(t, unknownExt.Expressions(nil))
 	assert.Nil(t, unknownExt.Expressions([]Rel{}))
-	
+
 	// Test schema behavior - empty for no inputs, first input's schema with inputs
 	assert.Equal(t, types.RecordType{}, unknownExt.Schema(nil))
 	assert.Equal(t, types.RecordType{}, unknownExt.Schema([]Rel{}))
