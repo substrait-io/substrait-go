@@ -3,6 +3,7 @@
 package extensions_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -151,11 +152,19 @@ func TestEvaluateTypeExpression(t *testing.T) {
 			args:     []types.Type{strTypeReq},
 			expected: &types.StringType{Nullability: types.NullabilityNullable},
 		},
+		{
+			name:     "user defined type",
+			nulls:    extensions.MirrorNullability,
+			ret:      &types.ParameterizedUserDefinedType{Nullability: types.NullabilityRequired, Name: "test_type"},
+			extArgs:  nil,
+			args:     nil,
+			expected: &types.UserDefinedType{Nullability: types.NullabilityRequired, TypeReference: 1},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := extensions.EvaluateTypeExpression(tt.nulls, tt.ret, tt.extArgs, nil, tt.args)
+			result, err := extensions.EvaluateTypeExpression("test://uri", tt.nulls, tt.ret, tt.extArgs, nil, tt.args, extensions.NewSet())
 			if tt.expectErr == "" {
 				require.NoError(t, err)
 				require.Truef(t, tt.expected.Equals(result),
@@ -257,7 +266,7 @@ func TestVariantWithVariadic(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := extensions.EvaluateTypeExpression(tt.nulls, tt.ret, tt.extArgs, &tt.variadic, tt.args)
+			result, err := extensions.EvaluateTypeExpression("test://uri", tt.nulls, tt.ret, tt.extArgs, &tt.variadic, tt.args, extensions.NewSet())
 			if tt.err == "" {
 				require.NoError(t, err)
 				assert.Truef(t, tt.expected.Equals(result), "expected: %s\ngot: %s", tt.expected, result)
@@ -370,4 +379,94 @@ func mkMap(kt, vt types.Type) *types.MapType {
 
 func valArg(typ types.FuncDefArgType) extensions.ValueArg {
 	return extensions.ValueArg{Value: &parser.TypeExpression{ValueType: typ}}
+}
+
+func TestResolveType(t *testing.T) {
+	// Test TypeReference setting logic for user-defined types
+	tests := []struct {
+		name        string
+		returnType  string
+		expectedUDT bool
+		uriAndType  string
+	}{
+		{
+			name:        "user_defined_type_sets_reference",
+			returnType:  "u!some_type",
+			expectedUDT: true,
+			uriAndType:  "some_type",
+		},
+		{
+			name:        "regular_type_works_normally",
+			returnType:  "i64",
+			expectedUDT: false,
+			uriAndType:  "",
+		},
+		{
+			name:        "string_type_works_normally",
+			returnType:  "string",
+			expectedUDT: false,
+			uriAndType:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// set up type registry
+			returnType, _ := parser.ParseType(tt.returnType)
+			registry := extensions.NewSet()
+			var expectedRef uint32
+			if tt.expectedUDT {
+				expectedRef = registry.GetTypeAnchor(extensions.ID{URI: "test://uri", Name: tt.uriAndType})
+			}
+
+			// call EvaluateTypeExpression to convert a FuncDefArgType to a Type
+			result, err := extensions.EvaluateTypeExpression(
+				"test://uri",
+				extensions.MirrorNullability,
+				returnType,
+				extensions.FuncParameterList{},
+				nil,
+				[]types.Type{},
+				registry,
+			)
+			require.NoError(t, err)
+
+			// for UserDefinedType, check that the type reference matches
+			if tt.expectedUDT {
+				udResult, ok := result.(*types.UserDefinedType)
+				require.True(t, ok, "Expected UserDefinedType")
+
+				if udResult != nil {
+					name := strings.TrimPrefix(returnType.ShortString(), "u!")
+					udResult.TypeReference = registry.GetTypeAnchor(extensions.ID{Name: name, URI: "test://uri"})
+					assert.Equal(t, expectedRef, udResult.TypeReference)
+				}
+			} else {
+				// otherwise, just check that the string matches
+				assert.Equal(t, tt.returnType, result.String())
+			}
+		})
+	}
+}
+
+func TestResolveTypeErrorHandling(t *testing.T) {
+	// Test error propagation from EvaluateTypeExpression
+	returnType, _ := parser.ParseType("u!custom_type")
+	argType, _ := parser.ParseType("i64")
+
+	// Create function parameter list that expects one argument
+	funcParams := extensions.FuncParameterList{valArg(argType)}
+
+	// Test with wrong number of arguments to trigger an error
+	_, err := extensions.EvaluateTypeExpression(
+		"test://uri",
+		extensions.MirrorNullability,
+		returnType,
+		funcParams,
+		nil,
+		[]types.Type{}, // No arguments provided when one is expected
+		extensions.NewSet(),
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "mismatch in number of arguments")
 }
