@@ -201,6 +201,7 @@ var (
 	errNoGroupingExpression    = fmt.Errorf("%w: groupings cannot contain empty expression list or nil expression", substraitgo.ErrInvalidRel)
 	errInvalidGroupingIndex    = fmt.Errorf("%w: groupingReferences contains invalid indices", substraitgo.ErrInvalidRel)
 	errCubeGroupingSizeLimit   = fmt.Errorf("cannot exceed %d grouping references for AddCube", maxGroupingSize)
+	errNilDefinition           = fmt.Errorf("%w: definition must not be nil", substraitgo.ErrInvalidArg)
 )
 
 type builder struct {
@@ -989,7 +990,7 @@ func (b *builder) ExtensionSingle(input Rel, definition ExtensionRelDefinition) 
 	}
 
 	if definition == nil {
-		return nil, fmt.Errorf("%w: extension definition must not be nil", substraitgo.ErrInvalidArg)
+		return nil, errNilDefinition
 	}
 
 	return &ExtensionSingleRel{
@@ -1001,7 +1002,7 @@ func (b *builder) ExtensionSingle(input Rel, definition ExtensionRelDefinition) 
 
 func (b *builder) ExtensionLeaf(definition ExtensionRelDefinition) (*ExtensionLeafRel, error) {
 	if definition == nil {
-		return nil, fmt.Errorf("%w: extension definition must not be nil", substraitgo.ErrInvalidArg)
+		return nil, errNilDefinition
 	}
 
 	return &ExtensionLeafRel{
@@ -1022,7 +1023,7 @@ func (b *builder) ExtensionMulti(inputs []Rel, definition ExtensionRelDefinition
 	}
 
 	if definition == nil {
-		return nil, fmt.Errorf("%w: extension definition must not be nil", substraitgo.ErrInvalidArg)
+		return nil, errNilDefinition
 	}
 
 	return &ExtensionMultiRel{
