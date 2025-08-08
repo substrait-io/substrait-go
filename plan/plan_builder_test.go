@@ -2345,7 +2345,7 @@ func TestExtensionMultiBuilder(t *testing.T) {
 func TestExtensionBuildersErrors(t *testing.T) {
 	b := plan.NewBuilderDefault()
 	scan := b.NamedScan([]string{"test"}, baseSchema)
-	
+
 	customSchema := types.StructType{
 		Nullability: types.NullabilityRequired,
 		Types: []types.Type{
