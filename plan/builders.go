@@ -10,7 +10,6 @@ import (
 	"github.com/substrait-io/substrait-go/v4/extensions"
 	"github.com/substrait-io/substrait-go/v4/types"
 	"golang.org/x/exp/slices"
-	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // Builder is the base object for constructing the various elements of a plan.
@@ -170,14 +169,14 @@ type Builder interface {
 
 	// Extension builder methods
 
-	// ExtensionSingle constructs a single extension relation with the given input and detail.
-	ExtensionSingle(input Rel, detail *anypb.Any) (*ExtensionSingleRel, error)
+	// ExtensionSingle constructs a single extension relation with a definition.
+	ExtensionSingle(input Rel, definition ExtensionRelDefinition) (*ExtensionSingleRel, error)
 
-	// ExtensionMulti constructs a multi extension relation with the given inputs and details.
-	ExtensionMulti(inputs []Rel, detail *anypb.Any) (*ExtensionMultiRel, error)
+	// ExtensionMulti constructs a multi extension relation with a definition.
+	ExtensionMulti(inputs []Rel, definition ExtensionRelDefinition) (*ExtensionMultiRel, error)
 
-	// ExtensionLeaf constructs a single extension relation with the given input and detail.
-	ExtensionLeaf(detail *anypb.Any) (*ExtensionLeafRel, error)
+	// ExtensionLeaf constructs a leaf extension relation with a definition.
+	ExtensionLeaf(definition ExtensionRelDefinition) (*ExtensionLeafRel, error)
 }
 
 const FETCH_COUNT_ALL_RECORDS = -1
@@ -984,26 +983,34 @@ func (b *builder) SetComparisonSubquery(
 	), nil
 }
 
-func (b *builder) ExtensionSingle(input Rel, detail *anypb.Any) (*ExtensionSingleRel, error) {
+func (b *builder) ExtensionSingle(input Rel, definition ExtensionRelDefinition) (*ExtensionSingleRel, error) {
 	if input == nil {
 		return nil, errNilInputRel
 	}
 
+	if definition == nil {
+		return nil, fmt.Errorf("%w: extension definition must not be nil", substraitgo.ErrInvalidArg)
+	}
+
 	return &ExtensionSingleRel{
-		RelCommon: RelCommon{},
-		input:     input,
-		detail:    detail,
+		RelCommon:  RelCommon{},
+		input:      input,
+		definition: definition,
 	}, nil
 }
 
-func (b *builder) ExtensionLeaf(detail *anypb.Any) (*ExtensionLeafRel, error) {
+func (b *builder) ExtensionLeaf(definition ExtensionRelDefinition) (*ExtensionLeafRel, error) {
+	if definition == nil {
+		return nil, fmt.Errorf("%w: extension definition must not be nil", substraitgo.ErrInvalidArg)
+	}
+
 	return &ExtensionLeafRel{
-		RelCommon: RelCommon{},
-		detail:    detail,
+		RelCommon:  RelCommon{},
+		definition: definition,
 	}, nil
 }
 
-func (b *builder) ExtensionMulti(inputs []Rel, detail *anypb.Any) (*ExtensionMultiRel, error) {
+func (b *builder) ExtensionMulti(inputs []Rel, definition ExtensionRelDefinition) (*ExtensionMultiRel, error) {
 	if len(inputs) == 0 {
 		return nil, errNilInputRel
 	}
@@ -1014,9 +1021,13 @@ func (b *builder) ExtensionMulti(inputs []Rel, detail *anypb.Any) (*ExtensionMul
 		}
 	}
 
+	if definition == nil {
+		return nil, fmt.Errorf("%w: extension definition must not be nil", substraitgo.ErrInvalidArg)
+	}
+
 	return &ExtensionMultiRel{
-		RelCommon: RelCommon{},
-		inputs:    inputs,
-		detail:    detail,
+		RelCommon:  RelCommon{},
+		inputs:     inputs,
+		definition: definition,
 	}, nil
 }

@@ -1566,22 +1566,53 @@ func (s *SetRel) Remap(mapping ...int32) (Rel, error) {
 	return RemapHelper(s, mapping)
 }
 
+// ExtensionRelDefinition provides flexibility for extension relations to define
+// their own schema and expression handling behavior.
+type ExtensionRelDefinition interface {
+	// Schema returns the output schema for this extension given the input relations.
+	Schema(inputs []Rel) types.RecordType
+
+	// Build returns the protobuf Any type containing the extension details.
+	Build(inputs []Rel) *anypb.Any
+
+	// Expressions returns any expression trees within this extension.
+	// This is optional and can return nil if the extension contains no expressions.
+	Expressions(inputs []Rel) []expr.Expression
+}
+
 // ExtensionSingleRel is a stub to support extensions with a single input.
 type ExtensionSingleRel struct {
 	RelCommon
 
-	input  Rel
-	detail *anypb.Any
+	input      Rel
+	definition ExtensionRelDefinition
+	detail     *anypb.Any // kept for backwards compatibility
 }
 
 func (es *ExtensionSingleRel) directOutputSchema() types.RecordType {
+	if es.definition != nil {
+		return es.definition.Schema([]Rel{es.input})
+	}
+	// Default behavior: return input schema
 	return es.input.RecordType()
 }
+
 func (es *ExtensionSingleRel) RecordType() types.RecordType {
 	return es.remap(es.directOutputSchema())
 }
-func (es *ExtensionSingleRel) Input() Rel         { return es.input }
-func (es *ExtensionSingleRel) Detail() *anypb.Any { return es.detail }
+
+func (es *ExtensionSingleRel) Input() Rel { return es.input }
+
+// Detail returns the extension details. If a definition is present, it builds the details dynamically.
+func (es *ExtensionSingleRel) Detail() *anypb.Any {
+	if es.definition != nil {
+		return es.definition.Build([]Rel{es.input})
+	}
+	return es.detail
+}
+
+// Definition returns the extension definition if present.
+func (es *ExtensionSingleRel) Definition() ExtensionRelDefinition { return es.definition }
 
 func (es *ExtensionSingleRel) ToProto() *proto.Rel {
 	return &proto.Rel{
@@ -1589,7 +1620,7 @@ func (es *ExtensionSingleRel) ToProto() *proto.Rel {
 			ExtensionSingle: &proto.ExtensionSingleRel{
 				Common: es.toProto(),
 				Input:  es.input.ToProto(),
-				Detail: es.detail,
+				Detail: es.Detail(),
 			},
 		},
 	}
@@ -1616,11 +1647,47 @@ func (es *ExtensionSingleRel) Copy(newInputs ...Rel) (Rel, error) {
 	return &proj, nil
 }
 
-func (es *ExtensionSingleRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (Rel, error) {
-	if slices.Equal(newInputs, es.GetInputs()) {
+func (es *ExtensionSingleRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error) {
+	if len(newInputs) != 1 {
+		return nil, substraitgo.ErrInvalidInputCount
+	}
+
+	inputChanged := newInputs[0] != es.input
+	expressionsChanged := false
+
+	if es.definition != nil {
+		inputs := []Rel{newInputs[0]}
+		exprs := es.definition.Expressions(inputs)
+		if len(exprs) > 0 {
+			// Check if any expressions actually changed after rewriting
+			for _, e := range exprs {
+				if e != nil {
+					newExpr, err := rewriteFunc(e)
+					if err != nil {
+						return nil, err
+					}
+					if newExpr != e {
+						expressionsChanged = true
+						break
+					}
+				}
+			}
+		}
+	}
+
+	if !inputChanged && !expressionsChanged {
 		return es, nil
 	}
-	return es.Copy(newInputs...)
+
+	// Create a copy with the new input
+	newRel := *es
+	newRel.input = newInputs[0]
+
+	// If expressions changed, we would need a way to update the definition
+	// This is a limitation - the ExtensionRelDefinition interface doesn't provide
+	// a way to update expressions. Extension implementers would need to handle this.
+
+	return &newRel, nil
 }
 
 func (es *ExtensionSingleRel) Remap(mapping ...int32) (Rel, error) {
@@ -1631,21 +1698,37 @@ func (es *ExtensionSingleRel) Remap(mapping ...int32) (Rel, error) {
 type ExtensionLeafRel struct {
 	RelCommon
 
-	detail *anypb.Any
+	definition ExtensionRelDefinition
+	detail     *anypb.Any // kept for backwards compatibility
 }
 
-func (el *ExtensionLeafRel) directOutputSchema() types.RecordType { return types.RecordType{} }
+func (el *ExtensionLeafRel) directOutputSchema() types.RecordType {
+	if el.definition != nil {
+		return el.definition.Schema([]Rel{})
+	}
+	return types.RecordType{}
+}
 func (el *ExtensionLeafRel) RecordType() types.RecordType {
 	return el.remap(el.directOutputSchema())
 }
-func (el *ExtensionLeafRel) Detail() *anypb.Any { return el.detail }
+
+// Detail returns the extension details. If a definition is present, it builds the details dynamically.
+func (el *ExtensionLeafRel) Detail() *anypb.Any {
+	if el.definition != nil {
+		return el.definition.Build([]Rel{})
+	}
+	return el.detail
+}
+
+// Definition returns the extension definition if present.
+func (el *ExtensionLeafRel) Definition() ExtensionRelDefinition { return el.definition }
 
 func (el *ExtensionLeafRel) ToProto() *proto.Rel {
 	return &proto.Rel{
 		RelType: &proto.Rel_ExtensionLeaf{
 			ExtensionLeaf: &proto.ExtensionLeafRel{
 				Common: el.toProto(),
-				Detail: el.detail,
+				Detail: el.Detail(),
 			},
 		},
 	}
@@ -1667,7 +1750,39 @@ func (el *ExtensionLeafRel) Copy(_ ...Rel) (Rel, error) {
 	return el, nil
 }
 
-func (el *ExtensionLeafRel) CopyWithExpressionRewrite(_ RewriteFunc, _ ...Rel) (Rel, error) {
+func (el *ExtensionLeafRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, _ ...Rel) (Rel, error) {
+	if el.definition == nil {
+		return el, nil
+	}
+
+	inputs := []Rel{}
+	exprs := el.definition.Expressions(inputs)
+	if len(exprs) == 0 {
+		return el, nil
+	}
+
+	// Check if any expressions actually changed after rewriting
+	hasChanged := false
+	for _, e := range exprs {
+		if e != nil {
+			newExpr, err := rewriteFunc(e)
+			if err != nil {
+				return nil, err
+			}
+			if newExpr != e {
+				hasChanged = true
+				break
+			}
+		}
+	}
+
+	if !hasChanged {
+		return el, nil
+	}
+
+	// If expressions changed, we would need a way to update the definition
+	// This is a limitation - the ExtensionRelDefinition interface doesn't provide
+	// a way to update expressions. Extension implementers would need to handle this.
 	return el, nil
 }
 
@@ -1679,16 +1794,33 @@ func (el *ExtensionLeafRel) Remap(mapping ...int32) (Rel, error) {
 type ExtensionMultiRel struct {
 	RelCommon
 
-	inputs []Rel
-	detail *anypb.Any
+	inputs     []Rel
+	definition ExtensionRelDefinition
+	detail     *anypb.Any // kept for backwards compatibility
 }
 
-func (em *ExtensionMultiRel) directOutputSchema() types.RecordType { return types.RecordType{} }
+func (em *ExtensionMultiRel) directOutputSchema() types.RecordType {
+	if em.definition != nil {
+		return em.definition.Schema(em.inputs)
+	}
+	// Default behavior for backward compatibility: return empty schema
+	return types.RecordType{}
+}
 func (em *ExtensionMultiRel) RecordType() types.RecordType {
 	return em.remap(em.directOutputSchema())
 }
-func (em *ExtensionMultiRel) Inputs() []Rel      { return em.inputs }
-func (em *ExtensionMultiRel) Detail() *anypb.Any { return em.detail }
+func (em *ExtensionMultiRel) Inputs() []Rel { return em.inputs }
+
+// Detail returns the extension details. If a definition is present, it builds the details dynamically.
+func (em *ExtensionMultiRel) Detail() *anypb.Any {
+	if em.definition != nil {
+		return em.definition.Build(em.inputs)
+	}
+	return em.detail
+}
+
+// Definition returns the extension definition if present.
+func (em *ExtensionMultiRel) Definition() ExtensionRelDefinition { return em.definition }
 
 func (em *ExtensionMultiRel) ToProto() *proto.Rel {
 	inputs := make([]*proto.Rel, len(em.inputs))
@@ -1700,7 +1832,7 @@ func (em *ExtensionMultiRel) ToProto() *proto.Rel {
 			ExtensionMulti: &proto.ExtensionMultiRel{
 				Common: em.toProto(),
 				Inputs: inputs,
-				Detail: em.detail,
+				Detail: em.Detail(),
 			},
 		},
 	}
@@ -1724,11 +1856,42 @@ func (em *ExtensionMultiRel) Copy(newInputs ...Rel) (Rel, error) {
 	return &proj, nil
 }
 
-func (em *ExtensionMultiRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (Rel, error) {
-	if slices.Equal(newInputs, em.GetInputs()) {
+func (em *ExtensionMultiRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error) {
+	inputsChanged := !slices.Equal(newInputs, em.GetInputs())
+	expressionsChanged := false
+
+	if em.definition != nil {
+		exprs := em.definition.Expressions(newInputs)
+		if len(exprs) > 0 {
+			// Check if any expressions actually changed after rewriting
+			for _, e := range exprs {
+				if e != nil {
+					newExpr, err := rewriteFunc(e)
+					if err != nil {
+						return nil, err
+					}
+					if newExpr != e {
+						expressionsChanged = true
+						break
+					}
+				}
+			}
+		}
+	}
+
+	if !inputsChanged && !expressionsChanged {
 		return em, nil
 	}
-	return em.Copy(newInputs...)
+
+	// Create a copy with the new inputs
+	newRel := *em
+	newRel.inputs = newInputs
+
+	// If expressions changed, we would need a way to update the definition
+	// This is a limitation - the ExtensionRelDefinition interface doesn't provide
+	// a way to update expressions. Extension implementers would need to handle this.
+
+	return &newRel, nil
 }
 
 func (em *ExtensionMultiRel) Remap(mapping ...int32) (Rel, error) {

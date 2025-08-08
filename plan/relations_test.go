@@ -10,7 +10,32 @@ import (
 	"github.com/substrait-io/substrait-go/v4/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
+
+// TestExtensionDefinition is a simple test implementation of ExtensionRelDefinition
+type TestExtensionDefinition struct {
+	schema types.RecordType
+	detail []byte
+	exprs  []expr.Expression
+}
+
+func (t *TestExtensionDefinition) Schema(inputs []Rel) types.RecordType {
+	return t.schema
+}
+
+func (t *TestExtensionDefinition) Build(inputs []Rel) *anypb.Any {
+	if t.detail == nil {
+		return nil
+	}
+	message := &wrapperspb.StringValue{Value: string(t.detail)}
+	any, _ := anypb.New(message)
+	return any
+}
+
+func (t *TestExtensionDefinition) Expressions(inputs []Rel) []expr.Expression {
+	return t.exprs
+}
 
 func noOpRewrite(e expr.Expression) (expr.Expression, error) {
 	return e, nil
@@ -719,4 +744,79 @@ func TestNamedTableWriteRecordType(t *testing.T) {
 
 	_, err := rel.Remap(0)
 	assert.ErrorContains(t, err, "output mapping index out of range")
+}
+
+func TestExtensionRelDefinitionInterface(t *testing.T) {
+	b := NewBuilderDefault()
+	
+	// Test custom schema definition
+	customSchema := *types.NewRecordTypeFromTypes([]types.Type{
+		&types.Int64Type{},
+		&types.StringType{},
+	})
+	
+	testDef := &TestExtensionDefinition{
+		schema: customSchema,
+		detail: []byte("test-extension"),
+		exprs:  []expr.Expression{expr.NewPrimitiveLiteral(int32(42), false)},
+	}
+	
+	// Test ExtensionLeafRel with definition
+	leafRel, err := b.ExtensionLeaf(testDef)
+	require.NoError(t, err)
+	assert.NotNil(t, leafRel.Definition())
+	assert.Equal(t, customSchema, leafRel.RecordType())
+	assert.NotNil(t, leafRel.Detail())
+	
+	// Test ExtensionSingleRel with definition
+	input := b.NamedScan([]string{"test"}, types.NamedStruct{
+		Names:  []string{"col1"},
+		Struct: types.StructType{Types: []types.Type{&types.Int64Type{}}},
+	})
+	singleRel, err := b.ExtensionSingle(input, testDef)
+	require.NoError(t, err)
+	assert.NotNil(t, singleRel.Definition())
+	assert.Equal(t, customSchema, singleRel.RecordType())
+	assert.NotNil(t, singleRel.Detail())
+	
+	// Test ExtensionMultiRel with definition
+	inputs := []Rel{input, input}
+	multiRel, err := b.ExtensionMulti(inputs, testDef)
+	require.NoError(t, err)
+	assert.NotNil(t, multiRel.Definition())
+	assert.Equal(t, customSchema, multiRel.RecordType())
+	assert.NotNil(t, multiRel.Detail())
+	
+	// Test backward compatibility behavior by using wrapper
+	oldStyleDef := &TestExtensionDefinition{
+		schema: types.RecordType{}, // Empty schema like before
+		detail: []byte("old-style"),
+		exprs:  nil,
+	}
+	
+	oldLeaf, err := b.ExtensionLeaf(oldStyleDef)
+	require.NoError(t, err)
+	assert.NotNil(t, oldLeaf.Definition())
+	assert.Equal(t, types.RecordType{}, oldLeaf.RecordType()) // Empty schema as before
+	
+	oldSingleDef := &TestExtensionDefinition{
+		schema: input.RecordType(), // Input schema like before
+		detail: []byte("old-style"),
+		exprs:  nil,
+	}
+	oldSingle, err := b.ExtensionSingle(input, oldSingleDef)
+	require.NoError(t, err)
+	assert.NotNil(t, oldSingle.Definition())
+	assert.Equal(t, input.RecordType(), oldSingle.RecordType()) // Input schema as before
+	
+	oldMultiDef := &TestExtensionDefinition{
+		schema: types.RecordType{}, // Empty schema like before
+		detail: []byte("old-style"),
+		exprs:  nil,
+	}
+	oldMulti, err := b.ExtensionMulti(inputs, oldMultiDef)
+	require.NoError(t, err)
+	assert.NotNil(t, oldMulti.Definition())
+	// Should return empty schema as before for backward compatibility
+	assert.Equal(t, types.RecordType{}, oldMulti.RecordType())
 }
