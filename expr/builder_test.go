@@ -3,7 +3,6 @@
 package expr_test
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -231,9 +230,6 @@ window_functions:
 
 	pp, err := p.ToProto()
 	require.NoError(t, err)
-
-	fmt.Println(pp.ExtensionUris)
-	fmt.Println(pp.Extensions)
 
 	// custom_type1 is referenced as an argument and return type, so should be registered in the extensions
 	// custom_type2 is referenced as an argument and return type, so should be registered in the extensions
