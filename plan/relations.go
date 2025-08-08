@@ -1647,7 +1647,7 @@ func (es *ExtensionSingleRel) Copy(newInputs ...Rel) (Rel, error) {
 	return &proj, nil
 }
 
-func (es *ExtensionSingleRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error) {
+func (es *ExtensionSingleRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (Rel, error) {
 	if slices.Equal(newInputs, es.GetInputs()) {
 		return es, nil
 	}
@@ -1714,7 +1714,7 @@ func (el *ExtensionLeafRel) Copy(_ ...Rel) (Rel, error) {
 	return el, nil
 }
 
-func (el *ExtensionLeafRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, _ ...Rel) (Rel, error) {
+func (el *ExtensionLeafRel) CopyWithExpressionRewrite(_ RewriteFunc, _ ...Rel) (Rel, error) {
 	return el, nil
 }
 
@@ -1788,7 +1788,7 @@ func (em *ExtensionMultiRel) Copy(newInputs ...Rel) (Rel, error) {
 	return &proj, nil
 }
 
-func (em *ExtensionMultiRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error) {
+func (em *ExtensionMultiRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (Rel, error) {
 	if slices.Equal(newInputs, em.GetInputs()) {
 		return em, nil
 	}
