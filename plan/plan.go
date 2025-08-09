@@ -657,8 +657,8 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 		}
 
 		out := &ExtensionSingleRel{
-			input:  input,
-			detail: rel.ExtensionSingle.Detail,
+			input:      input,
+			definition: &UnknownExtension{detail: rel.ExtensionSingle.Detail},
 		}
 		out.fromProtoCommon(rel.ExtensionSingle.Common)
 
@@ -674,15 +674,15 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 		}
 
 		out := &ExtensionMultiRel{
-			inputs: inputs,
-			detail: rel.ExtensionMulti.Detail,
+			inputs:     inputs,
+			definition: &UnknownExtension{detail: rel.ExtensionMulti.Detail},
 		}
 		out.fromProtoCommon(rel.ExtensionMulti.Common)
 
 		return out, nil
 	case *proto.Rel_ExtensionLeaf:
 		out := &ExtensionLeafRel{
-			detail: rel.ExtensionLeaf.Detail,
+			definition: &UnknownExtension{detail: rel.ExtensionLeaf.Detail},
 		}
 		out.fromProtoCommon(rel.ExtensionLeaf.Common)
 

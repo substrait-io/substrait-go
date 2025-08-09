@@ -166,6 +166,17 @@ type Builder interface {
 	// SetComparisonSubquery creates a set comparison subquery expression that checks
 	// if the left expression is contained in the right subquery.
 	SetComparisonSubquery(left expr.Expression, right Rel, reductionOp SetComparisonReductionOp, comparisonOp SetComparisonComparisonOp) (*SetComparisonSubquery, error)
+
+	// Extension builder methods
+
+	// ExtensionSingle constructs a single extension relation with a definition.
+	ExtensionSingle(input Rel, definition ExtensionRelDefinition) (*ExtensionSingleRel, error)
+
+	// ExtensionMulti constructs a multi extension relation with a definition.
+	ExtensionMulti(inputs []Rel, definition ExtensionRelDefinition) (*ExtensionMultiRel, error)
+
+	// ExtensionLeaf constructs a leaf extension relation with a definition.
+	ExtensionLeaf(definition ExtensionRelDefinition) (*ExtensionLeafRel, error)
 }
 
 const FETCH_COUNT_ALL_RECORDS = -1
@@ -190,6 +201,7 @@ var (
 	errNoGroupingExpression    = fmt.Errorf("%w: groupings cannot contain empty expression list or nil expression", substraitgo.ErrInvalidRel)
 	errInvalidGroupingIndex    = fmt.Errorf("%w: groupingReferences contains invalid indices", substraitgo.ErrInvalidRel)
 	errCubeGroupingSizeLimit   = fmt.Errorf("cannot exceed %d grouping references for AddCube", maxGroupingSize)
+	errNilDefinition           = fmt.Errorf("%w: definition must not be nil", substraitgo.ErrInvalidArg)
 )
 
 type builder struct {
@@ -970,4 +982,53 @@ func (b *builder) SetComparisonSubquery(
 		left,
 		right,
 	), nil
+}
+
+func (b *builder) ExtensionSingle(input Rel, definition ExtensionRelDefinition) (*ExtensionSingleRel, error) {
+	if input == nil {
+		return nil, errNilInputRel
+	}
+
+	if definition == nil {
+		return nil, errNilDefinition
+	}
+
+	return &ExtensionSingleRel{
+		RelCommon:  RelCommon{},
+		input:      input,
+		definition: definition,
+	}, nil
+}
+
+func (b *builder) ExtensionLeaf(definition ExtensionRelDefinition) (*ExtensionLeafRel, error) {
+	if definition == nil {
+		return nil, errNilDefinition
+	}
+
+	return &ExtensionLeafRel{
+		RelCommon:  RelCommon{},
+		definition: definition,
+	}, nil
+}
+
+func (b *builder) ExtensionMulti(inputs []Rel, definition ExtensionRelDefinition) (*ExtensionMultiRel, error) {
+	if len(inputs) == 0 {
+		return nil, errNilInputRel
+	}
+
+	for _, input := range inputs {
+		if input == nil {
+			return nil, errNilInputRel
+		}
+	}
+
+	if definition == nil {
+		return nil, errNilDefinition
+	}
+
+	return &ExtensionMultiRel{
+		RelCommon:  RelCommon{},
+		inputs:     inputs,
+		definition: definition,
+	}, nil
 }
