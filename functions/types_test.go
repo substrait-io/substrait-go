@@ -93,7 +93,7 @@ name: testSql
 type: sql
 dependencies:
   arithmetic: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+    urn:substrait:functions_arithmetic
 supported_types:
   i32:
     sql_type_name: int32
