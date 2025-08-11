@@ -19,6 +19,7 @@ type FunctionVariant interface {
 	Args() FuncParameterList
 	Options() map[string]Option
 	URI() string
+	// ResolveType computes the return type of a function variant, given the input argument types
 	ResolveType(argTypes []types.Type) (types.Type, error)
 	Variadic() *VariadicBehavior
 	// Match this function matches input arguments against this functions parameter list

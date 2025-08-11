@@ -408,6 +408,7 @@ type (
 	// FuncArg corresponds to the protobuf FunctionArgument. Anything
 	// which could be a function argument should meet this interface.
 	// This is either an Expression, a Type, or an Enum (string).
+	// These are the actual arguments for a function present in a plan.
 	FuncArg interface {
 		fmt.Stringer
 		ToProtoFuncArg() *proto.FunctionArgument
@@ -469,9 +470,9 @@ type (
 		BaseString() string
 	}
 
-	// FuncDefArgType this represents a type used in function argument
-	// This is an unresolved type present in the function definition.
-	// These type can't be present in plan (not serializable)
+	// FuncDefArgType represents a type used in a function argument
+	// This is an unresolved type of an argument present in the function definition.
+	// This type can't be present in plan (not serializable)
 	FuncDefArgType interface {
 		fmt.Stringer
 		//SetNullability set nullability as given argument
