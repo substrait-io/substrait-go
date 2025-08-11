@@ -196,7 +196,7 @@ func TestNewPrecisionTimestampTzWithType(t *testing.T) {
 	}
 }
 
-func TestNewIntervalDayWithType(t *testing.T) { //
+func TestNewIntervalDayWithType(t *testing.T) {
 	tests := []struct {
 		name             string
 		inputType        *types.IntervalDayType
