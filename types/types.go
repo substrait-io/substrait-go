@@ -501,6 +501,13 @@ type (
 		WithParameters([]interface{}) (Type, error)
 	}
 
+	// Parameterized types are used in function signatures and can be resolved to concrete types
+	// during type derivation. For example, VARCHAR<L> becomes VarCharType with a specific length.
+	// In this example, VARCHAR<L> (ParameterizedVarCharType) would be a FuncDefArgType and
+	// the resolved VARCHAR<3> (VarCharType) with a value for L would be a Type.
+	//
+	// types are either both a FuncDefArgType and a Type, or they have a parameterized "version" (a Go type) and a concrete "version" (another Go type))
+
 	FixedType interface {
 		CompositeType
 		WithLength(int32) FixedType
