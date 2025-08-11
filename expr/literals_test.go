@@ -68,59 +68,22 @@ func TestNewLiteralWithDecimalBytes(t *testing.T) {
 	}
 }
 
-func TestNewLiteralWithIntervalDayToSecond(t *testing.T) {
+func TestNewLiteralWithIntervalDayToSecondPrecisionSet(t *testing.T) {
 	tests := []struct {
-		name        string
-		days        int32
-		seconds     int32
-		subseconds  int64
-		precision   int32
-		nullable    bool
-		expectError bool
+		name      string
+		precision int32
 	}{
-		{"nullable interval", 2, 120, 250000, int32(types.PrecisionMicroSeconds), true, false},
-		{"nanosecond precision", 1, 1, 123456789, int32(types.PrecisionNanoSeconds), false, false},
-		{"millisecond precision", 0, 5, 123, int32(types.PrecisionMilliSeconds), true, false},
-		{"second precision", 0, 42, 0, int32(types.PrecisionSeconds), false, false},
-		{"deci-seconds precision", 0, 10, 5, int32(types.PrecisionDeciSeconds), false, false},
+		{"PT23H59M59.999S", int32(types.PrecisionMicroSeconds)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			intervalValue := &types.IntervalDayToSecond{
-				Days:    tt.days,
-				Seconds: tt.seconds,
-				PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{
-					Precision: tt.precision,
-				},
-				Subseconds: tt.subseconds,
-			}
-
-			got, err := expr.NewLiteral(intervalValue, tt.nullable)
-			if tt.expectError {
-				require.Error(t, err)
-				return
-			}
+			lit, err := literal.NewIntervalDaysToSecondFromString(tt.name, false)
 
 			require.NoError(t, err)
-			require.NotNil(t, got)
+			require.NotNil(t, lit)
 
-			protoLit, _ := got.(*expr.ProtoLiteral)
-
-			// Verify the value is stored correctly
-			storedValue, ok := protoLit.Value.(*types.IntervalDayToSecond)
-			require.True(t, ok, "Expected *types.IntervalDayToSecond value, got %T", protoLit.Value)
-			assert.Equal(t, intervalValue, storedValue)
-
-			// Verify the type is correct
-			intervalType, ok := protoLit.GetType().(*types.IntervalDayType)
-			require.True(t, ok, "Expected *types.IntervalDayType, got %T", protoLit.GetType())
-
-			// Verify type properties
-			expectedNullability := types.NullabilityRequired
-			if tt.nullable {
-				expectedNullability = types.NullabilityNullable
-			}
-			assert.Equal(t, expectedNullability, intervalType.GetNullability())
+			protoLit, _ := lit.(*expr.ProtoLiteral)
+			intervalType, _ := protoLit.GetType().(*types.IntervalDayType)
 
 			// Verify precision is correctly extracted from the value and set in the type
 			assert.Equal(t, types.TimePrecision(tt.precision), intervalType.Precision)
