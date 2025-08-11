@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/v4/types"
-	"github.com/substrait-io/substrait-go/v4/types/integer_parameters"
+	"github.com/substrait-io/substrait-go/v5/types"
+	"github.com/substrait-io/substrait-go/v5/types/integer_parameters"
 )
 
 func TestParameterizedDecimalType(t *testing.T) {

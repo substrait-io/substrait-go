@@ -8,9 +8,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/v4/extensions"
-	. "github.com/substrait-io/substrait-go/v4/functions"
-	"github.com/substrait-io/substrait-go/v4/types"
+	"github.com/substrait-io/substrait-go/v5/extensions"
+	. "github.com/substrait-io/substrait-go/v5/functions"
+	"github.com/substrait-io/substrait-go/v5/types"
 )
 
 var gFunctionRegistry FunctionRegistry
@@ -1442,7 +1442,7 @@ scalar_functions:
 			assert.Equal(t, tt.isOverflowError, fv[0].IsOptionSupported("overflow", "ERROR"))
 			assert.False(t, fv[0].IsOptionSupported("overflow", "SILENT"))
 			checkCompoundNames(t, getScalarCompoundNames(fv), tt.expectedNames)
-			retType, err := fv[0].ResolveType(tt.args)
+			retType, err := fv[0].ResolveType(tt.args, extensions.NewSet())
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedReturnType, retType)
 			fv = localRegistry.GetScalarFunctions(SubstraitFunctionName(tt.substraitName), tt.numArgs)
@@ -1524,7 +1524,7 @@ scalar_functions:
 			assert.Equal(t, tt.localName, fv[0].LocalName())
 			assert.False(t, fv[0].IsOptionSupported("overflow", "SILENT"))
 			checkCompoundNames(t, getScalarCompoundNames(fv), tt.expectedNames)
-			retType, err := fv[0].ResolveType(tt.args)
+			retType, err := fv[0].ResolveType(tt.args, extensions.NewSet())
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedReturnType, retType)
 			fv = localRegistry.GetScalarFunctions(SubstraitFunctionName(tt.substraitName), tt.numArgs)

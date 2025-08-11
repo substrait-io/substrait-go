@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	substraitgo "github.com/substrait-io/substrait-go/v4"
-	"github.com/substrait-io/substrait-go/v4/extensions"
-	"github.com/substrait-io/substrait-go/v4/types"
+	substraitgo "github.com/substrait-io/substrait-go/v5"
+	"github.com/substrait-io/substrait-go/v5/extensions"
+	"github.com/substrait-io/substrait-go/v5/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"golang.org/x/exp/slices"
 	pb "google.golang.org/protobuf/proto"
@@ -206,7 +206,7 @@ func NewCustomScalarFunc(
 
 type variant interface {
 	*extensions.ScalarFunctionVariant | *extensions.AggregateFunctionVariant | *extensions.WindowFunctionVariant
-	ResolveType([]types.Type) (types.Type, error)
+	ResolveType([]types.Type, extensions.Set) (types.Type, error)
 }
 
 func resolveVariant[T variant](
@@ -253,7 +253,7 @@ func resolveVariant[T variant](
 		}
 	}
 
-	outType, err := decl.ResolveType(argTypes)
+	outType, err := decl.ResolveType(argTypes, reg.Set)
 	if err != nil {
 		return nil, nil, err
 	}
