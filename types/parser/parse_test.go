@@ -8,8 +8,8 @@ import (
 	"github.com/goccy/go-yaml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/v4/types"
-	"github.com/substrait-io/substrait-go/v4/types/integer_parameters"
+	"github.com/substrait-io/substrait-go/v5/types"
+	"github.com/substrait-io/substrait-go/v5/types/integer_parameters"
 )
 
 func TestParseSimpleTypes(t *testing.T) {

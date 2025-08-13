@@ -3,8 +3,8 @@
 package expr
 
 import (
-	"github.com/substrait-io/substrait-go/v4/extensions"
-	"github.com/substrait-io/substrait-go/v4/types"
+	"github.com/substrait-io/substrait-go/v5/extensions"
+	"github.com/substrait-io/substrait-go/v5/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
