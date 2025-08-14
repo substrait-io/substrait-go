@@ -408,6 +408,7 @@ type (
 	// FuncArg corresponds to the protobuf FunctionArgument. Anything
 	// which could be a function argument should meet this interface.
 	// This is either an Expression, a Type, or an Enum (string).
+	// These are the actual arguments for a function present in a plan.
 	FuncArg interface {
 		fmt.Stringer
 		ToProtoFuncArg() *proto.FunctionArgument
@@ -419,7 +420,7 @@ type (
 	}
 
 	// Type corresponds to the proto.Type message and represents
-	// a specific type. These are types which can be present in plan (are serializable)
+	// a specific concrete type. These are types which can be present in plan (are serializable)
 	Type interface {
 		FuncArg
 		isRootRef()
@@ -469,8 +470,9 @@ type (
 		BaseString() string
 	}
 
-	// FuncDefArgType this represents a type used in function argument
-	// These type can't be present in plan (not serializable)
+	// FuncDefArgType represents a type used in a function argument
+	// This is an unresolved type of an argument present in the function definition.
+	// This type can't be present in plan (not serializable)
 	FuncDefArgType interface {
 		fmt.Stringer
 		//SetNullability set nullability as given argument
@@ -913,6 +915,11 @@ func (s *PrimitiveType[T]) WithParameters([]interface{}) (Type, error) {
 }
 
 // create type aliases to the generic structs
+//
+// The parameterized types below use parameterizedTypeSingleIntegerParam to
+// create types that accept a single integer parameter (e.g., precision)
+// Other parameterized types (e.g. DecimalType) have their
+// own dedicated type definitions (ParameterizedDecimalType) rather than using the generic parameterized type.
 type (
 	BooleanType                           = PrimitiveType[bool]
 	Int8Type                              = PrimitiveType[int8]

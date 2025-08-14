@@ -34,6 +34,7 @@ type nestedLiteral interface {
 }
 
 type WithTypeLiteral interface {
+	// WithType attempts to convert a literal to a new type while preserving its value
 	WithType(types.Type) (Literal, error)
 }
 
@@ -97,7 +98,7 @@ type Literal interface {
 	ValueString() string
 }
 
-// A NullLiteral is a typed null, so it just contains its type
+// A NullLiteral is a typed null, so it just contains its type with no value
 type NullLiteral struct {
 	Type types.Type
 }
@@ -768,6 +769,7 @@ func getNullability(nullable bool) types.Nullability {
 	return types.NullabilityRequired
 }
 
+// A PrimitiveLiteral is a literal with one of the types specified in this interface
 type newPrimitiveLiteralTypes interface {
 	bool | int8 | int16 | ~int32 | ~int64 |
 		float32 | float64 | string

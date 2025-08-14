@@ -14,6 +14,8 @@ import (
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
+//This package contains utility functions for creating literals
+
 func NewBool(value bool, nullable bool) expr.Literal {
 	return expr.NewPrimitiveLiteral(value, nullable)
 }

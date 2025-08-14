@@ -57,6 +57,7 @@ type TypeVariation struct {
 	Functions   TypeVariationFunctions
 }
 
+// FuncParameter is an argument of a function in its function definition
 type FuncParameter interface {
 	toTypeString() string
 	argumentMarker() // unexported marker method
