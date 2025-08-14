@@ -68,6 +68,29 @@ func TestNewLiteralWithDecimalBytes(t *testing.T) {
 	}
 }
 
+func TestNewLiteralWithIntervalDayToSecondPrecisionSet(t *testing.T) {
+	tests := []struct {
+		name      string
+		precision int32
+	}{
+		{"PT23H59M59.999S", int32(types.PrecisionMicroSeconds)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lit, err := literal.NewIntervalDaysToSecondFromString(tt.name, false)
+
+			require.NoError(t, err)
+			require.NotNil(t, lit)
+
+			protoLit, _ := lit.(*expr.ProtoLiteral)
+			intervalType, _ := protoLit.GetType().(*types.IntervalDayType)
+
+			// Verify precision is correctly extracted from the value and set in the type
+			assert.Equal(t, types.TimePrecision(tt.precision), intervalType.Precision)
+		})
+	}
+}
+
 func TestNewFixedLenWithType(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -236,7 +259,7 @@ func TestProtoLiteral_WithType(t1 *testing.T) {
 }
 
 func TestByteSliceLiteral_WithType(t1 *testing.T) {
-	fbin := expr.NewByteSliceLiteral[[]byte]([]byte{0x01, 0x02, 0x03}, false)
+	fbin := expr.NewByteSliceLiteral([]byte{0x01, 0x02, 0x03}, false)
 	uuid := expr.NewByteSliceLiteral[types.UUID]([]byte{0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf, 0x10}, false)
 
 	list := expr.NewNestedLiteral(expr.ListLiteralValue{

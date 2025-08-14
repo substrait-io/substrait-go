@@ -939,6 +939,7 @@ func NewLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {
 			Value: v,
 			Type: &types.IntervalDayType{
 				Nullability: getNullability(nullable),
+				Precision:   types.TimePrecision(v.GetPrecision()),
 			},
 		}, nil
 	case *types.Decimal:
