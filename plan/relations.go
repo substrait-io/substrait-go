@@ -1618,10 +1618,7 @@ type ExtensionSingleRel struct {
 }
 
 func (es *ExtensionSingleRel) directOutputSchema() types.RecordType {
-	if es.definition != nil {
-		return es.definition.Schema([]Rel{es.input})
-	}
-	panic("ExtensionSingleRel cannot have a nil definition")
+	return es.definition.Schema([]Rel{es.input})
 }
 
 func (es *ExtensionSingleRel) RecordType() types.RecordType {
@@ -1690,10 +1687,7 @@ type ExtensionLeafRel struct {
 }
 
 func (el *ExtensionLeafRel) directOutputSchema() types.RecordType {
-	if el.definition != nil {
-		return el.definition.Schema([]Rel{})
-	}
-	panic("ExtensionLeafRel cannot have a nil definition")
+	return el.definition.Schema([]Rel{})
 }
 func (el *ExtensionLeafRel) RecordType() types.RecordType {
 	return el.remap(el.directOutputSchema())
@@ -1751,10 +1745,7 @@ type ExtensionMultiRel struct {
 }
 
 func (em *ExtensionMultiRel) directOutputSchema() types.RecordType {
-	if em.definition != nil {
-		return em.definition.Schema(em.inputs)
-	}
-	panic("ExtensionMultiRel cannot have a nil definition")
+	return em.definition.Schema(em.inputs)
 }
 func (em *ExtensionMultiRel) RecordType() types.RecordType {
 	return em.remap(em.directOutputSchema())
