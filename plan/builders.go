@@ -169,13 +169,15 @@ type Builder interface {
 
 	// Extension builder methods
 
-	// ExtensionSingle constructs a single extension relation with a definition.
+	// ExtensionSingle constructs a Relation with a single input built from an Advanced Extension.
+	// A definition of the extension is required for providing the serialized extension itself as well
+	// as the schema and expressions in the relation for maintaining a valid relation tree.
 	ExtensionSingle(input Rel, definition ExtensionRelDefinition) (*ExtensionSingleRel, error)
 
-	// ExtensionMulti constructs a multi extension relation with a definition.
+	// ExtensionMulti constructs a Relation with multiple inputs built from an Advanced Extension.
 	ExtensionMulti(inputs []Rel, definition ExtensionRelDefinition) (*ExtensionMultiRel, error)
 
-	// ExtensionLeaf constructs a leaf extension relation with a definition.
+	// ExtensionLeaf constructs a Relation with zero inputs (a leaf node) built from an Advanced Extension.
 	ExtensionLeaf(definition ExtensionRelDefinition) (*ExtensionLeafRel, error)
 }
 

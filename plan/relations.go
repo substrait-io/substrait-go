@@ -1576,7 +1576,7 @@ type ExtensionRelDefinition interface {
 	Build(inputs []Rel) *anypb.Any
 
 	// Expressions returns any expression trees within this extension.
-	// This is optional and can return nil if the extension contains no expressions.
+	// This should return nil if the extension contains no expressions.
 	Expressions(inputs []Rel) []expr.Expression
 }
 
@@ -1587,7 +1587,13 @@ type UnknownExtension struct {
 
 // Schema returns an empty record type for unknown extensions.
 func (ue *UnknownExtension) Schema(inputs []Rel) types.RecordType {
-	if len(inputs) > 0 {
+	if len(inputs) == 1 {
+		// XXX: the UnknownExtension doesn't know its schema type. For now, we
+		// guess that if there is exactly one input, its probably that record
+		// type, otherwise, empty; that's not a very good choice, but its now
+		// what we have backwards-compatibility-wise. We should probably hook
+		// this into the ExtensionRegistry or similar so we can look it up and
+		// get the correct schema.
 		return inputs[0].RecordType()
 	}
 	return types.RecordType{}
@@ -1615,8 +1621,7 @@ func (es *ExtensionSingleRel) directOutputSchema() types.RecordType {
 	if es.definition != nil {
 		return es.definition.Schema([]Rel{es.input})
 	}
-	// Default behavior: return input schema
-	return es.input.RecordType()
+	panic("ExtensionSingleRel cannot have a nil definition")
 }
 
 func (es *ExtensionSingleRel) RecordType() types.RecordType {
@@ -1688,7 +1693,7 @@ func (el *ExtensionLeafRel) directOutputSchema() types.RecordType {
 	if el.definition != nil {
 		return el.definition.Schema([]Rel{})
 	}
-	return types.RecordType{}
+	panic("ExtensionLeafRel cannot have a nil definition")
 }
 func (el *ExtensionLeafRel) RecordType() types.RecordType {
 	return el.remap(el.directOutputSchema())
@@ -1749,8 +1754,7 @@ func (em *ExtensionMultiRel) directOutputSchema() types.RecordType {
 	if em.definition != nil {
 		return em.definition.Schema(em.inputs)
 	}
-	// Default behavior for backward compatibility: return empty schema
-	return types.RecordType{}
+	panic("ExtensionMultiRel cannot have a nil definition")
 }
 func (em *ExtensionMultiRel) RecordType() types.RecordType {
 	return em.remap(em.directOutputSchema())
