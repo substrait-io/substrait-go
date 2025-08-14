@@ -378,7 +378,7 @@ func createIntervalDaysLiteral(days, seconds int32, micros int64) *expr.ProtoLit
 		},
 		Type: &types.IntervalDayType{
 			Nullability: proto.Type_NULLABILITY_REQUIRED,
-			Precision:   types.TimePrecision(types.PrecisionMicroSeconds),
+			Precision:   types.PrecisionMicroSeconds,
 		},
 	}
 }
@@ -395,7 +395,7 @@ func createIntervalDaysLiteralWithNanos(days, seconds int32, nanos int64) *expr.
 		},
 		Type: &types.IntervalDayType{
 			Nullability: proto.Type_NULLABILITY_REQUIRED,
-			Precision:   types.TimePrecision(types.PrecisionNanoSeconds),
+			Precision:   types.PrecisionNanoSeconds,
 		},
 	}
 }
