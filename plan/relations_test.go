@@ -659,6 +659,7 @@ func TestExtensionSingleRecordType(t *testing.T) {
 	var rel ExtensionSingleRel
 	rel.input = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
 		[]types.Type{&types.Int64Type{}, &types.Int64Type{}})}
+	rel.definition = &UnknownExtension{}
 
 	expected := *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}, &types.Int64Type{}})
 	result := rel.RecordType()
@@ -673,6 +674,7 @@ func TestExtensionSingleRecordType(t *testing.T) {
 
 func TestExtensionLeafRecordType(t *testing.T) {
 	var rel ExtensionLeafRel
+	rel.definition = &UnknownExtension{}
 
 	expected := *types.NewRecordTypeFromTypes(nil)
 	result := rel.RecordType()
@@ -684,6 +686,7 @@ func TestExtensionLeafRecordType(t *testing.T) {
 
 func TestExtensionMultiRecordType(t *testing.T) {
 	var rel ExtensionMultiRel
+	rel.definition = &UnknownExtension{}
 
 	expected := *types.NewRecordTypeFromTypes(nil)
 	result := rel.RecordType()
