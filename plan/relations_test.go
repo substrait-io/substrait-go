@@ -659,7 +659,7 @@ func TestExtensionSingleRecordType(t *testing.T) {
 	var rel ExtensionSingleRel
 	rel.input = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
 		[]types.Type{&types.Int64Type{}, &types.Int64Type{}})}
-	rel.definition = &UnknownExtension{}
+	rel.definition = &UndecodedExtension{}
 
 	expected := *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}, &types.Int64Type{}})
 	result := rel.RecordType()
@@ -674,7 +674,7 @@ func TestExtensionSingleRecordType(t *testing.T) {
 
 func TestExtensionLeafRecordType(t *testing.T) {
 	var rel ExtensionLeafRel
-	rel.definition = &UnknownExtension{}
+	rel.definition = &UndecodedExtension{}
 
 	expected := *types.NewRecordTypeFromTypes(nil)
 	result := rel.RecordType()
@@ -686,7 +686,7 @@ func TestExtensionLeafRecordType(t *testing.T) {
 
 func TestExtensionMultiRecordType(t *testing.T) {
 	var rel ExtensionMultiRel
-	rel.definition = &UnknownExtension{}
+	rel.definition = &UndecodedExtension{}
 
 	expected := *types.NewRecordTypeFromTypes(nil)
 	result := rel.RecordType()
@@ -824,15 +824,15 @@ func TestExtensionRelDefinitionInterface(t *testing.T) {
 	assert.Equal(t, types.RecordType{}, oldMulti.RecordType())
 }
 
-func TestUnknownExtensionBackwardCompatibility(t *testing.T) {
+func TestUndecodedExtensionBackwardCompatibility(t *testing.T) {
 	// Create a test detail
 	detail := &anypb.Any{
 		TypeUrl: "test.extension",
 		Value:   []byte("test data"),
 	}
 
-	// Test UnknownExtension with no inputs
-	unknownExt := &UnknownExtension{detail: detail}
+	// Test UndecodedExtension with no inputs
+	unknownExt := &UndecodedExtension{detail: detail}
 
 	// Test Schema method with no inputs
 	schema := unknownExt.Schema(nil)
@@ -854,16 +854,16 @@ func TestUnknownExtensionBackwardCompatibility(t *testing.T) {
 
 func TestExtensionRelFromProtoBackwardCompatibility(t *testing.T) {
 	// This test verifies that extension relations loaded from proto
-	// now have an UnknownExtension definition instead of nil
+	// now have an UndecodedExtension definition instead of nil
 	// We'll test this by checking the existing behavior works
 
-	// Test that UnknownExtension behaves correctly
+	// Test that UndecodedExtension behaves correctly
 	detail := &anypb.Any{
 		TypeUrl: "test.extension",
 		Value:   []byte("test data"),
 	}
 
-	unknownExt := &UnknownExtension{detail: detail}
+	unknownExt := &UndecodedExtension{detail: detail}
 
 	// Test that it implements ExtensionRelDefinition
 	var _ ExtensionRelDefinition = unknownExt

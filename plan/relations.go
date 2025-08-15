@@ -1580,15 +1580,16 @@ type ExtensionRelDefinition interface {
 	Expressions(inputs []Rel) []expr.Expression
 }
 
-// UnknownExtension wraps an *anypb.Any detail for extension relations parsed from protobuf that don't have a definition.
-type UnknownExtension struct {
+// UndecodedExtension wraps an *anypb.Any detail for extension relations parsed from protobuf
+// that are not decoded
+type UndecodedExtension struct {
 	detail *anypb.Any
 }
 
 // Schema returns an empty record type for unknown extensions.
-func (ue *UnknownExtension) Schema(inputs []Rel) types.RecordType {
+func (ue *UndecodedExtension) Schema(inputs []Rel) types.RecordType {
 	if len(inputs) == 1 {
-		// XXX: the UnknownExtension doesn't know its schema type. For now, we
+		// XXX: the UndecodedExtension doesn't know its schema type. For now, we
 		// guess that if there is exactly one input, its probably that record
 		// type, otherwise, empty; that's not a very good choice, but its now
 		// what we have backwards-compatibility-wise. We should probably hook
@@ -1600,12 +1601,12 @@ func (ue *UnknownExtension) Schema(inputs []Rel) types.RecordType {
 }
 
 // Build returns the wrapped detail.
-func (ue *UnknownExtension) Build(inputs []Rel) *anypb.Any {
+func (ue *UndecodedExtension) Build(inputs []Rel) *anypb.Any {
 	return ue.detail
 }
 
 // Expressions returns nil as we don't know the structure of unknown extensions.
-func (ue *UnknownExtension) Expressions(inputs []Rel) []expr.Expression {
+func (ue *UndecodedExtension) Expressions(inputs []Rel) []expr.Expression {
 	return nil
 }
 
