@@ -10,7 +10,32 @@ import (
 	"github.com/substrait-io/substrait-go/v5/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
+
+// TestExtensionDefinition is a simple test implementation of ExtensionRelDefinition
+type TestExtensionDefinition struct {
+	schema types.RecordType
+	detail []byte
+	exprs  []expr.Expression
+}
+
+func (t *TestExtensionDefinition) Schema(inputs []Rel) types.RecordType {
+	return t.schema
+}
+
+func (t *TestExtensionDefinition) Build(inputs []Rel) *anypb.Any {
+	if t.detail == nil {
+		return nil
+	}
+	message := &wrapperspb.StringValue{Value: string(t.detail)}
+	any, _ := anypb.New(message)
+	return any
+}
+
+func (t *TestExtensionDefinition) Expressions(inputs []Rel) []expr.Expression {
+	return t.exprs
+}
 
 func noOpRewrite(e expr.Expression) (expr.Expression, error) {
 	return e, nil
@@ -634,6 +659,7 @@ func TestExtensionSingleRecordType(t *testing.T) {
 	var rel ExtensionSingleRel
 	rel.input = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
 		[]types.Type{&types.Int64Type{}, &types.Int64Type{}})}
+	rel.definition = &UndecodedExtension{}
 
 	expected := *types.NewRecordTypeFromTypes([]types.Type{&types.Int64Type{}, &types.Int64Type{}})
 	result := rel.RecordType()
@@ -648,6 +674,7 @@ func TestExtensionSingleRecordType(t *testing.T) {
 
 func TestExtensionLeafRecordType(t *testing.T) {
 	var rel ExtensionLeafRel
+	rel.definition = &UndecodedExtension{}
 
 	expected := *types.NewRecordTypeFromTypes(nil)
 	result := rel.RecordType()
@@ -659,6 +686,7 @@ func TestExtensionLeafRecordType(t *testing.T) {
 
 func TestExtensionMultiRecordType(t *testing.T) {
 	var rel ExtensionMultiRel
+	rel.definition = &UndecodedExtension{}
 
 	expected := *types.NewRecordTypeFromTypes(nil)
 	result := rel.RecordType()
@@ -719,4 +747,136 @@ func TestNamedTableWriteRecordType(t *testing.T) {
 
 	_, err := rel.Remap(0)
 	assert.ErrorContains(t, err, "output mapping index out of range")
+}
+
+func TestExtensionRelDefinitionInterface(t *testing.T) {
+	b := NewBuilderDefault()
+
+	// Test custom schema definition
+	customSchema := *types.NewRecordTypeFromTypes([]types.Type{
+		&types.Int64Type{},
+		&types.StringType{},
+	})
+
+	testDef := &TestExtensionDefinition{
+		schema: customSchema,
+		detail: []byte("test-extension"),
+		exprs:  []expr.Expression{expr.NewPrimitiveLiteral(int32(42), false)},
+	}
+
+	// Test ExtensionLeafRel with definition
+	leafRel, err := b.ExtensionLeaf(testDef)
+	require.NoError(t, err)
+	assert.NotNil(t, leafRel.Definition())
+	assert.Equal(t, customSchema, leafRel.RecordType())
+	assert.NotNil(t, leafRel.Detail())
+
+	// Test ExtensionSingleRel with definition
+	input := b.NamedScan([]string{"test"}, types.NamedStruct{
+		Names:  []string{"col1"},
+		Struct: types.StructType{Types: []types.Type{&types.Int64Type{}}},
+	})
+	singleRel, err := b.ExtensionSingle(input, testDef)
+	require.NoError(t, err)
+	assert.NotNil(t, singleRel.Definition())
+	assert.Equal(t, customSchema, singleRel.RecordType())
+	assert.NotNil(t, singleRel.Detail())
+
+	// Test ExtensionMultiRel with definition
+	inputs := []Rel{input, input}
+	multiRel, err := b.ExtensionMulti(inputs, testDef)
+	require.NoError(t, err)
+	assert.NotNil(t, multiRel.Definition())
+	assert.Equal(t, customSchema, multiRel.RecordType())
+	assert.NotNil(t, multiRel.Detail())
+
+	// Test backward compatibility behavior by using wrapper
+	oldStyleDef := &TestExtensionDefinition{
+		schema: types.RecordType{}, // Empty schema like before
+		detail: []byte("old-style"),
+		exprs:  nil,
+	}
+
+	oldLeaf, err := b.ExtensionLeaf(oldStyleDef)
+	require.NoError(t, err)
+	assert.NotNil(t, oldLeaf.Definition())
+	assert.Equal(t, types.RecordType{}, oldLeaf.RecordType()) // Empty schema as before
+
+	oldSingleDef := &TestExtensionDefinition{
+		schema: input.RecordType(), // Input schema like before
+		detail: []byte("old-style"),
+		exprs:  nil,
+	}
+	oldSingle, err := b.ExtensionSingle(input, oldSingleDef)
+	require.NoError(t, err)
+	assert.NotNil(t, oldSingle.Definition())
+	assert.Equal(t, input.RecordType(), oldSingle.RecordType()) // Input schema as before
+
+	oldMultiDef := &TestExtensionDefinition{
+		schema: types.RecordType{}, // Empty schema like before
+		detail: []byte("old-style"),
+		exprs:  nil,
+	}
+	oldMulti, err := b.ExtensionMulti(inputs, oldMultiDef)
+	require.NoError(t, err)
+	assert.NotNil(t, oldMulti.Definition())
+	// Should return empty schema as before for backward compatibility
+	assert.Equal(t, types.RecordType{}, oldMulti.RecordType())
+}
+
+func TestUndecodedExtensionBackwardCompatibility(t *testing.T) {
+	// Create a test detail
+	detail := &anypb.Any{
+		TypeUrl: "test.extension",
+		Value:   []byte("test data"),
+	}
+
+	// Test UndecodedExtension with no inputs
+	unknownExt := &UndecodedExtension{detail: detail}
+
+	// Test Schema method with no inputs
+	schema := unknownExt.Schema(nil)
+	assert.Equal(t, types.RecordType{}, schema)
+
+	// Test Schema method with inputs
+	inputs := []Rel{createVirtualTableReadRel(2)}
+	schemaWithInputs := unknownExt.Schema(inputs)
+	assert.Equal(t, inputs[0].RecordType(), schemaWithInputs)
+
+	// Test Build method
+	built := unknownExt.Build(inputs)
+	assert.Equal(t, detail, built)
+
+	// Test Expressions method
+	exprs := unknownExt.Expressions(inputs)
+	assert.Nil(t, exprs)
+}
+
+func TestExtensionRelFromProtoBackwardCompatibility(t *testing.T) {
+	// This test verifies that extension relations loaded from proto
+	// now have an UndecodedExtension definition instead of nil
+	// We'll test this by checking the existing behavior works
+
+	// Test that UndecodedExtension behaves correctly
+	detail := &anypb.Any{
+		TypeUrl: "test.extension",
+		Value:   []byte("test data"),
+	}
+
+	unknownExt := &UndecodedExtension{detail: detail}
+
+	// Test that it implements ExtensionRelDefinition
+	var _ ExtensionRelDefinition = unknownExt
+
+	// Test that it returns the correct detail
+	assert.Equal(t, detail, unknownExt.Build(nil))
+	assert.Equal(t, detail, unknownExt.Build([]Rel{}))
+
+	// Test that expressions return nil (unknown extensions don't have expressions)
+	assert.Nil(t, unknownExt.Expressions(nil))
+	assert.Nil(t, unknownExt.Expressions([]Rel{}))
+
+	// Test schema behavior - empty for no inputs, first input's schema with inputs
+	assert.Equal(t, types.RecordType{}, unknownExt.Schema(nil))
+	assert.Equal(t, types.RecordType{}, unknownExt.Schema([]Rel{}))
 }

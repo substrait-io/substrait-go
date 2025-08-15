@@ -1566,22 +1566,75 @@ func (s *SetRel) Remap(mapping ...int32) (Rel, error) {
 	return RemapHelper(s, mapping)
 }
 
+// ExtensionRelDefinition provides flexibility for extension relations to define
+// their own schema and expression handling behavior.
+type ExtensionRelDefinition interface {
+	// Schema returns the output schema for this extension given the input relations.
+	Schema(inputs []Rel) types.RecordType
+
+	// Build returns the protobuf Any type containing the extension details.
+	Build(inputs []Rel) *anypb.Any
+
+	// Expressions returns any expression trees within this extension.
+	// This should return nil if the extension contains no expressions.
+	Expressions(inputs []Rel) []expr.Expression
+}
+
+// UndecodedExtension wraps an *anypb.Any detail for extension relations parsed from protobuf
+// that are not decoded
+type UndecodedExtension struct {
+	detail *anypb.Any
+}
+
+// Schema returns an empty record type for unknown extensions.
+func (ue *UndecodedExtension) Schema(inputs []Rel) types.RecordType {
+	if len(inputs) == 1 {
+		// XXX: the UndecodedExtension doesn't know its schema type. For now, we
+		// guess that if there is exactly one input, its probably that record
+		// type, otherwise, empty; that's not a very good choice, but its now
+		// what we have backwards-compatibility-wise. We should probably hook
+		// this into the ExtensionRegistry or similar so we can look it up and
+		// get the correct schema.
+		return inputs[0].RecordType()
+	}
+	return types.RecordType{}
+}
+
+// Build returns the wrapped detail.
+func (ue *UndecodedExtension) Build(inputs []Rel) *anypb.Any {
+	return ue.detail
+}
+
+// Expressions returns nil as we don't know the structure of unknown extensions.
+func (ue *UndecodedExtension) Expressions(inputs []Rel) []expr.Expression {
+	return nil
+}
+
 // ExtensionSingleRel is a stub to support extensions with a single input.
 type ExtensionSingleRel struct {
 	RelCommon
 
-	input  Rel
-	detail *anypb.Any
+	input      Rel
+	definition ExtensionRelDefinition
 }
 
 func (es *ExtensionSingleRel) directOutputSchema() types.RecordType {
-	return es.input.RecordType()
+	return es.definition.Schema([]Rel{es.input})
 }
+
 func (es *ExtensionSingleRel) RecordType() types.RecordType {
 	return es.remap(es.directOutputSchema())
 }
-func (es *ExtensionSingleRel) Input() Rel         { return es.input }
-func (es *ExtensionSingleRel) Detail() *anypb.Any { return es.detail }
+
+func (es *ExtensionSingleRel) Input() Rel { return es.input }
+
+// Detail returns the extension details.
+func (es *ExtensionSingleRel) Detail() *anypb.Any {
+	return es.definition.Build([]Rel{es.input})
+}
+
+// Definition returns the extension definition if present.
+func (es *ExtensionSingleRel) Definition() ExtensionRelDefinition { return es.definition }
 
 func (es *ExtensionSingleRel) ToProto() *proto.Rel {
 	return &proto.Rel{
@@ -1589,7 +1642,7 @@ func (es *ExtensionSingleRel) ToProto() *proto.Rel {
 			ExtensionSingle: &proto.ExtensionSingleRel{
 				Common: es.toProto(),
 				Input:  es.input.ToProto(),
-				Detail: es.detail,
+				Detail: es.Detail(),
 			},
 		},
 	}
@@ -1631,21 +1684,30 @@ func (es *ExtensionSingleRel) Remap(mapping ...int32) (Rel, error) {
 type ExtensionLeafRel struct {
 	RelCommon
 
-	detail *anypb.Any
+	definition ExtensionRelDefinition
 }
 
-func (el *ExtensionLeafRel) directOutputSchema() types.RecordType { return types.RecordType{} }
+func (el *ExtensionLeafRel) directOutputSchema() types.RecordType {
+	return el.definition.Schema([]Rel{})
+}
 func (el *ExtensionLeafRel) RecordType() types.RecordType {
 	return el.remap(el.directOutputSchema())
 }
-func (el *ExtensionLeafRel) Detail() *anypb.Any { return el.detail }
+
+// Detail returns the extension details.
+func (el *ExtensionLeafRel) Detail() *anypb.Any {
+	return el.definition.Build([]Rel{})
+}
+
+// Definition returns the extension definition if present.
+func (el *ExtensionLeafRel) Definition() ExtensionRelDefinition { return el.definition }
 
 func (el *ExtensionLeafRel) ToProto() *proto.Rel {
 	return &proto.Rel{
 		RelType: &proto.Rel_ExtensionLeaf{
 			ExtensionLeaf: &proto.ExtensionLeafRel{
 				Common: el.toProto(),
-				Detail: el.detail,
+				Detail: el.Detail(),
 			},
 		},
 	}
@@ -1679,16 +1741,25 @@ func (el *ExtensionLeafRel) Remap(mapping ...int32) (Rel, error) {
 type ExtensionMultiRel struct {
 	RelCommon
 
-	inputs []Rel
-	detail *anypb.Any
+	inputs     []Rel
+	definition ExtensionRelDefinition
 }
 
-func (em *ExtensionMultiRel) directOutputSchema() types.RecordType { return types.RecordType{} }
+func (em *ExtensionMultiRel) directOutputSchema() types.RecordType {
+	return em.definition.Schema(em.inputs)
+}
 func (em *ExtensionMultiRel) RecordType() types.RecordType {
 	return em.remap(em.directOutputSchema())
 }
-func (em *ExtensionMultiRel) Inputs() []Rel      { return em.inputs }
-func (em *ExtensionMultiRel) Detail() *anypb.Any { return em.detail }
+func (em *ExtensionMultiRel) Inputs() []Rel { return em.inputs }
+
+// Detail returns the extension details.
+func (em *ExtensionMultiRel) Detail() *anypb.Any {
+	return em.definition.Build(em.inputs)
+}
+
+// Definition returns the extension definition if present.
+func (em *ExtensionMultiRel) Definition() ExtensionRelDefinition { return em.definition }
 
 func (em *ExtensionMultiRel) ToProto() *proto.Rel {
 	inputs := make([]*proto.Rel, len(em.inputs))
@@ -1700,7 +1771,7 @@ func (em *ExtensionMultiRel) ToProto() *proto.Rel {
 			ExtensionMulti: &proto.ExtensionMultiRel{
 				Common: em.toProto(),
 				Inputs: inputs,
-				Detail: em.detail,
+				Detail: em.Detail(),
 			},
 		},
 	}

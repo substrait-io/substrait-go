@@ -656,9 +656,11 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			return nil, fmt.Errorf("error getting input to ExtensionSingle: %w", err)
 		}
 
+		// TODO: we should probably be adding Extension relations to the ExtensionRegistry,
+		// look up extensions from there, and have a way to decode *anypb.Any to ExtensionRelDefinitions
 		out := &ExtensionSingleRel{
-			input:  input,
-			detail: rel.ExtensionSingle.Detail,
+			input:      input,
+			definition: &UndecodedExtension{detail: rel.ExtensionSingle.Detail},
 		}
 		out.fromProtoCommon(rel.ExtensionSingle.Common)
 
@@ -673,16 +675,21 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			}
 		}
 
+		// TODO: we should probably be adding Extension relations to the ExtensionRegistry,
+		// look up extensions from there, and have a way to decode *anypb.Any to ExtensionRelDefinitions
 		out := &ExtensionMultiRel{
-			inputs: inputs,
-			detail: rel.ExtensionMulti.Detail,
+			inputs:     inputs,
+			definition: &UndecodedExtension{detail: rel.ExtensionMulti.Detail},
 		}
 		out.fromProtoCommon(rel.ExtensionMulti.Common)
 
 		return out, nil
 	case *proto.Rel_ExtensionLeaf:
+
+		// TODO: we should probably be adding Extension relations to the ExtensionRegistry,
+		// look up extensions from there, and have a way to decode *anypb.Any to ExtensionRelDefinitions
 		out := &ExtensionLeafRel{
-			detail: rel.ExtensionLeaf.Detail,
+			definition: &UndecodedExtension{detail: rel.ExtensionLeaf.Detail},
 		}
 		out.fromProtoCommon(rel.ExtensionLeaf.Common)
 

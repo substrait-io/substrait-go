@@ -18,6 +18,8 @@ import (
 	substraitproto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 const versionStruct = `"version": {
@@ -2113,4 +2115,278 @@ func TestIcebergTable(t *testing.T) {
 			checkRoundTrip(t, expectedJsonWithIceberg(td.metadataURI, snapshot), p)
 		})
 	}
+}
+
+// TestExtensionDefinition is a simple test implementation of ExtensionRelDefinition
+type TestExtensionDefinition struct {
+	schema types.RecordType
+	detail []byte
+	exprs  []expr.Expression
+}
+
+func (t *TestExtensionDefinition) Schema(inputs []plan.Rel) types.RecordType {
+	return t.schema
+}
+
+func (t *TestExtensionDefinition) Build(inputs []plan.Rel) *anypb.Any {
+	if t.detail == nil {
+		return nil
+	}
+	message := &wrapperspb.StringValue{Value: string(t.detail)}
+	any, _ := anypb.New(message)
+	return any
+}
+
+func (t *TestExtensionDefinition) Expressions(inputs []plan.Rel) []expr.Expression {
+	return t.exprs
+}
+
+func TestExtensionSingleBuilder(t *testing.T) {
+	const expectedJSON = `{
+		` + versionStruct + `,
+		"relations": [
+			{
+				"root": {
+					"input": {
+						"extensionSingle": {
+							"common": {"direct": {}},
+							"input": {
+								"read": {
+									"common": {"direct": {}},
+									"baseSchema": {
+										"names": ["a", "b"],
+										"struct": {
+											"types": [
+												{"string": { "nullability": "NULLABILITY_REQUIRED"}},
+												{"fp32": { "nullability": "NULLABILITY_REQUIRED"}}
+											],
+											"nullability": "NULLABILITY_REQUIRED"
+										}
+									},
+									"namedTable": { "names": [ "test" ]}
+								}
+							},
+							"detail": {
+								"@type": "type.googleapis.com/google.protobuf.StringValue",
+								"value": "test-config"
+							}
+						}
+					},
+					"names": ["result"]
+				}
+			}
+		]
+	}`
+
+	b := plan.NewBuilderDefault()
+	scan := b.NamedScan([]string{"test"}, baseSchema)
+
+	// Create custom schema for extension
+	customSchema := types.StructType{
+		Nullability: types.NullabilityRequired,
+		Types: []types.Type{
+			&types.StringType{Nullability: types.NullabilityRequired},
+		},
+	}
+
+	// Create extension definition
+	extensionDef := &TestExtensionDefinition{
+		schema: *types.NewRecordTypeFromStruct(customSchema),
+		detail: []byte("test-config"),
+		exprs:  nil,
+	}
+
+	extRel, err := b.ExtensionSingle(scan, extensionDef)
+	require.NoError(t, err)
+
+	p, err := b.Plan(extRel, []string{"result"})
+	require.NoError(t, err)
+
+	assert.Equal(t, "NSTRUCT<result: string>", p.GetRoots()[0].RecordType().String())
+
+	checkRoundTrip(t, expectedJSON, p)
+}
+
+func TestExtensionLeafBuilder(t *testing.T) {
+	const expectedJSON = `{
+		` + versionStruct + `,
+		"relations": [
+			{
+				"root": {
+					"input": {
+						"extensionLeaf": {
+							"common": {"direct": {}},
+							"detail": {
+								"@type": "type.googleapis.com/google.protobuf.StringValue",
+								"value": "leaf-config"
+							}
+						}
+					},
+					"names": ["x", "y"]
+				}
+			}
+		]
+	}`
+
+	b := plan.NewBuilderDefault()
+
+	// Create custom schema for leaf extension
+	customSchema := types.StructType{
+		Nullability: types.NullabilityRequired,
+		Types: []types.Type{
+			&types.Int32Type{Nullability: types.NullabilityRequired},
+			&types.BooleanType{Nullability: types.NullabilityRequired},
+		},
+	}
+
+	// Create extension definition
+	extensionDef := &TestExtensionDefinition{
+		schema: *types.NewRecordTypeFromStruct(customSchema),
+		detail: []byte("leaf-config"),
+		exprs:  nil,
+	}
+
+	extRel, err := b.ExtensionLeaf(extensionDef)
+	require.NoError(t, err)
+
+	p, err := b.Plan(extRel, []string{"x", "y"})
+	require.NoError(t, err)
+
+	assert.Equal(t, "NSTRUCT<x: i32, y: boolean>", p.GetRoots()[0].RecordType().String())
+
+	checkRoundTrip(t, expectedJSON, p)
+}
+
+func TestExtensionMultiBuilder(t *testing.T) {
+	const expectedJSON = `{
+		` + versionStruct + `,
+		"relations": [
+			{
+				"root": {
+					"input": {
+						"extensionMulti": {
+							"common": {"direct": {}},
+							"inputs": [
+								{
+									"read": {
+										"common": {"direct": {}},
+										"baseSchema": {
+											"names": ["a", "b"],
+											"struct": {
+												"types": [
+													{"string": { "nullability": "NULLABILITY_REQUIRED"}},
+													{"fp32": { "nullability": "NULLABILITY_REQUIRED"}}
+												],
+												"nullability": "NULLABILITY_REQUIRED"
+											}
+										},
+										"namedTable": { "names": [ "test" ]}
+									}
+								},
+								{
+									"read": {
+										"common": {"direct": {}},
+										"baseSchema": {
+											"names": ["x", "y"],
+											"struct": {
+												"types": [
+													{"i32": { "nullability": "NULLABILITY_REQUIRED"}},
+													{"bool": { "nullability": "NULLABILITY_REQUIRED"}}
+												],
+												"nullability": "NULLABILITY_REQUIRED"
+											}
+										},
+										"namedTable": { "names": [ "test2" ]}
+									}
+								}
+							],
+							"detail": {
+								"@type": "type.googleapis.com/google.protobuf.StringValue",
+								"value": "multi-config"
+							}
+						}
+					},
+					"names": ["result"]
+				}
+			}
+		]
+	}`
+
+	b := plan.NewBuilderDefault()
+	left := b.NamedScan([]string{"test"}, baseSchema)
+	right := b.NamedScan([]string{"test2"}, baseSchema2)
+
+	// Create custom schema for multi extension
+	customSchema := types.StructType{
+		Nullability: types.NullabilityRequired,
+		Types: []types.Type{
+			&types.StringType{Nullability: types.NullabilityRequired},
+		},
+	}
+
+	// Create extension definition
+	extensionDef := &TestExtensionDefinition{
+		schema: *types.NewRecordTypeFromStruct(customSchema),
+		detail: []byte("multi-config"),
+		exprs:  nil,
+	}
+
+	extRel, err := b.ExtensionMulti([]plan.Rel{left, right}, extensionDef)
+	require.NoError(t, err)
+
+	p, err := b.Plan(extRel, []string{"result"})
+	require.NoError(t, err)
+
+	assert.Equal(t, "NSTRUCT<result: string>", p.GetRoots()[0].RecordType().String())
+
+	checkRoundTrip(t, expectedJSON, p)
+}
+
+func TestExtensionBuildersErrors(t *testing.T) {
+	b := plan.NewBuilderDefault()
+	scan := b.NamedScan([]string{"test"}, baseSchema)
+
+	customSchema := types.StructType{
+		Nullability: types.NullabilityRequired,
+		Types: []types.Type{
+			&types.StringType{Nullability: types.NullabilityRequired},
+		},
+	}
+
+	extensionDef := &TestExtensionDefinition{
+		schema: *types.NewRecordTypeFromStruct(customSchema),
+		detail: []byte("test-config"),
+		exprs:  nil,
+	}
+
+	// Test ExtensionSingle errors
+	_, err := b.ExtensionSingle(nil, extensionDef)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+	assert.ErrorContains(t, err, "input Relation must not be nil")
+
+	_, err = b.ExtensionSingle(scan, nil)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidArg)
+	assert.ErrorContains(t, err, "definition must not be nil")
+
+	// Test ExtensionLeaf errors
+	_, err = b.ExtensionLeaf(nil)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidArg)
+	assert.ErrorContains(t, err, "definition must not be nil")
+
+	// Test ExtensionMulti errors
+	_, err = b.ExtensionMulti(nil, extensionDef)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+	assert.ErrorContains(t, err, "input Relation must not be nil")
+
+	_, err = b.ExtensionMulti([]plan.Rel{}, extensionDef)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+	assert.ErrorContains(t, err, "input Relation must not be nil")
+
+	_, err = b.ExtensionMulti([]plan.Rel{scan, nil}, extensionDef)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+	assert.ErrorContains(t, err, "input Relation must not be nil")
+
+	_, err = b.ExtensionMulti([]plan.Rel{scan}, nil)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidArg)
+	assert.ErrorContains(t, err, "definition must not be nil")
 }
