@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/v5/expr"
-	ext "github.com/substrait-io/substrait-go/v5/extensions"
+	"github.com/substrait-io/substrait-go/v6/expr"
+	ext "github.com/substrait-io/substrait-go/v6/extensions"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/encoding/protojson"
 )

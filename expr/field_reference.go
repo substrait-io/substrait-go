@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	substraitgo "github.com/substrait-io/substrait-go/v5"
-	"github.com/substrait-io/substrait-go/v5/types"
+	substraitgo "github.com/substrait-io/substrait-go/v6"
+	"github.com/substrait-io/substrait-go/v6/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"golang.org/x/exp/slices"
 )

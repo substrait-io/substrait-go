@@ -11,8 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/v5/expr"
-	"github.com/substrait-io/substrait-go/v5/types"
+	"github.com/substrait-io/substrait-go/v6/expr"
+	"github.com/substrait-io/substrait-go/v6/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
