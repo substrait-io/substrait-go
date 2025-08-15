@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/civil"
-	substraitgo "github.com/substrait-io/substrait-go/v5"
+	substraitgo "github.com/substrait-io/substrait-go/v6"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/substrait-io/substrait-go/v5/types"
+	"github.com/substrait-io/substrait-go/v6/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 

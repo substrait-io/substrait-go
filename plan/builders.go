@@ -5,10 +5,10 @@ package plan
 import (
 	"fmt"
 
-	substraitgo "github.com/substrait-io/substrait-go/v5"
-	"github.com/substrait-io/substrait-go/v5/expr"
-	"github.com/substrait-io/substrait-go/v5/extensions"
-	"github.com/substrait-io/substrait-go/v5/types"
+	substraitgo "github.com/substrait-io/substrait-go/v6"
+	"github.com/substrait-io/substrait-go/v6/expr"
+	"github.com/substrait-io/substrait-go/v6/extensions"
+	"github.com/substrait-io/substrait-go/v6/types"
 	"golang.org/x/exp/slices"
 )
 
