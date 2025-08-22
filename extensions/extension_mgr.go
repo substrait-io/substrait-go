@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"path"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/creasty/defaults"
@@ -20,7 +21,7 @@ import (
 
 type AdvancedExtension = extensions.AdvancedExtension
 
-const SubstraitDefaultURIPrefix = "https://github.com/substrait-io/substrait/blob/main/extensions/"
+const SubstraitDefaultURIPrefix = "urn:substrait:"
 
 var (
 	getDefaultCollectionOnce = sync.OnceValues[*Collection, error](loadDefaultCollection)
@@ -75,7 +76,9 @@ func loadExtensionFile(collection *Collection, substraitFS embed.FS, ent fs.DirE
 	}
 	fileName := path.Base(fileStat.Name())
 	if _, ok := unsupportedExtensions[fileName]; !ok {
-		err = collection.Load(SubstraitDefaultURIPrefix+ent.Name(), f)
+		// e.g. functions_set.yaml --> urn:substrait:functions_set
+		var urn = SubstraitDefaultURIPrefix + strings.TrimSuffix(ent.Name(), ".yaml")
+		err = collection.Load(urn, f)
 		if err != nil {
 			return err
 		}

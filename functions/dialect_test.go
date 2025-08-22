@@ -26,9 +26,9 @@ name: testdb
 type: sql
 dependencies:
   arithmetic: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+    urn:substrait:functions_arithmetic
   comparison: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_comparison.yaml
+    urn:substrait:functions_comparison
 supported_types:
   i32:
     sql_type_name: TINYINT,
@@ -135,7 +135,7 @@ scalar_functions:
 type: sql
 dependencies:
   arithmetic: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+    urn:substrait:functions_arithmetic
 supported_types:
   i32:
     sql_type_name: TINYINT,
@@ -160,7 +160,7 @@ window_functions:
 type: sql
 dependencies:
   arithmetic: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+    urn:substrait:functions_arithmetic
 supported_types:
   i32:
     sql_type_name: TINYINT,
@@ -178,7 +178,7 @@ scalar_functions:
 type: sql
 dependencies:
   arithmetic: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+    urn:substrait:functions_arithmetic
 supported_types:
   i32:
     sql_type_name: TINYINT,
@@ -193,7 +193,7 @@ aggregate_functions:
 type: sql
 dependencies:
   arithmetic: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+    urn:substrait:functions_arithmetic
 supported_types:
   i32:
     sql_type_name: TINYINT,
@@ -221,7 +221,7 @@ window_functions:
 type: sql
 dependencies:
   arithmetic: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+    urn:substrait:functions_arithmetic
 supported_types:
   i32:
     sql_type_name: TINYINT,
@@ -258,11 +258,11 @@ func getLocalFunctionRegistry(t *testing.T, dialectYaml string, substraitFuncReg
 }
 
 func TestScalarFunctionsLookup(t *testing.T) {
-	baseUri := "https://github.com/substrait-io/substrait/blob/main/extensions/"
-	arithmeticUri := baseUri + "functions_arithmetic.yaml"
-	booleanUri := baseUri + "functions_boolean.yaml"
-	comparisonUri := baseUri + "functions_comparison.yaml"
-	stringUri := baseUri + "functions_string.yaml"
+	baseUri := "urn:substrait:"
+	arithmeticUri := baseUri + "functions_arithmetic"
+	booleanUri := baseUri + "functions_boolean"
+	comparisonUri := baseUri + "functions_comparison"
+	stringUri := baseUri + "functions_string"
 	allFunctions := gFunctionRegistry.GetAllFunctions()
 
 	dialectYaml := `
@@ -270,13 +270,13 @@ name: test
 type: sql
 dependencies:
   arithmetic: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+    urn:substrait:functions_arithmetic
   boolean: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_boolean.yaml
+    urn:substrait:functions_boolean
   comparison: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_comparison.yaml
+    urn:substrait:functions_comparison
   string: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_string.yaml
+    urn:substrait:functions_string
 supported_types:
   i32:
     sql_type_name: INTEGER
@@ -389,14 +389,14 @@ scalar_functions:
 }
 
 func TestAggregateFunctionsLookup(t *testing.T) {
-	expectedUri := "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	expectedUri := "urn:substrait:functions_arithmetic"
 	allFunctions := gFunctionRegistry.GetAllFunctions()
 	dialectYaml := `
 name: test
 type: sql
 dependencies:
   arithmetic: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+    urn:substrait:functions_arithmetic
 supported_types:
   i8:
     sql_type_name: INTEGER
@@ -471,14 +471,14 @@ aggregate_functions:
 }
 
 func TestWindowFunctionsLookup(t *testing.T) {
-	expectedUri := "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	expectedUri := "urn:substrait:functions_arithmetic"
 	allFunctions := gFunctionRegistry.GetAllFunctions()
 	dialectYaml := `
 name: test
 type: sql
 dependencies:
   arithmetic: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+    urn:substrait:functions_arithmetic
 supported_types:
   i32:
     sql_type_name: INTEGER
@@ -1360,8 +1360,8 @@ window_functions:
 }
 
 func TestDecimalScalarFunctionsLookup(t *testing.T) {
-	baseUri := "https://github.com/substrait-io/substrait/blob/main/extensions/"
-	decArithmeticUri := baseUri + "functions_arithmetic_decimal.yaml"
+	baseUri := "urn:substrait:"
+	decArithmeticUri := baseUri + "functions_arithmetic_decimal"
 	allFunctions := gFunctionRegistry.GetAllFunctions()
 
 	dialectYaml := `
@@ -1369,7 +1369,7 @@ name: test
 type: sql
 dependencies:
   arithmetic: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic_decimal.yaml
+    urn:substrait:functions_arithmetic_decimal
 supported_types:
   decimal:
     sql_type_name: INTEGER
@@ -1467,8 +1467,8 @@ scalar_functions:
 }
 
 func TestScalarFunctionLookupWithAnyReturnType(t *testing.T) {
-	baseUri := "https://github.com/substrait-io/substrait/blob/main/extensions/"
-	decArithmeticUri := baseUri + "functions_comparison.yaml"
+	baseUri := "urn:substrait:"
+	decArithmeticUri := baseUri + "functions_comparison"
 	allFunctions := gFunctionRegistry.GetAllFunctions()
 
 	dialectYaml := `
@@ -1476,9 +1476,9 @@ name: test
 type: sql
 dependencies:
   arithmetic: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+    urn:substrait:functions_arithmetic
   comparison: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_comparison.yaml
+    urn:substrait:functions_comparison
 supported_types:
   decimal:
     sql_type_name: INTEGER

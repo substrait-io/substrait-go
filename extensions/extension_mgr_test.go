@@ -221,49 +221,49 @@ func TestDefaultCollection(t *testing.T) {
 		options      map[string]extensions.Option
 		variadic     *extensions.VariadicBehavior
 	}{
-		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_arithmetic",
 			"add", "add:i32_i32", 2, map[string]extensions.Option{"overflow": {Values: []string{"SILENT", "SATURATE", "ERROR"}}},
 			nil},
-		{aggFunc, extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+		{aggFunc, extensions.SubstraitDefaultURIPrefix + "functions_arithmetic",
 			"variance", "variance:fp64", 1, map[string]extensions.Option{
 				"distribution": {Values: []string{"SAMPLE", "POPULATION"}},
 				"rounding":     {Values: []string{"TIE_TO_EVEN", "TIE_AWAY_FROM_ZERO", "TRUNCATE", "CEILING", "FLOOR"}}},
 			nil},
-		{windowFunc, extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+		{windowFunc, extensions.SubstraitDefaultURIPrefix + "functions_arithmetic",
 			"dense_rank", "dense_rank:", 0, nil, nil},
-		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_boolean.yaml",
+		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_boolean",
 			"or", "or:bool", 1, nil, &extensions.VariadicBehavior{Min: 0}},
-		{aggFunc, extensions.SubstraitDefaultURIPrefix + "functions_boolean.yaml",
+		{aggFunc, extensions.SubstraitDefaultURIPrefix + "functions_boolean",
 			"bool_and", "bool_and:bool", 1, nil, nil},
-		{aggFunc, extensions.SubstraitDefaultURIPrefix + "functions_aggregate_approx.yaml",
+		{aggFunc, extensions.SubstraitDefaultURIPrefix + "functions_aggregate_approx",
 			"approx_count_distinct", "approx_count_distinct:any", 1, nil, nil},
-		{aggFunc, extensions.SubstraitDefaultURIPrefix + "functions_aggregate_generic.yaml",
+		{aggFunc, extensions.SubstraitDefaultURIPrefix + "functions_aggregate_generic",
 			"count", "count:", 0, map[string]extensions.Option{"overflow": {Values: []string{"SILENT", "SATURATE", "ERROR"}}}, nil},
-		{aggFunc, extensions.SubstraitDefaultURIPrefix + "functions_aggregate_generic.yaml",
+		{aggFunc, extensions.SubstraitDefaultURIPrefix + "functions_aggregate_generic",
 			"count", "count:any", 1, map[string]extensions.Option{"overflow": {Values: []string{"SILENT", "SATURATE", "ERROR"}}}, nil},
-		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_comparison.yaml",
+		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_comparison",
 			"not_equal", "not_equal:any_any", 2, nil, nil},
-		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_comparison.yaml",
+		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_comparison",
 			"between", "between:any_any_any", 3, nil, nil},
-		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_datetime.yaml",
+		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_datetime",
 			"add", "add:ts_iyear", 2, nil, nil},
-		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_logarithmic.yaml",
+		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_logarithmic",
 			"ln", "ln:fp32", 1, map[string]extensions.Option{
 				"rounding":        {Values: []string{"TIE_TO_EVEN", "TIE_AWAY_FROM_ZERO", "TRUNCATE", "CEILING", "FLOOR"}},
 				"on_domain_error": {Values: []string{"NAN", "NULL", "ERROR"}},
 				"on_log_zero":     {Values: []string{"NAN", "ERROR", "MINUS_INFINITY"}},
 			}, nil},
-		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_rounding.yaml",
+		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_rounding",
 			"ceil", "ceil:fp64", 1, nil, nil},
-		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_set.yaml",
+		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_set",
 			"index_in", "index_in:any_list", 2, map[string]extensions.Option{
 				"nan_equality": {Values: []string{"NAN_IS_NAN", "NAN_IS_NOT_NAN"}},
 			}, nil},
-		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_string.yaml",
+		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_string",
 			"string_split", "string_split:vchar_vchar", 2, nil, nil},
-		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_string.yaml",
+		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_string",
 			"string_split", "string_split:str_str", 2, nil, nil},
-		{aggFunc, extensions.SubstraitDefaultURIPrefix + "functions_string.yaml",
+		{aggFunc, extensions.SubstraitDefaultURIPrefix + "functions_string",
 			"string_agg", "string_agg:str_str", 2, nil, nil},
 	}
 
@@ -296,7 +296,7 @@ func TestDefaultCollection(t *testing.T) {
 	}
 
 	et, ok := extensions.GetDefaultCollectionWithNoError().GetType(extensions.ID{
-		URI: extensions.SubstraitDefaultURIPrefix + "extension_types.yaml", Name: "point"})
+		URI: extensions.SubstraitDefaultURIPrefix + "extension_types", Name: "point"})
 	assert.True(t, ok)
 	assert.Equal(t, "point", et.Name)
 	assert.Equal(t, map[string]interface{}{"latitude": "i32", "longitude": "i32"}, et.Structure)
@@ -318,9 +318,9 @@ func TestCollection_GetAllScalarFunctions(t *testing.T) {
 		isAggregate bool
 		isWindow    bool
 	}{
-		{extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml", "add:i32_i32", true, false, false},
-		{extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml", "variance:fp64", false, true, true},
-		{extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml", "dense_rank:", false, false, true},
+		{extensions.SubstraitDefaultURIPrefix + "functions_arithmetic", "add:i32_i32", true, false, false},
+		{extensions.SubstraitDefaultURIPrefix + "functions_arithmetic", "variance:fp64", false, true, true},
+		{extensions.SubstraitDefaultURIPrefix + "functions_arithmetic", "dense_rank:", false, false, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.signature, func(t *testing.T) {
@@ -442,32 +442,32 @@ func TestAggregateToWindowWithDefaultCollection(t *testing.T) {
 		description  string
 	}{
 		{
-			uri:          extensions.SubstraitDefaultURIPrefix + "functions_aggregate_generic.yaml",
+			uri:          extensions.SubstraitDefaultURIPrefix + "functions_aggregate_generic",
 			functionName: "count:",
 			description:  "count function without arguments",
 		},
 		{
-			uri:          extensions.SubstraitDefaultURIPrefix + "functions_aggregate_generic.yaml",
+			uri:          extensions.SubstraitDefaultURIPrefix + "functions_aggregate_generic",
 			functionName: "count:any",
 			description:  "count function with any argument",
 		},
 		{
-			uri:          extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+			uri:          extensions.SubstraitDefaultURIPrefix + "functions_arithmetic",
 			functionName: "variance:fp64",
 			description:  "variance function",
 		},
 		{
-			uri:          extensions.SubstraitDefaultURIPrefix + "functions_boolean.yaml",
+			uri:          extensions.SubstraitDefaultURIPrefix + "functions_boolean",
 			functionName: "bool_and:bool",
 			description:  "bool_and function",
 		},
 		{
-			uri:          extensions.SubstraitDefaultURIPrefix + "functions_aggregate_approx.yaml",
+			uri:          extensions.SubstraitDefaultURIPrefix + "functions_aggregate_approx",
 			functionName: "approx_count_distinct:any",
 			description:  "approx_count_distinct function",
 		},
 		{
-			uri:          extensions.SubstraitDefaultURIPrefix + "functions_string.yaml",
+			uri:          extensions.SubstraitDefaultURIPrefix + "functions_string",
 			functionName: "string_agg:str_str",
 			description:  "string_agg function",
 		},

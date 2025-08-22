@@ -66,7 +66,7 @@ func TestExprBuilder(t *testing.T) {
 			b.ScalarFunc(subID).Args(b.RootRef(expr.NewStructFieldRef(3)),
 				b.Wrap(expr.NewLiteral(int32(3), false))), ""},
 		{"window func", "",
-			b.WindowFunc(rankID), "invalid expression: non-decomposable window or agg function '{https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml rank}' must use InitialToResult phase"},
+			b.WindowFunc(rankID), "invalid expression: non-decomposable window or agg function '{urn:substrait:functions_arithmetic rank}' must use InitialToResult phase"},
 		{"window func", "rank(; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_UNSPECIFIED) => i64?",
 			b.WindowFunc(rankID).Phase(types.AggPhaseInitialToResult), ""},
 		{"window func",

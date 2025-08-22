@@ -44,7 +44,7 @@ scalar_functions:
 var collection ext.Collection
 
 func init() {
-	err := collection.Load("https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml", strings.NewReader(sampleYAML))
+	err := collection.Load("urn:substrait:functions_arithmetic", strings.NewReader(sampleYAML))
 	if err != nil {
 		panic(err)
 	}
@@ -56,7 +56,7 @@ func ExampleExpression_scalarFunction() {
 		"extensionUris": [
 			{
 				"extensionUriAnchor": 1,
-				"uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+				"uri": "urn:substrait:functions_arithmetic"
 			}
 		],
 		"extensions": [
@@ -175,7 +175,7 @@ func sampleNestedExpr(reg expr.ExtensionRegistry, substraitExtURI string) expr.E
 }
 
 func TestExpressionsRoundtrip(t *testing.T) {
-	const substraitExtURI = "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	const substraitExtURI = "urn:substrait:functions_arithmetic"
 	// define extensions with no plan for now
 	const planExt = `{
 		"extensionUris": [
@@ -239,7 +239,7 @@ func TestExpressionsRoundtrip(t *testing.T) {
 }
 
 func ExampleExpression_Visit() {
-	const substraitExtURI = "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	const substraitExtURI = "urn:substrait:functions_arithmetic"
 	var (
 		exp                 = sampleNestedExpr(expr.NewEmptyExtensionRegistry(ext.GetDefaultCollectionWithNoError()), substraitExtURI)
 		preVisit, postVisit expr.VisitFunc
@@ -281,7 +281,7 @@ func ExampleExpression_Visit() {
 }
 
 func TestRoundTripUsingTestData(t *testing.T) {
-	const substraitExtURI = "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	const substraitExtURI = "urn:substrait:functions_arithmetic"
 	// define extensions with no plan for now
 	const planExt = `{
 		"extensionUris": [
@@ -451,7 +451,7 @@ func TestCastVisit(t *testing.T) {
 }
 
 func TestSubqueryExpressionRoundtrip(t *testing.T) {
-	const substraitExtURI = "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	const substraitExtURI = "urn:substrait:functions_arithmetic"
 	// define extensions with no plan for now
 	const planExt = `{
 		"extensionUris": [
