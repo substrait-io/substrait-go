@@ -165,6 +165,7 @@ func (u *uriUrnTranslator) canonicalizeID(id ID) ID {
 
 type Collection struct {
 	uriSet           map[string]struct{}
+	urnSet           map[string]struct{}
 	uriUrnTranslator *uriUrnTranslator
 
 	simpleNameMap map[ID]string
@@ -251,6 +252,7 @@ func (c *Collection) GetWindowFunc(id ID) (*WindowFunctionVariant, bool) {
 func (c *Collection) init() {
 	if c.uriSet == nil {
 		c.uriSet = make(map[string]struct{})
+		c.urnSet = make(map[string]struct{})
 		c.uriUrnTranslator = newUriUrnTranslator()
 		c.simpleNameMap = make(map[ID]string)
 		c.scalarMap = make(map[ID]*ScalarFunctionVariant)
@@ -360,6 +362,11 @@ func (c *Collection) Load(uri string, r io.Reader) error {
 
 func (c *Collection) URILoaded(uri string) bool {
 	_, ok := c.uriSet[uri]
+	return ok
+}
+
+func (c *Collection) URNLoaded(urn string) bool {
+	_, ok := c.urnSet[urn]
 	return ok
 }
 
