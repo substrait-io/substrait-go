@@ -489,3 +489,160 @@ func TestAggregateToWindowWithDefaultCollection(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadExtensionWithURN(t *testing.T) {
+	const sampleYAMLWithURN = `---
+urn: "urn:example:sample"
+types:
+  - name: point
+    structure:
+      latitude: i32
+      longitude: i32
+scalar_functions:
+  - name: "add"
+    description: "Add two values."
+    impls:
+      - args:
+          - name: x
+            value: i8
+          - name: y
+            value: i8
+        return: i8
+`
+
+	var c extensions.Collection
+	require.NoError(t, c.LoadWithoutUri(strings.NewReader(sampleYAMLWithURN)))
+
+	t.Run("check types loaded via URN", func(t *testing.T) {
+		id := extensions.ID{URN: "urn:example:sample", Name: "point"}
+		ty, ok := c.GetType(id)
+		assert.True(t, ok)
+		assert.Equal(t, "point", ty.Name)
+		assert.Equal(t, map[string]interface{}{"latitude": "i32", "longitude": "i32"}, ty.Structure)
+	})
+
+	t.Run("check scalar function loaded via URN", func(t *testing.T) {
+		add, ok := c.GetScalarFunc(extensions.ID{URN: "urn:example:sample", Name: "add"})
+		assert.True(t, ok)
+		assert.Equal(t, "add", add.Name())
+		assert.Equal(t, "add:i8_i8", add.CompoundName())
+		assert.Equal(t, "Add two values.", add.Description())
+		assert.Equal(t, "urn:example:sample", add.URN())
+	})
+
+	t.Run("URN should be tracked as loaded", func(t *testing.T) {
+		assert.True(t, c.URNLoaded("urn:example:sample"))
+	})
+}
+
+func TestLoadExtensionWithBothURIAndURN(t *testing.T) {
+	const uri = "http://localhost/sample-with-urn.yaml"
+	const sampleYAMLWithBothURIAndURN = `---
+urn: "urn:example:sample"
+types:
+  - name: point
+    structure:
+      latitude: i32
+      longitude: i32
+scalar_functions:
+  - name: "add"
+    description: "Add two values."
+    impls:
+      - args:
+          - name: x
+            value: i8
+          - name: y
+            value: i8
+        return: i8
+`
+
+	var c extensions.Collection
+	require.NoError(t, c.Load(uri, strings.NewReader(sampleYAMLWithBothURIAndURN)))
+
+	t.Run("check types accessible via URI", func(t *testing.T) {
+		id := extensions.ID{URI: uri, Name: "point"}
+		ty, ok := c.GetType(id)
+		assert.True(t, ok)
+		assert.Equal(t, "point", ty.Name)
+	})
+
+	t.Run("check types accessible via URN", func(t *testing.T) {
+		id := extensions.ID{URN: "urn:example:sample", Name: "point"}
+		ty, ok := c.GetType(id)
+		assert.True(t, ok)
+		assert.Equal(t, "point", ty.Name)
+	})
+
+	t.Run("check scalar function accessible via URI", func(t *testing.T) {
+		add, ok := c.GetScalarFunc(extensions.ID{URI: uri, Name: "add"})
+		assert.True(t, ok)
+		assert.Equal(t, "add", add.Name())
+		assert.Equal(t, uri, add.URI())
+		assert.Equal(t, "urn:example:sample", add.URN())
+	})
+
+	t.Run("check scalar function accessible via URN", func(t *testing.T) {
+		add, ok := c.GetScalarFunc(extensions.ID{URN: "urn:example:sample", Name: "add"})
+		assert.True(t, ok)
+		assert.Equal(t, "add", add.Name())
+		assert.Equal(t, uri, add.URI())
+		assert.Equal(t, "urn:example:sample", add.URN())
+	})
+
+	t.Run("both URI and URN should be tracked as loaded", func(t *testing.T) {
+		assert.True(t, c.URILoaded(uri))
+		assert.True(t, c.URNLoaded("urn:example:sample"))
+	})
+}
+
+func TestLoadExtensionErrors(t *testing.T) {
+	t.Run("error when URN is missing from Load", func(t *testing.T) {
+		const sampleYAMLWithoutURN = `---
+types:
+  - name: point
+    structure:
+      latitude: i32
+      longitude: i32
+`
+		var c extensions.Collection
+		err := c.LoadWithoutUri(strings.NewReader(sampleYAMLWithoutURN))
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "URN is required but missing from file")
+	})
+
+	t.Run("error when loading duplicate URN", func(t *testing.T) {
+		const sampleYAMLWithURN = `---
+urn: "urn:example:duplicate"
+types:
+  - name: point
+    structure:
+      latitude: i32
+      longitude: i32
+`
+		var c extensions.Collection
+		require.NoError(t, c.LoadWithoutUri(strings.NewReader(sampleYAMLWithURN)))
+
+		// Try to load the same URN again
+		err := c.LoadWithoutUri(strings.NewReader(sampleYAMLWithURN))
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "urn 'urn:example:duplicate' already loaded")
+	})
+
+	t.Run("error when loading duplicate URI", func(t *testing.T) {
+		const uri = "http://localhost/duplicate.yaml"
+		const sampleYAML = `---
+types:
+  - name: point
+    structure:
+      latitude: i32
+      longitude: i32
+`
+		var c extensions.Collection
+		require.NoError(t, c.Load(uri, strings.NewReader(sampleYAML)))
+
+		// Try to load the same URI again
+		err := c.Load(uri, strings.NewReader(sampleYAML))
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "uri 'http://localhost/duplicate.yaml' already loaded")
+	})
+}

@@ -336,6 +336,7 @@ func (s *ScalarFunctionVariant) Deterministic() bool              { return s.imp
 func (s *ScalarFunctionVariant) SessionDependent() bool           { return s.impl.SessionDependent }
 func (s *ScalarFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
 func (s *ScalarFunctionVariant) URI() string                      { return s.id.URI }
+func (s *ScalarFunctionVariant) URN() string                      { return s.id.URN }
 func (s *ScalarFunctionVariant) ResolveType(argumentTypes []types.Type, registry Set) (types.Type, error) {
 	return EvaluateTypeExpression(s.id.URI, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
 }
@@ -451,6 +452,7 @@ func (s *AggregateFunctionVariant) Deterministic() bool              { return s.
 func (s *AggregateFunctionVariant) SessionDependent() bool           { return s.impl.SessionDependent }
 func (s *AggregateFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
 func (s *AggregateFunctionVariant) URI() string                      { return s.id.URI }
+func (s *AggregateFunctionVariant) URN() string                      { return s.id.URN }
 func (s *AggregateFunctionVariant) ResolveType(argumentTypes []types.Type, registry Set) (types.Type, error) {
 	return EvaluateTypeExpression(s.id.URI, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
 }
@@ -574,6 +576,7 @@ func (s *WindowFunctionVariant) Deterministic() bool              { return s.imp
 func (s *WindowFunctionVariant) SessionDependent() bool           { return s.impl.SessionDependent }
 func (s *WindowFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
 func (s *WindowFunctionVariant) URI() string                      { return s.id.URI }
+func (s *WindowFunctionVariant) URN() string                      { return s.id.URN }
 func (s *WindowFunctionVariant) ResolveType(argumentTypes []types.Type, registry Set) (types.Type, error) {
 	return EvaluateTypeExpression(s.id.URI, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
 }
