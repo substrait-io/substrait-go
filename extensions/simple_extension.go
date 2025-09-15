@@ -257,15 +257,16 @@ type ScalarFunction struct {
 	Name        string               `yaml:",omitempty"`
 	Description string               `yaml:",omitempty,flow"`
 	Impls       []ScalarFunctionImpl `yaml:",omitempty"`
+	id          ID
 }
 
-func (s *ScalarFunction) GetVariants(uri string) []*ScalarFunctionVariant {
+func (s *ScalarFunction) GetVariants() []*ScalarFunctionVariant {
 	out := make([]*ScalarFunctionVariant, len(s.Impls))
 	for i, impl := range s.Impls {
 		out[i] = &ScalarFunctionVariant{
 			name:        s.Name,
 			description: s.Description,
-			uri:         uri,
+			id:          s.id,
 			impl:        impl,
 		}
 	}
@@ -278,7 +279,7 @@ func (s *ScalarFunction) ResolveURI(uri string) []FunctionVariant {
 		out[i] = &ScalarFunctionVariant{
 			name:        s.Name,
 			description: s.Description,
-			uri:         uri,
+			id:          ID{URI: uri},
 			impl:        impl,
 		}
 	}
@@ -305,9 +306,10 @@ type AggregateFunction struct {
 	Name        string
 	Description string
 	Impls       []AggregateFunctionImpl
+	id          ID
 }
 
-func (s *AggregateFunction) GetVariants(uri string) []*AggregateFunctionVariant {
+func (s *AggregateFunction) GetVariants() []*AggregateFunctionVariant {
 	out := make([]*AggregateFunctionVariant, len(s.Impls))
 	for i, impl := range s.Impls {
 		if impl.Decomposable == "" {
@@ -316,7 +318,7 @@ func (s *AggregateFunction) GetVariants(uri string) []*AggregateFunctionVariant 
 		out[i] = &AggregateFunctionVariant{
 			name:        s.Name,
 			description: s.Description,
-			uri:         uri,
+			id:          s.id,
 			impl:        impl,
 		}
 	}
@@ -329,7 +331,7 @@ func (s *AggregateFunction) ResolveURI(uri string) []FunctionVariant {
 		out[i] = &AggregateFunctionVariant{
 			name:        s.Name,
 			description: s.Description,
-			uri:         uri,
+			id:          ID{URI: uri},
 			impl:        impl,
 		}
 	}
@@ -352,9 +354,10 @@ type WindowFunction struct {
 	Name        string
 	Description string
 	Impls       []WindowFunctionImpl
+	id          ID
 }
 
-func (s *WindowFunction) GetVariants(uri string) []*WindowFunctionVariant {
+func (s *WindowFunction) GetVariants() []*WindowFunctionVariant {
 	out := make([]*WindowFunctionVariant, len(s.Impls))
 	for i, impl := range s.Impls {
 		if impl.Decomposable == "" {
@@ -366,7 +369,7 @@ func (s *WindowFunction) GetVariants(uri string) []*WindowFunctionVariant {
 		out[i] = &WindowFunctionVariant{
 			name:        s.Name,
 			description: s.Description,
-			uri:         uri,
+			id:          s.id,
 			impl:        impl,
 		}
 	}
@@ -379,7 +382,7 @@ func (s *WindowFunction) ResolveURI(uri string) []FunctionVariant {
 		out[i] = &WindowFunctionVariant{
 			name:        s.Name,
 			description: s.Description,
-			uri:         uri,
+			id:          ID{URI: uri},
 			impl:        impl,
 		}
 	}
@@ -387,6 +390,7 @@ func (s *WindowFunction) ResolveURI(uri string) []FunctionVariant {
 }
 
 type SimpleExtensionFile struct {
+	URN                string              `yaml:"urn,omitempty"`
 	Types              []Type              `yaml:"types,omitempty"`
 	TypeVariations     []TypeVariation     `yaml:"type_variations,omitempty"`
 	ScalarFunctions    []ScalarFunction    `yaml:"scalar_functions,omitempty"`

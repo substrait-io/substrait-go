@@ -298,7 +298,7 @@ func NewScalarFuncVariant(id ID) *ScalarFunctionVariant {
 	simpleName, args := parseFuncName(id.Name)
 	return &ScalarFunctionVariant{
 		name: simpleName,
-		uri:  id.URI,
+		id:   id,
 		impl: ScalarFunctionImpl{Args: args},
 	}
 }
@@ -310,7 +310,7 @@ func NewScalarFuncVariantWithProps(id ID, variadic *VariadicBehavior, sessionDep
 	simpleName, args := parseFuncName(id.Name)
 	return &ScalarFunctionVariant{
 		name: simpleName,
-		uri:  id.URI,
+		id:   id,
 		impl: ScalarFunctionImpl{
 			Args:             args,
 			Variadic:         variadic,
@@ -323,7 +323,7 @@ func NewScalarFuncVariantWithProps(id ID, variadic *VariadicBehavior, sessionDep
 type ScalarFunctionVariant struct {
 	name        string
 	description string
-	uri         string
+	id          ID
 	impl        ScalarFunctionImpl
 }
 
@@ -335,15 +335,18 @@ func (s *ScalarFunctionVariant) Variadic() *VariadicBehavior      { return s.imp
 func (s *ScalarFunctionVariant) Deterministic() bool              { return s.impl.Deterministic }
 func (s *ScalarFunctionVariant) SessionDependent() bool           { return s.impl.SessionDependent }
 func (s *ScalarFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
-func (s *ScalarFunctionVariant) URI() string                      { return s.uri }
+func (s *ScalarFunctionVariant) URI() string                      { return s.id.URI }
 func (s *ScalarFunctionVariant) ResolveType(argumentTypes []types.Type, registry Set) (types.Type, error) {
-	return EvaluateTypeExpression(s.uri, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
+	return EvaluateTypeExpression(s.id.URI, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
 }
 func (s *ScalarFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
 }
 func (s *ScalarFunctionVariant) ID() ID {
-	return ID{URI: s.uri, Name: s.CompoundName()}
+	// Return the stored ID with the compound name
+	id := s.id
+	id.Name = s.CompoundName()
+	return id
 }
 
 func (s *ScalarFunctionVariant) Match(argumentTypes []types.Type) (bool, error) {
@@ -372,7 +375,7 @@ func NewAggFuncVariant(id ID) *AggregateFunctionVariant {
 	simpleName, args := parseFuncName(id.Name)
 	return &AggregateFunctionVariant{
 		name: simpleName,
-		uri:  id.URI,
+		id:   id,
 		impl: AggregateFunctionImpl{
 			ScalarFunctionImpl: ScalarFunctionImpl{
 				Args: args,
@@ -416,7 +419,7 @@ func NewAggFuncVariantOpts(id ID, opts AggVariantOptions) *AggregateFunctionVari
 	simpleName, args := parseFuncName(id.Name)
 	return &AggregateFunctionVariant{
 		name: simpleName,
-		uri:  id.URI,
+		id:   id,
 		impl: AggregateFunctionImpl{
 			ScalarFunctionImpl: ScalarFunctionImpl{
 				Args:             args,
@@ -435,7 +438,7 @@ func NewAggFuncVariantOpts(id ID, opts AggVariantOptions) *AggregateFunctionVari
 type AggregateFunctionVariant struct {
 	name        string
 	description string
-	uri         string
+	id          ID
 	impl        AggregateFunctionImpl
 }
 
@@ -447,15 +450,18 @@ func (s *AggregateFunctionVariant) Variadic() *VariadicBehavior      { return s.
 func (s *AggregateFunctionVariant) Deterministic() bool              { return s.impl.Deterministic }
 func (s *AggregateFunctionVariant) SessionDependent() bool           { return s.impl.SessionDependent }
 func (s *AggregateFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
-func (s *AggregateFunctionVariant) URI() string                      { return s.uri }
+func (s *AggregateFunctionVariant) URI() string                      { return s.id.URI }
 func (s *AggregateFunctionVariant) ResolveType(argumentTypes []types.Type, registry Set) (types.Type, error) {
-	return EvaluateTypeExpression(s.uri, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
+	return EvaluateTypeExpression(s.id.URI, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
 }
 func (s *AggregateFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
 }
 func (s *AggregateFunctionVariant) ID() ID {
-	return ID{URI: s.uri, Name: s.CompoundName()}
+	// Return the stored ID with the compound name
+	id := s.id
+	id.Name = s.CompoundName()
+	return id
 }
 func (s *AggregateFunctionVariant) Decomposability() DecomposeType { return s.impl.Decomposable }
 func (s *AggregateFunctionVariant) Intermediate() (types.FuncDefArgType, error) {
@@ -483,7 +489,7 @@ func (s *AggregateFunctionVariant) MaxArgumentCount() int {
 type WindowFunctionVariant struct {
 	name        string
 	description string
-	uri         string
+	id          ID
 	impl        WindowFunctionImpl
 }
 
@@ -491,7 +497,7 @@ func NewWindowFuncVariant(id ID) *WindowFunctionVariant {
 	simpleName, args := parseFuncName(id.Name)
 	return &WindowFunctionVariant{
 		name: simpleName,
-		uri:  id.URI,
+		id:   id,
 		impl: WindowFunctionImpl{
 			AggregateFunctionImpl: AggregateFunctionImpl{
 				ScalarFunctionImpl: ScalarFunctionImpl{Args: args},
@@ -540,7 +546,7 @@ func NewWindowFuncVariantOpts(id ID, opts WindowVariantOpts) *WindowFunctionVari
 	simpleName, args := parseFuncName(id.Name)
 	return &WindowFunctionVariant{
 		name: simpleName,
-		uri:  id.URI,
+		id:   id,
 		impl: WindowFunctionImpl{
 			AggregateFunctionImpl: AggregateFunctionImpl{
 				ScalarFunctionImpl: ScalarFunctionImpl{
@@ -567,15 +573,18 @@ func (s *WindowFunctionVariant) Variadic() *VariadicBehavior      { return s.imp
 func (s *WindowFunctionVariant) Deterministic() bool              { return s.impl.Deterministic }
 func (s *WindowFunctionVariant) SessionDependent() bool           { return s.impl.SessionDependent }
 func (s *WindowFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
-func (s *WindowFunctionVariant) URI() string                      { return s.uri }
+func (s *WindowFunctionVariant) URI() string                      { return s.id.URI }
 func (s *WindowFunctionVariant) ResolveType(argumentTypes []types.Type, registry Set) (types.Type, error) {
-	return EvaluateTypeExpression(s.uri, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
+	return EvaluateTypeExpression(s.id.URI, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
 }
 func (s *WindowFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
 }
 func (s *WindowFunctionVariant) ID() ID {
-	return ID{URI: s.uri, Name: s.CompoundName()}
+	// Return the stored ID with the compound name
+	id := s.id
+	id.Name = s.CompoundName()
+	return id
 }
 func (s *WindowFunctionVariant) Decomposability() DecomposeType { return s.impl.Decomposable }
 func (s *WindowFunctionVariant) Intermediate() (types.FuncDefArgType, error) {

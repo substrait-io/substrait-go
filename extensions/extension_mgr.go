@@ -93,6 +93,9 @@ type ID struct {
 	Name string
 }
 
+
+// This is a temporary internal type which will be removed once the
+// migration to urns is complete
 type uriUrnTranslator struct {
 	uriToUrn map[string]string
 	urnToUri map[string]string
@@ -137,8 +140,32 @@ func (u *uriUrnTranslator) addMapping(uri, urn string) error {
 	return nil
 }
 
+// canonicalizeID takes an ID with partial data, and returns the fullest
+// representation
+// E.g. if only uri is present in the argument but urn is also available,
+// it will add the urn info
+// This is a temporary workaround during the uri -> urn migration
+func (u *uriUrnTranslator) canonicalizeID(id ID) ID {
+	canonical := id
+
+	if canonical.URN == "" && canonical.URI != "" {
+		if urn, ok := u.toUrn(canonical.URI); ok {
+			canonical.URN = urn
+		}
+	}
+
+	if canonical.URI == "" && canonical.URN != "" {
+		if uri, ok := u.toUri(canonical.URN); ok {
+			canonical.URI = uri
+		}
+	}
+
+	return canonical
+}
+
 type Collection struct {
-	uriSet map[string]struct{}
+	uriSet           map[string]struct{}
+	uriUrnTranslator *uriUrnTranslator
 
 	simpleNameMap map[ID]string
 
@@ -150,12 +177,14 @@ type Collection struct {
 }
 
 func (c *Collection) GetType(id ID) (t Type, ok bool) {
-	t, ok = c.typeMap[id]
+	canonical := c.uriUrnTranslator.canonicalizeID(id)
+	t, ok = c.typeMap[canonical]
 	return
 }
 
 func (c *Collection) GetTypeVariation(id ID) (tv TypeVariation, ok bool) {
-	tv, ok = c.typeVariationMap[id]
+	canonical := c.uriUrnTranslator.canonicalizeID(id)
+	tv, ok = c.typeVariationMap[canonical]
 	return
 }
 
@@ -165,16 +194,19 @@ type variants interface {
 	*ScalarFunctionVariant | *AggregateFunctionVariant | *WindowFunctionVariant
 	Name() string
 	CompoundName() string
+	ID() ID
 }
 
-func checkMaps[T variants](id ID, m map[ID]T, simpleNames map[ID]string) (T, bool) {
-	if sv, ok := m[id]; ok {
+func checkMaps[T variants](id ID, m map[ID]T, simpleNames map[ID]string, translator *uriUrnTranslator) (T, bool) {
+	canonical := translator.canonicalizeID(id)
+
+	if sv, ok := m[canonical]; ok {
 		return sv, true
 	}
 
-	if compound, ok := simpleNames[id]; ok {
-		id.Name = compound
-		if sv, ok := m[id]; ok {
+	if compound, ok := simpleNames[canonical]; ok {
+		canonical.Name = compound
+		if sv, ok := m[canonical]; ok {
 			return sv, true
 		}
 	}
@@ -183,14 +215,15 @@ func checkMaps[T variants](id ID, m map[ID]T, simpleNames map[ID]string) (T, boo
 }
 
 type extFn[T variants] interface {
-	GetVariants(uri string) []T
+	GetVariants() []T
 }
 
-func addToMaps[T variants](id ID, fn extFn[T], m map[ID]T, simpleMap map[string]string) {
-	variants := fn.GetVariants(id.URI)
+func addToMaps[T variants](fn extFn[T], m map[ID]T, simpleMap map[string]string, translator *uriUrnTranslator) {
+	variants := fn.GetVariants()
 	for _, v := range variants {
-		id.Name = v.CompoundName()
-		m[id] = v
+		// Each variant should already have its ID set correctly
+		canonical := translator.canonicalizeID(v.ID())
+		m[canonical] = v
 	}
 
 	if len(variants) == 1 {
@@ -204,20 +237,21 @@ func addToMaps[T variants](id ID, fn extFn[T], m map[ID]T, simpleMap map[string]
 }
 
 func (c *Collection) GetScalarFunc(id ID) (*ScalarFunctionVariant, bool) {
-	return checkMaps(id, c.scalarMap, c.simpleNameMap)
+	return checkMaps(id, c.scalarMap, c.simpleNameMap, c.uriUrnTranslator)
 }
 
 func (c *Collection) GetAggregateFunc(id ID) (*AggregateFunctionVariant, bool) {
-	return checkMaps(id, c.aggregateMap, c.simpleNameMap)
+	return checkMaps(id, c.aggregateMap, c.simpleNameMap, c.uriUrnTranslator)
 }
 
 func (c *Collection) GetWindowFunc(id ID) (*WindowFunctionVariant, bool) {
-	return checkMaps(id, c.windowMap, c.simpleNameMap)
+	return checkMaps(id, c.windowMap, c.simpleNameMap, c.uriUrnTranslator)
 }
 
 func (c *Collection) init() {
 	if c.uriSet == nil {
 		c.uriSet = make(map[string]struct{})
+		c.uriUrnTranslator = newUriUrnTranslator()
 		c.simpleNameMap = make(map[ID]string)
 		c.scalarMap = make(map[ID]*ScalarFunctionVariant)
 		c.aggregateMap = make(map[ID]*AggregateFunctionVariant)
@@ -243,15 +277,23 @@ func (c *Collection) Load(uri string, r io.Reader) error {
 		return err
 	}
 
-	id := ID{URI: uri}
+	if file.URN != "" {
+		if err := c.uriUrnTranslator.addMapping(uri, file.URN); err != nil {
+			return fmt.Errorf("failed to add URI/URN mapping: %w", err)
+		}
+	}
+
+	id := ID{URI: uri, URN: file.URN}
 	for _, t := range file.Types {
 		id.Name = t.Name
-		c.typeMap[id] = t
+		canonical := c.uriUrnTranslator.canonicalizeID(id)
+		c.typeMap[canonical] = t
 	}
 
 	for _, t := range file.TypeVariations {
 		id.Name = t.Name
-		c.typeVariationMap[id] = t
+		canonical := c.uriUrnTranslator.canonicalizeID(id)
+		c.typeVariationMap[canonical] = t
 	}
 
 	// if there is only one implementation for a given function
@@ -263,21 +305,24 @@ func (c *Collection) Load(uri string, r io.Reader) error {
 		if err := defaults.Set(&f); err != nil {
 			return fmt.Errorf("failure setting defaults for scalar functions: %w", err)
 		}
-		addToMaps[*ScalarFunctionVariant](id, &f, c.scalarMap, simpleNames)
+		f.id = id // Set the ID on the function so it can create variants with the full ID
+		addToMaps[*ScalarFunctionVariant](&f, c.scalarMap, simpleNames, c.uriUrnTranslator)
 	}
 
 	for _, f := range file.AggregateFunctions {
 		if err := defaults.Set(&f); err != nil {
 			return fmt.Errorf("failure setting defaults for aggregate functions: %w", err)
 		}
-		addToMaps[*AggregateFunctionVariant](id, &f, c.aggregateMap, simpleNames)
+		f.id = id // Set the ID on the function so it can create variants with the full ID
+		addToMaps[*AggregateFunctionVariant](&f, c.aggregateMap, simpleNames, c.uriUrnTranslator)
 	}
 
 	for _, f := range file.WindowFunctions {
 		if err := defaults.Set(&f); err != nil {
 			return fmt.Errorf("failure setting defaults for window functions: %w", err)
 		}
-		addToMaps[*WindowFunctionVariant](id, &f, c.windowMap, simpleNames)
+		f.id = id // Set the ID on the function so it can create variants with the full ID
+		addToMaps[*WindowFunctionVariant](&f, c.windowMap, simpleNames, c.uriUrnTranslator)
 	}
 
 	// Aggregate functions can be used as Window Functions
@@ -295,17 +340,19 @@ func (c *Collection) Load(uri string, r io.Reader) error {
 			Name:        f.Name,
 			Description: f.Description,
 			Impls:       windowImpls,
+			id:          id, // Set the ID on the window function
 		}
 		if err := defaults.Set(&wf); err != nil {
 			return fmt.Errorf("failure setting defaults for window functions: %w", err)
 		}
-		addToMaps[*WindowFunctionVariant](id, &wf, c.windowMap, simpleNames)
+		addToMaps[*WindowFunctionVariant](&wf, c.windowMap, simpleNames, c.uriUrnTranslator)
 	}
 
 	// add simple name aliases
 	for k, v := range simpleNames {
 		id.Name = k
-		c.simpleNameMap[id] = v
+		canonical := c.uriUrnTranslator.canonicalizeID(id)
+		c.simpleNameMap[canonical] = v
 	}
 
 	return nil
