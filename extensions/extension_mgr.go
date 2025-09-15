@@ -502,7 +502,7 @@ type Set interface {
 	GetFuncAnchor(id ID) uint32
 	GetTypeVariationAnchor(id ID) uint32
 
-	ToProto() ([]*extensions.SimpleExtensionURI, []*extensions.SimpleExtensionDeclaration)
+	ToProto() ([]*extensions.SimpleExtensionURI, []*extensions.SimpleExtensionURN, []*extensions.SimpleExtensionDeclaration)
 }
 
 func NewSet() Set {
@@ -519,6 +519,7 @@ func NewSet() Set {
 
 type set struct {
 	uris map[uint32]string
+	urns map[uint32]string
 
 	typesMap map[uint32]ID
 	types    map[ID]uint32
@@ -530,7 +531,7 @@ type set struct {
 	funcs   map[ID]uint32
 }
 
-func (e *set) ToProto() ([]*extensions.SimpleExtensionURI, []*extensions.SimpleExtensionDeclaration) {
+func (e *set) ToProto() ([]*extensions.SimpleExtensionURI, []*extensions.SimpleExtensionURN, []*extensions.SimpleExtensionDeclaration) {
 	backRef := make(map[string]uint32)
 	uris := make([]*extensions.SimpleExtensionURI, 0, len(e.uris))
 	for anchor, uri := range e.uris {
@@ -543,6 +544,18 @@ func (e *set) ToProto() ([]*extensions.SimpleExtensionURI, []*extensions.SimpleE
 
 	// Sort extensions by the anchor for consistent output
 	sort.Slice(uris, func(i, j int) bool { return uris[i].ExtensionUriAnchor < uris[j].ExtensionUriAnchor })
+	backRefUrn := make(map[string]uint32)
+	urns := make([]*extensions.SimpleExtensionURN, 0, len(e.urns))
+	for anchor, urn := range e.urns {
+		backRefUrn[urn] = anchor
+		urns = append(urns, &extensions.SimpleExtensionURN{
+			ExtensionUrnAnchor: anchor,
+			Urn:                urn,
+		})
+	}
+
+	// Sort extensions by the anchor for consistent output
+	sort.Slice(uris, func(i, j int) bool { return uris[i].ExtensionUriAnchor < uris[j].ExtensionUriAnchor })
 
 	decls := make([]*extensions.SimpleExtensionDeclaration, 0, len(e.types)+len(e.typeVariations)+len(e.funcs))
 	for id, anchor := range e.types {
@@ -550,6 +563,7 @@ func (e *set) ToProto() ([]*extensions.SimpleExtensionURI, []*extensions.SimpleE
 			MappingType: &extensions.SimpleExtensionDeclaration_ExtensionType_{
 				ExtensionType: &extensions.SimpleExtensionDeclaration_ExtensionType{
 					ExtensionUriReference: backRef[id.URI],
+					ExtensionUrnReference: backRefUrn[id.URN],
 					TypeAnchor:            anchor,
 					Name:                  id.Name,
 				},
@@ -597,7 +611,7 @@ func (e *set) ToProto() ([]*extensions.SimpleExtensionURI, []*extensions.SimpleE
 		return decls[i].GetExtensionFunction().GetFunctionAnchor() < decls[j].GetExtensionFunction().GetFunctionAnchor()
 	})
 
-	return uris, decls
+	return uris, urns, decls
 }
 
 func (e *set) LookupWindowFunction(anchor uint32, c *Collection) (sv *WindowFunctionVariant, ok bool) {
