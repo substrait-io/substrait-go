@@ -85,10 +85,56 @@ func loadExtensionFile(collection *Collection, substraitFS embed.FS, ent fs.DirE
 
 // ID is the unique identifier for a substrait object
 type ID struct {
+	//Deprecated, will eventually switch to only URN
 	URI string
+	URN string
 	// Name of the object. For functions, a simple name may be used for lookups,
 	// but as a unique identifier the compound name will be used
 	Name string
+}
+
+type uriUrnTranslator struct {
+	uriToUrn map[string]string
+	urnToUri map[string]string
+}
+
+func newUriUrnTranslator() *uriUrnTranslator {
+	return &uriUrnTranslator{
+		uriToUrn: make(map[string]string),
+		urnToUri: make(map[string]string),
+	}
+}
+
+func (u *uriUrnTranslator) toUrn(uri string) (string, bool) {
+	urn, ok := u.uriToUrn[uri]
+	return urn, ok
+}
+
+func (u *uriUrnTranslator) toUri(urn string) (string, bool) {
+	uri, ok := u.urnToUri[urn]
+	return uri, ok
+}
+
+func (u *uriUrnTranslator) addMapping(uri, urn string) error {
+	if uri == "" {
+		return fmt.Errorf("URI cannot be empty")
+	}
+	if urn == "" {
+		return fmt.Errorf("URN cannot be empty")
+	}
+
+	if _, exists := u.uriToUrn[uri]; exists {
+		return fmt.Errorf("URI '%s' already exists in translator", uri)
+	}
+
+	if _, exists := u.urnToUri[urn]; exists {
+		return fmt.Errorf("URN '%s' already exists in translator", urn)
+	}
+
+	u.uriToUrn[uri] = urn
+	u.urnToUri[urn] = uri
+
+	return nil
 }
 
 type Collection struct {
