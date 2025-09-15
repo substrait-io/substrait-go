@@ -508,6 +508,7 @@ type Set interface {
 func NewSet() Set {
 	return &set{
 		uris:             make(map[uint32]string),
+		urns:             make(map[uint32]string),
 		funcMap:          make(map[uint32]ID),
 		funcs:            make(map[ID]uint32),
 		types:            make(map[ID]uint32),
@@ -581,6 +582,7 @@ func (e *set) ToProto() ([]*extensions.SimpleExtensionURI, []*extensions.SimpleE
 			MappingType: &extensions.SimpleExtensionDeclaration_ExtensionTypeVariation_{
 				ExtensionTypeVariation: &extensions.SimpleExtensionDeclaration_ExtensionTypeVariation{
 					ExtensionUriReference: backRef[id.URI],
+					ExtensionUrnReference: backRefUrn[id.URN],
 					TypeVariationAnchor:   anchor,
 					Name:                  id.Name,
 				},
@@ -599,6 +601,7 @@ func (e *set) ToProto() ([]*extensions.SimpleExtensionURI, []*extensions.SimpleE
 			MappingType: &extensions.SimpleExtensionDeclaration_ExtensionFunction_{
 				ExtensionFunction: &extensions.SimpleExtensionDeclaration_ExtensionFunction{
 					ExtensionUriReference: backRef[id.URI],
+					ExtensionUrnReference: backRefUrn[id.URN],
 					FunctionAnchor:        anchor,
 					Name:                  id.Name,
 				},
@@ -683,6 +686,12 @@ func (e *set) GetTypeAnchor(id ID) uint32 {
 		if err != nil {
 			panic(err)
 		}
+		if id.URN != "" {
+			_, err := e.addOrGetURN(id.URN)
+			if err != nil {
+				panic(err)
+			}
+		}
 		a = uint32(len(e.types)) + 1
 		e.encodeType(a, id)
 	}
@@ -696,6 +705,12 @@ func (e *set) GetFuncAnchor(id ID) uint32 {
 		if err != nil {
 			panic(err)
 		}
+		if id.URN != "" {
+			_, err := e.addOrGetURN(id.URN)
+			if err != nil {
+				panic(err)
+			}
+		}
 		a = uint32(len(e.funcs)) + 1
 		e.encodeFunc(a, id)
 	}
@@ -708,6 +723,12 @@ func (e *set) GetTypeVariationAnchor(id ID) uint32 {
 		_, err := e.addOrGetURI(id.URI)
 		if err != nil {
 			panic(err)
+		}
+		if id.URN != "" {
+			_, err := e.addOrGetURN(id.URN)
+			if err != nil {
+				panic(err)
+			}
 		}
 		// add 1 to the length to avoid an anchor of 0
 		// so that it's easier to tell when there is no
@@ -757,6 +778,21 @@ func (e *set) addOrGetURI(uri string) (uint32, error) {
 	return sz, nil
 }
 
+func (e *set) addOrGetURN(urn string) (uint32, error) {
+	for k, v := range e.urns {
+		if v == urn {
+			return k, nil
+		}
+	}
+	sz := uint32(len(e.urns)) + 1
+	if _, ok := e.urns[sz]; ok {
+		return 0, substraitgo.ErrKeyExists
+	}
+
+	e.urns[sz] = urn
+	return sz, nil
+}
+
 type TopLevel interface {
 	GetExtensionUris() []*extensions.SimpleExtensionURI
 	GetExtensions() []*extensions.SimpleExtensionDeclaration
@@ -770,6 +806,7 @@ func GetExtensionSet(plan TopLevel) Set {
 
 	ret := &set{
 		uris:             uris,
+		urns:             make(map[uint32]string),
 		funcMap:          make(map[uint32]ID),
 		funcs:            make(map[ID]uint32),
 		typesMap:         make(map[uint32]ID),
