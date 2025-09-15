@@ -93,7 +93,6 @@ type ID struct {
 	Name string
 }
 
-
 // This is a temporary internal type which will be removed once the
 // migration to urns is complete
 type uriUrnTranslator struct {
@@ -280,22 +279,120 @@ func (c *Collection) Load(uri string, r io.Reader) error {
 	}
 
 	if file.URN != "" {
+		if c.URNLoaded(file.URN) {
+			return fmt.Errorf("%w: urn '%s' already loaded",
+				substraitgo.ErrKeyExists, file.URN)
+		}
 		if err := c.uriUrnTranslator.addMapping(uri, file.URN); err != nil {
 			return fmt.Errorf("failed to add URI/URN mapping: %w", err)
 		}
+		c.urnSet[file.URN] = void
 	}
 
-	id := ID{URI: uri, URN: file.URN}
+	id := ID{URI: uri, URN: file.URN} // FYI it is still possible here that file.URN is ""
+	// No need to canonicalize as they are canonical by construction
 	for _, t := range file.Types {
 		id.Name = t.Name
-		canonical := c.uriUrnTranslator.canonicalizeID(id)
-		c.typeMap[canonical] = t
+		c.typeMap[id] = t
 	}
 
 	for _, t := range file.TypeVariations {
 		id.Name = t.Name
+		c.typeVariationMap[id] = t
+	}
+
+	// if there is only one implementation for a given function
+	// it should be findable by its simple name in addition to the
+	// compound name.
+	simpleNames := make(map[string]string)
+
+	for _, f := range file.ScalarFunctions {
+		if err := defaults.Set(&f); err != nil {
+			return fmt.Errorf("failure setting defaults for scalar functions: %w", err)
+		}
+		f.id = id // Set the ID on the function so it can create variants with the full ID
+		addToMaps[*ScalarFunctionVariant](&f, c.scalarMap, simpleNames, c.uriUrnTranslator)
+	}
+
+	for _, f := range file.AggregateFunctions {
+		if err := defaults.Set(&f); err != nil {
+			return fmt.Errorf("failure setting defaults for aggregate functions: %w", err)
+		}
+		f.id = id // Set the ID on the function so it can create variants with the full ID
+		addToMaps[*AggregateFunctionVariant](&f, c.aggregateMap, simpleNames, c.uriUrnTranslator)
+	}
+
+	for _, f := range file.WindowFunctions {
+		if err := defaults.Set(&f); err != nil {
+			return fmt.Errorf("failure setting defaults for window functions: %w", err)
+		}
+		f.id = id // Set the ID on the function so it can create variants with the full ID
+		addToMaps[*WindowFunctionVariant](&f, c.windowMap, simpleNames, c.uriUrnTranslator)
+	}
+
+	// Aggregate functions can be used as Window Functions
+	for _, f := range file.AggregateFunctions {
+		// Convert each aggregate implementation to a window implementation
+		windowImpls := make([]WindowFunctionImpl, len(f.Impls))
+		for i, aggImpl := range f.Impls {
+			windowImpls[i] = WindowFunctionImpl{
+				AggregateFunctionImpl: aggImpl,
+				WindowType:            StreamingWindow, // Set window type to STREAMING
+			}
+		}
+
+		wf := WindowFunction{
+			Name:        f.Name,
+			Description: f.Description,
+			Impls:       windowImpls,
+			id:          id, // Set the ID on the window function
+		}
+		if err := defaults.Set(&wf); err != nil {
+			return fmt.Errorf("failure setting defaults for window functions: %w", err)
+		}
+		addToMaps[*WindowFunctionVariant](&wf, c.windowMap, simpleNames, c.uriUrnTranslator)
+	}
+
+	// add simple name aliases
+	for k, v := range simpleNames {
+		id.Name = k
 		canonical := c.uriUrnTranslator.canonicalizeID(id)
-		c.typeVariationMap[canonical] = t
+		c.simpleNameMap[canonical] = v
+	}
+
+	return nil
+}
+
+func (c *Collection) LoadWithoutUri(r io.Reader) error {
+	c.init()
+
+	var file SimpleExtensionFile
+	dec := yaml.NewDecoder(r)
+	if err := dec.Decode(&file); err != nil {
+		return err
+	}
+
+	if file.URN == "" {
+		return fmt.Errorf("URN is required but missing from file")
+	}
+
+	if c.URNLoaded(file.URN) {
+		return fmt.Errorf("%w: urn '%s' already loaded",
+			substraitgo.ErrKeyExists, file.URN)
+	}
+
+	c.urnSet[file.URN] = void
+
+	// the below are all canonical by construction, so no need to re-canonicalize
+	id := ID{URN: file.URN}
+	for _, t := range file.Types {
+		id.Name = t.Name
+		c.typeMap[id] = t
+	}
+
+	for _, t := range file.TypeVariations {
+		id.Name = t.Name
+		c.typeVariationMap[id] = t
 	}
 
 	// if there is only one implementation for a given function
