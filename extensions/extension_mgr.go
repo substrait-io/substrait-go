@@ -801,6 +801,7 @@ func (e *set) addOrGetURN(urn string) (uint32, error) {
 
 type TopLevel interface {
 	GetExtensionUris() []*extensions.SimpleExtensionURI
+	GetExtensionUrns() []*extensions.SimpleExtensionURN
 	GetExtensions() []*extensions.SimpleExtensionDeclaration
 }
 
@@ -809,10 +810,14 @@ func GetExtensionSet(plan TopLevel) Set {
 	for _, uri := range plan.GetExtensionUris() {
 		uris[uri.ExtensionUriAnchor] = uri.Uri
 	}
+	urns := make(map[uint32]string)
+	for _, urn := range plan.GetExtensionUrns() {
+		urns[urn.ExtensionUrnAnchor] = urn.Urn
+	}
 
 	ret := &set{
 		uris:             uris,
-		urns:             make(map[uint32]string),
+		urns:             urns,
 		funcMap:          make(map[uint32]ID),
 		funcs:            make(map[ID]uint32),
 		typesMap:         make(map[uint32]ID),
@@ -827,18 +832,21 @@ func GetExtensionSet(plan TopLevel) Set {
 			etv := e.ExtensionTypeVariation
 			ret.encodeTypeVariation(etv.TypeVariationAnchor, ID{
 				URI:  uris[etv.ExtensionUriReference],
+				URN:  urns[etv.ExtensionUrnReference],
 				Name: etv.Name,
 			})
 		case *extensions.SimpleExtensionDeclaration_ExtensionType_:
 			et := e.ExtensionType
 			ret.encodeType(et.TypeAnchor, ID{
 				URI:  uris[et.ExtensionUriReference],
+				URN:  urns[et.ExtensionUrnReference],
 				Name: et.Name,
 			})
 		case *extensions.SimpleExtensionDeclaration_ExtensionFunction_:
 			ef := e.ExtensionFunction
 			ret.encodeFunc(ef.FunctionAnchor, ID{
 				URI:  uris[ef.ExtensionUriReference],
+				URN:  urns[ef.ExtensionUrnReference],
 				Name: ef.Name,
 			})
 		}
