@@ -11,6 +11,7 @@ import (
 	"github.com/substrait-io/substrait-go/v6/extensions"
 	"github.com/substrait-io/substrait-go/v6/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
+	protoext "github.com/substrait-io/substrait-protobuf/go/substraitpb/extensions"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/testing/protocmp"
 )
@@ -519,7 +520,7 @@ scalar_functions:
 
 	builder := NewBuilder(&collection)
 	baseSchema := types.NamedStruct{
-		Names: []string{"a", "b"},
+		Names:  []string{"a", "b"},
 		Struct: types.StructType{Types: []types.Type{&types.Int32Type{}, &types.Int32Type{}}},
 	}
 	scan := builder.NamedScan([]string{"test_table"}, baseSchema)
@@ -617,7 +618,7 @@ scalar_functions:
 	builder := NewBuilder(&collection)
 
 	baseSchema := types.NamedStruct{
-		Names: []string{"a", "b"},
+		Names:  []string{"a", "b"},
 		Struct: types.StructType{Types: []types.Type{&types.Int32Type{}, &types.Int32Type{}}},
 	}
 	scan := builder.NamedScan([]string{"test_table"}, baseSchema)
@@ -675,6 +676,285 @@ scalar_functions:
 
 	assert.True(t, collection.URILoaded(testURI))
 	assert.True(t, collection.URNLoaded("urn:example:multi"))
+}
+
+// TestPlanFromProtoWithMissingURI tests parsing a plan that references both URI and URN
+// but only has the URI available in the collection (URN is missing)
+func TestPlanFromProtoWithMissingURN(t *testing.T) {
+	var collection extensions.Collection
+
+	// Load extension with URI only (no URN in YAML)
+	const uri = "http://localhost/test.yaml"
+	const extensionYAML = `---
+scalar_functions:
+  - name: "add"
+    impls:
+      - args:
+          - name: x
+            value: i32
+          - name: y
+            value: i32
+        return: i32
+`
+
+	require.NoError(t, collection.Load(uri, strings.NewReader(extensionYAML)))
+
+	// Create a plan protobuf that references both URI and URN but the collection only has URI
+	planProto := &proto.Plan{
+		Version: &proto.Version{MinorNumber: 29, Producer: "test"},
+		ExtensionUris: []*protoext.SimpleExtensionURI{
+			{ExtensionUriAnchor: 1, Uri: uri},
+		},
+		ExtensionUrns: []*protoext.SimpleExtensionURN{
+			{ExtensionUrnAnchor: 1, Urn: "urn:example:missing"},
+		},
+		Extensions: []*protoext.SimpleExtensionDeclaration{
+			{
+				MappingType: &protoext.SimpleExtensionDeclaration_ExtensionFunction_{
+					ExtensionFunction: &protoext.SimpleExtensionDeclaration_ExtensionFunction{
+						ExtensionUriReference: 1,
+						ExtensionUrnReference: 1,
+						FunctionAnchor:        1,
+						Name:                  "add:i32_i32",
+					},
+				},
+			},
+		},
+		Relations: []*proto.PlanRel{
+			{
+				RelType: &proto.PlanRel_Root{
+					Root: &proto.RelRoot{
+						Input: &proto.Rel{
+							RelType: &proto.Rel_Read{
+								Read: &proto.ReadRel{
+									Common: &proto.RelCommon{EmitKind: &proto.RelCommon_Direct_{Direct: &proto.RelCommon_Direct{}}},
+									BaseSchema: &proto.NamedStruct{
+										Names: []string{"a", "b"},
+										Struct: &proto.Type_Struct{
+											Types: []*proto.Type{
+												{Kind: &proto.Type_I32_{I32: &proto.Type_I32{}}},
+												{Kind: &proto.Type_I32_{I32: &proto.Type_I32{}}},
+											},
+										},
+									},
+									ReadType: &proto.ReadRel_NamedTable_{
+										NamedTable: &proto.ReadRel_NamedTable{Names: []string{"test_table"}},
+									},
+								},
+							},
+						},
+						Names: []string{"a", "b"},
+					},
+				},
+			},
+		},
+	}
+
+	parsedPlan, err := FromProto(planProto, &collection)
+	require.NoError(t, err)
+	require.NotNil(t, parsedPlan)
+
+	reconstructedProto, err := parsedPlan.ToProto()
+	require.NoError(t, err)
+
+	// Expected proto should preserve both URI and URN from input (structure-preserving)
+	expectedProto := &proto.Plan{
+		Version: &proto.Version{MinorNumber: 29, Producer: "test"},
+		ExtensionUris: []*protoext.SimpleExtensionURI{
+			{ExtensionUriAnchor: 1, Uri: uri},
+		},
+		ExtensionUrns: []*protoext.SimpleExtensionURN{
+			{ExtensionUrnAnchor: 1, Urn: "urn:example:missing"},
+		},
+		Extensions: []*protoext.SimpleExtensionDeclaration{
+			{
+				MappingType: &protoext.SimpleExtensionDeclaration_ExtensionFunction_{
+					ExtensionFunction: &protoext.SimpleExtensionDeclaration_ExtensionFunction{
+						ExtensionUriReference: 1,
+						ExtensionUrnReference: 1,
+						FunctionAnchor:        1,
+						Name:                  "add:i32_i32",
+					},
+				},
+			},
+		},
+		Relations: []*proto.PlanRel{
+			{
+				RelType: &proto.PlanRel_Root{
+					Root: &proto.RelRoot{
+						Input: &proto.Rel{
+							RelType: &proto.Rel_Read{
+								Read: &proto.ReadRel{
+									Common: &proto.RelCommon{EmitKind: &proto.RelCommon_Direct_{Direct: &proto.RelCommon_Direct{}}},
+									BaseSchema: &proto.NamedStruct{
+										Names: []string{"a", "b"},
+										Struct: &proto.Type_Struct{
+											Types: []*proto.Type{
+												{Kind: &proto.Type_I32_{I32: &proto.Type_I32{}}},
+												{Kind: &proto.Type_I32_{I32: &proto.Type_I32{}}},
+											},
+										},
+									},
+									ReadType: &proto.ReadRel_NamedTable_{
+										NamedTable: &proto.ReadRel_NamedTable{Names: []string{"test_table"}},
+									},
+								},
+							},
+						},
+						Names: []string{"a", "b"},
+					},
+				},
+			},
+		},
+	}
+
+	// Compare the round-trip result with expected proto
+	if diff := cmp.Diff(expectedProto, reconstructedProto, protocmp.Transform()); diff != "" {
+		t.Errorf("Round-trip proto mismatch (-want +got):\n%s", diff)
+	}
+
+	assert.True(t, collection.URILoaded(uri))
+	assert.False(t, collection.URNLoaded("urn:example:missing"))
+}
+
+// TestPlanFromProtoWithMissingURN tests parsing a plan that references both URI and URN
+// but only has the URN available in the collection (URI is missing)
+func TestPlanFromProtoWithMissingURI(t *testing.T) {
+	var collection extensions.Collection
+
+	// Load extension with URN only
+	const extensionYAML = `---
+urn: "urn:example:test"
+scalar_functions:
+  - name: "add"
+    impls:
+      - args:
+          - name: x
+            value: i32
+          - name: y
+            value: i32
+        return: i32
+`
+
+	require.NoError(t, collection.LoadWithoutUri(strings.NewReader(extensionYAML)))
+
+	// Create a plan protobuf that references both URI and URN but the collection only has URN
+	planProto := &proto.Plan{
+		Version: &proto.Version{MinorNumber: 29, Producer: "test"},
+		ExtensionUris: []*protoext.SimpleExtensionURI{
+			{ExtensionUriAnchor: 1, Uri: "http://localhost/missing.yaml"},
+		},
+		ExtensionUrns: []*protoext.SimpleExtensionURN{
+			{ExtensionUrnAnchor: 1, Urn: "urn:example:test"},
+		},
+		Extensions: []*protoext.SimpleExtensionDeclaration{
+			{
+				MappingType: &protoext.SimpleExtensionDeclaration_ExtensionFunction_{
+					ExtensionFunction: &protoext.SimpleExtensionDeclaration_ExtensionFunction{
+						ExtensionUriReference: 1, // This URI doesn't exist in collection
+						ExtensionUrnReference: 1,
+						FunctionAnchor:        1,
+						Name:                  "add:i32_i32",
+					},
+				},
+			},
+		},
+		Relations: []*proto.PlanRel{
+			{
+				RelType: &proto.PlanRel_Root{
+					Root: &proto.RelRoot{
+						Input: &proto.Rel{
+							RelType: &proto.Rel_Read{
+								Read: &proto.ReadRel{
+									Common: &proto.RelCommon{EmitKind: &proto.RelCommon_Direct_{Direct: &proto.RelCommon_Direct{}}},
+									BaseSchema: &proto.NamedStruct{
+										Names: []string{"a", "b"},
+										Struct: &proto.Type_Struct{
+											Types: []*proto.Type{
+												{Kind: &proto.Type_I32_{I32: &proto.Type_I32{}}},
+												{Kind: &proto.Type_I32_{I32: &proto.Type_I32{}}},
+											},
+										},
+									},
+									ReadType: &proto.ReadRel_NamedTable_{
+										NamedTable: &proto.ReadRel_NamedTable{Names: []string{"test_table"}},
+									},
+								},
+							},
+						},
+						Names: []string{"a", "b"},
+					},
+				},
+			},
+		},
+	}
+
+	parsedPlan, err := FromProto(planProto, &collection)
+	require.NoError(t, err)
+	require.NotNil(t, parsedPlan)
+
+	reconstructedProto, err := parsedPlan.ToProto()
+	require.NoError(t, err)
+
+	// Expected proto should preserve both URI and URN from input (structure-preserving)
+	expectedProto := &proto.Plan{
+		Version: &proto.Version{MinorNumber: 29, Producer: "test"},
+		ExtensionUris: []*protoext.SimpleExtensionURI{
+			{ExtensionUriAnchor: 1, Uri: "http://localhost/missing.yaml"},
+		},
+		ExtensionUrns: []*protoext.SimpleExtensionURN{
+			{ExtensionUrnAnchor: 1, Urn: "urn:example:test"},
+		},
+		Extensions: []*protoext.SimpleExtensionDeclaration{
+			{
+				MappingType: &protoext.SimpleExtensionDeclaration_ExtensionFunction_{
+					ExtensionFunction: &protoext.SimpleExtensionDeclaration_ExtensionFunction{
+						ExtensionUriReference: 1,
+						ExtensionUrnReference: 1,
+						FunctionAnchor:        1,
+						Name:                  "add:i32_i32",
+					},
+				},
+			},
+		},
+		Relations: []*proto.PlanRel{
+			{
+				RelType: &proto.PlanRel_Root{
+					Root: &proto.RelRoot{
+						Input: &proto.Rel{
+							RelType: &proto.Rel_Read{
+								Read: &proto.ReadRel{
+									Common: &proto.RelCommon{EmitKind: &proto.RelCommon_Direct_{Direct: &proto.RelCommon_Direct{}}},
+									BaseSchema: &proto.NamedStruct{
+										Names: []string{"a", "b"},
+										Struct: &proto.Type_Struct{
+											Types: []*proto.Type{
+												{Kind: &proto.Type_I32_{I32: &proto.Type_I32{}}},
+												{Kind: &proto.Type_I32_{I32: &proto.Type_I32{}}},
+											},
+										},
+									},
+									ReadType: &proto.ReadRel_NamedTable_{
+										NamedTable: &proto.ReadRel_NamedTable{Names: []string{"test_table"}},
+									},
+								},
+							},
+						},
+						Names: []string{"a", "b"},
+					},
+				},
+			},
+		},
+	}
+
+	// Compare the round-trip result with expected (now fixed) behavior
+	if diff := cmp.Diff(expectedProto, reconstructedProto, protocmp.Transform()); diff != "" {
+		t.Errorf("Round-trip proto mismatch (-want +got):\n%s", diff)
+	}
+
+	// Verify the collection states
+	assert.False(t, collection.URILoaded("http://localhost/missing.yaml"))
+	assert.True(t, collection.URNLoaded("urn:example:test"))
 }
 
 func TestRelFromProto(t *testing.T) {
