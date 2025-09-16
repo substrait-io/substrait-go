@@ -646,3 +646,46 @@ types:
 		assert.Contains(t, err.Error(), "uri 'http://localhost/duplicate.yaml' already loaded")
 	})
 }
+
+func TestTypeAndTypeVariationURNSupport(t *testing.T) {
+	// Test that extensions with types work correctly with URN support
+	var collection extensions.Collection
+
+	// Extension with a custom type
+	testURI := "https://example.com/types.yaml"
+	testYAML := `---
+urn: "urn:example:types"
+types:
+  - name: "custom_int"
+    structure:
+      i32: {}
+type_variations:
+  - name: "nullable_variation"
+    base: i32
+    description: "A nullable integer variation"
+`
+
+	err := collection.Load(testURI, strings.NewReader(testYAML))
+	require.NoError(t, err)
+
+	assert.True(t, collection.URILoaded(testURI))
+	assert.True(t, collection.URNLoaded("urn:example:types"))
+
+	typeByURI, ok := collection.GetType(extensions.ID{URI: testURI, Name: "custom_int"})
+	assert.True(t, ok, "Should find type by URI")
+	assert.NotNil(t, typeByURI)
+
+	typeByURN, ok := collection.GetType(extensions.ID{URN: "urn:example:types", Name: "custom_int"})
+	assert.True(t, ok, "Should find type by URN")
+	assert.NotNil(t, typeByURN)
+
+	varByURI, ok := collection.GetTypeVariation(extensions.ID{URI: testURI, Name: "nullable_variation"})
+	assert.True(t, ok, "Should find type variation by URI")
+	assert.NotNil(t, varByURI)
+
+	varByURN, ok := collection.GetTypeVariation(extensions.ID{URN: "urn:example:types", Name: "nullable_variation"})
+	assert.True(t, ok, "Should find type variation by URN")
+	assert.NotNil(t, varByURN)
+
+	assert.Equal(t, typeByURI, typeByURN, "Types should be identical")
+}

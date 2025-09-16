@@ -37,7 +37,7 @@ scalar_functions:
 `
 
 	var collection extensions.Collection
-	require.NoError(t, collection.LoadWithURI(uri, strings.NewReader(extensionYAML)))
+	require.NoError(t, collection.Load(uri, strings.NewReader(extensionYAML)))
 
 	builder := NewBuilder(&collection)
 	baseSchema := types.NamedStruct{
@@ -218,10 +218,10 @@ scalar_functions:
         return: i32
 `
 
-	require.NoError(t, collection.Load(strings.NewReader(urnOnlyYAML)))
-	require.NoError(t, collection.Load(strings.NewReader(urnOnly2YAML)))
-	require.NoError(t, collection.LoadWithURI(uriOnlyURI, strings.NewReader(uriOnlyYAML)))
-	require.NoError(t, collection.LoadWithURI(bothURI, strings.NewReader(bothYAML)))
+	require.NoError(t, collection.LoadWithoutUri(strings.NewReader(urnOnlyYAML)))
+	require.NoError(t, collection.LoadWithoutUri(strings.NewReader(urnOnly2YAML)))
+	require.NoError(t, collection.Load(uriOnlyURI, strings.NewReader(uriOnlyYAML)))
+	require.NoError(t, collection.Load(bothURI, strings.NewReader(bothYAML)))
 
 	builder := NewBuilder(&collection)
 
@@ -493,6 +493,188 @@ scalar_functions:
 	assert.True(t, collection.URNLoaded("urn:example:urn-only"))
 	assert.True(t, collection.URILoaded(bothURI))
 	assert.True(t, collection.URNLoaded("urn:example:both"))
+}
+
+func TestFunctionConstructionViaURIAndURN(t *testing.T) {
+	// Test that functions can be made up by both URI and URN
+	var collection extensions.Collection
+
+	// Simple test extension with both URI and URN
+	testURI := "https://example.com/test.yaml"
+	testYAML := `---
+urn: "urn:example:test"
+scalar_functions:
+  - name: "add_test"
+    impls:
+      - args:
+          - name: x
+            value: i32
+          - name: y
+            value: i32
+        return: i32
+`
+
+	err := collection.Load(testURI, strings.NewReader(testYAML))
+	require.NoError(t, err)
+
+	builder := NewBuilder(&collection)
+	baseSchema := types.NamedStruct{
+		Names: []string{"a", "b"},
+		Struct: types.StructType{Types: []types.Type{&types.Int32Type{}, &types.Int32Type{}}},
+	}
+	scan := builder.NamedScan([]string{"test_table"}, baseSchema)
+
+	exprBuilder := builder.GetExprBuilder()
+	exprBuilder.BaseSchema = types.NewRecordTypeFromStruct(baseSchema.Struct)
+
+	// Test function construction via URI
+	funcByURIExpr, err := exprBuilder.ScalarFunc(extensions.ID{
+		URI:  testURI,
+		Name: "add_test",
+	}).Args(
+		exprBuilder.RootRef(expr.NewStructFieldRef(0)),
+		exprBuilder.RootRef(expr.NewStructFieldRef(1)),
+	).BuildExpr()
+	require.NoError(t, err)
+
+	// Test function construction via URN
+	funcByURNExpr, err := exprBuilder.ScalarFunc(extensions.ID{
+		URN:  "urn:example:test",
+		Name: "add_test",
+	}).Args(
+		exprBuilder.RootRef(expr.NewStructFieldRef(0)),
+		exprBuilder.RootRef(expr.NewStructFieldRef(1)),
+	).BuildExpr()
+	require.NoError(t, err)
+
+	projectedURI, err := builder.Project(scan, funcByURIExpr)
+	require.NoError(t, err)
+	projectedURN, err := builder.Project(scan, funcByURNExpr)
+	require.NoError(t, err)
+
+	planURI, err := builder.Plan(projectedURI, []string{"a", "b", "result"})
+	require.NoError(t, err)
+	planURN, err := builder.Plan(projectedURN, []string{"a", "b", "result"})
+	require.NoError(t, err)
+
+	protoURI, err := planURI.ToProto()
+	require.NoError(t, err)
+	protoURN, err := planURN.ToProto()
+	require.NoError(t, err)
+
+	// Both should have references to the same extension but with different anchor types
+	assert.NotNil(t, protoURI)
+	assert.NotNil(t, protoURN)
+
+	// The plans should be functionally identical since they use the same function
+	if diff := cmp.Diff(protoURI, protoURN, protocmp.Transform()); diff != "" {
+		t.Errorf("Plans should be identical when using URI vs URN lookup (-URI +URN):\n%s", diff)
+	}
+
+	// Verify collection can find function by both URI and URN
+	assert.True(t, collection.URILoaded(testURI))
+	assert.True(t, collection.URNLoaded("urn:example:test"))
+}
+
+func TestMultipleFunctionsFromSameExtension(t *testing.T) {
+	// Test that multiple functions from the same extension are handled correctly
+	var collection extensions.Collection
+
+	// Extension with multiple functions
+	testURI := "https://example.com/multi.yaml"
+	testYAML := `---
+urn: "urn:example:multi"
+scalar_functions:
+  - name: "add_multi"
+    impls:
+      - args:
+          - name: x
+            value: i32
+          - name: y
+            value: i32
+        return: i32
+  - name: "subtract_multi"
+    impls:
+      - args:
+          - name: x
+            value: i32
+          - name: y
+            value: i32
+        return: i32
+  - name: "multiply_multi"
+    impls:
+      - args:
+          - name: x
+            value: i32
+          - name: y
+            value: i32
+        return: i32
+`
+
+	err := collection.Load(testURI, strings.NewReader(testYAML))
+	require.NoError(t, err)
+
+	builder := NewBuilder(&collection)
+
+	baseSchema := types.NamedStruct{
+		Names: []string{"a", "b"},
+		Struct: types.StructType{Types: []types.Type{&types.Int32Type{}, &types.Int32Type{}}},
+	}
+	scan := builder.NamedScan([]string{"test_table"}, baseSchema)
+
+	exprBuilder := builder.GetExprBuilder()
+	exprBuilder.BaseSchema = types.NewRecordTypeFromStruct(baseSchema.Struct)
+
+	// Create expressions for all three functions
+	addExpr, err := exprBuilder.ScalarFunc(extensions.ID{
+		URI:  testURI, // via URI
+		Name: "add_multi",
+	}).Args(
+		exprBuilder.RootRef(expr.NewStructFieldRef(0)),
+		exprBuilder.RootRef(expr.NewStructFieldRef(1)),
+	).BuildExpr()
+	require.NoError(t, err)
+
+	subtractExpr, err := exprBuilder.ScalarFunc(extensions.ID{
+		URN:  "urn:example:multi", // via URN
+		Name: "subtract_multi",
+	}).Args(
+		exprBuilder.RootRef(expr.NewStructFieldRef(0)),
+		exprBuilder.RootRef(expr.NewStructFieldRef(1)),
+	).BuildExpr()
+	require.NoError(t, err)
+
+	multiplyExpr, err := exprBuilder.ScalarFunc(extensions.ID{
+		URI:  testURI, // via URI
+		Name: "multiply_multi",
+	}).Args(
+		exprBuilder.RootRef(expr.NewStructFieldRef(0)),
+		exprBuilder.RootRef(expr.NewStructFieldRef(1)),
+	).BuildExpr()
+	require.NoError(t, err)
+
+	projected, err := builder.Project(scan, addExpr, subtractExpr, multiplyExpr)
+	require.NoError(t, err)
+
+	planObj, err := builder.Plan(projected, []string{"a", "b", "add_result", "subtract_result", "multiply_result"})
+	require.NoError(t, err)
+
+	proto, err := planObj.ToProto()
+	require.NoError(t, err)
+
+	assert.Len(t, proto.ExtensionUris, 1, "Should have one URI reference")
+	assert.Len(t, proto.ExtensionUrns, 1, "Should have one URN reference")
+
+	functionCount := 0
+	for _, ext := range proto.Extensions {
+		if ext.GetExtensionFunction() != nil {
+			functionCount++
+		}
+	}
+	assert.Equal(t, 3, functionCount, "Should have exactly 3 functions")
+
+	assert.True(t, collection.URILoaded(testURI))
+	assert.True(t, collection.URNLoaded("urn:example:multi"))
 }
 
 func TestRelFromProto(t *testing.T) {
