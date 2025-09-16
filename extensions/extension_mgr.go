@@ -682,9 +682,11 @@ func (e *set) DecodeType(anchor uint32) (id ID, ok bool) {
 func (e *set) GetTypeAnchor(id ID) uint32 {
 	a, ok := e.types[id]
 	if !ok {
-		_, err := e.addOrGetURI(id.URI)
-		if err != nil {
-			panic(err)
+		if id.URI != "" {
+			_, err := e.addOrGetURI(id.URI)
+			if err != nil {
+				panic(err)
+			}
 		}
 		if id.URN != "" {
 			_, err := e.addOrGetURN(id.URN)
@@ -701,9 +703,11 @@ func (e *set) GetTypeAnchor(id ID) uint32 {
 func (e *set) GetFuncAnchor(id ID) uint32 {
 	a, ok := e.funcs[id]
 	if !ok {
-		_, err := e.addOrGetURI(id.URI)
-		if err != nil {
-			panic(err)
+		if id.URI != "" {
+			_, err := e.addOrGetURI(id.URI)
+			if err != nil {
+				panic(err)
+			}
 		}
 		if id.URN != "" {
 			_, err := e.addOrGetURN(id.URN)
@@ -720,9 +724,11 @@ func (e *set) GetFuncAnchor(id ID) uint32 {
 func (e *set) GetTypeVariationAnchor(id ID) uint32 {
 	a, ok := e.typeVariations[id]
 	if !ok {
-		_, err := e.addOrGetURI(id.URI)
-		if err != nil {
-			panic(err)
+		if id.URI != "" {
+			_, err := e.addOrGetURI(id.URI)
+			if err != nil {
+				panic(err)
+			}
 		}
 		if id.URN != "" {
 			_, err := e.addOrGetURN(id.URN)

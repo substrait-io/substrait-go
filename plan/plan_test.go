@@ -152,6 +152,349 @@ scalar_functions:
 	assert.True(t, collection.URNLoaded("urn:example:test"))
 }
 
+func TestExtensionMixedURIURNReferences(t *testing.T) {
+	// Test with four extensions to ensure different URI/URN anchor values:
+	// 1. URI-only extension
+	// 2. URN-only extension
+	// 3. Another URN-only extension (to offset anchor numbering)
+	// 4. URI+URN extension
+
+	var collection extensions.Collection
+
+	// Extension 1: URI-only (no URN in YAML)
+	const uriOnlyURI = "http://localhost/uri-only.yaml"
+	const uriOnlyYAML = `---
+scalar_functions:
+  - name: "add_uri"
+    impls:
+      - args:
+          - name: x
+            value: i32
+          - name: y
+            value: i32
+        return: i32
+`
+
+	// Extension 2: URN-only (loaded with Load, not LoadWithURI)
+	const urnOnlyYAML = `---
+urn: "urn:example:urn-only"
+scalar_functions:
+  - name: "add_urn"
+    impls:
+      - args:
+          - name: x
+            value: i32
+          - name: y
+            value: i32
+        return: i32
+`
+
+	// Extension 3: Another URN-only to create different anchor numbering
+	const urnOnly2YAML = `---
+urn: "urn:example:urn-only-2"
+scalar_functions:
+  - name: "multiply_urn"
+    impls:
+      - args:
+          - name: x
+            value: i32
+          - name: y
+            value: i32
+        return: i32
+`
+
+	// Extension 4: Both URI and URN
+	const bothURI = "http://localhost/both.yaml"
+	const bothYAML = `---
+urn: "urn:example:both"
+scalar_functions:
+  - name: "add_both"
+    impls:
+      - args:
+          - name: x
+            value: i32
+          - name: y
+            value: i32
+        return: i32
+`
+
+	require.NoError(t, collection.Load(strings.NewReader(urnOnlyYAML)))
+	require.NoError(t, collection.Load(strings.NewReader(urnOnly2YAML)))
+	require.NoError(t, collection.LoadWithURI(uriOnlyURI, strings.NewReader(uriOnlyYAML)))
+	require.NoError(t, collection.LoadWithURI(bothURI, strings.NewReader(bothYAML)))
+
+	builder := NewBuilder(&collection)
+
+	baseSchema := types.NamedStruct{
+		Names:  []string{"a", "b"},
+		Struct: types.StructType{Types: []types.Type{&types.Int32Type{}, &types.Int32Type{}}},
+	}
+	scan := builder.NamedScan([]string{"test_table"}, baseSchema)
+
+	exprBuilder := builder.GetExprBuilder()
+	exprBuilder.BaseSchema = types.NewRecordTypeFromStruct(baseSchema.Struct)
+
+	// Function 1: From URI-only extension
+	addUriExpr, err := exprBuilder.ScalarFunc(extensions.ID{
+		URI:  uriOnlyURI,
+		Name: "add_uri",
+	}).Args(
+		exprBuilder.RootRef(expr.NewStructFieldRef(0)),
+		exprBuilder.RootRef(expr.NewStructFieldRef(1)),
+	).BuildExpr()
+	require.NoError(t, err)
+
+	// Function 2: From URN-only extension
+	addUrnExpr, err := exprBuilder.ScalarFunc(extensions.ID{
+		URN:  "urn:example:urn-only",
+		Name: "add_urn",
+	}).Args(
+		exprBuilder.RootRef(expr.NewStructFieldRef(0)),
+		exprBuilder.RootRef(expr.NewStructFieldRef(1)),
+	).BuildExpr()
+	require.NoError(t, err)
+
+	// Function 3: From second URN-only extension
+	multiplyUrnExpr, err := exprBuilder.ScalarFunc(extensions.ID{
+		URN:  "urn:example:urn-only-2",
+		Name: "multiply_urn",
+	}).Args(
+		exprBuilder.RootRef(expr.NewStructFieldRef(0)),
+		exprBuilder.RootRef(expr.NewStructFieldRef(1)),
+	).BuildExpr()
+	require.NoError(t, err)
+
+	// Function 4: From URI+URN extension (lookup by URI)
+	addBothExpr, err := exprBuilder.ScalarFunc(extensions.ID{
+		URI:  bothURI,
+		Name: "add_both",
+	}).Args(
+		exprBuilder.RootRef(expr.NewStructFieldRef(0)),
+		exprBuilder.RootRef(expr.NewStructFieldRef(1)),
+	).BuildExpr()
+	require.NoError(t, err)
+
+	// Create a projection with all four function calls
+	projected, err := builder.Project(scan, addUriExpr, addUrnExpr, multiplyUrnExpr, addBothExpr)
+	require.NoError(t, err)
+
+	planObj, err := builder.Plan(projected, []string{"a", "b", "result_uri", "result_urn", "result_multiply", "result_both"})
+	require.NoError(t, err)
+
+	gotProto, err := planObj.ToProto()
+	require.NoError(t, err)
+
+	const expectedJSON = `{
+		"version": {
+			"minorNumber": 29,
+			"producer": "substrait-go darwin/arm64"
+		},
+		"extensionUris": [
+			{
+				"extensionUriAnchor": 1,
+				"uri": "http://localhost/uri-only.yaml"
+			},
+			{
+				"extensionUriAnchor": 2,
+				"uri": "http://localhost/both.yaml"
+			}
+		],
+		"extensionUrns": [
+			{
+				"extensionUrnAnchor": 1,
+				"urn": "urn:example:urn-only"
+			},
+			{
+				"extensionUrnAnchor": 2,
+				"urn": "urn:example:urn-only-2"
+			},
+			{
+				"extensionUrnAnchor": 3,
+				"urn": "urn:example:both"
+			}
+		],
+		"extensions": [
+			{
+				"extensionFunction": {
+					"extensionUriReference": 1,
+					"functionAnchor": 1,
+					"name": "add_uri:i32_i32"
+				}
+			},
+			{
+				"extensionFunction": {
+					"extensionUrnReference": 1,
+					"functionAnchor": 2,
+					"name": "add_urn:i32_i32"
+				}
+			},
+			{
+				"extensionFunction": {
+					"extensionUrnReference": 2,
+					"functionAnchor": 3,
+					"name": "multiply_urn:i32_i32"
+				}
+			},
+			{
+				"extensionFunction": {
+					"extensionUriReference": 2,
+					"extensionUrnReference": 3,
+					"functionAnchor": 4,
+					"name": "add_both:i32_i32"
+				}
+			}
+		],
+		"relations": [{
+			"root": {
+				"input": {
+					"project": {
+						"common": {"direct": {}},
+						"input": {
+							"read": {
+								"common": {"direct": {}},
+								"baseSchema": {
+									"names": ["a", "b"],
+									"struct": {
+										"types": [{"i32": {}}, {"i32": {}}]
+									}
+								},
+								"namedTable": {"names": ["test_table"]}
+							}
+						},
+						"expressions": [
+							{
+								"scalarFunction": {
+									"functionReference": 1,
+									"arguments": [
+										{
+											"value": {
+												"selection": {
+													"directReference": {"structField": {}},
+													"rootReference": {}
+												}
+											}
+										},
+										{
+											"value": {
+												"selection": {
+													"directReference": {"structField": {"field": 1}},
+													"rootReference": {}
+												}
+											}
+										}
+									],
+									"outputType": {
+										"i32": {
+											"nullability": "NULLABILITY_NULLABLE"
+										}
+									}
+								}
+							},
+							{
+								"scalarFunction": {
+									"functionReference": 2,
+									"arguments": [
+										{
+											"value": {
+												"selection": {
+													"directReference": {"structField": {}},
+													"rootReference": {}
+												}
+											}
+										},
+										{
+											"value": {
+												"selection": {
+													"directReference": {"structField": {"field": 1}},
+													"rootReference": {}
+												}
+											}
+										}
+									],
+									"outputType": {
+										"i32": {
+											"nullability": "NULLABILITY_NULLABLE"
+										}
+									}
+								}
+							},
+							{
+								"scalarFunction": {
+									"functionReference": 3,
+									"arguments": [
+										{
+											"value": {
+												"selection": {
+													"directReference": {"structField": {}},
+													"rootReference": {}
+												}
+											}
+										},
+										{
+											"value": {
+												"selection": {
+													"directReference": {"structField": {"field": 1}},
+													"rootReference": {}
+												}
+											}
+										}
+									],
+									"outputType": {
+										"i32": {
+											"nullability": "NULLABILITY_NULLABLE"
+										}
+									}
+								}
+							},
+							{
+								"scalarFunction": {
+									"functionReference": 4,
+									"arguments": [
+										{
+											"value": {
+												"selection": {
+													"directReference": {"structField": {}},
+													"rootReference": {}
+												}
+											}
+										},
+										{
+											"value": {
+												"selection": {
+													"directReference": {"structField": {"field": 1}},
+													"rootReference": {}
+												}
+											}
+										}
+									],
+									"outputType": {
+										"i32": {
+											"nullability": "NULLABILITY_NULLABLE"
+										}
+									}
+								}
+							}
+						]
+					}
+				},
+				"names": ["a", "b", "result_uri", "result_urn", "result_multiply", "result_both"]
+			}
+		}]
+	}`
+
+	var expected proto.Plan
+	require.NoError(t, protojson.Unmarshal([]byte(expectedJSON), &expected))
+
+	if diff := cmp.Diff(&expected, gotProto, protocmp.Transform()); diff != "" {
+		t.Errorf("Plan protobuf mismatch (-want +got):\n%s", diff)
+	}
+
+	assert.True(t, collection.URILoaded(uriOnlyURI))
+	assert.True(t, collection.URNLoaded("urn:example:urn-only"))
+	assert.True(t, collection.URILoaded(bothURI))
+	assert.True(t, collection.URNLoaded("urn:example:both"))
+}
+
 func TestRelFromProto(t *testing.T) {
 
 	registry := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
