@@ -387,6 +387,7 @@ func (s *WindowFunction) ResolveURI(uri string) []FunctionVariant {
 }
 
 type SimpleExtensionFile struct {
+	Urn                string              `yaml:"urn"`
 	Types              []Type              `yaml:"types,omitempty"`
 	TypeVariations     []TypeVariation     `yaml:"type_variations,omitempty"`
 	ScalarFunctions    []ScalarFunction    `yaml:"scalar_functions,omitempty"`

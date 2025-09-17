@@ -92,7 +92,8 @@ type ID struct {
 }
 
 type Collection struct {
-	uriSet map[string]struct{}
+	uriSet   map[string]struct{}
+	urnToUri map[string]string
 
 	simpleNameMap map[ID]string
 
@@ -172,6 +173,7 @@ func (c *Collection) GetWindowFunc(id ID) (*WindowFunctionVariant, bool) {
 func (c *Collection) init() {
 	if c.uriSet == nil {
 		c.uriSet = make(map[string]struct{})
+		c.urnToUri = make(map[string]string)
 		c.simpleNameMap = make(map[ID]string)
 		c.scalarMap = make(map[ID]*ScalarFunctionVariant)
 		c.aggregateMap = make(map[ID]*AggregateFunctionVariant)
@@ -195,6 +197,11 @@ func (c *Collection) Load(uri string, r io.Reader) error {
 	dec := yaml.NewDecoder(r)
 	if err := dec.Decode(&file); err != nil {
 		return err
+	}
+
+	urn := file.Urn
+	if urn == "" {
+		return fmt.Errorf("%w: missing URN", substraitgo.ErrInvalidSimpleExtention)
 	}
 
 	id := ID{URI: uri}
