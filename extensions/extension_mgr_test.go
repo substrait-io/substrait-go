@@ -490,3 +490,28 @@ func TestAggregateToWindowWithDefaultCollection(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadExtensionWithoutURN(t *testing.T) {
+	const extensionWithoutURN = `---
+scalar_functions:
+`
+
+	var c extensions.Collection
+	err := c.Load("http://localhost/test.yaml", strings.NewReader(extensionWithoutURN))
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "missing URN")
+}
+
+func TestLoadExtensionWithInvalidURN(t *testing.T) {
+	const extensionWithInvalidURN = `---
+urn: "invalid:urn:format"
+scalar_functions:
+`
+
+	var c extensions.Collection
+	err := c.Load("http://localhost/test.yaml", strings.NewReader(extensionWithInvalidURN))
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid URN")
+}
