@@ -3,25 +3,33 @@ tests:
   extensionUris:
     - extensionUriAnchor: 1
       uri: https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+  extensionUrns:
+    - extensionUrnAnchor: 1
+      urn: extension:io.substrait:functions_arithmetic
   extensions:
     - extensionFunction:
         extensionUriReference: 1
+        extensionUrnReference: 1
         functionAnchor: 2
         name: add:i64_i64
     - extensionFunction:
         extensionUriReference: 1
+        extensionUrnReference: 1
         functionAnchor: 3
         name: subtract:i64_i64
     - extensionFunction:
         extensionUriReference: 1
+        extensionUrnReference: 1
         functionAnchor: 4
         name: multiply:i64_i64
     - extensionFunction:
         extensionUriReference: 1
+        extensionUrnReference: 1
         functionAnchor: 5
         name: ntile:i64_i64
     - extensionFunction:
         extensionUriReference: 1
+        extensionUrnReference: 1
         functionAnchor: 6
         name: sum:i64
   baseSchema:

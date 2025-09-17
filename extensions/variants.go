@@ -18,7 +18,7 @@ type FunctionVariant interface {
 	Description() string
 	Args() FuncParameterList
 	Options() map[string]Option
-	URI() string
+	URN() string
 	// ResolveType computes the return type of a function variant, given the input argument types
 	ResolveType(argTypes []types.Type, registry Set) (types.Type, error)
 	Variadic() *VariadicBehavior
@@ -75,11 +75,11 @@ func validateType(funcParameter FuncParameter, actual types.Type, idx int, nullH
 
 // EvaluateTypeExpression evaluates the function return type given the input argumentTypes
 //
-//	uri: the uri of the extension that defines the function. for functions that return user defined types, we assume the uri of the return type is the same as the uri of the function.
+//	urn: the urn of the extension that defines the function. for functions that return user defined types, we assume the urn of the return type is the same as the urn of the function.
 //	funcParameters: the function parameters as defined in the function signature in the extension
 //	argumentTypes: the actual argument types provided to the function
 //	registry: the Set of extensions to look up/add user defined types to
-func EvaluateTypeExpression(uri string, nullHandling NullabilityHandling, returnTypeExpr types.FuncDefArgType,
+func EvaluateTypeExpression(urn string, nullHandling NullabilityHandling, returnTypeExpr types.FuncDefArgType,
 	funcParameters FuncParameterList, variadic *VariadicBehavior, argumentTypes []types.Type, registry Set) (types.Type, error) {
 	if variadic != nil {
 		numVariadicArgs := len(argumentTypes) - (len(funcParameters) - 1)
@@ -141,7 +141,7 @@ func EvaluateTypeExpression(uri string, nullHandling NullabilityHandling, return
 
 	if udt, ok := outType.(*types.UserDefinedType); ok {
 		name := strings.TrimPrefix(returnTypeExpr.ShortString(), "u!") // short string contains the u! prefix, but type definitions in the extensions don't
-		udt.TypeReference = registry.GetTypeAnchor(ID{Name: name, URI: uri})
+		udt.TypeReference = registry.GetTypeAnchor(ID{Name: name, URN: urn})
 	}
 
 	if nullHandling == MirrorNullability || nullHandling == "" {
@@ -288,7 +288,7 @@ func maxArgumentCount(paramTypeList FuncParameterList, variadicBehavior *Variadi
 	return len(paramTypeList) + variadicBehavior.Max
 }
 
-// NewScalarFuncVariant constructs a variant with the provided name and uri
+// NewScalarFuncVariant constructs a variant with the provided name and urn
 // and uses the defaults for everything else.
 //
 // Return expressions aren't included here as using this variant to construct
@@ -298,7 +298,7 @@ func NewScalarFuncVariant(id ID) *ScalarFunctionVariant {
 	simpleName, args := parseFuncName(id.Name)
 	return &ScalarFunctionVariant{
 		name: simpleName,
-		uri:  id.URI,
+		urn:  id.URN,
 		impl: ScalarFunctionImpl{Args: args},
 	}
 }
@@ -310,7 +310,7 @@ func NewScalarFuncVariantWithProps(id ID, variadic *VariadicBehavior, sessionDep
 	simpleName, args := parseFuncName(id.Name)
 	return &ScalarFunctionVariant{
 		name: simpleName,
-		uri:  id.URI,
+		urn:  id.URN,
 		impl: ScalarFunctionImpl{
 			Args:             args,
 			Variadic:         variadic,
@@ -323,7 +323,7 @@ func NewScalarFuncVariantWithProps(id ID, variadic *VariadicBehavior, sessionDep
 type ScalarFunctionVariant struct {
 	name        string
 	description string
-	uri         string
+	urn         string
 	impl        ScalarFunctionImpl
 }
 
@@ -335,15 +335,15 @@ func (s *ScalarFunctionVariant) Variadic() *VariadicBehavior      { return s.imp
 func (s *ScalarFunctionVariant) Deterministic() bool              { return s.impl.Deterministic }
 func (s *ScalarFunctionVariant) SessionDependent() bool           { return s.impl.SessionDependent }
 func (s *ScalarFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
-func (s *ScalarFunctionVariant) URI() string                      { return s.uri }
+func (s *ScalarFunctionVariant) URN() string                      { return s.urn }
 func (s *ScalarFunctionVariant) ResolveType(argumentTypes []types.Type, registry Set) (types.Type, error) {
-	return EvaluateTypeExpression(s.uri, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
+	return EvaluateTypeExpression(s.urn, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
 }
 func (s *ScalarFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
 }
 func (s *ScalarFunctionVariant) ID() ID {
-	return ID{URI: s.uri, Name: s.CompoundName()}
+	return ID{URN: s.urn, Name: s.CompoundName()}
 }
 
 func (s *ScalarFunctionVariant) Match(argumentTypes []types.Type) (bool, error) {
@@ -362,7 +362,7 @@ func (s *ScalarFunctionVariant) MaxArgumentCount() int {
 	return maxArgumentCount(s.impl.Args, s.impl.Variadic)
 }
 
-// NewAggFuncVariant constructs a variant with the provided name and uri
+// NewAggFuncVariant constructs a variant with the provided name and urn
 // and uses the defaults for everything else.
 //
 // Return expressions aren't included here as using this variant to construct
@@ -372,7 +372,7 @@ func NewAggFuncVariant(id ID) *AggregateFunctionVariant {
 	simpleName, args := parseFuncName(id.Name)
 	return &AggregateFunctionVariant{
 		name: simpleName,
-		uri:  id.URI,
+		urn:  id.URN,
 		impl: AggregateFunctionImpl{
 			ScalarFunctionImpl: ScalarFunctionImpl{
 				Args: args,
@@ -416,7 +416,7 @@ func NewAggFuncVariantOpts(id ID, opts AggVariantOptions) *AggregateFunctionVari
 	simpleName, args := parseFuncName(id.Name)
 	return &AggregateFunctionVariant{
 		name: simpleName,
-		uri:  id.URI,
+		urn:  id.URN,
 		impl: AggregateFunctionImpl{
 			ScalarFunctionImpl: ScalarFunctionImpl{
 				Args:             args,
@@ -435,7 +435,7 @@ func NewAggFuncVariantOpts(id ID, opts AggVariantOptions) *AggregateFunctionVari
 type AggregateFunctionVariant struct {
 	name        string
 	description string
-	uri         string
+	urn         string
 	impl        AggregateFunctionImpl
 }
 
@@ -447,15 +447,15 @@ func (s *AggregateFunctionVariant) Variadic() *VariadicBehavior      { return s.
 func (s *AggregateFunctionVariant) Deterministic() bool              { return s.impl.Deterministic }
 func (s *AggregateFunctionVariant) SessionDependent() bool           { return s.impl.SessionDependent }
 func (s *AggregateFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
-func (s *AggregateFunctionVariant) URI() string                      { return s.uri }
+func (s *AggregateFunctionVariant) URN() string                      { return s.urn }
 func (s *AggregateFunctionVariant) ResolveType(argumentTypes []types.Type, registry Set) (types.Type, error) {
-	return EvaluateTypeExpression(s.uri, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
+	return EvaluateTypeExpression(s.urn, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
 }
 func (s *AggregateFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
 }
 func (s *AggregateFunctionVariant) ID() ID {
-	return ID{URI: s.uri, Name: s.CompoundName()}
+	return ID{URN: s.urn, Name: s.CompoundName()}
 }
 func (s *AggregateFunctionVariant) Decomposability() DecomposeType { return s.impl.Decomposable }
 func (s *AggregateFunctionVariant) Intermediate() (types.FuncDefArgType, error) {
@@ -483,7 +483,7 @@ func (s *AggregateFunctionVariant) MaxArgumentCount() int {
 type WindowFunctionVariant struct {
 	name        string
 	description string
-	uri         string
+	urn         string
 	impl        WindowFunctionImpl
 }
 
@@ -491,7 +491,7 @@ func NewWindowFuncVariant(id ID) *WindowFunctionVariant {
 	simpleName, args := parseFuncName(id.Name)
 	return &WindowFunctionVariant{
 		name: simpleName,
-		uri:  id.URI,
+		urn:  id.URN,
 		impl: WindowFunctionImpl{
 			AggregateFunctionImpl: AggregateFunctionImpl{
 				ScalarFunctionImpl: ScalarFunctionImpl{Args: args},
@@ -540,7 +540,7 @@ func NewWindowFuncVariantOpts(id ID, opts WindowVariantOpts) *WindowFunctionVari
 	simpleName, args := parseFuncName(id.Name)
 	return &WindowFunctionVariant{
 		name: simpleName,
-		uri:  id.URI,
+		urn:  id.URN,
 		impl: WindowFunctionImpl{
 			AggregateFunctionImpl: AggregateFunctionImpl{
 				ScalarFunctionImpl: ScalarFunctionImpl{
@@ -567,15 +567,15 @@ func (s *WindowFunctionVariant) Variadic() *VariadicBehavior      { return s.imp
 func (s *WindowFunctionVariant) Deterministic() bool              { return s.impl.Deterministic }
 func (s *WindowFunctionVariant) SessionDependent() bool           { return s.impl.SessionDependent }
 func (s *WindowFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
-func (s *WindowFunctionVariant) URI() string                      { return s.uri }
+func (s *WindowFunctionVariant) URN() string                      { return s.urn }
 func (s *WindowFunctionVariant) ResolveType(argumentTypes []types.Type, registry Set) (types.Type, error) {
-	return EvaluateTypeExpression(s.uri, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
+	return EvaluateTypeExpression(s.urn, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
 }
 func (s *WindowFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
 }
 func (s *WindowFunctionVariant) ID() ID {
-	return ID{URI: s.uri, Name: s.CompoundName()}
+	return ID{URN: s.urn, Name: s.CompoundName()}
 }
 func (s *WindowFunctionVariant) Decomposability() DecomposeType { return s.impl.Decomposable }
 func (s *WindowFunctionVariant) Intermediate() (types.FuncDefArgType, error) {

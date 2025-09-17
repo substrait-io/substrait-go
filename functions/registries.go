@@ -62,7 +62,7 @@ type FunctionName interface {
 // LocalFunctionName is a function name localized to a specific dialect
 type LocalFunctionName string
 
-// SubstraitFunctionName is the short name of the function (excluded URI and argument types) in Substrait
+// SubstraitFunctionName is the short name of the function (excluded URN and argument types) in Substrait
 type SubstraitFunctionName string
 
 func (LocalFunctionName) functionName()     {}

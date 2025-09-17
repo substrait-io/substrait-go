@@ -373,7 +373,7 @@ type Expression interface {
 	//     // it's a pre-order traversal
 	//     if f, ok := e.(*ScalarFunction); ok {
 	//       return &ScalarFunction{
-	//         ID: ExtID{URI: "some other uri", Name: "some other func"},
+	//         ID: ExtID{URN: "some other urn", Name: "some other func"},
 	//         Args: f.Args,
 	//         Options: f.Options,
 	//         OutputType: f.OutputType,
@@ -1606,7 +1606,7 @@ func ExtendedFromProto(ex *proto.ExtendedExpression, c *extensions.Collection) (
 }
 
 func (ex *Extended) ToProto() *proto.ExtendedExpression {
-	uris, decls := ex.Extensions.ToProto()
+	urns, decls := ex.Extensions.ToProto()
 	refs := make([]*proto.ExpressionReference, len(ex.ReferredExpr))
 	for i, ref := range ex.ReferredExpr {
 		refs[i] = ref.ToProto()
@@ -1614,7 +1614,7 @@ func (ex *Extended) ToProto() *proto.ExtendedExpression {
 
 	return &proto.ExtendedExpression{
 		Version:            ex.Version,
-		ExtensionUris:      uris,
+		ExtensionUrns:      urns,
 		Extensions:         decls,
 		BaseSchema:         ex.BaseSchema.ToProto(),
 		AdvancedExtensions: ex.AdvancedExts,

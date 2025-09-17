@@ -25,10 +25,10 @@ func TestDialectApis(t *testing.T) {
 name: testdb
 type: sql
 dependencies:
-  arithmetic: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
-  comparison: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_comparison.yaml
+  arithmetic:
+    extension:io.substrait:functions_arithmetic
+  comparison:
+    extension:io.substrait:functions_comparison
 supported_types:
   i32:
     sql_type_name: TINYINT,
@@ -135,7 +135,7 @@ scalar_functions:
 type: sql
 dependencies:
   arithmetic: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+    extension:io.substrait:functions_arithmetic
 supported_types:
   i32:
     sql_type_name: TINYINT,
@@ -160,7 +160,7 @@ window_functions:
 type: sql
 dependencies:
   arithmetic: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+    extension:io.substrait:functions_arithmetic
 supported_types:
   i32:
     sql_type_name: TINYINT,
@@ -178,7 +178,7 @@ scalar_functions:
 type: sql
 dependencies:
   arithmetic: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+    extension:io.substrait:functions_arithmetic
 supported_types:
   i32:
     sql_type_name: TINYINT,
@@ -193,7 +193,7 @@ aggregate_functions:
 type: sql
 dependencies:
   arithmetic: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+    extension:io.substrait:functions_arithmetic
 supported_types:
   i32:
     sql_type_name: TINYINT,
@@ -221,7 +221,7 @@ window_functions:
 type: sql
 dependencies:
   arithmetic: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+    extension:io.substrait:functions_arithmetic
 supported_types:
   i32:
     sql_type_name: TINYINT,
@@ -258,11 +258,11 @@ func getLocalFunctionRegistry(t *testing.T, dialectYaml string, substraitFuncReg
 }
 
 func TestScalarFunctionsLookup(t *testing.T) {
-	baseUri := "https://github.com/substrait-io/substrait/blob/main/extensions/"
-	arithmeticUri := baseUri + "functions_arithmetic.yaml"
-	booleanUri := baseUri + "functions_boolean.yaml"
-	comparisonUri := baseUri + "functions_comparison.yaml"
-	stringUri := baseUri + "functions_string.yaml"
+	baseUrn := "extension:io.substrait:"
+	arithmeticUrn := baseUrn + "functions_arithmetic"
+	booleanUrn := baseUrn + "functions_boolean"
+	comparisonUrn := baseUrn + "functions_comparison"
+	stringUrn := baseUrn + "functions_string"
 	allFunctions := gFunctionRegistry.GetAllFunctions()
 
 	dialectYaml := `
@@ -270,13 +270,13 @@ name: test
 type: sql
 dependencies:
   arithmetic: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+    extension:io.substrait:functions_arithmetic
   boolean: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_boolean.yaml
+    extension:io.substrait:functions_boolean
   comparison: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_comparison.yaml
+    extension:io.substrait:functions_comparison
   string: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_string.yaml
+    extension:io.substrait:functions_string
 supported_types:
   i32:
     sql_type_name: INTEGER
@@ -339,20 +339,20 @@ scalar_functions:
 		numArgs          int
 		localName        string
 		substraitName    string
-		expectedUri      string
+		expectedUrn      string
 		expectedNames    []string
 		expectedNotation FunctionNotation
 		isOverflowError  bool
 	}{
-		{2, "+", "add", arithmeticUri, []string{"add:i32_i32", "add:i64_i64", "add:fp32_fp32", "add:fp64_fp64"}, INFIX, true},
-		{2, "-", "subtract", arithmeticUri, []string{"subtract:fp32_fp32", "subtract:fp64_fp64"}, INFIX, true},
-		{1, "IS NULL", "is_null", comparisonUri, []string{"is_null:any"}, POSTFIX, false},
-		{3, "and", "and", booleanUri, []string{"and:bool"}, INFIX, false},
-		{2, "and", "and", booleanUri, []string{"and:bool"}, INFIX, false},
-		{1, "and", "and", booleanUri, []string{"and:bool"}, INFIX, false},
-		{0, "and", "and", booleanUri, []string{"and:bool"}, INFIX, false},
-		{2, "||", "concat", stringUri, []string{"concat:vchar", "concat:str"}, INFIX, false},
-		{3, "||", "concat", stringUri, []string{"concat:vchar", "concat:str"}, INFIX, false},
+		{2, "+", "add", arithmeticUrn, []string{"add:i32_i32", "add:i64_i64", "add:fp32_fp32", "add:fp64_fp64"}, INFIX, true},
+		{2, "-", "subtract", arithmeticUrn, []string{"subtract:fp32_fp32", "subtract:fp64_fp64"}, INFIX, true},
+		{1, "IS NULL", "is_null", comparisonUrn, []string{"is_null:any"}, POSTFIX, false},
+		{3, "and", "and", booleanUrn, []string{"and:bool"}, INFIX, false},
+		{2, "and", "and", booleanUrn, []string{"and:bool"}, INFIX, false},
+		{1, "and", "and", booleanUrn, []string{"and:bool"}, INFIX, false},
+		{0, "and", "and", booleanUrn, []string{"and:bool"}, INFIX, false},
+		{2, "||", "concat", stringUrn, []string{"concat:vchar", "concat:str"}, INFIX, false},
+		{3, "||", "concat", stringUrn, []string{"concat:vchar", "concat:str"}, INFIX, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.substraitName, func(t *testing.T) {
@@ -360,7 +360,7 @@ scalar_functions:
 			fv = localRegistry.GetScalarFunctions(LocalFunctionName(tt.localName), tt.numArgs)
 
 			assert.Greater(t, len(fv), 0)
-			assert.Equal(t, tt.expectedUri, fv[0].URI())
+			assert.Equal(t, tt.expectedUrn, fv[0].URN())
 			assert.Equal(t, tt.localName, fv[0].LocalName())
 			assert.Equal(t, tt.expectedNotation, fv[0].Notation())
 			assert.Equal(t, tt.isOverflowError, fv[0].IsOptionSupported("overflow", "ERROR"))
@@ -369,7 +369,7 @@ scalar_functions:
 
 			fv = localRegistry.GetScalarFunctions(SubstraitFunctionName(tt.substraitName), tt.numArgs)
 			assert.Greater(t, len(fv), 0)
-			assert.Equal(t, tt.expectedUri, fv[0].URI())
+			assert.Equal(t, tt.expectedUrn, fv[0].URN())
 			assert.Equal(t, tt.localName, fv[0].LocalName())
 			assert.Equal(t, tt.substraitName, fv[0].Name())
 			checkCompoundNames(t, getScalarCompoundNames(fv), tt.expectedNames)
@@ -389,14 +389,14 @@ scalar_functions:
 }
 
 func TestAggregateFunctionsLookup(t *testing.T) {
-	expectedUri := "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	expectedUrn := "extension:io.substrait:functions_arithmetic"
 	allFunctions := gFunctionRegistry.GetAllFunctions()
 	dialectYaml := `
 name: test
 type: sql
 dependencies:
   arithmetic: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+    extension:io.substrait:functions_arithmetic
 supported_types:
   i8:
     sql_type_name: INTEGER
@@ -432,19 +432,19 @@ aggregate_functions:
 		numArgs          int
 		localName        string
 		substraitName    string
-		expectedUri      string
+		expectedUrn      string
 		expectedNames    []string
 		expectedNotation FunctionNotation
 	}{
-		{1, "max", "max", expectedUri, []string{"max:i8", "max:i16", "max:fp32", "max:fp64"}, PREFIX},
-		{1, "min", "min", expectedUri, []string{"min:i8", "min:i16", "min:fp32", "min:fp64"}, PREFIX},
+		{1, "max", "max", expectedUrn, []string{"max:i8", "max:i16", "max:fp32", "max:fp64"}, PREFIX},
+		{1, "min", "min", expectedUrn, []string{"min:i8", "min:i16", "min:fp32", "min:fp64"}, PREFIX},
 	}
 	for _, tt := range tests {
 		t.Run(tt.substraitName, func(t *testing.T) {
 			av := localRegistry.GetAggregateFunctions(LocalFunctionName(tt.localName), 1)
 
 			assert.Greater(t, len(av), 0)
-			assert.Equal(t, tt.expectedUri, av[0].URI())
+			assert.Equal(t, tt.expectedUrn, av[0].URN())
 			assert.Equal(t, tt.localName, av[0].LocalName())
 			assert.Equal(t, tt.expectedNotation, av[0].Notation())
 			assert.False(t, av[0].IsOptionSupported("overflow", "ERROR"))
@@ -452,7 +452,7 @@ aggregate_functions:
 
 			av = localRegistry.GetAggregateFunctions(SubstraitFunctionName(tt.substraitName), 1)
 			assert.Greater(t, len(av), 0)
-			assert.Equal(t, tt.expectedUri, av[0].URI())
+			assert.Equal(t, tt.expectedUrn, av[0].URN())
 			assert.Equal(t, tt.substraitName, av[0].LocalName())
 			checkCompoundNames(t, getAggregateCompoundNames(av), tt.expectedNames)
 
@@ -471,14 +471,14 @@ aggregate_functions:
 }
 
 func TestWindowFunctionsLookup(t *testing.T) {
-	expectedUri := "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	expectedUrn := "extension:io.substrait:functions_arithmetic"
 	allFunctions := gFunctionRegistry.GetAllFunctions()
 	dialectYaml := `
 name: test
 type: sql
 dependencies:
   arithmetic: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+    extension:io.substrait:functions_arithmetic
 supported_types:
   i32:
     sql_type_name: INTEGER
@@ -500,18 +500,18 @@ window_functions:
 		numArgs          int
 		localName        string
 		substraitName    string
-		expectedUri      string
+		expectedUrn      string
 		expectedNames    []string
 		expectedNotation FunctionNotation
 	}{
-		{1, "ntile", "ntile", expectedUri, []string{"ntile:i32", "ntile:i64"}, PREFIX},
-		{0, "rank", "rank", expectedUri, []string{"rank:", "rank:"}, PREFIX},
+		{1, "ntile", "ntile", expectedUrn, []string{"ntile:i32", "ntile:i64"}, PREFIX},
+		{0, "rank", "rank", expectedUrn, []string{"rank:", "rank:"}, PREFIX},
 	}
 	for _, tt := range tests {
 		t.Run(tt.substraitName, func(t *testing.T) {
 			wf := localRegistry.GetWindowFunctions(LocalFunctionName(tt.localName), tt.numArgs)
 			assert.Greater(t, len(wf), 0)
-			assert.Equal(t, tt.expectedUri, wf[0].URI())
+			assert.Equal(t, tt.expectedUrn, wf[0].URN())
 			assert.Equal(t, tt.localName, wf[0].LocalName())
 			assert.Equal(t, tt.expectedNotation, wf[0].Notation())
 			assert.False(t, wf[0].IsOptionSupported("overflow", "ERROR"))
@@ -519,7 +519,7 @@ window_functions:
 
 			wf = localRegistry.GetWindowFunctions(SubstraitFunctionName(tt.substraitName), tt.numArgs)
 			assert.Greater(t, len(wf), 0)
-			assert.Equal(t, tt.expectedUri, wf[0].URI())
+			assert.Equal(t, tt.expectedUrn, wf[0].URN())
 			assert.Equal(t, tt.substraitName, wf[0].LocalName())
 			checkCompoundNames(t, getWindowCompoundNames(wf), tt.expectedNames)
 
@@ -569,7 +569,7 @@ func checkCompoundNames(t *testing.T, compoundNames []string, expectedNames []st
 
 // test match functionality fails if it has sync param
 func TestScalarFunctionsSyncParamsError(t *testing.T) {
-	const uri = "http://localhost/sample.yaml"
+	const urn = "extension:test:def"
 	const defYaml = `---
 urn: extension:test:def
 scalar_functions:
@@ -590,7 +590,7 @@ name: test
 type: sql
 dependencies:
   arithmetic: 
-    http://localhost/sample.yaml
+    extension:test:def
 supported_types:
   dec:
     sql_type_name: NUMBER
@@ -601,7 +601,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(uri, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -633,7 +633,7 @@ scalar_functions:
 
 // test match functionality with MIRROR nullability
 func TestScalarFunctionsMirrorNullabilityMatch(t *testing.T) {
-	const uri = "http://localhost/sample.yaml"
+	const urn = "extension:test:def"
 	const defYaml = `---
 urn: extension:test:def
 scalar_functions:
@@ -654,7 +654,7 @@ name: test
 type: sql
 dependencies:
   arithmetic: 
-    http://localhost/sample.yaml
+    extension:test:def
 supported_types:
   i32:
     sql_type_name: INTEGER
@@ -665,7 +665,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(uri, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -705,7 +705,7 @@ scalar_functions:
 
 // test match functionality DeclaredOutput nullability
 func TestScalarFunctionsDeclaredOutputNullabilityMatch(t *testing.T) {
-	const uri = "http://localhost/sample.yaml"
+	const urn = "extension:test:def"
 	const defYaml = `---
 urn: extension:test:def
 scalar_functions:
@@ -726,8 +726,8 @@ scalar_functions:
 name: test
 type: sql
 dependencies:
-  arithmetic: 
-    http://localhost/sample.yaml
+  arithmetic:
+    extension:test:def
 supported_types:
   i32:
     sql_type_name: INTEGER
@@ -738,7 +738,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(uri, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -774,7 +774,7 @@ scalar_functions:
 
 // test match functionality with DISCRETE nullability
 func TestScalarFunctionsDiscreteNullabilityMatch(t *testing.T) {
-	const uri = "http://localhost/sample.yaml"
+	const urn = "extension:test:def"
 	const defYaml = `---
 urn: extension:test:def
 scalar_functions:
@@ -806,8 +806,8 @@ scalar_functions:
 name: test
 type: sql
 dependencies:
-  arithmetic: 
-    http://localhost/sample.yaml
+  arithmetic:
+    extension:test:def
 supported_types:
   i32:
     sql_type_name: INTEGER
@@ -821,7 +821,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(uri, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -860,7 +860,7 @@ scalar_functions:
 
 // test match functionality returns true for function with variadic argument
 func TestScalarFunctionsVariadicMatch(t *testing.T) {
-	const uri = "http://localhost/sample.yaml"
+	const urn = "extension:test:def"
 	const defYaml = `---
 urn: extension:test:def
 scalar_functions:
@@ -883,8 +883,8 @@ scalar_functions:
 name: test
 type: sql
 dependencies:
-  arithmetic: 
-    http://localhost/sample.yaml
+  arithmetic:
+    extension:test:def
 supported_types:
   i32:
     sql_type_name: INTEGER
@@ -895,7 +895,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(uri, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -918,7 +918,7 @@ scalar_functions:
 }
 
 func TestScalarFunctionsVariadicMin0(t *testing.T) {
-	const uri = "http://localhost/sample.yaml"
+	const urn = "extension:test:def"
 	const defYaml = `---
 urn: extension:test:def
 scalar_functions:
@@ -937,8 +937,8 @@ scalar_functions:
 name: test
 type: sql
 dependencies:
-  boolean: 
-    http://localhost/sample.yaml
+  boolean:
+    extension:test:def
 supported_types:
   i32:
     sql_type_name: INTEGER
@@ -950,7 +950,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(uri, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -995,7 +995,7 @@ scalar_functions:
 // this tests that match functionality returns true for function with variadic argument
 // when argument count is greater than variadic min count
 func TestScalarFuncVariadicArgMatch(t *testing.T) {
-	const uri = "http://localhost/sample.yaml"
+	const urn = "extension:test:def"
 	const defYaml = `---
 urn: extension:test:def
 scalar_functions:
@@ -1019,8 +1019,8 @@ scalar_functions:
 name: test
 type: sql
 dependencies:
-  arithmetic: 
-    http://localhost/sample.yaml
+  arithmetic:
+    extension:test:def
 supported_types:
   i32:
     sql_type_name: INTEGER
@@ -1033,7 +1033,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(uri, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -1062,7 +1062,7 @@ scalar_functions:
 // this tests that match functionality returns true for function with variadic argument
 // when argument count is greater than variadic min count
 func TestScalarFuncVariadicArgMisMatch(t *testing.T) {
-	const uri = "http://localhost/sample.yaml"
+	const urn = "extension:test:def"
 	const defYaml = `---
 urn: extension:test:def
 scalar_functions:
@@ -1086,8 +1086,8 @@ scalar_functions:
 name: test
 type: sql
 dependencies:
-  arithmetic: 
-    http://localhost/sample.yaml
+  arithmetic:
+    extension:test:def
 supported_types:
   i32:
     sql_type_name: INTEGER
@@ -1100,7 +1100,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(uri, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -1125,7 +1125,7 @@ scalar_functions:
 // test match functionality returns true for function with variadic argument
 // if argument count is lesser than variadic min count
 func TestScalarFuncVariadicMismatch(t *testing.T) {
-	const uri = "http://localhost/sample.yaml"
+	const urn = "extension:test:def"
 	const defYaml = `---
 urn: extension:test:def
 scalar_functions:
@@ -1147,8 +1147,8 @@ scalar_functions:
 name: test
 type: sql
 dependencies:
-  arithmetic: 
-    http://localhost/sample.yaml
+  arithmetic:
+    extension:test:def
 supported_types:
   dec:
     sql_type_name: INTEGER
@@ -1159,7 +1159,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(uri, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -1184,7 +1184,7 @@ scalar_functions:
 // test match functionality returns false if consistency check for argument fails
 // when function implementation has "CONSISTENCY" property for parameter consistency
 func TestScalarFuncVariadicConsistencyCheckMisMatch(t *testing.T) {
-	const uri = "http://localhost/sample.yaml"
+	const urn = "extension:test:def"
 	const defYaml = `---
 urn: extension:test:def
 scalar_functions:
@@ -1208,8 +1208,8 @@ scalar_functions:
 name: test
 type: sql
 dependencies:
-  arithmetic: 
-    http://localhost/sample.yaml
+  arithmetic:
+    extension:test:def
 supported_types:
   dec:
     sql_type_name: INTEGER
@@ -1220,7 +1220,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(uri, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -1240,7 +1240,7 @@ scalar_functions:
 }
 
 func TestAggregateFuncMinMax(t *testing.T) {
-	const uri = "http://localhost/sample.yaml"
+	const urn = "extension:test:def"
 	const defYaml = `---
 urn: extension:test:def
 aggregate_functions:
@@ -1273,8 +1273,8 @@ aggregate_functions:
 name: test
 type: sql
 dependencies:
-  arithmetic: 
-    http://localhost/sample.yaml
+  arithmetic:
+    extension:test:def
 supported_types:
   i32:
     sql_type_name: INTEGER
@@ -1288,7 +1288,7 @@ aggregate_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(uri, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -1306,7 +1306,7 @@ aggregate_functions:
 }
 
 func TestWindowFuncMinMax(t *testing.T) {
-	const uri = "http://localhost/sample.yaml"
+	const urn = "extension:test:def"
 	const defYaml = `---
 urn: extension:test:def
 window_functions:
@@ -1339,8 +1339,8 @@ window_functions:
 name: test
 type: sql
 dependencies:
-  arithmetic: 
-    http://localhost/sample.yaml
+  arithmetic:
+    extension:test:def
 supported_types:
   i32:
     sql_type_name: INTEGER
@@ -1354,7 +1354,7 @@ window_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(uri, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -1372,8 +1372,8 @@ window_functions:
 }
 
 func TestDecimalScalarFunctionsLookup(t *testing.T) {
-	baseUri := "https://github.com/substrait-io/substrait/blob/main/extensions/"
-	decArithmeticUri := baseUri + "functions_arithmetic_decimal.yaml"
+	baseUrn := "extension:io.substrait:"
+	decArithmeticUrn := baseUrn + "functions_arithmetic_decimal"
 	allFunctions := gFunctionRegistry.GetAllFunctions()
 
 	dialectYaml := `
@@ -1381,7 +1381,7 @@ name: test
 type: sql
 dependencies:
   arithmetic: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic_decimal.yaml
+    extension:io.substrait:functions_arithmetic_decimal
 supported_types:
   decimal:
     sql_type_name: INTEGER
@@ -1428,19 +1428,19 @@ scalar_functions:
 		substraitName      string
 		args               []types.Type
 		expectedReturnType types.Type
-		expectedUri        string
+		expectedUrn        string
 		expectedNames      []string
 		expectedNotation   FunctionNotation
 		isOverflowError    bool
 	}{
-		{2, "+", "add", []types.Type{decType30S2, decType32S2}, decType33S2, decArithmeticUri, []string{"add:dec_dec"}, INFIX, true},
-		{2, "+", "add", []types.Type{decType10S4, decType10S5}, decType12S5, decArithmeticUri, []string{"add:dec_dec"}, INFIX, true},
-		{2, "+", "add", []types.Type{decType8S3, decType9S2}, decType11S3, decArithmeticUri, []string{"add:dec_dec"}, INFIX, true},
-		{2, "+", "add", []types.Type{decType20S10, decType20S10}, decType21S10, decArithmeticUri, []string{"add:dec_dec"}, INFIX, true},
-		{2, "+", "add", []types.Type{decType35S30, decType35S30}, decType36S30, decArithmeticUri, []string{"add:dec_dec"}, INFIX, true},
-		{2, "+", "add", []types.Type{decType38S20, decType38S20}, decType38S19, decArithmeticUri, []string{"add:dec_dec"}, INFIX, true},
-		{2, "+", "add", []types.Type{decType10S5, dectype12S8}, decType14S8, decArithmeticUri, []string{"add:dec_dec"}, INFIX, true},
-		{2, "-", "subtract", []types.Type{decType30S2, decType32S2}, decType33S2, decArithmeticUri, []string{"subtract:dec_dec"}, INFIX, true},
+		{2, "+", "add", []types.Type{decType30S2, decType32S2}, decType33S2, decArithmeticUrn, []string{"add:dec_dec"}, INFIX, true},
+		{2, "+", "add", []types.Type{decType10S4, decType10S5}, decType12S5, decArithmeticUrn, []string{"add:dec_dec"}, INFIX, true},
+		{2, "+", "add", []types.Type{decType8S3, decType9S2}, decType11S3, decArithmeticUrn, []string{"add:dec_dec"}, INFIX, true},
+		{2, "+", "add", []types.Type{decType20S10, decType20S10}, decType21S10, decArithmeticUrn, []string{"add:dec_dec"}, INFIX, true},
+		{2, "+", "add", []types.Type{decType35S30, decType35S30}, decType36S30, decArithmeticUrn, []string{"add:dec_dec"}, INFIX, true},
+		{2, "+", "add", []types.Type{decType38S20, decType38S20}, decType38S19, decArithmeticUrn, []string{"add:dec_dec"}, INFIX, true},
+		{2, "+", "add", []types.Type{decType10S5, dectype12S8}, decType14S8, decArithmeticUrn, []string{"add:dec_dec"}, INFIX, true},
+		{2, "-", "subtract", []types.Type{decType30S2, decType32S2}, decType33S2, decArithmeticUrn, []string{"subtract:dec_dec"}, INFIX, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.substraitName, func(t *testing.T) {
@@ -1448,7 +1448,7 @@ scalar_functions:
 			fv = localRegistry.GetScalarFunctions(LocalFunctionName(tt.localName), tt.numArgs)
 
 			assert.Greater(t, len(fv), 0)
-			assert.Equal(t, tt.expectedUri, fv[0].URI())
+			assert.Equal(t, tt.expectedUrn, fv[0].URN())
 			assert.Equal(t, tt.localName, fv[0].LocalName())
 			assert.Equal(t, tt.expectedNotation, fv[0].Notation())
 			assert.Equal(t, tt.isOverflowError, fv[0].IsOptionSupported("overflow", "ERROR"))
@@ -1459,7 +1459,7 @@ scalar_functions:
 			assert.Equal(t, tt.expectedReturnType, retType)
 			fv = localRegistry.GetScalarFunctions(SubstraitFunctionName(tt.substraitName), tt.numArgs)
 			assert.Greater(t, len(fv), 0)
-			assert.Equal(t, tt.expectedUri, fv[0].URI())
+			assert.Equal(t, tt.expectedUrn, fv[0].URN())
 			assert.Equal(t, tt.localName, fv[0].LocalName())
 			assert.Equal(t, tt.substraitName, fv[0].Name())
 			checkCompoundNames(t, getScalarCompoundNames(fv), tt.expectedNames)
@@ -1479,18 +1479,18 @@ scalar_functions:
 }
 
 func TestScalarFunctionLookupWithAnyReturnType(t *testing.T) {
-	baseUri := "https://github.com/substrait-io/substrait/blob/main/extensions/"
-	decArithmeticUri := baseUri + "functions_comparison.yaml"
+	baseUrn := "extension:io.substrait:"
+	decArithmeticUrn := baseUrn + "functions_comparison"
 	allFunctions := gFunctionRegistry.GetAllFunctions()
 
 	dialectYaml := `
 name: test
 type: sql
 dependencies:
-  arithmetic: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
-  comparison: 
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_comparison.yaml
+  arithmetic:
+    extension:io.substrait:functions_arithmetic
+  comparison:
+    extension:io.substrait:functions_comparison
 supported_types:
   decimal:
     sql_type_name: INTEGER
@@ -1519,12 +1519,12 @@ scalar_functions:
 		substraitName      string
 		args               []types.Type
 		expectedReturnType types.Type
-		expectedUri        string
+		expectedUrn        string
 		expectedNames      []string
 	}{
-		{2, "least", "least", []types.Type{decType30S2, decType30S2}, decType30S2, decArithmeticUri, []string{"least:any"}},
-		{3, "coalesce", "coalesce", []types.Type{varcharL50, varcharL50, varcharL50}, varcharL50, decArithmeticUri, []string{"coalesce:any"}},
-		{2, "nullif", "nullif", []types.Type{decType30S2, decType30S2}, decType30S2, decArithmeticUri, []string{"nullif:any_any"}},
+		{2, "least", "least", []types.Type{decType30S2, decType30S2}, decType30S2, decArithmeticUrn, []string{"least:any"}},
+		{3, "coalesce", "coalesce", []types.Type{varcharL50, varcharL50, varcharL50}, varcharL50, decArithmeticUrn, []string{"coalesce:any"}},
+		{2, "nullif", "nullif", []types.Type{decType30S2, decType30S2}, decType30S2, decArithmeticUrn, []string{"nullif:any_any"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.substraitName, func(t *testing.T) {
@@ -1532,7 +1532,7 @@ scalar_functions:
 			fv = localRegistry.GetScalarFunctions(LocalFunctionName(tt.localName), tt.numArgs)
 
 			require.Greater(t, len(fv), 0)
-			assert.Equal(t, tt.expectedUri, fv[0].URI())
+			assert.Equal(t, tt.expectedUrn, fv[0].URN())
 			assert.Equal(t, tt.localName, fv[0].LocalName())
 			assert.False(t, fv[0].IsOptionSupported("overflow", "SILENT"))
 			checkCompoundNames(t, getScalarCompoundNames(fv), tt.expectedNames)
@@ -1541,7 +1541,7 @@ scalar_functions:
 			assert.Equal(t, tt.expectedReturnType, retType)
 			fv = localRegistry.GetScalarFunctions(SubstraitFunctionName(tt.substraitName), tt.numArgs)
 			assert.Greater(t, len(fv), 0)
-			assert.Equal(t, tt.expectedUri, fv[0].URI())
+			assert.Equal(t, tt.expectedUrn, fv[0].URN())
 			assert.Equal(t, tt.localName, fv[0].LocalName())
 			assert.Equal(t, tt.substraitName, fv[0].Name())
 			checkCompoundNames(t, getScalarCompoundNames(fv), tt.expectedNames)
@@ -1561,8 +1561,8 @@ scalar_functions:
 }
 
 func TestScalarFunctionsWithVariantsWithSameFuncName(t *testing.T) {
-	const arithmeticUri = "http://localhost/functions_arithmetic.yaml"
-	const decimalUri = "http://localhost/functions_arithmetic_decimal.yaml"
+	const arithmeticUrn = "extension:test:arithmetic"
+	const decimalUrn = "extension:test:decimal"
 	const arithmeticYaml = `---
 urn: extension:test:arithmetic
 scalar_functions:
@@ -1615,9 +1615,9 @@ name: test
 type: sql
 dependencies:
   arithmetic: 
-    http://localhost/functions_arithmetic.yaml
+    extension:test:arithmetic
   decimal_arithmetic: 
-    http://localhost/functions_arithmetic_decimal.yaml
+    extension:test:decimal
 supported_types:
   dec:
     sql_type_name: numeric
@@ -1643,8 +1643,8 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(arithmeticUri, strings.NewReader(arithmeticYaml)))
-	require.NoError(t, c.Load(decimalUri, strings.NewReader(decimalYaml)))
+	require.NoError(t, c.Load(arithmeticUrn, strings.NewReader(arithmeticYaml)))
+	require.NoError(t, c.Load(decimalUrn, strings.NewReader(decimalYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 	allFunctions := funcRegistry.GetAllFunctions()
@@ -1652,33 +1652,33 @@ scalar_functions:
 	var fv []*LocalScalarFunctionVariant
 	fv = localRegistry.GetScalarFunctions(LocalFunctionName("sqrt"), 1)
 
-	expectedUris := []string{arithmeticUri, decimalUri}
+	expectedUrns := []string{arithmeticUrn, decimalUrn}
 	expectedNames := []string{"sqrt:fp64", "sqrt:fp32", "sqrt:dec"}
 	assert.Equal(t, len(fv), 3)
 
-	urisFound := make(map[string]bool)
+	urnsFound := make(map[string]bool)
 	for _, f := range fv {
 		assert.Equal(t, "sqrt", f.LocalName())
 		assert.Equal(t, "sqrt", f.Name())
-		assert.Contains(t, expectedUris, f.URI())
-		urisFound[f.URI()] = true
+		assert.Contains(t, expectedUrns, f.URN())
+		urnsFound[f.URN()] = true
 	}
 	checkCompoundNames(t, getScalarCompoundNames(fv), expectedNames)
-	assert.Len(t, urisFound, len(expectedUris))
-	for k := range urisFound {
-		assert.Contains(t, expectedUris, k)
+	assert.Len(t, urnsFound, len(expectedUrns))
+	for k := range urnsFound {
+		assert.Contains(t, expectedUrns, k)
 	}
 
-	urisFound = make(map[string]bool)
+	urnsFound = make(map[string]bool)
 	fv = localRegistry.GetScalarFunctions(SubstraitFunctionName("sqrt"), 1)
 	assert.Equal(t, len(fv), 3)
 	for _, f := range fv {
 		assert.Equal(t, "sqrt", f.LocalName())
 		assert.Equal(t, "sqrt", f.Name())
-		assert.Contains(t, expectedUris, f.URI())
-		urisFound[f.URI()] = true
+		assert.Contains(t, expectedUrns, f.URN())
+		urnsFound[f.URN()] = true
 	}
-	assert.Len(t, urisFound, len(expectedUris))
+	assert.Len(t, urnsFound, len(expectedUrns))
 	checkCompoundNames(t, getScalarCompoundNames(fv), []string{})
 
 	scalarFunctions := funcRegistry.GetScalarFunctions("sqrt", 1)
@@ -1694,8 +1694,8 @@ scalar_functions:
 }
 
 func TestAggregateFunctionsWithSameName(t *testing.T) {
-	const arithmeticUri = "http://localhost/functions_aggregate_generic.yaml"
-	const decimalUri = "http://localhost/functions_aggregate_decimal_output.yaml"
+	const arithmeticUrn = "extension:test:arithmetic"
+	const decimalUrn = "extension:test:decimal"
 	const decimalYaml = `---
 urn: extension:test:decimal
 aggregate_functions:
@@ -1757,10 +1757,10 @@ aggregate_functions:
 name: test
 type: sql
 dependencies:
-  aggregate: 
-    http://localhost/functions_aggregate_generic.yaml
-  aggdec: 
-    http://localhost/functions_aggregate_decimal_output.yaml
+  aggregate:
+    extension:test:arithmetic
+  aggdec:
+    extension:test:decimal
 supported_types:
   dec:
     sql_type_name: numeric
@@ -1782,8 +1782,8 @@ aggregate_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(arithmeticUri, strings.NewReader(arithmeticYaml)))
-	require.NoError(t, c.Load(decimalUri, strings.NewReader(decimalYaml)))
+	require.NoError(t, c.Load(arithmeticUrn, strings.NewReader(arithmeticYaml)))
+	require.NoError(t, c.Load(decimalUrn, strings.NewReader(decimalYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 	allFunctions := funcRegistry.GetAllFunctions()
@@ -1804,14 +1804,14 @@ aggregate_functions:
 			fv = localRegistry.GetAggregateFunctions(LocalFunctionName(tt.localName), tt.numArgs)
 
 			require.Greater(t, len(fv), 0)
-			assert.Equal(t, decimalUri, fv[0].URI())
+			assert.Equal(t, decimalUrn, fv[0].URN())
 			assert.Equal(t, tt.localName, fv[0].LocalName())
 			assert.Equal(t, tt.substraitName, fv[0].Name())
 			checkCompoundNames(t, getAggregateCompoundNames(fv), []string{tt.signature})
 
 			fv = localRegistry.GetAggregateFunctions(SubstraitFunctionName(tt.substraitName), tt.numArgs)
 			require.Greater(t, len(fv), 0)
-			assert.Equal(t, decimalUri, fv[0].URI())
+			assert.Equal(t, decimalUrn, fv[0].URN())
 			assert.Equal(t, tt.localName, fv[0].LocalName())
 			assert.Equal(t, tt.substraitName, fv[0].Name())
 			checkCompoundNames(t, getAggregateCompoundNames(fv), []string{tt.signature})
@@ -1823,16 +1823,16 @@ aggregate_functions:
 			}
 			aggregateFunctions = funcRegistry.GetAggregateFunctionsByName(tt.substraitName)
 			assert.Equal(t, 4, len(aggregateFunctions))
-			uriMap := map[string]int{
-				arithmeticUri: 0,
-				decimalUri:    0,
+			urnMap := map[string]int{
+				arithmeticUrn: 0,
+				decimalUrn:    0,
 			}
 			for _, f := range aggregateFunctions {
 				assert.Contains(t, allFunctions, f)
-				uriMap[f.URI()]++
+				urnMap[f.URN()]++
 			}
-			assert.Equal(t, 2, uriMap[arithmeticUri])
-			assert.Equal(t, 2, uriMap[decimalUri])
+			assert.Equal(t, 2, urnMap[arithmeticUrn])
+			assert.Equal(t, 2, urnMap[decimalUrn])
 		})
 	}
 }

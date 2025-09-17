@@ -54,16 +54,16 @@ func init() {
 func ExampleExpression_scalarFunction() {
 	// define extensions with no plan for now
 	const planExt = `{
-		"extensionUris": [
+		"extensionUrns": [
 			{
-				"extensionUriAnchor": 1,
-				"uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+				"extensionUrnAnchor": 1,
+				"urn": "extension:io.substrait:functions_arithmetic"
 			}
 		],
 		"extensions": [
 			{
 				"extensionFunction": {
-					"extensionUriReference": 1,
+					"extensionUrnReference": 1,
 					"functionAnchor": 2,
 					"name": "add:i32_i32"
 				}
@@ -108,9 +108,9 @@ func ExampleExpression_scalarFunction() {
 
 	// manually define the entire expression instead of going through
 	// having to construct the protobuf
-	const substraitext = `https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml`
+	const substraitext = `extension:io.substrait:functions_arithmetic`
 
-	var addVariant = ext.NewScalarFuncVariant(ext.ID{URI: substraitext, Name: "add:i32_i32"})
+	var addVariant = ext.NewScalarFuncVariant(ext.ID{URN: substraitext, Name: "add:i32_i32"})
 
 	var ex expr.Expression
 	refArg, _ := expr.NewRootFieldRef(expr.NewStructFieldRef(0), types.NewRecordTypeFromTypes([]types.Type{&types.Int32Type{}}))
@@ -141,11 +141,11 @@ func ExampleExpression_scalarFunction() {
 	// true
 }
 
-func sampleNestedExpr(reg expr.ExtensionRegistry, substraitExtURI string) expr.Expression {
+func sampleNestedExpr(reg expr.ExtensionRegistry, substraitExtURN string) expr.Expression {
 	var (
-		add = ext.NewScalarFuncVariant(ext.ID{URI: substraitExtURI, Name: "add"})
-		sub = ext.NewScalarFuncVariant(ext.ID{URI: substraitExtURI, Name: "subtract"})
-		mul = ext.NewScalarFuncVariant(ext.ID{URI: substraitExtURI, Name: "multiply"})
+		add = ext.NewScalarFuncVariant(ext.ID{URN: substraitExtURN, Name: "add"})
+		sub = ext.NewScalarFuncVariant(ext.ID{URN: substraitExtURN, Name: "subtract"})
+		mul = ext.NewScalarFuncVariant(ext.ID{URN: substraitExtURN, Name: "multiply"})
 	)
 
 	baseSchema := types.NewRecordTypeFromTypes(
@@ -176,40 +176,40 @@ func sampleNestedExpr(reg expr.ExtensionRegistry, substraitExtURI string) expr.E
 }
 
 func TestExpressionsRoundtrip(t *testing.T) {
-	const substraitExtURI = "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	const substraitExtURN = "extension:io.substrait:functions_arithmetic"
 	// define extensions with no plan for now
 	const planExt = `{
-		"extensionUris": [
+		"extensionUrns": [
 			{
-				"extensionUriAnchor": 1,
-				"uri": "` + substraitExtURI + `"
+				"extensionUrnAnchor": 1,
+				"urn": "` + substraitExtURN + `"
 			}
 		],
 		"extensions": [
 			{
 				"extensionFunction": {
-					"extensionUriReference": 1,
+					"extensionUrnReference": 1,
 					"functionAnchor": 2,
 					"name": "add:fp64_fp64"
 				}
 			},
 			{
 				"extensionFunction": {
-					"extensionUriReference": 1,
+					"extensionUrnReference": 1,
 					"functionAnchor": 3,
 					"name": "subtract:fp32_fp32"
 				}
 			},
 			{
 				"extensionFunction": {
-					"extensionUriReference": 1,
+					"extensionUrnReference": 1,
 					"functionAnchor": 4,
 					"name": "multiply:i64_i64"
 				}
 			},
 			{
 				"extensionFunction": {
-					"extensionUriReference": 1,
+					"extensionUrnReference": 1,
 					"functionAnchor": 5,
 					"name": "ntile:"
 				}
@@ -228,7 +228,7 @@ func TestExpressionsRoundtrip(t *testing.T) {
 	extSet := ext.GetExtensionSet(&plan)
 	reg := expr.NewExtensionRegistry(extSet, ext.GetDefaultCollectionWithNoError())
 	tests := []expr.Expression{
-		sampleNestedExpr(reg, substraitExtURI),
+		sampleNestedExpr(reg, substraitExtURN),
 	}
 
 	for _, exp := range tests {
@@ -240,9 +240,9 @@ func TestExpressionsRoundtrip(t *testing.T) {
 }
 
 func ExampleExpression_Visit() {
-	const substraitExtURI = "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	const substraitExtURN = "extension:io.substrait:functions_arithmetic"
 	var (
-		exp                 = sampleNestedExpr(expr.NewEmptyExtensionRegistry(ext.GetDefaultCollectionWithNoError()), substraitExtURI)
+		exp                 = sampleNestedExpr(expr.NewEmptyExtensionRegistry(ext.GetDefaultCollectionWithNoError()), substraitExtURN)
 		preVisit, postVisit expr.VisitFunc
 	)
 
@@ -282,40 +282,40 @@ func ExampleExpression_Visit() {
 }
 
 func TestRoundTripUsingTestData(t *testing.T) {
-	const substraitExtURI = "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	const substraitExtURN = "extension:io.substrait:functions_arithmetic"
 	// define extensions with no plan for now
 	const planExt = `{
-		"extensionUris": [
+		"extensionUrns": [
 			{
-				"extensionUriAnchor": 1,
-				"uri": "` + substraitExtURI + `"
+				"extensionUrnAnchor": 1,
+				"urn": "` + substraitExtURN + `"
 			}
 		],
 		"extensions": [
 			{
 				"extensionFunction": {
-					"extensionUriReference": 1,
+					"extensionUrnReference": 1,
 					"functionAnchor": 2,
 					"name": "add:fp64_fp64"
 				}
 			},
 			{
 				"extensionFunction": {
-					"extensionUriReference": 1,
+					"extensionUrnReference": 1,
 					"functionAnchor": 3,
 					"name": "subtract:fp64_fp64"
 				}
 			},
 			{
 				"extensionFunction": {
-					"extensionUriReference": 1,
+					"extensionUrnReference": 1,
 					"functionAnchor": 4,
 					"name": "multiply:fp64_fp64"
 				}
 			},
 			{
 				"extensionFunction": {
-					"extensionUriReference": 1,
+					"extensionUrnReference": 1,
 					"functionAnchor": 5,
 					"name": "ntile:i32"
 				}
@@ -452,13 +452,13 @@ func TestCastVisit(t *testing.T) {
 }
 
 func TestSubqueryExpressionRoundtrip(t *testing.T) {
-	const substraitExtURI = "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	const substraitExtURN = "extension:io.substrait:functions_arithmetic"
 	// define extensions with no plan for now
 	const planExt = `{
-		"extensionUris": [
+		"extensionUrns": [
 			{
-				"extensionUriAnchor": 1,
-				"uri": "` + substraitExtURI + `"
+				"extensionUrnAnchor": 1,
+				"urn": "` + substraitExtURN + `"
 			}
 		],
 		"extensions": [],

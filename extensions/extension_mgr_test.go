@@ -87,12 +87,13 @@ aggregate_functions:
 
 func TestLoadExtensionCollection(t *testing.T) {
 	const uri = "http://localhost/sample.yaml"
+	const urn = "extension:test:sample"
 
 	var c extensions.Collection
 	require.NoError(t, c.Load(uri, strings.NewReader(sampleYAML)))
 
 	t.Run("check types", func(t *testing.T) {
-		id := extensions.ID{URI: uri}
+		id := extensions.ID{URN: urn}
 		id.Name = "point"
 		ty, ok := c.GetType(id)
 		assert.True(t, ok)
@@ -101,16 +102,16 @@ func TestLoadExtensionCollection(t *testing.T) {
 	})
 
 	t.Run("simple and compound func signature", func(t *testing.T) {
-		add, ok := c.GetScalarFunc(extensions.ID{URI: uri, Name: "add"})
+		add, ok := c.GetScalarFunc(extensions.ID{URN: urn, Name: "add"})
 		assert.True(t, ok)
-		addCompound, ok := c.GetScalarFunc(extensions.ID{URI: uri, Name: "add:i8_i8"})
+		addCompound, ok := c.GetScalarFunc(extensions.ID{URN: urn, Name: "add:i8_i8"})
 		assert.True(t, ok)
 		assert.Same(t, add, addCompound)
 
 		assert.Equal(t, "add", add.Name())
 		assert.Equal(t, "add:i8_i8", add.CompoundName())
 		assert.Equal(t, "Add two values.", add.Description())
-		assert.Equal(t, uri, add.URI())
+		assert.Equal(t, urn, add.URN())
 		assert.Equal(t, map[string]extensions.Option{"overflow": {
 			Values: []string{"SILENT", "SATURATE", "ERROR"},
 		}}, add.Options())
@@ -122,11 +123,11 @@ func TestLoadExtensionCollection(t *testing.T) {
 	})
 
 	t.Run("multiple impls need compound", func(t *testing.T) {
-		sub, ok := c.GetScalarFunc(extensions.ID{URI: uri, Name: "subtract"})
+		sub, ok := c.GetScalarFunc(extensions.ID{URN: urn, Name: "subtract"})
 		assert.Nil(t, sub)
 		assert.False(t, ok)
 
-		sub, ok = c.GetScalarFunc(extensions.ID{URI: uri, Name: "subtract:i16_i16"})
+		sub, ok = c.GetScalarFunc(extensions.ID{URN: urn, Name: "subtract:i16_i16"})
 		assert.True(t, ok)
 		assert.NotNil(t, sub)
 
@@ -140,11 +141,11 @@ func TestLoadExtensionCollection(t *testing.T) {
 	})
 
 	t.Run("same fn name different args", func(t *testing.T) {
-		ct, ok := c.GetAggregateFunc(extensions.ID{URI: uri, Name: "count:"})
+		ct, ok := c.GetAggregateFunc(extensions.ID{URN: urn, Name: "count:"})
 		assert.True(t, ok)
 		assert.NotNil(t, ct)
 
-		ctArgs, ok := c.GetAggregateFunc(extensions.ID{URI: uri, Name: "count:any"})
+		ctArgs, ok := c.GetAggregateFunc(extensions.ID{URN: urn, Name: "count:any"})
 		assert.True(t, ok)
 		assert.NotNil(t, ctArgs)
 
@@ -159,6 +160,7 @@ func TestLoadExtensionCollection(t *testing.T) {
 
 func TestExtensionSet(t *testing.T) {
 	const uri = "http://localhost/sample.yaml"
+	const urn = "extension:test:sample"
 
 	s := extensions.NewSet()
 	_, ok := s.DecodeFunc(0)
@@ -168,11 +170,11 @@ func TestExtensionSet(t *testing.T) {
 	_, ok = s.DecodeTypeVariation(0)
 	assert.False(t, ok)
 
-	_, ok = s.FindURI(uri)
+	_, ok = s.FindURN(urn)
 	assert.False(t, ok)
 
 	t.Run("add anchors", func(t *testing.T) {
-		id := extensions.ID{URI: uri}
+		id := extensions.ID{URN: urn}
 		id.Name = "add"
 
 		anchor := s.GetFuncAnchor(id)
@@ -215,56 +217,56 @@ func TestDefaultCollection(t *testing.T) {
 
 	tests := []struct {
 		typ          funcType
-		uri          string
+		urn          string
 		name         string
 		compoundName string
 		nargs        int
 		options      map[string]extensions.Option
 		variadic     *extensions.VariadicBehavior
 	}{
-		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+		{scalarFunc, extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
 			"add", "add:i32_i32", 2, map[string]extensions.Option{"overflow": {Values: []string{"SILENT", "SATURATE", "ERROR"}}},
 			nil},
-		{aggFunc, extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+		{aggFunc, extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
 			"variance", "variance:fp64", 1, map[string]extensions.Option{
 				"distribution": {Values: []string{"SAMPLE", "POPULATION"}},
 				"rounding":     {Values: []string{"TIE_TO_EVEN", "TIE_AWAY_FROM_ZERO", "TRUNCATE", "CEILING", "FLOOR"}}},
 			nil},
-		{windowFunc, extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+		{windowFunc, extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
 			"dense_rank", "dense_rank:", 0, nil, nil},
-		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_boolean.yaml",
+		{scalarFunc, extensions.SubstraitDefaultURNPrefix + "functions_boolean",
 			"or", "or:bool", 1, nil, &extensions.VariadicBehavior{Min: 0}},
-		{aggFunc, extensions.SubstraitDefaultURIPrefix + "functions_boolean.yaml",
+		{aggFunc, extensions.SubstraitDefaultURNPrefix + "functions_boolean",
 			"bool_and", "bool_and:bool", 1, nil, nil},
-		{aggFunc, extensions.SubstraitDefaultURIPrefix + "functions_aggregate_approx.yaml",
+		{aggFunc, extensions.SubstraitDefaultURNPrefix + "functions_aggregate_approx",
 			"approx_count_distinct", "approx_count_distinct:any", 1, nil, nil},
-		{aggFunc, extensions.SubstraitDefaultURIPrefix + "functions_aggregate_generic.yaml",
+		{aggFunc, extensions.SubstraitDefaultURNPrefix + "functions_aggregate_generic",
 			"count", "count:", 0, map[string]extensions.Option{"overflow": {Values: []string{"SILENT", "SATURATE", "ERROR"}}}, nil},
-		{aggFunc, extensions.SubstraitDefaultURIPrefix + "functions_aggregate_generic.yaml",
+		{aggFunc, extensions.SubstraitDefaultURNPrefix + "functions_aggregate_generic",
 			"count", "count:any", 1, map[string]extensions.Option{"overflow": {Values: []string{"SILENT", "SATURATE", "ERROR"}}}, nil},
-		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_comparison.yaml",
+		{scalarFunc, extensions.SubstraitDefaultURNPrefix + "functions_comparison",
 			"not_equal", "not_equal:any_any", 2, nil, nil},
-		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_comparison.yaml",
+		{scalarFunc, extensions.SubstraitDefaultURNPrefix + "functions_comparison",
 			"between", "between:any_any_any", 3, nil, nil},
-		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_datetime.yaml",
+		{scalarFunc, extensions.SubstraitDefaultURNPrefix + "functions_datetime",
 			"add", "add:ts_iyear", 2, nil, nil},
-		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_logarithmic.yaml",
+		{scalarFunc, extensions.SubstraitDefaultURNPrefix + "functions_logarithmic",
 			"ln", "ln:fp32", 1, map[string]extensions.Option{
 				"rounding":        {Values: []string{"TIE_TO_EVEN", "TIE_AWAY_FROM_ZERO", "TRUNCATE", "CEILING", "FLOOR"}},
 				"on_domain_error": {Values: []string{"NAN", "NULL", "ERROR"}},
 				"on_log_zero":     {Values: []string{"NAN", "ERROR", "MINUS_INFINITY"}},
 			}, nil},
-		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_rounding.yaml",
+		{scalarFunc, extensions.SubstraitDefaultURNPrefix + "functions_rounding",
 			"ceil", "ceil:fp64", 1, nil, nil},
-		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_set.yaml",
+		{scalarFunc, extensions.SubstraitDefaultURNPrefix + "functions_set",
 			"index_in", "index_in:any_list", 2, map[string]extensions.Option{
 				"nan_equality": {Values: []string{"NAN_IS_NAN", "NAN_IS_NOT_NAN"}},
 			}, nil},
-		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_string.yaml",
+		{scalarFunc, extensions.SubstraitDefaultURNPrefix + "functions_string",
 			"string_split", "string_split:vchar_vchar", 2, nil, nil},
-		{scalarFunc, extensions.SubstraitDefaultURIPrefix + "functions_string.yaml",
+		{scalarFunc, extensions.SubstraitDefaultURNPrefix + "functions_string",
 			"string_split", "string_split:str_str", 2, nil, nil},
-		{aggFunc, extensions.SubstraitDefaultURIPrefix + "functions_string.yaml",
+		{aggFunc, extensions.SubstraitDefaultURNPrefix + "functions_string",
 			"string_agg", "string_agg:str_str", 2, nil, nil},
 	}
 
@@ -274,7 +276,7 @@ func TestDefaultCollection(t *testing.T) {
 				variant extensions.FunctionVariant
 				ok      bool
 
-				id = extensions.ID{URI: tt.uri, Name: tt.compoundName}
+				id = extensions.ID{URN: tt.urn, Name: tt.compoundName}
 			)
 			switch tt.typ {
 			case scalarFunc:
@@ -291,13 +293,13 @@ func TestDefaultCollection(t *testing.T) {
 			assert.Equal(t, tt.name, variant.Name())
 			assert.Equal(t, tt.compoundName, variant.CompoundName())
 			assert.Equal(t, tt.options, variant.Options())
-			assert.Equal(t, tt.uri, variant.URI())
+			assert.Equal(t, tt.urn, variant.URN())
 			assert.Len(t, variant.Args(), tt.nargs)
 		})
 	}
 
 	et, ok := extensions.GetDefaultCollectionWithNoError().GetType(extensions.ID{
-		URI: extensions.SubstraitDefaultURIPrefix + "extension_types.yaml", Name: "point"})
+		URN: extensions.SubstraitDefaultURNPrefix + "extension_types", Name: "point"})
 	assert.True(t, ok)
 	assert.Equal(t, "point", et.Name)
 	assert.Equal(t, map[string]interface{}{"latitude": "i32", "longitude": "i32"}, et.Structure)
@@ -313,33 +315,33 @@ func TestCollection_GetAllScalarFunctions(t *testing.T) {
 	assert.GreaterOrEqual(t, len(windowFunctions), len(aggregateFunctions),
 		"Should have at least as many window functions as aggregate functions due to aggregate function addition")
 	tests := []struct {
-		uri         string
+		urn         string
 		signature   string
 		isScalar    bool
 		isAggregate bool
 		isWindow    bool
 	}{
-		{extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml", "add:i32_i32", true, false, false},
-		{extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml", "variance:fp64", false, true, true},
-		{extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml", "dense_rank:", false, false, true},
+		{extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", "add:i32_i32", true, false, false},
+		{extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", "variance:fp64", false, true, true},
+		{extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", "dense_rank:", false, false, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.signature, func(t *testing.T) {
 			assert.True(t, tt.isScalar || tt.isAggregate || tt.isWindow)
 			if tt.isScalar {
-				sf, ok := defaultExtensions.GetScalarFunc(extensions.ID{URI: tt.uri, Name: tt.signature})
+				sf, ok := defaultExtensions.GetScalarFunc(extensions.ID{URN: tt.urn, Name: tt.signature})
 				assert.True(t, ok)
 				assert.Contains(t, scalarFunctions, sf)
 				// verify that default nullability is set to MIRROR
 				assert.Equal(t, extensions.MirrorNullability, sf.Nullability())
 			}
 			if tt.isAggregate {
-				af, ok := defaultExtensions.GetAggregateFunc(extensions.ID{URI: tt.uri, Name: tt.signature})
+				af, ok := defaultExtensions.GetAggregateFunc(extensions.ID{URN: tt.urn, Name: tt.signature})
 				assert.True(t, ok)
 				assert.Contains(t, aggregateFunctions, af)
 			}
 			if tt.isWindow {
-				wf, ok := defaultExtensions.GetWindowFunc(extensions.ID{URI: tt.uri, Name: tt.signature})
+				wf, ok := defaultExtensions.GetWindowFunc(extensions.ID{URN: tt.urn, Name: tt.signature})
 				assert.True(t, ok)
 				assert.Contains(t, windowFunctions, wf)
 			}
@@ -349,42 +351,43 @@ func TestCollection_GetAllScalarFunctions(t *testing.T) {
 
 func TestAggregateToWindow(t *testing.T) {
 	const uri = "http://localhost/sample.yaml"
+	const urn = "extension:test:sample"
 
 	var c extensions.Collection
-	require.NoError(t, c.Load(uri, strings.NewReader(sampleYAML)))
+	require.NoError(t, c.Load(urn, strings.NewReader(sampleYAML)))
 
 	t.Run("aggregate functions available as window functions", func(t *testing.T) {
 		// Test that the count function (with args) is available as both aggregate and window function
-		aggFunc, ok := c.GetAggregateFunc(extensions.ID{URI: uri, Name: "count:any"})
+		aggFunc, ok := c.GetAggregateFunc(extensions.ID{URN: urn, Name: "count:any"})
 		require.True(t, ok)
 		require.NotNil(t, aggFunc)
 
-		winFunc, ok := c.GetWindowFunc(extensions.ID{URI: uri, Name: "count:any"})
+		winFunc, ok := c.GetWindowFunc(extensions.ID{URN: urn, Name: "count:any"})
 		require.True(t, ok)
 		require.NotNil(t, winFunc)
 
 		// Test that the count function (without args) is available as both aggregate and window function
-		aggFuncNoArgs, ok := c.GetAggregateFunc(extensions.ID{URI: uri, Name: "count:"})
+		aggFuncNoArgs, ok := c.GetAggregateFunc(extensions.ID{URN: urn, Name: "count:"})
 		require.True(t, ok)
 		require.NotNil(t, aggFuncNoArgs)
 
-		winFuncNoArgs, ok := c.GetWindowFunc(extensions.ID{URI: uri, Name: "count:"})
+		winFuncNoArgs, ok := c.GetWindowFunc(extensions.ID{URN: urn, Name: "count:"})
 		require.True(t, ok)
 		require.NotNil(t, winFuncNoArgs)
 	})
 
 	t.Run("window functions preserve aggregate properties", func(t *testing.T) {
-		aggFunc, ok := c.GetAggregateFunc(extensions.ID{URI: uri, Name: "count:any"})
+		aggFunc, ok := c.GetAggregateFunc(extensions.ID{URN: urn, Name: "count:any"})
 		require.True(t, ok)
 
-		winFunc, ok := c.GetWindowFunc(extensions.ID{URI: uri, Name: "count:any"})
+		winFunc, ok := c.GetWindowFunc(extensions.ID{URN: urn, Name: "count:any"})
 		require.True(t, ok)
 
 		// Check that basic properties are preserved
 		assert.Equal(t, aggFunc.Name(), winFunc.Name())
 		assert.Equal(t, aggFunc.CompoundName(), winFunc.CompoundName())
 		assert.Equal(t, aggFunc.Description(), winFunc.Description())
-		assert.Equal(t, aggFunc.URI(), winFunc.URI())
+		assert.Equal(t, aggFunc.URN(), winFunc.URN())
 		assert.Equal(t, aggFunc.Args(), winFunc.Args())
 		assert.Equal(t, aggFunc.Options(), winFunc.Options())
 		assert.Equal(t, aggFunc.Variadic(), winFunc.Variadic())
@@ -406,7 +409,7 @@ func TestAggregateToWindow(t *testing.T) {
 	})
 
 	t.Run("aggregate functions used as window functions have streaming window type", func(t *testing.T) {
-		winFunc, ok := c.GetWindowFunc(extensions.ID{URI: uri, Name: "count:any"})
+		winFunc, ok := c.GetWindowFunc(extensions.ID{URN: urn, Name: "count:any"})
 		require.True(t, ok)
 
 		// Check that the window type is STREAMING
@@ -414,10 +417,10 @@ func TestAggregateToWindow(t *testing.T) {
 	})
 
 	t.Run("type resolution works the same", func(t *testing.T) {
-		aggFunc, ok := c.GetAggregateFunc(extensions.ID{URI: uri, Name: "count:any"})
+		aggFunc, ok := c.GetAggregateFunc(extensions.ID{URN: urn, Name: "count:any"})
 		require.True(t, ok)
 
-		winFunc, ok := c.GetWindowFunc(extensions.ID{URI: uri, Name: "count:any"})
+		winFunc, ok := c.GetWindowFunc(extensions.ID{URN: urn, Name: "count:any"})
 		require.True(t, ok)
 
 		// Test type resolution with the same arguments
@@ -438,37 +441,37 @@ func TestAggregateToWindowWithDefaultCollection(t *testing.T) {
 
 	// Test cases for known aggregate functions that should be added as window functions
 	testCases := []struct {
-		uri          string
+		urn          string
 		functionName string
 		description  string
 	}{
 		{
-			uri:          extensions.SubstraitDefaultURIPrefix + "functions_aggregate_generic.yaml",
+			urn:          extensions.SubstraitDefaultURNPrefix + "functions_aggregate_generic",
 			functionName: "count:",
 			description:  "count function without arguments",
 		},
 		{
-			uri:          extensions.SubstraitDefaultURIPrefix + "functions_aggregate_generic.yaml",
+			urn:          extensions.SubstraitDefaultURNPrefix + "functions_aggregate_generic",
 			functionName: "count:any",
 			description:  "count function with any argument",
 		},
 		{
-			uri:          extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+			urn:          extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
 			functionName: "variance:fp64",
 			description:  "variance function",
 		},
 		{
-			uri:          extensions.SubstraitDefaultURIPrefix + "functions_boolean.yaml",
+			urn:          extensions.SubstraitDefaultURNPrefix + "functions_boolean",
 			functionName: "bool_and:bool",
 			description:  "bool_and function",
 		},
 		{
-			uri:          extensions.SubstraitDefaultURIPrefix + "functions_aggregate_approx.yaml",
+			urn:          extensions.SubstraitDefaultURNPrefix + "functions_aggregate_approx",
 			functionName: "approx_count_distinct:any",
 			description:  "approx_count_distinct function",
 		},
 		{
-			uri:          extensions.SubstraitDefaultURIPrefix + "functions_string.yaml",
+			urn:          extensions.SubstraitDefaultURNPrefix + "functions_string",
 			functionName: "string_agg:str_str",
 			description:  "string_agg function",
 		},
@@ -476,7 +479,7 @@ func TestAggregateToWindowWithDefaultCollection(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			id := extensions.ID{URI: tc.uri, Name: tc.functionName}
+			id := extensions.ID{URN: tc.urn, Name: tc.functionName}
 
 			// Verify the aggregate function exists
 			aggFunc, ok := defaultExtensions.GetAggregateFunc(id)
@@ -500,12 +503,12 @@ scalar_functions:
 	err := c.Load("http://localhost/test.yaml", strings.NewReader(extensionWithoutURN))
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "missing URN")
+	assert.Contains(t, err.Error(), "missing urn")
 }
 
 func TestLoadExtensionWithInvalidURN(t *testing.T) {
 	const extensionWithInvalidURN = `---
-urn: "invalid:urn:format"
+urn: invalid:urn:format
 scalar_functions:
 `
 
@@ -513,5 +516,5 @@ scalar_functions:
 	err := c.Load("http://localhost/test.yaml", strings.NewReader(extensionWithInvalidURN))
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid URN")
+	assert.Contains(t, err.Error(), "invalid urn")
 }

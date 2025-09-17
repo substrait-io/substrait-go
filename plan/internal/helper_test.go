@@ -13,16 +13,16 @@ import (
 func TestVirtualTableExpressionFromProto(t *testing.T) {
 	// define extensions with no plan for now
 	const planExt = `{
-		"extensionUris": [
+		"extensionUrns": [
 			{
-				"extensionUriAnchor": 1,
-				"uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+				"extensionUrnAnchor": 1,
+				"urn": "extension:io.substrait:functions_arithmetic"
 			}
 		],
 		"extensions": [
 			{
 				"extensionFunction": {
-					"extensionUriReference": 1,
+					"extensionUrnReference": 1,
 					"functionAnchor": 2,
 					"name": "add:i32_i32"
 				}

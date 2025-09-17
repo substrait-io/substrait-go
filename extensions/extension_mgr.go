@@ -22,6 +22,7 @@ import (
 type AdvancedExtension = extensions.AdvancedExtension
 
 const SubstraitDefaultURIPrefix = "https://github.com/substrait-io/substrait/blob/main/extensions/"
+const SubstraitDefaultURNPrefix = "extension:io.substrait:"
 
 var (
 	getDefaultCollectionOnce = sync.OnceValues[*Collection, error](loadDefaultCollection)
@@ -32,7 +33,7 @@ var (
 
 var urnPattern = regexp.MustCompile(`^extension:[^:]+:[^:]+$`)
 
-// ValidateURN validates that a URN follows the format "extension:<owner>:<id>".
+// ValidateURN validates that a URN follows the format "extension:<owner>:<id>"
 func validateUrn(urn string) bool {
 	return urnPattern.MatchString(urn)
 }
@@ -93,7 +94,7 @@ func loadExtensionFile(collection *Collection, substraitFS embed.FS, ent fs.DirE
 
 // ID is the unique identifier for a substrait object
 type ID struct {
-	URI string
+	URN string
 	// Name of the object. For functions, a simple name may be used for lookups,
 	// but as a unique identifier the compound name will be used
 	Name string
@@ -101,6 +102,7 @@ type ID struct {
 
 type Collection struct {
 	uriSet   map[string]struct{}
+	urnSet   map[string]struct{}
 	urnToUri map[string]string
 
 	simpleNameMap map[ID]string
@@ -146,11 +148,11 @@ func checkMaps[T variants](id ID, m map[ID]T, simpleNames map[ID]string) (T, boo
 }
 
 type extFn[T variants] interface {
-	GetVariants(uri string) []T
+	GetVariants(urn string) []T
 }
 
 func addToMaps[T variants](id ID, fn extFn[T], m map[ID]T, simpleMap map[string]string) {
-	variants := fn.GetVariants(id.URI)
+	variants := fn.GetVariants(id.URN)
 	for _, v := range variants {
 		id.Name = v.CompoundName()
 		m[id] = v
@@ -179,8 +181,9 @@ func (c *Collection) GetWindowFunc(id ID) (*WindowFunctionVariant, bool) {
 }
 
 func (c *Collection) init() {
-	if c.uriSet == nil {
+	if c.urnSet == nil {
 		c.uriSet = make(map[string]struct{})
+		c.urnSet = make(map[string]struct{})
 		c.urnToUri = make(map[string]string)
 		c.simpleNameMap = make(map[ID]string)
 		c.scalarMap = make(map[ID]*ScalarFunctionVariant)
@@ -209,13 +212,14 @@ func (c *Collection) Load(uri string, r io.Reader) error {
 
 	urn := file.Urn
 	if urn == "" {
-		return fmt.Errorf("%w: missing URN", substraitgo.ErrInvalidSimpleExtention)
+		return fmt.Errorf("%w: missing urn", substraitgo.ErrInvalidSimpleExtention)
 	}
 	if !validateUrn(urn) {
-		return fmt.Errorf("%w: invalid URN, expected format is \"extension:<owner>:<id>\", got: %s", substraitgo.ErrInvalidSimpleExtention, urn)
+		return fmt.Errorf("%w: invalid urn, expected format is \"extension:<owner>:<id>\", got: %s", substraitgo.ErrInvalidSimpleExtention, urn)
+	}
 	}
 
-	id := ID{URI: uri}
+	id := ID{URN: urn}
 	for _, t := range file.Types {
 		id.Name = t.Name
 		c.typeMap[id] = t
@@ -283,6 +287,11 @@ func (c *Collection) Load(uri string, r io.Reader) error {
 	return nil
 }
 
+func (c *Collection) URNLoaded(urn string) bool {
+	_, ok := c.urnSet[urn]
+	return ok
+}
+
 func (c *Collection) URILoaded(uri string) bool {
 	_, ok := c.uriSet[uri]
 	return ok
@@ -318,17 +327,17 @@ type Set interface {
 	LookupAggregateFunction(anchor uint32, c *Collection) (*AggregateFunctionVariant, bool)
 	LookupWindowFunction(anchor uint32, c *Collection) (*WindowFunctionVariant, bool)
 
-	FindURI(uri string) (uint32, bool)
+	FindURN(urn string) (uint32, bool)
 	GetTypeAnchor(id ID) uint32
 	GetFuncAnchor(id ID) uint32
 	GetTypeVariationAnchor(id ID) uint32
 
-	ToProto() ([]*extensions.SimpleExtensionURI, []*extensions.SimpleExtensionDeclaration)
+	ToProto() ([]*extensions.SimpleExtensionURN, []*extensions.SimpleExtensionDeclaration)
 }
 
 func NewSet() Set {
 	return &set{
-		uris:             make(map[uint32]string),
+		urns:             make(map[uint32]string),
 		funcMap:          make(map[uint32]ID),
 		funcs:            make(map[ID]uint32),
 		types:            make(map[ID]uint32),
@@ -339,7 +348,7 @@ func NewSet() Set {
 }
 
 type set struct {
-	uris map[uint32]string
+	urns map[uint32]string
 
 	typesMap map[uint32]ID
 	types    map[ID]uint32
@@ -351,26 +360,26 @@ type set struct {
 	funcs   map[ID]uint32
 }
 
-func (e *set) ToProto() ([]*extensions.SimpleExtensionURI, []*extensions.SimpleExtensionDeclaration) {
+func (e *set) ToProto() ([]*extensions.SimpleExtensionURN, []*extensions.SimpleExtensionDeclaration) {
 	backRef := make(map[string]uint32)
-	uris := make([]*extensions.SimpleExtensionURI, 0, len(e.uris))
-	for anchor, uri := range e.uris {
-		backRef[uri] = anchor
-		uris = append(uris, &extensions.SimpleExtensionURI{
-			ExtensionUriAnchor: anchor,
-			Uri:                uri,
+	urns := make([]*extensions.SimpleExtensionURN, 0, len(e.urns))
+	for anchor, urn := range e.urns {
+		backRef[urn] = anchor
+		urns = append(urns, &extensions.SimpleExtensionURN{
+			ExtensionUrnAnchor: anchor,
+			Urn:                urn,
 		})
 	}
 
 	// Sort extensions by the anchor for consistent output
-	sort.Slice(uris, func(i, j int) bool { return uris[i].ExtensionUriAnchor < uris[j].ExtensionUriAnchor })
+	sort.Slice(urns, func(i, j int) bool { return urns[i].ExtensionUrnAnchor < urns[j].ExtensionUrnAnchor })
 
 	decls := make([]*extensions.SimpleExtensionDeclaration, 0, len(e.types)+len(e.typeVariations)+len(e.funcs))
 	for id, anchor := range e.types {
 		decls = append(decls, &extensions.SimpleExtensionDeclaration{
 			MappingType: &extensions.SimpleExtensionDeclaration_ExtensionType_{
 				ExtensionType: &extensions.SimpleExtensionDeclaration_ExtensionType{
-					ExtensionUriReference: backRef[id.URI],
+					ExtensionUrnReference: backRef[id.URN],
 					TypeAnchor:            anchor,
 					Name:                  id.Name,
 				},
@@ -387,7 +396,7 @@ func (e *set) ToProto() ([]*extensions.SimpleExtensionURI, []*extensions.SimpleE
 		decls = append(decls, &extensions.SimpleExtensionDeclaration{
 			MappingType: &extensions.SimpleExtensionDeclaration_ExtensionTypeVariation_{
 				ExtensionTypeVariation: &extensions.SimpleExtensionDeclaration_ExtensionTypeVariation{
-					ExtensionUriReference: backRef[id.URI],
+					ExtensionUrnReference: backRef[id.URN],
 					TypeVariationAnchor:   anchor,
 					Name:                  id.Name,
 				},
@@ -405,7 +414,7 @@ func (e *set) ToProto() ([]*extensions.SimpleExtensionURI, []*extensions.SimpleE
 		decls = append(decls, &extensions.SimpleExtensionDeclaration{
 			MappingType: &extensions.SimpleExtensionDeclaration_ExtensionFunction_{
 				ExtensionFunction: &extensions.SimpleExtensionDeclaration_ExtensionFunction{
-					ExtensionUriReference: backRef[id.URI],
+					ExtensionUrnReference: backRef[id.URN],
 					FunctionAnchor:        anchor,
 					Name:                  id.Name,
 				},
@@ -418,7 +427,7 @@ func (e *set) ToProto() ([]*extensions.SimpleExtensionURI, []*extensions.SimpleE
 		return decls[i].GetExtensionFunction().GetFunctionAnchor() < decls[j].GetExtensionFunction().GetFunctionAnchor()
 	})
 
-	return uris, decls
+	return urns, decls
 }
 
 func (e *set) LookupWindowFunction(anchor uint32, c *Collection) (sv *WindowFunctionVariant, ok bool) {
@@ -486,7 +495,7 @@ func (e *set) DecodeType(anchor uint32) (id ID, ok bool) {
 func (e *set) GetTypeAnchor(id ID) uint32 {
 	a, ok := e.types[id]
 	if !ok {
-		_, err := e.addOrGetURI(id.URI)
+		_, err := e.addOrGetURN(id.URN)
 		if err != nil {
 			panic(err)
 		}
@@ -499,7 +508,7 @@ func (e *set) GetTypeAnchor(id ID) uint32 {
 func (e *set) GetFuncAnchor(id ID) uint32 {
 	a, ok := e.funcs[id]
 	if !ok {
-		_, err := e.addOrGetURI(id.URI)
+		_, err := e.addOrGetURN(id.URN)
 		if err != nil {
 			panic(err)
 		}
@@ -512,7 +521,7 @@ func (e *set) GetFuncAnchor(id ID) uint32 {
 func (e *set) GetTypeVariationAnchor(id ID) uint32 {
 	a, ok := e.typeVariations[id]
 	if !ok {
-		_, err := e.addOrGetURI(id.URI)
+		_, err := e.addOrGetURN(id.URN)
 		if err != nil {
 			panic(err)
 		}
@@ -540,43 +549,43 @@ func (e *set) encodeFunc(anchor uint32, id ID) {
 	e.funcs[id] = anchor
 }
 
-func (e *set) FindURI(uri string) (uint32, bool) {
-	for k, v := range e.uris {
-		if v == uri {
+func (e *set) FindURN(urn string) (uint32, bool) {
+	for k, v := range e.urns {
+		if v == urn {
 			return k, true
 		}
 	}
 	return 0, false
 }
 
-func (e *set) addOrGetURI(uri string) (uint32, error) {
-	for k, v := range e.uris {
-		if v == uri {
+func (e *set) addOrGetURN(urn string) (uint32, error) {
+	for k, v := range e.urns {
+		if v == urn {
 			return k, nil
 		}
 	}
-	sz := uint32(len(e.uris)) + 1
-	if _, ok := e.uris[sz]; ok {
+	sz := uint32(len(e.urns)) + 1
+	if _, ok := e.urns[sz]; ok {
 		return 0, substraitgo.ErrKeyExists
 	}
 
-	e.uris[sz] = uri
+	e.urns[sz] = urn
 	return sz, nil
 }
 
 type TopLevel interface {
-	GetExtensionUris() []*extensions.SimpleExtensionURI
+	GetExtensionUrns() []*extensions.SimpleExtensionURN
 	GetExtensions() []*extensions.SimpleExtensionDeclaration
 }
 
 func GetExtensionSet(plan TopLevel) Set {
-	uris := make(map[uint32]string)
-	for _, uri := range plan.GetExtensionUris() {
-		uris[uri.ExtensionUriAnchor] = uri.Uri
+	urns := make(map[uint32]string)
+	for _, urn := range plan.GetExtensionUrns() {
+		urns[urn.ExtensionUrnAnchor] = urn.Urn
 	}
 
 	ret := &set{
-		uris:             uris,
+		urns:             urns,
 		funcMap:          make(map[uint32]ID),
 		funcs:            make(map[ID]uint32),
 		typesMap:         make(map[uint32]ID),
@@ -590,19 +599,19 @@ func GetExtensionSet(plan TopLevel) Set {
 		case *extensions.SimpleExtensionDeclaration_ExtensionTypeVariation_:
 			etv := e.ExtensionTypeVariation
 			ret.encodeTypeVariation(etv.TypeVariationAnchor, ID{
-				URI:  uris[etv.ExtensionUriReference],
+				URN:  urns[etv.ExtensionUrnReference],
 				Name: etv.Name,
 			})
 		case *extensions.SimpleExtensionDeclaration_ExtensionType_:
 			et := e.ExtensionType
 			ret.encodeType(et.TypeAnchor, ID{
-				URI:  uris[et.ExtensionUriReference],
+				URN:  urns[et.ExtensionUrnReference],
 				Name: et.Name,
 			})
 		case *extensions.SimpleExtensionDeclaration_ExtensionFunction_:
 			ef := e.ExtensionFunction
 			ret.encodeFunc(ef.FunctionAnchor, ID{
-				URI:  uris[ef.ExtensionUriReference],
+				URN:  urns[ef.ExtensionUrnReference],
 				Name: ef.Name,
 			})
 		}

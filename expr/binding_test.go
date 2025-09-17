@@ -14,33 +14,33 @@ import (
 var (
 	extReg    = NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
 	uPointRef = extReg.GetTypeAnchor(extensions.ID{
-		URI:  extensions.SubstraitDefaultURIPrefix + "extension_types.yaml",
+		URN:  extensions.SubstraitDefaultURNPrefix + "extension_types",
 		Name: "point",
 	})
 
 	subID = extensions.ID{
-		URI:  extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
 		Name: "subtract"}
 	addID = extensions.ID{
-		URI:  extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
 		Name: "add"}
 	indexInID = extensions.ID{
-		URI:  extensions.SubstraitDefaultURIPrefix + "functions_set.yaml",
+		URN:  extensions.SubstraitDefaultURNPrefix + "functions_set",
 		Name: "index_in"}
 	rankID = extensions.ID{
-		URI:  extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
 		Name: "rank"}
 	firstValueID = extensions.ID{
-		URI:  extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
 		Name: "first_value"}
 	extractID = extensions.ID{
-		URI:  extensions.SubstraitDefaultURIPrefix + "functions_datetime.yaml",
+		URN:  extensions.SubstraitDefaultURNPrefix + "functions_datetime",
 		Name: "extract"}
 	ntileID = extensions.ID{
-		URI:  extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
 		Name: "ntile"}
 	sumID = extensions.ID{
-		URI:  extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
 		Name: "sum"}
 
 	boringSchema = types.NamedStruct{

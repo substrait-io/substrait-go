@@ -66,7 +66,7 @@ func TestExprBuilder(t *testing.T) {
 			b.ScalarFunc(subID).Args(b.RootRef(expr.NewStructFieldRef(3)),
 				b.Wrap(expr.NewLiteral(int32(3), false))), ""},
 		{"window func", "",
-			b.WindowFunc(rankID), "invalid expression: non-decomposable window or agg function '{https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml rank}' must use InitialToResult phase"},
+			b.WindowFunc(rankID), "invalid expression: non-decomposable window or agg function '{extension:io.substrait:functions_arithmetic rank}' must use InitialToResult phase"},
 		{"window func", "rank(; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_UNSPECIFIED) => i64?",
 			b.WindowFunc(rankID).Phase(types.AggPhaseInitialToResult), ""},
 		{"window func",
@@ -160,9 +160,9 @@ window_functions:
 
 	planBuilder := plan.NewBuilder(&collection)
 
-	customType1 := planBuilder.UserDefinedType("custom", "custom_type1")
-	customType2 := planBuilder.UserDefinedType("custom", "custom_type2")
-	customType3 := planBuilder.UserDefinedType("custom", "custom_type3")
+	customType1 := planBuilder.UserDefinedType("extension:test:custom", "custom_type1")
+	customType2 := planBuilder.UserDefinedType("extension:test:custom", "custom_type2")
+	customType3 := planBuilder.UserDefinedType("extension:test:custom", "custom_type3")
 
 	anyVal, err := anypb.New(expr.NewPrimitiveLiteral("foo", false).ToProto())
 	require.NoError(t, err)
@@ -174,7 +174,7 @@ window_functions:
 
 	// check scalar function
 	scalar, err := planBuilder.GetExprBuilder().ScalarFunc(extensions.ID{
-		URI:  "custom",
+		URN:  "extension:test:custom",
 		Name: "custom_function",
 	}).Args(
 		customLiteral,
@@ -189,7 +189,7 @@ window_functions:
 
 	// check aggregate function
 	aggr, err := planBuilder.GetExprBuilder().AggFunc(extensions.ID{
-		URI:  "custom",
+		URN:  "extension:test:custom",
 		Name: "custom_aggr",
 	}).Args(
 		customLiteral,
@@ -203,7 +203,7 @@ window_functions:
 
 	// check window function
 	window, err := planBuilder.GetExprBuilder().WindowFunc(extensions.ID{
-		URI:  "custom",
+		URN:  "extension:test:custom",
 		Name: "custom_window",
 	}).Args(
 		customLiteral,
