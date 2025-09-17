@@ -571,6 +571,7 @@ func checkCompoundNames(t *testing.T, compoundNames []string, expectedNames []st
 func TestScalarFunctionsSyncParamsError(t *testing.T) {
 	const uri = "http://localhost/sample.yaml"
 	const defYaml = `---
+urn: extension:test:def
 scalar_functions:
   -
     name: "func_testsync"
@@ -634,6 +635,7 @@ scalar_functions:
 func TestScalarFunctionsMirrorNullabilityMatch(t *testing.T) {
 	const uri = "http://localhost/sample.yaml"
 	const defYaml = `---
+urn: extension:test:def
 scalar_functions:
   -
     name: "func_mirror"
@@ -705,6 +707,7 @@ scalar_functions:
 func TestScalarFunctionsDeclaredOutputNullabilityMatch(t *testing.T) {
 	const uri = "http://localhost/sample.yaml"
 	const defYaml = `---
+urn: extension:test:def
 scalar_functions:
   -
     name: "func_declared_output"
@@ -773,6 +776,7 @@ scalar_functions:
 func TestScalarFunctionsDiscreteNullabilityMatch(t *testing.T) {
 	const uri = "http://localhost/sample.yaml"
 	const defYaml = `---
+urn: extension:test:def
 scalar_functions:
   -
     name: "func_discrete_required"
@@ -858,6 +862,7 @@ scalar_functions:
 func TestScalarFunctionsVariadicMatch(t *testing.T) {
 	const uri = "http://localhost/sample.yaml"
 	const defYaml = `---
+urn: extension:test:def
 scalar_functions:
   -
     name: "func_testvariadic"
@@ -915,6 +920,7 @@ scalar_functions:
 func TestScalarFunctionsVariadicMin0(t *testing.T) {
 	const uri = "http://localhost/sample.yaml"
 	const defYaml = `---
+urn: extension:test:def
 scalar_functions:
   -
     name: and
@@ -991,6 +997,7 @@ scalar_functions:
 func TestScalarFuncVariadicArgMatch(t *testing.T) {
 	const uri = "http://localhost/sample.yaml"
 	const defYaml = `---
+urn: extension:test:def
 scalar_functions:
   -
     name: "func_testvariadic"
@@ -1057,6 +1064,7 @@ scalar_functions:
 func TestScalarFuncVariadicArgMisMatch(t *testing.T) {
 	const uri = "http://localhost/sample.yaml"
 	const defYaml = `---
+urn: extension:test:def
 scalar_functions:
   -
     name: "func_testvariadic"
@@ -1119,6 +1127,7 @@ scalar_functions:
 func TestScalarFuncVariadicMismatch(t *testing.T) {
 	const uri = "http://localhost/sample.yaml"
 	const defYaml = `---
+urn: extension:test:def
 scalar_functions:
   -
     name: "func_testvariadic"
@@ -1177,6 +1186,7 @@ scalar_functions:
 func TestScalarFuncVariadicConsistencyCheckMisMatch(t *testing.T) {
 	const uri = "http://localhost/sample.yaml"
 	const defYaml = `---
+urn: extension:test:def
 scalar_functions:
   -
     name: "func_testvariadic"
@@ -1232,6 +1242,7 @@ scalar_functions:
 func TestAggregateFuncMinMax(t *testing.T) {
 	const uri = "http://localhost/sample.yaml"
 	const defYaml = `---
+urn: extension:test:def
 aggregate_functions:
   -
     name: "func_nonvariadic"
@@ -1297,6 +1308,7 @@ aggregate_functions:
 func TestWindowFuncMinMax(t *testing.T) {
 	const uri = "http://localhost/sample.yaml"
 	const defYaml = `---
+urn: extension:test:def
 window_functions:
   -
     name: "func_nonvariadic"
@@ -1552,6 +1564,7 @@ func TestScalarFunctionsWithVariantsWithSameFuncName(t *testing.T) {
 	const arithmeticUri = "http://localhost/functions_arithmetic.yaml"
 	const decimalUri = "http://localhost/functions_arithmetic_decimal.yaml"
 	const arithmeticYaml = `---
+urn: extension:test:arithmetic
 scalar_functions:
   -
     name: "sqrt"
@@ -1586,6 +1599,7 @@ scalar_functions:
         return: fp64
 `
 	const decimalYaml = `---
+urn: extension:test:decimal
 scalar_functions:
   - name: "sqrt"
     description: Square root of the value. Sqrt of 0 is 0 and sqrt of negative values will raise an error.
@@ -1683,6 +1697,7 @@ func TestAggregateFunctionsWithSameName(t *testing.T) {
 	const arithmeticUri = "http://localhost/functions_aggregate_generic.yaml"
 	const decimalUri = "http://localhost/functions_aggregate_decimal_output.yaml"
 	const decimalYaml = `---
+urn: extension:test:decimal
 aggregate_functions:
   - name: "count"
     description: Count a set of values. Result is returned as a decimal instead of i64.
@@ -1710,6 +1725,7 @@ aggregate_functions:
 
 `
 	const arithmeticYaml = `---
+urn: extension:test:arithmetic
 aggregate_functions:
   - name: "count"
     description: Count a set of values

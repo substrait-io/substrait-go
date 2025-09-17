@@ -25,6 +25,7 @@ import (
 )
 
 const sampleYAML = `---
+urn: extension:test:sample
 scalar_functions:
   -
     name: "add"

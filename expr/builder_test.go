@@ -118,6 +118,7 @@ func TestExprBuilder(t *testing.T) {
 func TestCustomTypesInFunctionOutput(t *testing.T) {
 	custom := `%YAML 1.2
 ---
+urn: extension:test:custom
 types:
   - name: custom_type1
   - name: custom_type2

@@ -13,6 +13,7 @@ import (
 )
 
 const sampleYAML = `---
+urn: extension:test:sample
 types:
   - name: point
     structure:
