@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"path"
+	"regexp"
 	"sort"
 	"sync"
 
@@ -28,6 +29,13 @@ var (
 		"unknown.yaml": true,
 	}
 )
+
+var urnPattern = regexp.MustCompile(`^extension:[^:]+:[^:]+$`)
+
+// ValidateURN validates that a URN follows the format "extension:<owner>:<id>".
+func validateUrn(urn string) bool {
+	return urnPattern.MatchString(urn)
+}
 
 // GetDefaultCollectionWithNoError returns a Collection that is loaded with the default Substrait extension definitions.
 // This version is provided for the ease of use of legacy code. Please use GetDefaultCollection instead.
@@ -202,6 +210,9 @@ func (c *Collection) Load(uri string, r io.Reader) error {
 	urn := file.Urn
 	if urn == "" {
 		return fmt.Errorf("%w: missing URN", substraitgo.ErrInvalidSimpleExtention)
+	}
+	if !validateUrn(urn) {
+		return fmt.Errorf("%w: invalid URN, expected format is \"extension:<owner>:<id>\", got: %s", substraitgo.ErrInvalidSimpleExtention, urn)
 	}
 
 	id := ID{URI: uri}
