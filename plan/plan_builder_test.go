@@ -194,10 +194,17 @@ func TestAggregateRelPlan(t *testing.T) {
 				"urn": "extension:io.substrait:functions_aggregate_generic"
 			}
 		],
+		"extensionUris": [
+			{
+				"extensionUriAnchor": 1,
+				"uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_aggregate_generic.yaml"
+			}
+		],
 		"extensions": [
 			{
 				"extensionFunction": {
 					"extensionUrnReference": 1,
+					"extensionUriReference": 1,
 					"functionAnchor": 1,
 					"name": "count:"
 				}
@@ -1022,10 +1029,17 @@ func TestSortRelationKeyEqual(t *testing.T) {
 				"urn": "extension:io.substrait:functions_comparison"
 			}
 		],
+		"extensionUris": [
+			{
+				"extensionUriAnchor": 1,
+				"uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_comparison.yaml"
+			}
+		],
 		"extensions": [
 			{
 				"extensionFunction": {
 					"extensionUrnReference": 1,
+					"extensionUriReference": 1,
 					"functionAnchor": 1,
 					"name": "equal"
 				}
@@ -1206,10 +1220,17 @@ func TestProjectExpressions(t *testing.T) {
 				"urn": "extension:io.substrait:functions_arithmetic"
 			}
 			],
+			"extensionUris": [
+			{
+				"extensionUriAnchor": 1,
+				"uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+			}
+			],
 			"extensions": [
 			{
 				"extensionFunction": {
 				"extensionUrnReference": 1,
+				"extensionUriReference": 1,
 				"functionAnchor": 1,
 				"name": "abs:fp32"
 				}
@@ -1217,6 +1238,7 @@ func TestProjectExpressions(t *testing.T) {
 			{
 				"extensionFunction": {
 				"extensionUrnReference": 1,
+				"extensionUriReference": 1,
 				"functionAnchor": 2,
 				"name": "add:fp32_fp32"
 				}
