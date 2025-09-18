@@ -202,8 +202,6 @@ func (c *Collection) Load(uri string, r io.Reader) error {
 			substraitgo.ErrKeyExists, uri)
 	}
 
-	c.uriSet[uri] = void
-
 	var file SimpleExtensionFile
 	dec := yaml.NewDecoder(r)
 	if err := dec.Decode(&file); err != nil {
@@ -217,7 +215,12 @@ func (c *Collection) Load(uri string, r io.Reader) error {
 	if !validateUrn(urn) {
 		return fmt.Errorf("%w: invalid urn, expected format is \"extension:<owner>:<id>\", got: %s", substraitgo.ErrInvalidSimpleExtention, urn)
 	}
+	if c.URNLoaded(urn) {
+		return fmt.Errorf("%w:  uri %s already loaded", substraitgo.ErrKeyExists, urn)
 	}
+
+	c.uriSet[uri] = void
+	c.urnSet[urn] = void
 
 	id := ID{URN: urn}
 	for _, t := range file.Types {

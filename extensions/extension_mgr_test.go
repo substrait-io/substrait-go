@@ -518,3 +518,39 @@ scalar_functions:
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid urn")
 }
+
+func TestCannotLoadDuplicateURI(t *testing.T) {
+	const ext1 = `---
+urn: extension:urn:ext1
+scalar_functions:
+`
+	const ext2 = `---
+urn: extension:urn:ext2
+scalar_functions:
+`
+
+	var c extensions.Collection
+	err := c.Load("http://localhost/test.yaml", strings.NewReader(ext1))
+	assert.NoError(t, err)
+
+	err = c.Load("http://localhost/test.yaml", strings.NewReader(ext2))
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "already loaded")
+}
+
+func TestCannotLoadDuplicateURN(t *testing.T) {
+	const extension = `---
+urn: extension:urn:format
+scalar_functions:
+`
+
+	var c extensions.Collection
+	err := c.Load("http://localhost/test.yaml", strings.NewReader(extension))
+	assert.NoError(t, err)
+
+	err = c.Load("http://localhost/test2.yaml", strings.NewReader(extension))
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "already loaded")
+}
