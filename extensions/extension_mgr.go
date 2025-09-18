@@ -371,6 +371,7 @@ type Set interface {
 func NewSet() Set {
 	return &set{
 		urns:             make(map[uint32]string),
+		uris:             make(map[uint32]string),
 		funcMap:          make(map[uint32]ID),
 		funcs:            make(map[ID]uint32),
 		types:            make(map[ID]uint32),
@@ -382,6 +383,7 @@ func NewSet() Set {
 
 type set struct {
 	urns map[uint32]string
+	uris map[uint32]string
 
 	typesMap map[uint32]ID
 	types    map[ID]uint32
@@ -608,17 +610,27 @@ func (e *set) addOrGetURN(urn string) (uint32, error) {
 
 type TopLevel interface {
 	GetExtensionUrns() []*extensions.SimpleExtensionURN
+	GetExtensionUris() []*extensions.SimpleExtensionURI
 	GetExtensions() []*extensions.SimpleExtensionDeclaration
 }
 
-func GetExtensionSet(plan TopLevel) Set {
+// Add Collection as an argument is a temporary workaround during the URI -> URN migration
+// This is because we want to encode functions using urn always. So if we encounter uris and not urns,
+// we need to first leverage the collection to convert from uri to urn
+func GetExtensionSet(plan TopLevel, c *Collection) (Set, error) {
 	urns := make(map[uint32]string)
 	for _, urn := range plan.GetExtensionUrns() {
 		urns[urn.ExtensionUrnAnchor] = urn.Urn
 	}
 
+	uris := make(map[uint32]string)
+	for _, uri := range plan.GetExtensionUris() {
+		uris[uri.ExtensionUriAnchor] = uri.Uri
+	}
+
 	ret := &set{
 		urns:             urns,
+		uris:             uris,
 		funcMap:          make(map[uint32]ID),
 		funcs:            make(map[ID]uint32),
 		typesMap:         make(map[uint32]ID),
@@ -627,28 +639,63 @@ func GetExtensionSet(plan TopLevel) Set {
 		typeVariations:   make(map[ID]uint32),
 	}
 
+	resolveRefToURN := func(uriRef, urnRef uint32) (string, error) {
+		if urnRef != 0 {
+			// URN takes precedence - check if URN anchor exists
+			urn, ok := urns[urnRef]
+			if !ok {
+				return "", substraitgo.ErrExtensionAnchorNotFound
+			}
+			return urn, nil
+		}
+		if uriRef != 0 {
+			// Fallback to URI - check if URI anchor exists
+			uri, ok := uris[uriRef]
+			if !ok {
+				return "", substraitgo.ErrExtensionAnchorNotFound
+			}
+			if urn, found := c.urnUriBiMap.getUrn(uri); found {
+				return urn, nil
+			}
+			return "", substraitgo.ErrExtensionURINotResolvable
+		}
+		return "", substraitgo.ErrExtensionAnchorNotFound
+	}
+
 	for _, ext := range plan.GetExtensions() {
 		switch e := ext.MappingType.(type) {
 		case *extensions.SimpleExtensionDeclaration_ExtensionTypeVariation_:
 			etv := e.ExtensionTypeVariation
+			urn, err := resolveRefToURN(etv.ExtensionUriReference, etv.ExtensionUrnReference)
+			if err != nil {
+				return nil, err
+			}
 			ret.encodeTypeVariation(etv.TypeVariationAnchor, ID{
-				URN:  urns[etv.ExtensionUrnReference],
+				URN:  urn,
 				Name: etv.Name,
 			})
 		case *extensions.SimpleExtensionDeclaration_ExtensionType_:
 			et := e.ExtensionType
+			urn, err := resolveRefToURN(et.ExtensionUriReference, et.ExtensionUrnReference)
+			if err != nil {
+				return nil, err
+			}
 			ret.encodeType(et.TypeAnchor, ID{
-				URN:  urns[et.ExtensionUrnReference],
+				URN:  urn,
 				Name: et.Name,
 			})
 		case *extensions.SimpleExtensionDeclaration_ExtensionFunction_:
 			ef := e.ExtensionFunction
+			urn, err := resolveRefToURN(ef.ExtensionUriReference, ef.ExtensionUrnReference)
+			if err != nil {
+				return nil, err
+			}
 			ret.encodeFunc(ef.FunctionAnchor, ID{
-				URN:  urns[ef.ExtensionUrnReference],
+				URN:  urn,
 				Name: ef.Name,
 			})
 		}
 	}
 
-	return ret
+	return ret, nil
 }

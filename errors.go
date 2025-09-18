@@ -15,4 +15,6 @@ var (
 	ErrInvalidInputCount      = errors.New("invalid input count")
 	ErrInvalidDialect         = errors.New("invalid dialect")
 	ErrInvalidSimpleExtention = errors.New("invalid simple extension")
+	ErrExtensionAnchorNotFound = errors.New("extension anchor not found")
+	ErrExtensionURINotResolvable = errors.New("extension URI not resolvable")
 )

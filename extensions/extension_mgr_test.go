@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/v6/extensions"
 	"github.com/substrait-io/substrait-go/v6/types"
+	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
+	extensionspb "github.com/substrait-io/substrait-protobuf/go/substraitpb/extensions"
 )
 
 const sampleYAML = `---
@@ -553,4 +555,138 @@ scalar_functions:
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "already loaded")
+}
+
+func TestGetExtensionSetWithURIAndURN(t *testing.T) {
+	// Create a plan with 3 extension functions demonstrating different reference patterns:
+	// 1. Only extensionUrnReference (URN anchor 1)
+	// 2. Only extensionUriReference (URI anchor 1)
+	// 3. Both extensionUrnReference and extensionUriReference (should validate consistency)
+	plan := &proto.Plan{
+		ExtensionUris: []*extensionspb.SimpleExtensionURI{
+			{
+				ExtensionUriAnchor: 1,
+				Uri:                "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml",
+			},
+		},
+		ExtensionUrns: []*extensionspb.SimpleExtensionURN{
+			{
+				ExtensionUrnAnchor: 11,
+				Urn:                "extension:io.substrait:functions_arithmetic",
+			},
+		},
+		Extensions: []*extensionspb.SimpleExtensionDeclaration{
+			{
+				MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
+					ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
+						ExtensionUrnReference: 11,
+						FunctionAnchor:        10,
+						Name:                  "add:i32_i32",
+					},
+				},
+			},
+			{
+				MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
+					ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
+						ExtensionUriReference: 1,
+						FunctionAnchor:        20,
+						Name:                  "multiply:i32_i32",
+					},
+				},
+			},
+			{
+				MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
+					ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
+						ExtensionUrnReference: 11,
+						ExtensionUriReference: 1,
+						FunctionAnchor:        30,
+						Name:                  "divide:i32_i32",
+					},
+				},
+			},
+		},
+		Relations: []*proto.PlanRel{},
+	}
+
+	collection := extensions.GetDefaultCollectionWithNoError()
+	extSet, err := extensions.GetExtensionSet(plan, collection)
+	require.NoError(t, err)
+
+	// Extension 1: extensionUrnReference pointing to URN anchor
+	id1, ok := extSet.DecodeFunc(10)
+	require.True(t, ok)
+	assert.Equal(t, "extension:io.substrait:functions_arithmetic", id1.URN)
+	assert.Equal(t, "add:i32_i32", id1.Name)
+
+	// Extension 2: extensionUriReference pointing to URI anchor
+	id2, ok := extSet.DecodeFunc(20)
+	require.True(t, ok)
+	assert.Equal(t, "extension:io.substrait:functions_arithmetic", id2.URN)
+	assert.Equal(t, "multiply:i32_i32", id2.Name)
+
+	// Extension 3: Both extensionUrnReference and extensionUriReference  - should validate consistency
+	id3, ok := extSet.DecodeFunc(30)
+	require.True(t, ok)
+	assert.Equal(t, "extension:io.substrait:functions_arithmetic", id3.URN)
+	assert.Equal(t, "divide:i32_i32", id3.Name)
+}
+
+func TestGetExtensionSetWithUnknownURI(t *testing.T) {
+	// Create a plan with a URI that doesn't have a URN mapping in the collection
+	plan := &proto.Plan{
+		ExtensionUris: []*extensionspb.SimpleExtensionURI{
+			{
+				ExtensionUriAnchor: 1,
+				Uri:                "https://example.com/unknown_extension.yaml",
+			},
+		},
+		Extensions: []*extensionspb.SimpleExtensionDeclaration{
+			{
+				MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
+					ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
+						ExtensionUriReference: 1,
+						FunctionAnchor:        10,
+						Name:                  "unknown_function",
+					},
+				},
+			},
+		},
+		Relations: []*proto.PlanRel{},
+	}
+
+	collection := extensions.GetDefaultCollectionWithNoError()
+	extSet, err := extensions.GetExtensionSet(plan, collection)
+	require.Error(t, err)
+	require.Nil(t, extSet)
+	assert.Contains(t, err.Error(), "extension URI not resolvable")
+}
+
+func TestGetExtensionSetWithMissingAnchor(t *testing.T) {
+	// Create a plan with a reference to an anchor that doesn't exist
+	plan := &proto.Plan{
+		ExtensionUris: []*extensionspb.SimpleExtensionURI{
+			{
+				ExtensionUriAnchor: 1,
+				Uri:                "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml",
+			},
+		},
+		Extensions: []*extensionspb.SimpleExtensionDeclaration{
+			{
+				MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
+					ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
+						ExtensionUriReference: 99, // This anchor doesn't exist!
+						FunctionAnchor:        10,
+						Name:                  "unknown_function",
+					},
+				},
+			},
+		},
+		Relations: []*proto.PlanRel{},
+	}
+
+	collection := extensions.GetDefaultCollectionWithNoError()
+	extSet, err := extensions.GetExtensionSet(plan, collection)
+	require.Error(t, err)
+	require.Nil(t, extSet)
+	assert.Contains(t, err.Error(), "extension anchor not found")
 }

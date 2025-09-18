@@ -210,9 +210,13 @@ func (p *Plan) GetNonRootRelations() (rels []Rel) {
 }
 
 func FromProto(plan *proto.Plan, c *extensions.Collection) (*Plan, error) {
+	extSet, err := extensions.GetExtensionSet(plan, c)
+	if err != nil {
+		return nil, err
+	}
 	ret := &Plan{
 		version:          plan.Version,
-		extensions:       extensions.GetExtensionSet(plan),
+		extensions:       extSet,
 		advExtension:     plan.AdvancedExtensions,
 		expectedTypeURLs: plan.ExpectedTypeUrls,
 		relations:        make([]Relation, len(plan.Relations)),

@@ -1568,11 +1568,14 @@ type Extended struct {
 }
 
 func ExtendedFromProto(ex *proto.ExtendedExpression, c *extensions.Collection) (*Extended, error) {
+	extSet, err := extensions.GetExtensionSet(ex, c)
+	if err != nil {
+		return nil, err
+	}
 	var (
-		base   = types.NewNamedStructFromProto(ex.BaseSchema)
-		extSet = extensions.GetExtensionSet(ex)
-		reg    = NewExtensionRegistry(extSet, c)
-		refs   = make([]ExpressionReference, len(ex.ReferredExpr))
+		base = types.NewNamedStructFromProto(ex.BaseSchema)
+		reg  = NewExtensionRegistry(extSet, c)
+		refs = make([]ExpressionReference, len(ex.ReferredExpr))
 	)
 
 	for i, r := range ex.ReferredExpr {

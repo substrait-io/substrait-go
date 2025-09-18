@@ -78,7 +78,11 @@ func ExampleExpression_scalarFunction() {
 	}
 
 	// get the extension set
-	extSet := ext.GetExtensionSet(&plan)
+	collection := ext.GetDefaultCollectionWithNoError()
+	extSet, err := ext.GetExtensionSet(&plan, collection)
+	if err != nil {
+		panic(err)
+	}
 
 	// json proto to represent of add(field_ref(0), float64(10))
 	const scalarFunction = `{
@@ -99,7 +103,7 @@ func ExampleExpression_scalarFunction() {
 		panic(err)
 	}
 
-	reg := expr.NewExtensionRegistry(extSet, &collection)
+	reg := expr.NewExtensionRegistry(extSet, collection)
 	// convert from protobuf to Expression!
 	fromProto, err := expr.ExprFromProto(&exprProto, nil, reg)
 	if err != nil {
@@ -225,8 +229,12 @@ func TestExpressionsRoundtrip(t *testing.T) {
 		panic(err)
 	}
 	// get the extension set
-	extSet := ext.GetExtensionSet(&plan)
-	reg := expr.NewExtensionRegistry(extSet, ext.GetDefaultCollectionWithNoError())
+	collection := ext.GetDefaultCollectionWithNoError()
+	extSet, err := ext.GetExtensionSet(&plan, collection)
+	if err != nil {
+		panic(err)
+	}
+	reg := expr.NewExtensionRegistry(extSet, collection)
 	tests := []expr.Expression{
 		sampleNestedExpr(reg, substraitExtURN),
 	}
@@ -331,7 +339,11 @@ func TestRoundTripUsingTestData(t *testing.T) {
 		panic(err)
 	}
 	// get the extension set
-	extSet := ext.GetExtensionSet(&plan)
+	collection := ext.GetDefaultCollectionWithNoError()
+	extSet, err := ext.GetExtensionSet(&plan, collection)
+	if err != nil {
+		panic(err)
+	}
 
 	f, err := os.Open("./testdata/expressions.yaml")
 	require.NoError(t, err)
@@ -349,7 +361,7 @@ func TestRoundTripUsingTestData(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, protojson.Unmarshal(raw, &protoSchema))
 	baseSchema := types.NewNamedStructFromProto(&protoSchema)
-	reg := expr.NewExtensionRegistry(extSet, ext.GetDefaultCollectionWithNoError())
+	reg := expr.NewExtensionRegistry(extSet, collection)
 	for _, tc := range tmp["cases"].([]any) {
 		tt := tc.(map[string]any)
 		t.Run(tt["name"].(string), func(t *testing.T) {
@@ -471,8 +483,11 @@ func TestSubqueryExpressionRoundtrip(t *testing.T) {
 	}
 
 	// get the extension set and create registry with subquery handler
-	extSet := ext.GetExtensionSet(&planProto)
 	c := ext.GetDefaultCollectionWithNoError()
+	extSet, err := ext.GetExtensionSet(&planProto, c)
+	if err != nil {
+		panic(err)
+	}
 
 	// Create extension registry with subquery handler properly
 	baseReg := expr.NewExtensionRegistry(extSet, c)

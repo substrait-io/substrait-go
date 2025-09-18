@@ -37,11 +37,13 @@ func TestVirtualTableExpressionFromProto(t *testing.T) {
 	}
 
 	// get the extension set
-	extSet := ext.GetExtensionSet(&plan)
+	collection := ext.GetDefaultCollectionWithNoError()
+	extSet, err := ext.GetExtensionSet(&plan, collection)
+	require.NoError(t, err)
 	literal1 := expr.NewPrimitiveLiteral(int32(1), false)
 	expr1 := literal1.ToProto()
 
-	reg := expr.NewExtensionRegistry(extSet, ext.GetDefaultCollectionWithNoError())
+	reg := expr.NewExtensionRegistry(extSet, collection)
 	rows := &proto.Expression_Nested_Struct{Fields: []*proto.Expression{
 		expr1,
 	}}
