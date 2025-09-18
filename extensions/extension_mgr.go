@@ -365,7 +365,7 @@ type Set interface {
 	GetFuncAnchor(id ID) uint32
 	GetTypeVariationAnchor(id ID) uint32
 
-	ToProto() ([]*extensions.SimpleExtensionURN, []*extensions.SimpleExtensionDeclaration)
+	ToProto(c *Collection) ([]*extensions.SimpleExtensionURN, []*extensions.SimpleExtensionURI, []*extensions.SimpleExtensionDeclaration)
 }
 
 func NewSet() Set {
@@ -395,26 +395,52 @@ type set struct {
 	funcs   map[ID]uint32
 }
 
-func (e *set) ToProto() ([]*extensions.SimpleExtensionURN, []*extensions.SimpleExtensionDeclaration) {
-	backRef := make(map[string]uint32)
+func (e *set) ToProto(c *Collection) ([]*extensions.SimpleExtensionURN, []*extensions.SimpleExtensionURI, []*extensions.SimpleExtensionDeclaration) {
+	urnBackRef := make(map[string]uint32)
+	uriBackRef := make(map[string]uint32)
+
 	urns := make([]*extensions.SimpleExtensionURN, 0, len(e.urns))
 	for anchor, urn := range e.urns {
-		backRef[urn] = anchor
+		urnBackRef[urn] = anchor
 		urns = append(urns, &extensions.SimpleExtensionURN{
 			ExtensionUrnAnchor: anchor,
 			Urn:                urn,
 		})
 	}
 
-	// Sort extensions by the anchor for consistent output
+	// Sort URN extensions by the anchor for consistent output
 	sort.Slice(urns, func(i, j int) bool { return urns[i].ExtensionUrnAnchor < urns[j].ExtensionUrnAnchor })
+
+	// Create URI extensions - for each URN, get the corresponding URI
+	uris := make([]*extensions.SimpleExtensionURI, 0, len(e.urns))
+	nextURIAnchor := uint32(1)
+	for _, urnExt := range urns {
+		uri, ok := c.urnUriBiMap.getUri(urnExt.Urn)
+		if !ok {
+			panic(fmt.Sprintf("URN %q has no corresponding URI in bidirectional map", urnExt.Urn))
+		}
+		uriBackRef[uri] = nextURIAnchor
+		uris = append(uris, &extensions.SimpleExtensionURI{
+			ExtensionUriAnchor: nextURIAnchor,
+			Uri:                uri,
+		})
+		nextURIAnchor++
+	}
 
 	decls := make([]*extensions.SimpleExtensionDeclaration, 0, len(e.types)+len(e.typeVariations)+len(e.funcs))
 	for id, anchor := range e.types {
+		// Get the corresponding URI anchor
+		uri, ok := c.urnUriBiMap.getUri(id.URN)
+		if !ok {
+			panic(fmt.Sprintf("URN %q has no corresponding URI in bidirectional map", id.URN))
+		}
+		uriRef := uriBackRef[uri]
+
 		decls = append(decls, &extensions.SimpleExtensionDeclaration{
 			MappingType: &extensions.SimpleExtensionDeclaration_ExtensionType_{
 				ExtensionType: &extensions.SimpleExtensionDeclaration_ExtensionType{
-					ExtensionUrnReference: backRef[id.URN],
+					ExtensionUrnReference: urnBackRef[id.URN],
+					ExtensionUriReference: uriRef,
 					TypeAnchor:            anchor,
 					Name:                  id.Name,
 				},
@@ -428,10 +454,18 @@ func (e *set) ToProto() ([]*extensions.SimpleExtensionURN, []*extensions.SimpleE
 	typesCount := len(decls)
 
 	for id, anchor := range e.typeVariations {
+		// Get the corresponding URI anchor
+		uri, ok := c.urnUriBiMap.getUri(id.URN)
+		if !ok {
+			panic(fmt.Sprintf("URN %q has no corresponding URI in bidirectional map", id.URN))
+		}
+		uriRef := uriBackRef[uri]
+
 		decls = append(decls, &extensions.SimpleExtensionDeclaration{
 			MappingType: &extensions.SimpleExtensionDeclaration_ExtensionTypeVariation_{
 				ExtensionTypeVariation: &extensions.SimpleExtensionDeclaration_ExtensionTypeVariation{
-					ExtensionUrnReference: backRef[id.URN],
+					ExtensionUrnReference: urnBackRef[id.URN],
+					ExtensionUriReference: uriRef,
 					TypeVariationAnchor:   anchor,
 					Name:                  id.Name,
 				},
@@ -446,10 +480,18 @@ func (e *set) ToProto() ([]*extensions.SimpleExtensionURN, []*extensions.SimpleE
 
 	typeVarCount := len(decls)
 	for id, anchor := range e.funcs {
+		// Get the corresponding URI anchor
+		uri, ok := c.urnUriBiMap.getUri(id.URN)
+		if !ok {
+			panic(fmt.Sprintf("URN %q has no corresponding URI in bidirectional map", id.URN))
+		}
+		uriRef := uriBackRef[uri]
+
 		decls = append(decls, &extensions.SimpleExtensionDeclaration{
 			MappingType: &extensions.SimpleExtensionDeclaration_ExtensionFunction_{
 				ExtensionFunction: &extensions.SimpleExtensionDeclaration_ExtensionFunction{
-					ExtensionUrnReference: backRef[id.URN],
+					ExtensionUrnReference: urnBackRef[id.URN],
+					ExtensionUriReference: uriRef,
 					FunctionAnchor:        anchor,
 					Name:                  id.Name,
 				},
@@ -462,7 +504,7 @@ func (e *set) ToProto() ([]*extensions.SimpleExtensionURN, []*extensions.SimpleE
 		return decls[i].GetExtensionFunction().GetFunctionAnchor() < decls[j].GetExtensionFunction().GetFunctionAnchor()
 	})
 
-	return urns, decls
+	return urns, uris, decls
 }
 
 func (e *set) LookupWindowFunction(anchor uint32, c *Collection) (sv *WindowFunctionVariant, ok bool) {
@@ -614,7 +656,7 @@ type TopLevel interface {
 	GetExtensions() []*extensions.SimpleExtensionDeclaration
 }
 
-// Add Collection as an argument is a temporary workaround during the URI -> URN migration
+// Adding Collection as an argument is a temporary workaround during the URI -> URN migration
 // This is because we want to encode functions using urn always. So if we encounter uris and not urns,
 // we need to first leverage the collection to convert from uri to urn
 func GetExtensionSet(plan TopLevel, c *Collection) (Set, error) {
@@ -646,6 +688,10 @@ func GetExtensionSet(plan TopLevel, c *Collection) (Set, error) {
 			if !ok {
 				return "", substraitgo.ErrExtensionAnchorNotFound
 			}
+			// Validate that the URN exists in the Collection
+			if _, found := c.urnUriBiMap.getUri(urn); !found {
+				return "", fmt.Errorf("%w: URN '%s' not found in extension collection", substraitgo.ErrNotFound, urn)
+			}
 			return urn, nil
 		}
 		if uriRef != 0 {
@@ -655,6 +701,8 @@ func GetExtensionSet(plan TopLevel, c *Collection) (Set, error) {
 				return "", substraitgo.ErrExtensionAnchorNotFound
 			}
 			if urn, found := c.urnUriBiMap.getUrn(uri); found {
+				// Add the resolved URN to the urns map for ToProto
+				ret.addOrGetURN(urn)
 				return urn, nil
 			}
 			return "", substraitgo.ErrExtensionURINotResolvable

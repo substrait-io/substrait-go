@@ -233,7 +233,7 @@ func FromProto(plan *proto.Plan, c *extensions.Collection) (*Plan, error) {
 }
 
 func (p *Plan) ToProto() (*proto.Plan, error) {
-	urns, decls := p.extensions.ToProto()
+	urns, uris, decls := p.extensions.ToProto(p.reg.Collection())
 	relations := make([]*proto.PlanRel, len(p.relations))
 	for i, r := range p.relations {
 		relations[i] = r.ToProto()
@@ -245,6 +245,7 @@ func (p *Plan) ToProto() (*proto.Plan, error) {
 		Relations:          relations,
 		Extensions:         decls,
 		ExtensionUrns:      urns,
+		ExtensionUris:      uris,
 	}, nil
 }
 

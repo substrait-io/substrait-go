@@ -1565,6 +1565,8 @@ type Extended struct {
 	BaseSchema       types.NamedStruct
 	AdvancedExts     *extensions.AdvancedExtension
 	ExpectedTypeURLs []string
+
+	reg ExtensionRegistry
 }
 
 func ExtendedFromProto(ex *proto.ExtendedExpression, c *extensions.Collection) (*Extended, error) {
@@ -1605,11 +1607,12 @@ func ExtendedFromProto(ex *proto.ExtendedExpression, c *extensions.Collection) (
 		BaseSchema:       base,
 		AdvancedExts:     ex.AdvancedExtensions,
 		ExpectedTypeURLs: ex.ExpectedTypeUrls,
+		reg:              reg,
 	}, nil
 }
 
 func (ex *Extended) ToProto() *proto.ExtendedExpression {
-	urns, decls := ex.Extensions.ToProto()
+	urns, uris, decls := ex.Extensions.ToProto(ex.reg.Collection())
 	refs := make([]*proto.ExpressionReference, len(ex.ReferredExpr))
 	for i, ref := range ex.ReferredExpr {
 		refs[i] = ref.ToProto()
@@ -1618,6 +1621,7 @@ func (ex *Extended) ToProto() *proto.ExtendedExpression {
 	return &proto.ExtendedExpression{
 		Version:            ex.Version,
 		ExtensionUrns:      urns,
+		ExtensionUris:      uris,
 		Extensions:         decls,
 		BaseSchema:         ex.BaseSchema.ToProto(),
 		AdvancedExtensions: ex.AdvancedExts,

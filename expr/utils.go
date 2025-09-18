@@ -75,3 +75,8 @@ func (e *ExtensionRegistry) LookupAggregateFunction(anchor uint32) (*extensions.
 func (e *ExtensionRegistry) LookupWindowFunction(anchor uint32) (*extensions.WindowFunctionVariant, bool) {
 	return e.Set.LookupWindowFunction(anchor, e.c)
 }
+
+// Collection returns the underlying extensions collection.
+func (e *ExtensionRegistry) Collection() *extensions.Collection {
+	return e.c
+}
