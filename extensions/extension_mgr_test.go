@@ -690,3 +690,93 @@ func TestGetExtensionSetWithMissingAnchor(t *testing.T) {
 	require.Nil(t, extSet)
 	assert.Contains(t, err.Error(), "extension anchor not found")
 }
+
+func TestToProtoPopulatesBothURNAndURI(t *testing.T) {
+	c := &extensions.Collection{}
+	err := c.Load("some/uri", strings.NewReader(sampleYAML))
+	require.NoError(t, err)
+
+	plan := &proto.Plan{
+		ExtensionUrns: []*extensionspb.SimpleExtensionURN{
+			{ExtensionUrnAnchor: 1, Urn: "extension:test:sample"},
+		},
+		Extensions: []*extensionspb.SimpleExtensionDeclaration{
+			{
+				MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
+					ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
+						ExtensionUrnReference: 1,
+						FunctionAnchor:        1,
+						Name:                  "add:i8_i8",
+					},
+				},
+			},
+		},
+	}
+
+	extSet, err := extensions.GetExtensionSet(plan, c)
+	require.NoError(t, err)
+
+	urns, uris, decls := extSet.ToProto(c)
+
+	require.Len(t, urns, 1)
+	require.Len(t, uris, 1)
+	require.Len(t, decls, 1)
+
+	assert.Equal(t, uint32(1), urns[0].ExtensionUrnAnchor)
+	assert.Equal(t, "extension:test:sample", urns[0].Urn)
+
+	assert.Equal(t, uint32(1), uris[0].ExtensionUriAnchor)
+	assert.Equal(t, "some/uri", uris[0].Uri)
+
+	funcDecl := decls[0].GetExtensionFunction()
+	require.NotNil(t, funcDecl)
+	assert.Equal(t, uint32(1), funcDecl.ExtensionUrnReference)
+	assert.Equal(t, uint32(1), funcDecl.ExtensionUriReference)
+	assert.Equal(t, uint32(1), funcDecl.FunctionAnchor)
+	assert.Equal(t, "add:i8_i8", funcDecl.Name)
+}
+
+func TestToProtoPopulatesBothURNAndURIFromURIOnly(t *testing.T) {
+	c := &extensions.Collection{}
+	err := c.Load("some/uri", strings.NewReader(sampleYAML))
+	require.NoError(t, err)
+
+	plan := &proto.Plan{
+		ExtensionUris: []*extensionspb.SimpleExtensionURI{
+			{ExtensionUriAnchor: 1, Uri: "some/uri"},
+		},
+		Extensions: []*extensionspb.SimpleExtensionDeclaration{
+			{
+				MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
+					ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
+						ExtensionUriReference: 1, // Only URI reference, no URN reference
+						FunctionAnchor:        1,
+						Name:                  "add:i8_i8",
+					},
+				},
+			},
+		},
+	}
+
+	extSet, err := extensions.GetExtensionSet(plan, c)
+	require.NoError(t, err)
+
+	urns, uris, decls := extSet.ToProto(c)
+
+	require.Len(t, urns, 1)
+	require.Len(t, uris, 1)
+	require.Len(t, decls, 1)
+
+	assert.Equal(t, uint32(1), urns[0].ExtensionUrnAnchor)
+	assert.Equal(t, "extension:test:sample", urns[0].Urn)
+
+	assert.Equal(t, uint32(1), uris[0].ExtensionUriAnchor)
+	assert.Equal(t, "some/uri", uris[0].Uri)
+
+	funcDecl := decls[0].GetExtensionFunction()
+	require.NotNil(t, funcDecl)
+	assert.Equal(t, uint32(1), funcDecl.ExtensionUrnReference)
+	assert.Equal(t, uint32(1), funcDecl.ExtensionUriReference)
+	assert.Equal(t, uint32(1), funcDecl.FunctionAnchor)
+	assert.Equal(t, "add:i8_i8", funcDecl.Name)
+}
