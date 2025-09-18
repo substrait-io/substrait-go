@@ -643,7 +643,7 @@ func (e *set) addOrGetURN(urn string) (uint32, error) {
 	}
 	sz := uint32(len(e.urns)) + 1
 	if _, ok := e.urns[sz]; ok {
-		return 0, substraitgo.ErrKeyExists
+		return 0, fmt.Errorf("%w: URN anchor %d already exists", substraitgo.ErrKeyExists, sz)
 	}
 
 	e.urns[sz] = urn
@@ -686,7 +686,7 @@ func GetExtensionSet(plan TopLevel, c *Collection) (Set, error) {
 			// URN takes precedence - check if URN anchor exists
 			urn, ok := urns[urnRef]
 			if !ok {
-				return "", substraitgo.ErrExtensionAnchorNotFound
+				return "", fmt.Errorf("%w: URN anchor %d not found", substraitgo.ErrInvalidPlan, urnRef)
 			}
 			// Validate that the URN exists in the Collection
 			if _, found := c.urnUriBiMap.getUri(urn); !found {
@@ -698,16 +698,16 @@ func GetExtensionSet(plan TopLevel, c *Collection) (Set, error) {
 			// Fallback to URI - check if URI anchor exists
 			uri, ok := uris[uriRef]
 			if !ok {
-				return "", substraitgo.ErrExtensionAnchorNotFound
+				return "", fmt.Errorf("%w: URI anchor %d not found", substraitgo.ErrInvalidPlan, uriRef)
 			}
 			if urn, found := c.urnUriBiMap.getUrn(uri); found {
 				// Add the resolved URN to the urns map for ToProto
 				ret.addOrGetURN(urn)
 				return urn, nil
 			}
-			return "", substraitgo.ErrExtensionURINotResolvable
+			return "", fmt.Errorf("%w: cannot resolve URI '%s' to URN", substraitgo.ErrExtensionURINotResolvable, uri)
 		}
-		return "", substraitgo.ErrExtensionAnchorNotFound
+		return "", fmt.Errorf("%w: no URN or URI reference provided", substraitgo.ErrInvalidPlan)
 	}
 
 	for _, ext := range plan.GetExtensions() {

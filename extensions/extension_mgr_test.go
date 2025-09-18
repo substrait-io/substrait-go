@@ -688,7 +688,7 @@ func TestGetExtensionSetWithMissingAnchor(t *testing.T) {
 	extSet, err := extensions.GetExtensionSet(plan, collection)
 	require.Error(t, err)
 	require.Nil(t, extSet)
-	assert.Contains(t, err.Error(), "extension anchor not found")
+	assert.Contains(t, err.Error(), "invalid plan")
 }
 
 func TestToProtoPopulatesBothURNAndURI(t *testing.T) {
