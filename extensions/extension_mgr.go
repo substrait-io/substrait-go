@@ -702,7 +702,9 @@ func GetExtensionSet(plan TopLevel, c *Collection) (Set, error) {
 			}
 			if urn, found := c.urnUriBiMap.getUrn(uri); found {
 				// Add the resolved URN to the urns map for ToProto
-				ret.addOrGetURN(urn)
+				if _, err := ret.addOrGetURN(urn); err != nil {
+					return "", fmt.Errorf("%w: failed to register URN '%s' (resolved from URI '%s') in extension set", err, urn, uri)
+				}
 				return urn, nil
 			}
 			return "", fmt.Errorf("%w: cannot resolve URI '%s' to URN", substraitgo.ErrExtensionURINotResolvable, uri)

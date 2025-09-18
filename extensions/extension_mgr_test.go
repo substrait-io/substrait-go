@@ -356,7 +356,7 @@ func TestAggregateToWindow(t *testing.T) {
 	const urn = "extension:test:sample"
 
 	var c extensions.Collection
-	require.NoError(t, c.Load(urn, strings.NewReader(sampleYAML)))
+	require.NoError(t, c.Load(uri, strings.NewReader(sampleYAML)))
 
 	t.Run("aggregate functions available as window functions", func(t *testing.T) {
 		// Test that the count function (with args) is available as both aggregate and window function
