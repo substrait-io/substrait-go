@@ -319,7 +319,6 @@ func (tc *TestCase) CompoundFunctionName() string {
 }
 
 func (tc *TestCase) ID() extensions.ID {
-	// TODO: make this not have this strange implementation
 	baseURN := tc.BaseURI
 	if strings.HasPrefix(baseURN, "/") {
 		// Convert from URI path format like "/extensions/functions_arithmetic.yaml"

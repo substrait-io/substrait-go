@@ -25,7 +25,7 @@ import (
 )
 
 const sampleYAML = `---
-urn: extension:test:sample
+urn: extension:io.substrait:functions_arithmetic
 scalar_functions:
   -
     name: "add"
@@ -77,9 +77,7 @@ func ExampleExpression_scalarFunction() {
 		panic(err)
 	}
 
-	// get the extension set
-	collection := ext.GetDefaultCollectionWithNoError()
-	extSet, err := ext.GetExtensionSet(&plan, collection)
+	extSet, err := ext.GetExtensionSet(&plan, &collection)
 	if err != nil {
 		panic(err)
 	}
@@ -103,7 +101,7 @@ func ExampleExpression_scalarFunction() {
 		panic(err)
 	}
 
-	reg := expr.NewExtensionRegistry(extSet, collection)
+	reg := expr.NewExtensionRegistry(extSet, &collection)
 	// convert from protobuf to Expression!
 	fromProto, err := expr.ExprFromProto(&exprProto, nil, reg)
 	if err != nil {

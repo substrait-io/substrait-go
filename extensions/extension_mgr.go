@@ -33,7 +33,7 @@ var (
 
 var urnPattern = regexp.MustCompile(`^extension:[^:]+:[^:]+$`)
 
-// ValidateURN validates that a URN follows the format "extension:<owner>:<id>"
+// validateURN validates that a URN follows the format "extension:<owner>:<id>"
 func validateUrn(urn string) bool {
 	return urnPattern.MatchString(urn)
 }
