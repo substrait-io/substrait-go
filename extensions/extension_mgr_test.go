@@ -691,6 +691,119 @@ func TestGetExtensionSetWithMissingAnchor(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid plan")
 }
 
+// TestGetExtensionSetWithInvalidURN tests that URN references to non-existent URNs are rejected
+func TestGetExtensionSetWithInvalidURN(t *testing.T) {
+	// Create a plan with a URN that doesn't exist in the collection
+	plan := &proto.Plan{
+		ExtensionUrns: []*extensionspb.SimpleExtensionURN{
+			{
+				ExtensionUrnAnchor: 1,
+				Urn:                "extension:nonexistent:extension",
+			},
+		},
+		Extensions: []*extensionspb.SimpleExtensionDeclaration{
+			{
+				MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
+					ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
+						ExtensionUrnReference: 1,
+						FunctionAnchor:        10,
+						Name:                  "nonexistent_function",
+					},
+				},
+			},
+		},
+		Relations: []*proto.PlanRel{},
+	}
+
+	collection := extensions.GetDefaultCollectionWithNoError()
+	extSet, err := extensions.GetExtensionSet(plan, collection)
+	require.Error(t, err)
+	require.Nil(t, extSet)
+	assert.Contains(t, err.Error(), "not found")
+	assert.Contains(t, err.Error(), "extension:nonexistent:extension")
+}
+
+// TestExtensionValidationEdgeCases tests various edge cases in extension validation
+func TestExtensionValidationEdgeCases(t *testing.T) {
+	collection := extensions.GetDefaultCollectionWithNoError()
+
+	t.Run("empty URN string", func(t *testing.T) {
+		plan := &proto.Plan{
+			ExtensionUrns: []*extensionspb.SimpleExtensionURN{
+				{ExtensionUrnAnchor: 1, Urn: ""}, // Empty URN
+			},
+			Extensions: []*extensionspb.SimpleExtensionDeclaration{
+				{
+					MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
+						ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
+							ExtensionUrnReference: 1,
+							FunctionAnchor:        10,
+							Name:                  "test_function",
+						},
+					},
+				},
+			},
+		}
+
+		_, err := extensions.GetExtensionSet(plan, collection)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not found")
+	})
+
+	t.Run("zero URN reference", func(t *testing.T) {
+		plan := &proto.Plan{
+			Extensions: []*extensionspb.SimpleExtensionDeclaration{
+				{
+					MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
+						ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
+							ExtensionUrnReference: 0, // Zero reference - should be treated as "no reference"
+							ExtensionUriReference: 0, // Both zero
+							FunctionAnchor:        10,
+							Name:                  "test_function",
+						},
+					},
+				},
+			},
+		}
+
+		_, err := extensions.GetExtensionSet(plan, collection)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no URN or URI reference provided")
+	})
+
+	t.Run("both URI and URN resolve to same extension", func(t *testing.T) {
+		// This documents that when both URI and URN are provided, URN takes precedence
+		plan := &proto.Plan{
+			ExtensionUris: []*extensionspb.SimpleExtensionURI{
+				{ExtensionUriAnchor: 1, Uri: "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"},
+			},
+			ExtensionUrns: []*extensionspb.SimpleExtensionURN{
+				{ExtensionUrnAnchor: 1, Urn: "extension:io.substrait:functions_arithmetic"},
+			},
+			Extensions: []*extensionspb.SimpleExtensionDeclaration{
+				{
+					MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
+						ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
+							ExtensionUriReference: 1, // Points to arithmetic functions
+							ExtensionUrnReference: 1, // Also points to arithmetic functions (same extension)
+							FunctionAnchor:        10,
+							Name:                  "add:i32_i32",
+						},
+					},
+				},
+			},
+		}
+
+		extSet, err := extensions.GetExtensionSet(plan, collection)
+		require.NoError(t, err)
+
+		id, ok := extSet.DecodeFunc(10)
+		require.True(t, ok)
+		assert.Equal(t, "extension:io.substrait:functions_arithmetic", id.URN)
+		assert.Equal(t, "add:i32_i32", id.Name)
+	})
+}
+
 func TestToProtoPopulatesBothURNAndURI(t *testing.T) {
 	c := &extensions.Collection{}
 	err := c.Load("some/uri", strings.NewReader(sampleYAML))
