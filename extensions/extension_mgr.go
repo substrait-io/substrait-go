@@ -92,6 +92,38 @@ func loadExtensionFile(collection *Collection, substraitFS embed.FS, ent fs.DirE
 	return nil
 }
 
+// This is just an implementation detail during the uri -> urn migration
+// This entire struct will be dropped once the migration is complete.
+type uriUrnBiMap struct {
+	uriToUrn map[string]string
+	urnToUri map[string]string
+}
+
+func newuriUrnBiMap() *uriUrnBiMap {
+	return &uriUrnBiMap{
+		uriToUrn: make(map[string]string),
+		urnToUri: make(map[string]string),
+	}
+}
+
+// Here we are assuming that we are never overwriting.
+// This is okay because we actually check for the existence right before
+// calling this function
+func (bm *uriUrnBiMap) add(uri, urn string) {
+	bm.uriToUrn[uri] = urn
+	bm.urnToUri[urn] = uri
+}
+
+func (bm *uriUrnBiMap) getUri(urn string) (string, bool) {
+	uri, found := bm.urnToUri[urn]
+	return uri, found
+}
+
+func (bm *uriUrnBiMap) getUrn(uri string) (string, bool) {
+	urn, found := bm.uriToUrn[uri]
+	return urn, found
+}
+
 // ID is the unique identifier for a substrait object
 type ID struct {
 	URN string
@@ -101,9 +133,8 @@ type ID struct {
 }
 
 type Collection struct {
-	uriSet   map[string]struct{}
-	urnSet   map[string]struct{}
-	urnToUri map[string]string
+	urnSet      map[string]struct{}
+	urnUriBiMap *uriUrnBiMap
 
 	simpleNameMap map[ID]string
 
@@ -182,9 +213,8 @@ func (c *Collection) GetWindowFunc(id ID) (*WindowFunctionVariant, bool) {
 
 func (c *Collection) init() {
 	if c.urnSet == nil {
-		c.uriSet = make(map[string]struct{})
 		c.urnSet = make(map[string]struct{})
-		c.urnToUri = make(map[string]string)
+		c.urnUriBiMap = newuriUrnBiMap()
 		c.simpleNameMap = make(map[ID]string)
 		c.scalarMap = make(map[ID]*ScalarFunctionVariant)
 		c.aggregateMap = make(map[ID]*AggregateFunctionVariant)
@@ -219,8 +249,8 @@ func (c *Collection) Load(uri string, r io.Reader) error {
 		return fmt.Errorf("%w:  uri %s already loaded", substraitgo.ErrKeyExists, urn)
 	}
 
-	c.uriSet[uri] = void
 	c.urnSet[urn] = void
+	c.urnUriBiMap.add(uri, urn)
 
 	id := ID{URN: urn}
 	for _, t := range file.Types {
@@ -296,8 +326,8 @@ func (c *Collection) URNLoaded(urn string) bool {
 }
 
 func (c *Collection) URILoaded(uri string) bool {
-	_, ok := c.uriSet[uri]
-	return ok
+	_, found := c.urnUriBiMap.getUrn(uri)
+	return found
 }
 
 func (c *Collection) GetAllScalarFunctions() []*ScalarFunctionVariant {
