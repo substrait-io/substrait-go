@@ -1612,7 +1612,7 @@ func ExtendedFromProto(ex *proto.ExtendedExpression, c *extensions.Collection) (
 }
 
 func (ex *Extended) ToProto() *proto.ExtendedExpression {
-	urns, uris, decls := ex.Extensions.ToProto(ex.reg.Collection())
+	urns, uris, decls := ex.reg.ExtensionsToProto()
 	refs := make([]*proto.ExpressionReference, len(ex.ReferredExpr))
 	for i, ref := range ex.ReferredExpr {
 		refs[i] = ref.ToProto()
