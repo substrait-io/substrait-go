@@ -363,7 +363,7 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			}
 		case *proto.ReadRel_VirtualTable_:
 			if len(readType.VirtualTable.Values) > 0 && len(readType.VirtualTable.Expressions) > 0 {
-				return nil, fmt.Errorf("VirtualTable Value can't have both liternal and expression")
+				return nil, fmt.Errorf("VirtualTable cannot declare both Values and Expressions")
 			}
 			var values []expr.VirtualTableExpressionValue
 			for _, v := range readType.VirtualTable.Values {
