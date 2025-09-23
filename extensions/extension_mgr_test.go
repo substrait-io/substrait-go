@@ -688,7 +688,7 @@ func TestGetExtensionSetWithMissingAnchor(t *testing.T) {
 	extSet, err := extensions.GetExtensionSet(plan, collection)
 	require.Error(t, err)
 	require.Nil(t, extSet)
-	assert.Contains(t, err.Error(), "invalid plan")
+	assert.Contains(t, err.Error(), "unable to resolve extension reference")
 }
 
 // TestGetExtensionSetWithInvalidURN tests that URN references to non-existent URNs are rejected
@@ -768,7 +768,7 @@ func TestExtensionValidationEdgeCases(t *testing.T) {
 
 		_, err := extensions.GetExtensionSet(plan, collection)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "no URN or URI reference provided")
+		assert.Contains(t, err.Error(), "unable to resolve extension reference")
 	})
 
 	t.Run("both URI and URN resolve to same extension", func(t *testing.T) {

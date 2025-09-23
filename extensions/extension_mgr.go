@@ -682,34 +682,64 @@ func GetExtensionSet(plan TopLevel, c *Collection) (Set, error) {
 	}
 
 	resolveRefToURN := func(uriRef, urnRef uint32) (string, error) {
-		if urnRef != 0 {
-			// URN takes precedence - check if URN anchor exists
-			urn, ok := urns[urnRef]
-			if !ok {
-				return "", fmt.Errorf("%w: URN anchor %d not found", substraitgo.ErrInvalidPlan, urnRef)
-			}
+		// Because of the inability to differentiate zero references from absent references,
+		// we resolve in the following order of precedence
+		// 1. via non-zero urn
+		// 2. via non-zero uri
+		// 3. via both zero urn and zero uri if both resolve to a value (but check they are the same)
+		// 4. via zero urn if only it resolves to a value
+		// 5. via zero uri if only it resolves to a value
+		// Otherwise, we encounter an error case.
+		urn, urnOk := urns[urnRef]
+		uri, uriOk := uris[uriRef]
+		if urnRef != 0 && urnOk {
 			// Validate that the URN exists in the Collection
 			if _, found := c.urnUriBiMap.getUri(urn); !found {
 				return "", fmt.Errorf("%w: URN '%s' not found in extension collection", substraitgo.ErrNotFound, urn)
 			}
 			return urn, nil
 		}
-		if uriRef != 0 {
-			// Fallback to URI - check if URI anchor exists
-			uri, ok := uris[uriRef]
-			if !ok {
-				return "", fmt.Errorf("%w: URI anchor %d not found", substraitgo.ErrInvalidPlan, uriRef)
+		if uriRef != 0 && uriOk {
+			deducedUrn, foundOk := c.urnUriBiMap.getUrn(uri)
+			if !foundOk {
+				return "", fmt.Errorf("%w: cannot resolve URI '%s' to URN", substraitgo.ErrExtensionURINotResolvable, uri)
 			}
-			if urn, found := c.urnUriBiMap.getUrn(uri); found {
-				// Add the resolved URN to the urns map for ToProto
-				if _, err := ret.addOrGetURN(urn); err != nil {
-					return "", fmt.Errorf("%w: failed to register URN '%s' (resolved from URI '%s') in extension set", err, urn, uri)
-				}
+			if _, err := ret.addOrGetURN(deducedUrn); err != nil {
+				return "", fmt.Errorf("%w: failed to register URN '%s' (resolved from URI '%s') in extension set", err, deducedUrn, uri)
+			}
+			return deducedUrn, nil
+		}
+		if urnOk && uriOk {
+			expectedUrn, foundOk := c.urnUriBiMap.getUrn(uri)
+			if !foundOk {
+				return "", fmt.Errorf("%w: cannot resolve URI '%s' to URN", substraitgo.ErrExtensionURINotResolvable, uri)
+			}
+			if _, err := ret.addOrGetURN(urn); err != nil {
+				return "", fmt.Errorf("%w: failed to register URN '%s' (resolved from URI '%s') in extension set", err, urn, uri)
+			}
+			if urn == expectedUrn {
 				return urn, nil
 			}
-			return "", fmt.Errorf("%w: cannot resolve URI '%s' to URN", substraitgo.ErrExtensionURINotResolvable, uri)
+			return "", fmt.Errorf("URN mismatch: found URN %q but expected %q for URI %q", urn, expectedUrn, uri)
 		}
-		return "", fmt.Errorf("%w: no URN or URI reference provided", substraitgo.ErrInvalidPlan)
+		if urnOk {
+			// Validate that the URN exists in the Collection
+			if _, found := c.urnUriBiMap.getUri(urn); !found {
+				return "", fmt.Errorf("%w: URN '%s' not found in extension collection", substraitgo.ErrNotFound, urn)
+			}
+			return urn, nil
+		}
+		if uriOk {
+			deducedUrn, foundOk := c.urnUriBiMap.getUrn(uri)
+			if !foundOk {
+				return "", fmt.Errorf("%w: cannot resolve URI '%s' to URN", substraitgo.ErrExtensionURINotResolvable, uri)
+			}
+			if _, err := ret.addOrGetURN(urn); err != nil {
+				return "", fmt.Errorf("%w: failed to register URN '%s' (resolved from URI '%s') in extension set", err, urn, uri)
+			}
+			return deducedUrn, nil
+		}
+		return "", fmt.Errorf("unable to resolve extension reference: neither URN reference %d nor URI reference %d could be resolved", urnRef, uriRef)
 	}
 
 	for _, ext := range plan.GetExtensions() {
