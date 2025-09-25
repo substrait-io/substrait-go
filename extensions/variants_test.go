@@ -164,7 +164,7 @@ func TestEvaluateTypeExpression(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := extensions.EvaluateTypeExpression("test://uri", tt.nulls, tt.ret, tt.extArgs, nil, tt.args, extensions.NewSet())
+			result, err := extensions.EvaluateTypeExpression("extension:org:item", tt.nulls, tt.ret, tt.extArgs, nil, tt.args, extensions.NewSet())
 			if tt.expectErr == "" {
 				require.NoError(t, err)
 				require.Truef(t, tt.expected.Equals(result),
@@ -266,7 +266,7 @@ func TestVariantWithVariadic(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := extensions.EvaluateTypeExpression("test://uri", tt.nulls, tt.ret, tt.extArgs, &tt.variadic, tt.args, extensions.NewSet())
+			result, err := extensions.EvaluateTypeExpression("extension:org:item", tt.nulls, tt.ret, tt.extArgs, &tt.variadic, tt.args, extensions.NewSet())
 			if tt.err == "" {
 				require.NoError(t, err)
 				assert.Truef(t, tt.expected.Equals(result), "expected: %s\ngot: %s", tt.expected, result)
@@ -387,25 +387,25 @@ func TestResolveType(t *testing.T) {
 		name        string
 		returnType  string
 		expectedUDT bool
-		uriAndType  string
+		urnAndType  string
 	}{
 		{
 			name:        "user_defined_type_sets_reference",
 			returnType:  "u!some_type",
 			expectedUDT: true,
-			uriAndType:  "some_type",
+			urnAndType:  "some_type",
 		},
 		{
 			name:        "regular_type_works_normally",
 			returnType:  "i64",
 			expectedUDT: false,
-			uriAndType:  "",
+			urnAndType:  "",
 		},
 		{
 			name:        "string_type_works_normally",
 			returnType:  "string",
 			expectedUDT: false,
-			uriAndType:  "",
+			urnAndType:  "",
 		},
 	}
 
@@ -416,12 +416,12 @@ func TestResolveType(t *testing.T) {
 			registry := extensions.NewSet()
 			var expectedRef uint32
 			if tt.expectedUDT {
-				expectedRef = registry.GetTypeAnchor(extensions.ID{URI: "test://uri", Name: tt.uriAndType})
+				expectedRef = registry.GetTypeAnchor(extensions.ID{URN: "extension:org:item", Name: tt.urnAndType})
 			}
 
 			// call EvaluateTypeExpression to convert a FuncDefArgType to a Type
 			result, err := extensions.EvaluateTypeExpression(
-				"test://uri",
+				"test://urn",
 				extensions.MirrorNullability,
 				returnType,
 				extensions.FuncParameterList{},
@@ -438,7 +438,7 @@ func TestResolveType(t *testing.T) {
 
 				if udResult != nil {
 					name := strings.TrimPrefix(returnType.ShortString(), "u!")
-					udResult.TypeReference = registry.GetTypeAnchor(extensions.ID{Name: name, URI: "test://uri"})
+					udResult.TypeReference = registry.GetTypeAnchor(extensions.ID{Name: name, URN: "extension:org:item"})
 					assert.Equal(t, expectedRef, udResult.TypeReference)
 				}
 			} else {
@@ -459,7 +459,7 @@ func TestResolveTypeErrorHandling(t *testing.T) {
 
 	// Test with wrong number of arguments to trigger an error
 	_, err := extensions.EvaluateTypeExpression(
-		"test://uri",
+		"extension:org:item",
 		extensions.MirrorNullability,
 		returnType,
 		funcParams,

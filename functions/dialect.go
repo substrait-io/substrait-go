@@ -214,13 +214,13 @@ func (d *dialectImpl) Load(reader io.Reader) error {
 func (d *dialectImpl) buildFunctionInfoMap(functions []dialectFunction) map[extensions.ID]*dialectFunctionInfo {
 	funcMap := make(map[extensions.ID]*dialectFunctionInfo)
 	for _, f := range functions {
-		uri, name := d.file.getUriAndFunctionName(&f)
+		urn, name := d.file.getUrnAndFunctionName(&f)
 		for _, kernel := range f.SupportedKernels {
 			localName := f.LocalName
 			if len(localName) == 0 {
 				localName = name
 			}
-			id := extensions.ID{URI: uri, Name: name + ":" + kernel}
+			id := extensions.ID{URN: urn, Name: name + ":" + kernel}
 			localFunction := dialectFunctionInfo{
 				ID:        id,
 				Name:      name,
@@ -262,7 +262,7 @@ func (ti *dialectTypeInfo) UnmarshalYAML(unmarshal func(interface{}) error) erro
 	return nil
 }
 
-func (d *dialectFile) getUriAndFunctionName(df *dialectFunction) (string, string) {
+func (d *dialectFile) getUrnAndFunctionName(df *dialectFunction) (string, string) {
 	parts := strings.Split(df.Name, ".")
 	return d.Dependencies[parts[0]], parts[1]
 }

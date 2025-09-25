@@ -210,9 +210,13 @@ func (p *Plan) GetNonRootRelations() (rels []Rel) {
 }
 
 func FromProto(plan *proto.Plan, c *extensions.Collection) (*Plan, error) {
+	extSet, err := extensions.GetExtensionSet(plan, c)
+	if err != nil {
+		return nil, err
+	}
 	ret := &Plan{
 		version:          plan.Version,
-		extensions:       extensions.GetExtensionSet(plan),
+		extensions:       extSet,
 		advExtension:     plan.AdvancedExtensions,
 		expectedTypeURLs: plan.ExpectedTypeUrls,
 		relations:        make([]Relation, len(plan.Relations)),
@@ -229,7 +233,7 @@ func FromProto(plan *proto.Plan, c *extensions.Collection) (*Plan, error) {
 }
 
 func (p *Plan) ToProto() (*proto.Plan, error) {
-	uris, decls := p.extensions.ToProto()
+	urns, uris, decls := p.reg.ExtensionsToProto()
 	relations := make([]*proto.PlanRel, len(p.relations))
 	for i, r := range p.relations {
 		relations[i] = r.ToProto()
@@ -240,6 +244,7 @@ func (p *Plan) ToProto() (*proto.Plan, error) {
 		AdvancedExtensions: p.advExtension,
 		Relations:          relations,
 		Extensions:         decls,
+		ExtensionUrns:      urns,
 		ExtensionUris:      uris,
 	}, nil
 }

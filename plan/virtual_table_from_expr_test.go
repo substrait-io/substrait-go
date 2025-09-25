@@ -19,11 +19,11 @@ var (
 // makeAddExpr constructs expression val1 + val2.
 func makeAddExpr(t *testing.T, b plan.Builder, val1, val2 expr.Literal) expr.Expression {
 	id := extensions.ID{
-		URI:  "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml",
+		URN:  "extension:io.substrait:functions_arithmetic",
 		Name: "add:i32_i32",
 	}
-	b.GetFunctionRef(id.URI, id.Name)
-	scalarExpr, err := b.ScalarFn(id.URI, id.Name, nil, val1, val2)
+	b.GetFunctionRef(id.URN, id.Name)
+	scalarExpr, err := b.ScalarFn(id.URN, id.Name, nil, val1, val2)
 	require.NoError(t, err)
 	return scalarExpr
 }

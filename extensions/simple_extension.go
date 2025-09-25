@@ -228,7 +228,7 @@ func (v *VariadicBehavior) IsValidArgumentPosition(index int) bool {
 }
 
 type Function interface {
-	ResolveURI(uri string) []FunctionVariant
+	ResolveURN(urn string) []FunctionVariant
 }
 
 type ScalarFunctionImpl struct {
@@ -259,26 +259,26 @@ type ScalarFunction struct {
 	Impls       []ScalarFunctionImpl `yaml:",omitempty"`
 }
 
-func (s *ScalarFunction) GetVariants(uri string) []*ScalarFunctionVariant {
+func (s *ScalarFunction) GetVariants(urn string) []*ScalarFunctionVariant {
 	out := make([]*ScalarFunctionVariant, len(s.Impls))
 	for i, impl := range s.Impls {
 		out[i] = &ScalarFunctionVariant{
 			name:        s.Name,
 			description: s.Description,
-			uri:         uri,
+			urn:         urn,
 			impl:        impl,
 		}
 	}
 	return out
 }
 
-func (s *ScalarFunction) ResolveURI(uri string) []FunctionVariant {
+func (s *ScalarFunction) ResolveURN(urn string) []FunctionVariant {
 	out := make([]FunctionVariant, len(s.Impls))
 	for i, impl := range s.Impls {
 		out[i] = &ScalarFunctionVariant{
 			name:        s.Name,
 			description: s.Description,
-			uri:         uri,
+			urn:         urn,
 			impl:        impl,
 		}
 	}
@@ -307,7 +307,7 @@ type AggregateFunction struct {
 	Impls       []AggregateFunctionImpl
 }
 
-func (s *AggregateFunction) GetVariants(uri string) []*AggregateFunctionVariant {
+func (s *AggregateFunction) GetVariants(urn string) []*AggregateFunctionVariant {
 	out := make([]*AggregateFunctionVariant, len(s.Impls))
 	for i, impl := range s.Impls {
 		if impl.Decomposable == "" {
@@ -316,20 +316,20 @@ func (s *AggregateFunction) GetVariants(uri string) []*AggregateFunctionVariant 
 		out[i] = &AggregateFunctionVariant{
 			name:        s.Name,
 			description: s.Description,
-			uri:         uri,
+			urn:         urn,
 			impl:        impl,
 		}
 	}
 	return out
 }
 
-func (s *AggregateFunction) ResolveURI(uri string) []FunctionVariant {
+func (s *AggregateFunction) ResolveURN(urn string) []FunctionVariant {
 	out := make([]FunctionVariant, len(s.Impls))
 	for i, impl := range s.Impls {
 		out[i] = &AggregateFunctionVariant{
 			name:        s.Name,
 			description: s.Description,
-			uri:         uri,
+			urn:         urn,
 			impl:        impl,
 		}
 	}
@@ -354,7 +354,7 @@ type WindowFunction struct {
 	Impls       []WindowFunctionImpl
 }
 
-func (s *WindowFunction) GetVariants(uri string) []*WindowFunctionVariant {
+func (s *WindowFunction) GetVariants(urn string) []*WindowFunctionVariant {
 	out := make([]*WindowFunctionVariant, len(s.Impls))
 	for i, impl := range s.Impls {
 		if impl.Decomposable == "" {
@@ -366,20 +366,20 @@ func (s *WindowFunction) GetVariants(uri string) []*WindowFunctionVariant {
 		out[i] = &WindowFunctionVariant{
 			name:        s.Name,
 			description: s.Description,
-			uri:         uri,
+			urn:         urn,
 			impl:        impl,
 		}
 	}
 	return out
 }
 
-func (s *WindowFunction) ResolveURI(uri string) []FunctionVariant {
+func (s *WindowFunction) ResolveURN(urn string) []FunctionVariant {
 	out := make([]FunctionVariant, len(s.Impls))
 	for i, impl := range s.Impls {
 		out[i] = &WindowFunctionVariant{
 			name:        s.Name,
 			description: s.Description,
-			uri:         uri,
+			urn:         urn,
 			impl:        impl,
 		}
 	}
@@ -387,6 +387,7 @@ func (s *WindowFunction) ResolveURI(uri string) []FunctionVariant {
 }
 
 type SimpleExtensionFile struct {
+	Urn                string              `yaml:"urn"`
 	Types              []Type              `yaml:"types,omitempty"`
 	TypeVariations     []TypeVariation     `yaml:"type_variations,omitempty"`
 	ScalarFunctions    []ScalarFunction    `yaml:"scalar_functions,omitempty"`

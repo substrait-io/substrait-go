@@ -25,6 +25,7 @@ import (
 )
 
 const sampleYAML = `---
+urn: extension:io.substrait:functions_arithmetic
 scalar_functions:
   -
     name: "add"
@@ -53,16 +54,16 @@ func init() {
 func ExampleExpression_scalarFunction() {
 	// define extensions with no plan for now
 	const planExt = `{
-		"extensionUris": [
+		"extensionUrns": [
 			{
-				"extensionUriAnchor": 1,
-				"uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+				"extensionUrnAnchor": 1,
+				"urn": "extension:io.substrait:functions_arithmetic"
 			}
 		],
 		"extensions": [
 			{
 				"extensionFunction": {
-					"extensionUriReference": 1,
+					"extensionUrnReference": 1,
 					"functionAnchor": 2,
 					"name": "add:i32_i32"
 				}
@@ -76,8 +77,10 @@ func ExampleExpression_scalarFunction() {
 		panic(err)
 	}
 
-	// get the extension set
-	extSet := ext.GetExtensionSet(&plan)
+	extSet, err := ext.GetExtensionSet(&plan, &collection)
+	if err != nil {
+		panic(err)
+	}
 
 	// json proto to represent of add(field_ref(0), float64(10))
 	const scalarFunction = `{
@@ -107,9 +110,9 @@ func ExampleExpression_scalarFunction() {
 
 	// manually define the entire expression instead of going through
 	// having to construct the protobuf
-	const substraitext = `https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml`
+	const substraitext = `extension:io.substrait:functions_arithmetic`
 
-	var addVariant = ext.NewScalarFuncVariant(ext.ID{URI: substraitext, Name: "add:i32_i32"})
+	var addVariant = ext.NewScalarFuncVariant(ext.ID{URN: substraitext, Name: "add:i32_i32"})
 
 	var ex expr.Expression
 	refArg, _ := expr.NewRootFieldRef(expr.NewStructFieldRef(0), types.NewRecordTypeFromTypes([]types.Type{&types.Int32Type{}}))
@@ -140,11 +143,11 @@ func ExampleExpression_scalarFunction() {
 	// true
 }
 
-func sampleNestedExpr(reg expr.ExtensionRegistry, substraitExtURI string) expr.Expression {
+func sampleNestedExpr(reg expr.ExtensionRegistry, substraitExtURN string) expr.Expression {
 	var (
-		add = ext.NewScalarFuncVariant(ext.ID{URI: substraitExtURI, Name: "add"})
-		sub = ext.NewScalarFuncVariant(ext.ID{URI: substraitExtURI, Name: "subtract"})
-		mul = ext.NewScalarFuncVariant(ext.ID{URI: substraitExtURI, Name: "multiply"})
+		add = ext.NewScalarFuncVariant(ext.ID{URN: substraitExtURN, Name: "add"})
+		sub = ext.NewScalarFuncVariant(ext.ID{URN: substraitExtURN, Name: "subtract"})
+		mul = ext.NewScalarFuncVariant(ext.ID{URN: substraitExtURN, Name: "multiply"})
 	)
 
 	baseSchema := types.NewRecordTypeFromTypes(
@@ -175,40 +178,40 @@ func sampleNestedExpr(reg expr.ExtensionRegistry, substraitExtURI string) expr.E
 }
 
 func TestExpressionsRoundtrip(t *testing.T) {
-	const substraitExtURI = "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	const substraitExtURN = "extension:io.substrait:functions_arithmetic"
 	// define extensions with no plan for now
 	const planExt = `{
-		"extensionUris": [
+		"extensionUrns": [
 			{
-				"extensionUriAnchor": 1,
-				"uri": "` + substraitExtURI + `"
+				"extensionUrnAnchor": 1,
+				"urn": "` + substraitExtURN + `"
 			}
 		],
 		"extensions": [
 			{
 				"extensionFunction": {
-					"extensionUriReference": 1,
+					"extensionUrnReference": 1,
 					"functionAnchor": 2,
 					"name": "add:fp64_fp64"
 				}
 			},
 			{
 				"extensionFunction": {
-					"extensionUriReference": 1,
+					"extensionUrnReference": 1,
 					"functionAnchor": 3,
 					"name": "subtract:fp32_fp32"
 				}
 			},
 			{
 				"extensionFunction": {
-					"extensionUriReference": 1,
+					"extensionUrnReference": 1,
 					"functionAnchor": 4,
 					"name": "multiply:i64_i64"
 				}
 			},
 			{
 				"extensionFunction": {
-					"extensionUriReference": 1,
+					"extensionUrnReference": 1,
 					"functionAnchor": 5,
 					"name": "ntile:"
 				}
@@ -224,10 +227,14 @@ func TestExpressionsRoundtrip(t *testing.T) {
 		panic(err)
 	}
 	// get the extension set
-	extSet := ext.GetExtensionSet(&plan)
-	reg := expr.NewExtensionRegistry(extSet, ext.GetDefaultCollectionWithNoError())
+	collection := ext.GetDefaultCollectionWithNoError()
+	extSet, err := ext.GetExtensionSet(&plan, collection)
+	if err != nil {
+		panic(err)
+	}
+	reg := expr.NewExtensionRegistry(extSet, collection)
 	tests := []expr.Expression{
-		sampleNestedExpr(reg, substraitExtURI),
+		sampleNestedExpr(reg, substraitExtURN),
 	}
 
 	for _, exp := range tests {
@@ -239,9 +246,9 @@ func TestExpressionsRoundtrip(t *testing.T) {
 }
 
 func ExampleExpression_Visit() {
-	const substraitExtURI = "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	const substraitExtURN = "extension:io.substrait:functions_arithmetic"
 	var (
-		exp                 = sampleNestedExpr(expr.NewEmptyExtensionRegistry(ext.GetDefaultCollectionWithNoError()), substraitExtURI)
+		exp                 = sampleNestedExpr(expr.NewEmptyExtensionRegistry(ext.GetDefaultCollectionWithNoError()), substraitExtURN)
 		preVisit, postVisit expr.VisitFunc
 	)
 
@@ -281,40 +288,40 @@ func ExampleExpression_Visit() {
 }
 
 func TestRoundTripUsingTestData(t *testing.T) {
-	const substraitExtURI = "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	const substraitExtURN = "extension:io.substrait:functions_arithmetic"
 	// define extensions with no plan for now
 	const planExt = `{
-		"extensionUris": [
+		"extensionUrns": [
 			{
-				"extensionUriAnchor": 1,
-				"uri": "` + substraitExtURI + `"
+				"extensionUrnAnchor": 1,
+				"urn": "` + substraitExtURN + `"
 			}
 		],
 		"extensions": [
 			{
 				"extensionFunction": {
-					"extensionUriReference": 1,
+					"extensionUrnReference": 1,
 					"functionAnchor": 2,
 					"name": "add:fp64_fp64"
 				}
 			},
 			{
 				"extensionFunction": {
-					"extensionUriReference": 1,
+					"extensionUrnReference": 1,
 					"functionAnchor": 3,
 					"name": "subtract:fp64_fp64"
 				}
 			},
 			{
 				"extensionFunction": {
-					"extensionUriReference": 1,
+					"extensionUrnReference": 1,
 					"functionAnchor": 4,
 					"name": "multiply:fp64_fp64"
 				}
 			},
 			{
 				"extensionFunction": {
-					"extensionUriReference": 1,
+					"extensionUrnReference": 1,
 					"functionAnchor": 5,
 					"name": "ntile:i32"
 				}
@@ -330,7 +337,11 @@ func TestRoundTripUsingTestData(t *testing.T) {
 		panic(err)
 	}
 	// get the extension set
-	extSet := ext.GetExtensionSet(&plan)
+	collection := ext.GetDefaultCollectionWithNoError()
+	extSet, err := ext.GetExtensionSet(&plan, collection)
+	if err != nil {
+		panic(err)
+	}
 
 	f, err := os.Open("./testdata/expressions.yaml")
 	require.NoError(t, err)
@@ -348,7 +359,7 @@ func TestRoundTripUsingTestData(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, protojson.Unmarshal(raw, &protoSchema))
 	baseSchema := types.NewNamedStructFromProto(&protoSchema)
-	reg := expr.NewExtensionRegistry(extSet, ext.GetDefaultCollectionWithNoError())
+	reg := expr.NewExtensionRegistry(extSet, collection)
 	for _, tc := range tmp["cases"].([]any) {
 		tt := tc.(map[string]any)
 		t.Run(tt["name"].(string), func(t *testing.T) {
@@ -451,13 +462,13 @@ func TestCastVisit(t *testing.T) {
 }
 
 func TestSubqueryExpressionRoundtrip(t *testing.T) {
-	const substraitExtURI = "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	const substraitExtURN = "extension:io.substrait:functions_arithmetic"
 	// define extensions with no plan for now
 	const planExt = `{
-		"extensionUris": [
+		"extensionUrns": [
 			{
-				"extensionUriAnchor": 1,
-				"uri": "` + substraitExtURI + `"
+				"extensionUrnAnchor": 1,
+				"urn": "` + substraitExtURN + `"
 			}
 		],
 		"extensions": [],
@@ -470,8 +481,11 @@ func TestSubqueryExpressionRoundtrip(t *testing.T) {
 	}
 
 	// get the extension set and create registry with subquery handler
-	extSet := ext.GetExtensionSet(&planProto)
 	c := ext.GetDefaultCollectionWithNoError()
+	extSet, err := ext.GetExtensionSet(&planProto, c)
+	if err != nil {
+		panic(err)
+	}
 
 	// Create extension registry with subquery handler properly
 	baseReg := expr.NewExtensionRegistry(extSet, c)

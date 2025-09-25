@@ -24,7 +24,7 @@ name: test
 type: sql
 dependencies:
   arithmetic:
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+    extension:io.substrait:functions_arithmetic
 supported_types:
   i8:
     sql_type_name: INTEGER
@@ -119,13 +119,13 @@ name: test
 type: sql
 dependencies:
   arithmetic:
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml
+    extension:io.substrait:functions_arithmetic
   arithmetic_decimal:
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic_decimal.yaml
+    extension:io.substrait:functions_arithmetic_decimal
   comparison:
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_comparison.yaml
+    extension:io.substrait:functions_comparison
   string:
-    https://github.com/substrait-io/substrait/blob/main/extensions/functions_string.yaml
+    extension:io.substrait:functions_string
 supported_types:
   i8:
     sql_type_name: INTEGER

@@ -45,7 +45,7 @@ add(120::i8, 10::i8) [overflow:ERROR] = <!ERROR>
 	require.NoError(t, err)
 	assert.Len(t, testFile.TestCases, 4)
 
-	arithURI := "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	arithURN := "extension:io.substrait:functions_arithmetic"
 	ids := []string{"add:i8_i8", "add:i16_i16", "add:i8_i8", "add:i8_i8"}
 	argTypes := [][]types.Type{
 		{&types.Int8Type{Nullability: types.NullabilityRequired}, &types.Int8Type{Nullability: types.NullabilityRequired}},
@@ -58,7 +58,7 @@ add(120::i8, 10::i8) [overflow:ERROR] = <!ERROR>
 	overflowGroupDesc := "Overflow examples demonstrating overflow behavior"
 	groupDescs := []string{basicGroupDesc, basicGroupDesc, basicGroupDesc, overflowGroupDesc}
 	for i, tc := range testFile.TestCases {
-		assert.Equal(t, extensions.ID{URI: arithURI, Name: ids[i]}, tc.ID())
+		assert.Equal(t, extensions.ID{URN: arithURN, Name: ids[i]}, tc.ID())
 		scalarFunc, err1 := tc.GetScalarFunctionInvocation(&reg, funcRegistry)
 		require.NoError(t, err1)
 		assert.Equal(t, tc.FuncName, scalarFunc.Name())
@@ -331,7 +331,7 @@ avg((1,2,3, NULL)::fp32?) = 2::fp64?
 sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ERROR>`
 
 	reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(extensions.GetDefaultCollectionWithNoError())
-	arithUri := "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	arithUrn := "extension:io.substrait:functions_arithmetic"
 	testFile, err := ParseTestCasesFromString(header + tests)
 	require.NoError(t, err)
 	require.NotNil(t, testFile)
@@ -360,7 +360,7 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 	assert.Equal(t, AggregateFuncType, tc.FuncType)
 	_, err = tc.GetScalarFunctionInvocation(nil, nil)
 	require.Error(t, err)
-	assert.Equal(t, extensions.ID{URI: arithUri, Name: "avg:fp32"}, tc.ID())
+	assert.Equal(t, extensions.ID{URN: arithUrn, Name: "avg:fp32"}, tc.ID())
 	assert.Equal(t, "avg:fp32", tc.CompoundFunctionName())
 	aggregateFunc, err1 := tc.GetAggregateFunctionInvocation(&reg, funcRegistry)
 	require.NoError(t, err1)
@@ -402,7 +402,7 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 
 	_, err = tc.GetScalarFunctionInvocation(nil, nil)
 	require.Error(t, err)
-	assert.Equal(t, extensions.ID{URI: arithUri, Name: "sum:i64"}, tc.ID())
+	assert.Equal(t, extensions.ID{URN: arithUrn, Name: "sum:i64"}, tc.ID())
 	assert.Equal(t, "sum:i64", tc.CompoundFunctionName())
 	aggregateFunc, err1 = tc.GetAggregateFunctionInvocation(&reg, funcRegistry)
 	require.NoError(t, err1)
@@ -861,13 +861,13 @@ func testGetFunctionInvocation(t *testing.T, tc *TestCase, reg *expr.ExtensionRe
 	case ScalarFuncType:
 		invocation, err := tc.GetScalarFunctionInvocation(reg, registry)
 		require.NoError(t, err, "GetScalarFunctionInvocation failed with error in test case: %s", tc.CompoundFunctionName())
-		require.Equal(t, tc.ID().URI, invocation.ID().URI)
+		require.Equal(t, tc.ID().URN, invocation.ID().URN)
 		argTypes := invocation.GetArgTypes()
 		require.Equal(t, tc.GetArgTypes(), argTypes, "unexpected arg types in test case: %s", tc.CompoundFunctionName())
 	case AggregateFuncType:
 		invocation, err := tc.GetAggregateFunctionInvocation(reg, registry)
 		require.NoError(t, err, "GetAggregateFunctionInvocation failed with error in test case: %s", tc.CompoundFunctionName())
-		require.Equal(t, tc.ID().URI, invocation.ID().URI)
+		require.Equal(t, tc.ID().URN, invocation.ID().URN)
 		argTypes := invocation.GetArgTypes()
 		require.Equal(t, tc.GetArgTypes(), argTypes, "unexpected arg types in test case: %s", tc.CompoundFunctionName())
 	}

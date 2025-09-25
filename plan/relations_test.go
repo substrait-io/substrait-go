@@ -56,7 +56,7 @@ func createPrimitiveBool(value bool) expr.Expression {
 func TestRelations_Copy(t *testing.T) {
 	extReg := expr.NewExtensionRegistry(extensions.NewSet(), extensions.GetDefaultCollectionWithNoError())
 	aggregateFnID := extensions.ID{
-		URI:  extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
 		Name: "avg",
 	}
 	aggregateFn, err := expr.NewAggregateFunc(extReg,
@@ -442,7 +442,7 @@ func TestRelations_Copy(t *testing.T) {
 func TestRelations_AdvancedExtensions(t *testing.T) {
 	extReg := expr.NewExtensionRegistry(extensions.NewSet(), extensions.GetDefaultCollectionWithNoError())
 	aggregateFnID := extensions.ID{
-		URI:  extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
 		Name: "avg",
 	}
 	aggregateFn, err := expr.NewAggregateFunc(extReg,
@@ -535,7 +535,7 @@ func TestRelations_AdvancedExtensions(t *testing.T) {
 func TestAggregateRelToBuilder(t *testing.T) {
 	extReg := expr.NewExtensionRegistry(extensions.NewSet(), extensions.GetDefaultCollectionWithNoError())
 	aggregateFnID := extensions.ID{
-		URI:  extensions.SubstraitDefaultURIPrefix + "functions_arithmetic.yaml",
+		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
 		Name: "avg",
 	}
 	aggregateFn, err := expr.NewAggregateFunc(extReg,

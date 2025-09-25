@@ -6,6 +6,7 @@ import (
 	"github.com/substrait-io/substrait-go/v6/extensions"
 	"github.com/substrait-io/substrait-go/v6/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
+	extensionspb "github.com/substrait-io/substrait-protobuf/go/substraitpb/extensions"
 )
 
 // ExtensionRegistry provides functionality to resolve extension references and handle subquery expressions.
@@ -74,4 +75,9 @@ func (e *ExtensionRegistry) LookupAggregateFunction(anchor uint32) (*extensions.
 // LookupWindowFunction returns a WindowFunctionVariant associated with a previously used function's anchor.
 func (e *ExtensionRegistry) LookupWindowFunction(anchor uint32) (*extensions.WindowFunctionVariant, bool) {
 	return e.Set.LookupWindowFunction(anchor, e.c)
+}
+
+// ExtensionsToProto returns the URNs, URIs, and declarations from the extension set using the registry's collection.
+func (e *ExtensionRegistry) ExtensionsToProto() ([]*extensionspb.SimpleExtensionURN, []*extensionspb.SimpleExtensionURI, []*extensionspb.SimpleExtensionDeclaration) {
+	return e.Set.ToProto(e.c)
 }

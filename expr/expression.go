@@ -373,7 +373,7 @@ type Expression interface {
 	//     // it's a pre-order traversal
 	//     if f, ok := e.(*ScalarFunction); ok {
 	//       return &ScalarFunction{
-	//         ID: ExtID{URI: "some other uri", Name: "some other func"},
+	//         ID: ExtID{URN: "some other urn", Name: "some other func"},
 	//         Args: f.Args,
 	//         Options: f.Options,
 	//         OutputType: f.OutputType,
@@ -1565,14 +1565,19 @@ type Extended struct {
 	BaseSchema       types.NamedStruct
 	AdvancedExts     *extensions.AdvancedExtension
 	ExpectedTypeURLs []string
+
+	reg ExtensionRegistry
 }
 
 func ExtendedFromProto(ex *proto.ExtendedExpression, c *extensions.Collection) (*Extended, error) {
+	extSet, err := extensions.GetExtensionSet(ex, c)
+	if err != nil {
+		return nil, err
+	}
 	var (
-		base   = types.NewNamedStructFromProto(ex.BaseSchema)
-		extSet = extensions.GetExtensionSet(ex)
-		reg    = NewExtensionRegistry(extSet, c)
-		refs   = make([]ExpressionReference, len(ex.ReferredExpr))
+		base = types.NewNamedStructFromProto(ex.BaseSchema)
+		reg  = NewExtensionRegistry(extSet, c)
+		refs = make([]ExpressionReference, len(ex.ReferredExpr))
 	)
 
 	for i, r := range ex.ReferredExpr {
@@ -1602,11 +1607,12 @@ func ExtendedFromProto(ex *proto.ExtendedExpression, c *extensions.Collection) (
 		BaseSchema:       base,
 		AdvancedExts:     ex.AdvancedExtensions,
 		ExpectedTypeURLs: ex.ExpectedTypeUrls,
+		reg:              reg,
 	}, nil
 }
 
 func (ex *Extended) ToProto() *proto.ExtendedExpression {
-	uris, decls := ex.Extensions.ToProto()
+	urns, uris, decls := ex.reg.ExtensionsToProto()
 	refs := make([]*proto.ExpressionReference, len(ex.ReferredExpr))
 	for i, ref := range ex.ReferredExpr {
 		refs[i] = ref.ToProto()
@@ -1614,6 +1620,7 @@ func (ex *Extended) ToProto() *proto.ExtendedExpression {
 
 	return &proto.ExtendedExpression{
 		Version:            ex.Version,
+		ExtensionUrns:      urns,
 		ExtensionUris:      uris,
 		Extensions:         decls,
 		BaseSchema:         ex.BaseSchema.ToProto(),

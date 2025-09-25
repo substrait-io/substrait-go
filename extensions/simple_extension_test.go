@@ -16,6 +16,7 @@ import (
 
 func TestUnmarshalSimpleExtension(t *testing.T) {
 	var testExtType = `
+urn: extension:test:test_ext
 types:
   - name: "null"
     structure: {}
@@ -45,6 +46,7 @@ types:
 
 func TestUnmarshalCustomScalarFunction(t *testing.T) {
 	const customDef = `
+urn: extension:test:test_ext
 scalar_functions:
   - name: "scalar1"
     impls:
@@ -85,6 +87,7 @@ scalar_functions:
 
 func TestUnmarshalSimpleExtensionScalarFunction(t *testing.T) {
 	const addDef = `
+urn: extension:test:test_ext
 scalar_functions:
   -
     name: "add"
@@ -124,6 +127,7 @@ scalar_functions:
 
 func TestUnmarshalSimpleExtensionScalarFunctionWithTypeArg(t *testing.T) {
 	const addDef = `
+urn: extension:test:test_ext
 scalar_functions:
   -
     name: "truncate"
@@ -162,6 +166,7 @@ scalar_functions:
 
 const snippetScalarArithmeticFile = `%YAML 1.2
 ---
+urn: extension:test:test_ext
 scalar_functions:
 - name: "multiply"
   description: "Multiply two values."

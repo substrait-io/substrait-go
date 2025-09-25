@@ -319,12 +319,16 @@ func (tc *TestCase) CompoundFunctionName() string {
 }
 
 func (tc *TestCase) ID() extensions.ID {
-	baseURI := tc.BaseURI
-	if strings.HasPrefix(baseURI, "/") {
-		baseURI = "https://github.com/substrait-io/substrait/blob/main" + tc.BaseURI
+	baseURN := tc.BaseURI
+	if strings.HasPrefix(baseURN, "/") {
+		// Convert from URI path format like "/extensions/functions_arithmetic.yaml"
+		// to URN format like "extension:io.substrait:functions_arithmetic"
+		path := strings.TrimPrefix(baseURN, "/extensions/")
+		path = strings.TrimSuffix(path, ".yaml")
+		baseURN = extensions.SubstraitDefaultURNPrefix + path
 	}
 	return extensions.ID{
-		URI:  baseURI,
+		URN:  baseURN,
 		Name: tc.CompoundFunctionName(),
 	}
 }
@@ -348,7 +352,7 @@ func (tc *TestCase) GetScalarFunctionInvocation(reg *expr.ExtensionRegistry, fun
 	funcVariants := funcRegistry.GetScalarFunctions(tc.FuncName, len(args))
 	for _, function := range funcVariants {
 		isMatch, err1 := function.Match(tc.GetArgTypes())
-		if err1 == nil && isMatch && function.ID().URI == id.URI {
+		if err1 == nil && isMatch && function.ID().URN == id.URN {
 			return expr.NewScalarFunc(*reg, function.ID(), tc.GetFunctionOptions(), args...)
 		}
 	}
@@ -384,7 +388,7 @@ func (tc *TestCase) GetAggregateFunctionInvocation(reg *expr.ExtensionRegistry, 
 	funcVariants := funcRegistry.GetAggregateFunctions(tc.FuncName, len(args))
 	for _, function := range funcVariants {
 		isMatch, err := function.Match(tc.GetArgTypes())
-		if err == nil && isMatch && function.ID().URI == id.URI {
+		if err == nil && isMatch && function.ID().URN == id.URN {
 			return expr.NewAggregateFunc(*reg, function.ID(), tc.GetFunctionOptions(),
 				types.AggInvocationAll, types.AggPhaseInitialToResult, nil, args...)
 		}
