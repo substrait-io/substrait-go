@@ -246,7 +246,7 @@ func (c *Collection) Load(uri string, r io.Reader) error {
 		return fmt.Errorf("%w: invalid urn, expected format is \"extension:<owner>:<id>\", got: %s", substraitgo.ErrInvalidSimpleExtention, urn)
 	}
 	if c.URNLoaded(urn) {
-		return fmt.Errorf("%w:  uri %s already loaded", substraitgo.ErrKeyExists, urn)
+		return fmt.Errorf("%w:  urn %s already loaded", substraitgo.ErrKeyExists, urn)
 	}
 
 	c.urnSet[urn] = void
