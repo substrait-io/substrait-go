@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/v6/literal"
-	"github.com/substrait-io/substrait-go/v6/plan"
-	"github.com/substrait-io/substrait-go/v6/types"
+	"github.com/substrait-io/substrait-go/v7/literal"
+	"github.com/substrait-io/substrait-go/v7/plan"
+	"github.com/substrait-io/substrait-go/v7/types"
 )
 
 // getFilterForTest1 returns filter rel for "name LIKE 'Alice'"

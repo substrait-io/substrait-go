@@ -9,11 +9,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait"
-	"github.com/substrait-io/substrait-go/v6/expr"
-	"github.com/substrait-io/substrait-go/v6/extensions"
-	"github.com/substrait-io/substrait-go/v6/functions"
-	"github.com/substrait-io/substrait-go/v6/literal"
-	"github.com/substrait-io/substrait-go/v6/types"
+	"github.com/substrait-io/substrait-go/v7/expr"
+	"github.com/substrait-io/substrait-go/v7/extensions"
+	"github.com/substrait-io/substrait-go/v7/functions"
+	"github.com/substrait-io/substrait-go/v7/literal"
+	"github.com/substrait-io/substrait-go/v7/types"
 )
 
 func makeHeader(version, include string) string {
