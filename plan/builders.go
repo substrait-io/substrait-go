@@ -569,7 +569,7 @@ func (b *builder) VirtualTableFromExpr(fieldNames []string, values ...expr.Virtu
 
 func (b *builder) VirtualTableFromExprRemap(fieldNames []string, remap []int32, values ...expr.VirtualTableExpressionValue) (*VirtualTableReadRel, error) {
 	if len(values) == 0 {
-		return nil, fmt.Errorf("%w: must provide at least one set of values for virtual table", substraitgo.ErrInvalidRel)
+		return nil, fmt.Errorf("%w: must provide at least one set of values. Consider EmptyVirtualTable to construct rowless Virtual Table", substraitgo.ErrInvalidArg)
 	}
 
 	nfields := len(fieldNames)
