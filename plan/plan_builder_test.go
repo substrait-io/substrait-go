@@ -1651,7 +1651,7 @@ func TestSetRelations(t *testing.T) {
 	checkRoundTrip(t, expectedJSON, p)
 }
 
-func TestEmptyVirtualTable(t *testing.T) {
+func TestColumnlessVirtualTable(t *testing.T) {
 	const expectedJSON = `{
 		` + versionStruct + `,
 		"relations": [
@@ -1669,24 +1669,7 @@ func TestEmptyVirtualTable(t *testing.T) {
 								"expressions": [
 									{},
 									{},
-									{},
-									{},
-									{},
-									{},
-									{},
-									{},
-									{},
-									{},
-									{},
-									{},
-									{},
-									{},
-									{},
-									{},
-									{},
-									{},
-									{},
-									{}									
+									{}
 								]
 							}
 						}
@@ -1698,10 +1681,49 @@ func TestEmptyVirtualTable(t *testing.T) {
 
 	b := plan.NewBuilderDefault()
 
-	virtual, err := b.VirtualTable(nil, make([]expr.StructLiteralValue, 20)...)
+	virtual, err := b.VirtualTable(nil, make([]expr.StructLiteralValue, 3)...)
 	require.NoError(t, err)
 
 	p, err := b.Plan(virtual, []string{})
+	require.NoError(t, err)
+
+	checkRoundTrip(t, expectedJSON, p)
+}
+
+func TestEmptyVirtualTable(t *testing.T) {
+	const expectedJSON = `{
+		` + versionStruct + `,
+		"relations": [
+			{
+				"root": {
+					"input": {
+						"read": {
+							"common": {"direct":{}},
+							"baseSchema": {
+								"names": ["i"],
+								"struct": {
+									"types": [
+										{"i32": {"nullability": "NULLABILITY_REQUIRED"}}
+									],
+									"nullability": "NULLABILITY_REQUIRED"
+								}
+							},
+							"virtualTable": {}
+						}
+					},
+					"names": ["i"]
+				}
+			}
+		]
+	}`
+
+	b := plan.NewBuilderDefault()
+
+	i32Type := types.Int32Type{Nullability: types.NullabilityRequired}
+	virtual, err := b.EmptyVirtualTable([]string{"i"}, []types.Type{&i32Type})
+	require.NoError(t, err)
+
+	p, err := b.Plan(virtual, []string{"i"})
 	require.NoError(t, err)
 
 	checkRoundTrip(t, expectedJSON, p)
