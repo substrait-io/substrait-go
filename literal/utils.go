@@ -9,8 +9,8 @@ import (
 
 	"github.com/cockroachdb/apd/v3"
 	"github.com/google/uuid"
-	"github.com/substrait-io/substrait-go/v6/expr"
-	"github.com/substrait-io/substrait-go/v6/types"
+	"github.com/substrait-io/substrait-go/v7/expr"
+	"github.com/substrait-io/substrait-go/v7/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 

@@ -6,11 +6,11 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/substrait-io/substrait-go/v6/expr"
-	"github.com/substrait-io/substrait-go/v6/literal"
-	"github.com/substrait-io/substrait-go/v6/testcases/parser/baseparser"
-	"github.com/substrait-io/substrait-go/v6/types"
-	"github.com/substrait-io/substrait-go/v6/types/parser/util"
+	"github.com/substrait-io/substrait-go/v7/expr"
+	"github.com/substrait-io/substrait-go/v7/literal"
+	"github.com/substrait-io/substrait-go/v7/testcases/parser/baseparser"
+	"github.com/substrait-io/substrait-go/v7/types"
+	"github.com/substrait-io/substrait-go/v7/types/parser/util"
 )
 
 type isNull interface {

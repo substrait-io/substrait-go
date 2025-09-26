@@ -9,8 +9,8 @@ import (
 	"github.com/goccy/go-yaml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/v6/extensions"
-	"github.com/substrait-io/substrait-go/v6/types"
+	"github.com/substrait-io/substrait-go/v7/extensions"
+	"github.com/substrait-io/substrait-go/v7/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 

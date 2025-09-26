@@ -15,7 +15,7 @@ import (
 	"github.com/creasty/defaults"
 	"github.com/goccy/go-yaml"
 	"github.com/substrait-io/substrait"
-	substraitgo "github.com/substrait-io/substrait-go/v6"
+	substraitgo "github.com/substrait-io/substrait-go/v7"
 	"github.com/substrait-io/substrait-protobuf/go/substraitpb/extensions"
 )
 

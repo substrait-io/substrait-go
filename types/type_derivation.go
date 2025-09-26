@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/substrait-io/substrait-go/v6/types/integer_parameters"
+	"github.com/substrait-io/substrait-go/v7/types/integer_parameters"
 )
 
 type Expr interface {
