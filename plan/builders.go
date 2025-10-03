@@ -124,6 +124,7 @@ type Builder interface {
 	// Deprecated: Use VirtualTableFromExpr(...).Remap() instead.
 	VirtualTableFromExprRemap(fieldNames []string, remap []int32, values ...expr.VirtualTableExpressionValue) (*VirtualTableReadRel, error)
 	VirtualTableFromExpr(fieldNames []string, values ...expr.VirtualTableExpressionValue) (*VirtualTableReadRel, error)
+	EmptyVirtualTable(fieldNames []string, types []types.Type) (*VirtualTableReadRel, error)
 	IcebergTableFromMetadataFile(metadataURI string, snapshot IcebergSnapshot, schema types.NamedStruct) (*IcebergTableReadRel, error)
 	// Deprecated: Use Sort(...).Remap() instead.
 	SortRemap(input Rel, remap []int32, sorts ...expr.SortField) (*SortRel, error)
@@ -568,7 +569,7 @@ func (b *builder) VirtualTableFromExpr(fieldNames []string, values ...expr.Virtu
 
 func (b *builder) VirtualTableFromExprRemap(fieldNames []string, remap []int32, values ...expr.VirtualTableExpressionValue) (*VirtualTableReadRel, error) {
 	if len(values) == 0 {
-		return nil, fmt.Errorf("%w: must provide at least one set of values for virtual table", substraitgo.ErrInvalidRel)
+		return nil, fmt.Errorf("%w: must provide at least one set of values. Consider EmptyVirtualTable to construct rowless Virtual Table", substraitgo.ErrInvalidArg)
 	}
 
 	nfields := len(fieldNames)
@@ -617,6 +618,21 @@ func (b *builder) VirtualTableFromExprRemap(fieldNames []string, remap []int32, 
 
 func (b *builder) VirtualTable(fields []string, values ...expr.StructLiteralValue) (*VirtualTableReadRel, error) {
 	return b.VirtualTableRemap(fields, nil, values...)
+}
+
+func (b *builder) EmptyVirtualTable(fieldNames []string, typeList []types.Type) (*VirtualTableReadRel, error) {
+	baseSchema := types.NamedStruct{
+		Names: fieldNames,
+		Struct: types.StructType{
+			Nullability: types.NullabilityRequired,
+			Types:       typeList,
+		},
+	}
+	return &VirtualTableReadRel{
+		baseReadRel: baseReadRel{
+			baseSchema: baseSchema,
+		},
+	}, nil
 }
 
 func (b *builder) IcebergTableFromMetadataFile(metadataURI string, snapshot IcebergSnapshot, schema types.NamedStruct) (*IcebergTableReadRel, error) {
