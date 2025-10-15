@@ -110,7 +110,7 @@ func TestVisitorFramework(t *testing.T) {
 			return count
 		})
 
-		Walk(join, NewMultiVisitor(nodeCountVisitor, joinCountVisitor))
+		VisitRelation(join, NewMultiVisitor(nodeCountVisitor, joinCountVisitor))
 
 		require.Equal(t, 3, nodeCountVisitor.Result()) // join + 2 reads
 		require.Equal(t, 1, joinCountVisitor.Result()) // 1 join
@@ -153,7 +153,7 @@ func TestVisitorFramework(t *testing.T) {
 			return count
 		})
 
-		Walk(join, NewMultiVisitor(nodeCountVisitor, projectCountVisitor))
+		VisitRelation(join, NewMultiVisitor(nodeCountVisitor, projectCountVisitor))
 
 		require.Equal(t, 4, nodeCountVisitor.Result())    // join + project + 2 reads
 		require.Equal(t, 1, projectCountVisitor.Result()) // 1 project
@@ -198,7 +198,7 @@ func TestVisitorFramework(t *testing.T) {
 			return nodes
 		})
 
-		Walk(readNode, NewMultiVisitor(nodeTypeVisitor, nodeListVisitor))
+		VisitRelation(readNode, NewMultiVisitor(nodeTypeVisitor, nodeListVisitor))
 
 		require.Equal(t, "read", nodeTypeVisitor.Result())
 		require.Equal(t, []string{"read"}, nodeListVisitor.Result())
@@ -212,7 +212,7 @@ func TestVisitorFramework(t *testing.T) {
 		}
 
 		// Should not panic with nil visitor
-		Walk(readNode, nil)
+		VisitRelation(readNode, nil)
 	})
 
 	t.Run("Nil Root Handling", func(t *testing.T) {
@@ -221,7 +221,7 @@ func TestVisitorFramework(t *testing.T) {
 		})
 
 		// Should not panic with nil root
-		Walk(nil, nodeCountVisitor)
+		VisitRelation(nil, nodeCountVisitor)
 
 		// Should remain at initial state
 		require.Equal(t, 0, nodeCountVisitor.Result())
@@ -282,7 +282,7 @@ func TestVisitorFramework(t *testing.T) {
 
 		// Visitor that only cares about expressions
 		exprTracker := &exprOnlyTracker{}
-		Walk(project, exprTracker)
+		VisitRelation(project, exprTracker)
 
 		require.Equal(t, []uint32{42, 43}, exprTracker.functions)
 	})
@@ -310,7 +310,7 @@ func TestVisitorFramework(t *testing.T) {
 
 		// Visitor that only cares about relations
 		relTracker := &relOnlyTracker{}
-		Walk(project, relTracker)
+		VisitRelation(project, relTracker)
 
 		require.Equal(t, 2, relTracker.count) // project + read
 	})
@@ -339,7 +339,7 @@ func TestVisitorFramework(t *testing.T) {
 			},
 		}
 
-		Walk(project, tracker)
+		VisitRelation(project, tracker)
 
 		require.Equal(t, 2, len(tracker.rels))  // project + read
 		require.Equal(t, 1, len(tracker.exprs)) // selection expression
@@ -372,7 +372,7 @@ func TestVisitorFramework(t *testing.T) {
 		}
 
 		counter := &relTypeCounter{}
-		Walk(join, counter)
+		VisitRelation(join, counter)
 
 		require.Equal(t, 2, counter.reads)
 		require.Equal(t, 1, counter.projects)
@@ -408,7 +408,7 @@ func TestVisitorFramework(t *testing.T) {
 		}
 
 		// Both visitors work together
-		Walk(project, NewMultiVisitor(nodeCounter, tracker))
+		VisitRelation(project, NewMultiVisitor(nodeCounter, tracker))
 
 		require.Equal(t, 2, nodeCounter.Result()) // 2 relations
 		require.Equal(t, 2, len(tracker.rels))    // project + read
@@ -456,7 +456,7 @@ func TestVisitorFramework(t *testing.T) {
 		// Count all expressions visited
 		tracker := &allNodeTracker{}
 
-		Walk(aggregate, tracker)
+		VisitRelation(aggregate, tracker)
 
 		// Should visit both grouping expressions
 		require.Equal(t, 2, tracker.exprCount, "Should visit both grouping expressions")
@@ -556,7 +556,7 @@ func TestVisitorFramework(t *testing.T) {
 			},
 		)
 
-		Walk(project, visitor)
+		VisitRelation(project, visitor)
 
 		result := visitor.Result()
 		require.Equal(t, 2, result.RelCount)                  // project + read

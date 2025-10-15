@@ -11,9 +11,8 @@ with multiple read-only operations in a single tree traversal.
 - Zero allocations per node
 
 ## IMPORTANT: Read-Only Analysis Only
-This interface is designed for read-only analysis, and assumes the tree does not change
-as it is being walked. Any modification of the tree could disrupt the walking of the
-tree causing nodes to be missed, visited out of order, or cause panics.
+This interface is designed for read-only analysis. Modifying the tree while traversing
+it is not supported and may lead to unpredictable behavior.
 
 ## Basic Usage:
 
@@ -21,15 +20,9 @@ tree causing nodes to be missed, visited out of order, or cause panics.
 	visitor := NewMyVisitor()
 	traverse.Visit(plan, visitor)
 
-	// Option 2: Explicit context for advanced usage
-	ctx := traverse.NewPlanContext(plan)
-	visitor := NewMyVisitor(ctx)
-	traverse.Walk(plan.Relations, visitor)
-
-	// Option 3: With cycle detection for DAG enforcement
+	// Option 2: Start traversal at any point in the relation tree
 	visitor := NewMyVisitor()
-	cycleDetector := traverse.NewCycleDetectingVisitor(visitor)
-	traverse.Walk(rel, cycleDetector)
+	traverse.VisitRelation(someRelation, visitor)
 
 ## Creating Custom Visitors:
 
@@ -103,13 +96,16 @@ func Visit(plan *proto.Plan, visitor Visitor) {
 	}
 }
 
-// Walk traverses a Substrait relation tree, applying the visitor to each node.
-// The visitor's methods are called based on which interfaces it implements.
-// This function guarantees zero allocations per node visited.
+// VisitRelation traverses a Substrait relation tree starting at the given relation,
+// applying the visitor to each node. The visitor's methods are called based on which
+// interfaces it implements. This function guarantees zero allocations per node visited.
+//
+// Note: This function visits the entire relation tree. There is currently no mechanism
+// to stop traversal early if you encounter something you cannot handle.
 //
 // If your visitor needs plan context (for extensions, etc.), construct it
 // with NewPlanContext and pass it to your visitor's constructor.
-func Walk(rel *proto.Rel, visitor Visitor) {
+func VisitRelation(rel *proto.Rel, visitor Visitor) {
 	if visitor == nil {
 		return
 	}

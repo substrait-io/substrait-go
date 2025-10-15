@@ -468,7 +468,7 @@ func TestAllRelationTypes(t *testing.T) {
 				return count + 1
 			})
 
-			Walk(tt.rel, counter)
+			VisitRelation(tt.rel, counter)
 
 			// Should visit the exact expected number of nodes
 			require.Equal(t, tt.expectedCount, counter.Result(), "Should visit exactly %d nodes", tt.expectedCount)
@@ -771,7 +771,7 @@ func TestAllExpressionTypes(t *testing.T) {
 			counter := newStatefulVisitor(0, func(count int, rel *proto.Rel) int {
 				return count + 1
 			})
-			Walk(tt.rel, counter)
+			VisitRelation(tt.rel, counter)
 
 			// Should visit the exact expected number of nodes
 			require.Equal(t, tt.expectedCount, counter.Result(), "Should visit exactly %d nodes", tt.expectedCount)
@@ -878,7 +878,7 @@ func TestMaskExpressionTypes(t *testing.T) {
 				return count + 1
 			})
 
-			Walk(tt.rel, counter)
+			VisitRelation(tt.rel, counter)
 			require.Equal(t, tt.expectedCount, counter.Result(), "Should visit exactly %d nodes", tt.expectedCount)
 		})
 	}
@@ -1009,7 +1009,7 @@ func TestFieldReferenceTypes(t *testing.T) {
 				return count + 1
 			})
 
-			Walk(tt.rel, counter)
+			VisitRelation(tt.rel, counter)
 			require.Equal(t, tt.expectedCount, counter.Result(), "Should visit exactly %d nodes", tt.expectedCount)
 		})
 	}

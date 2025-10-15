@@ -6,7 +6,6 @@ import (
 )
 
 // walk implements the core traversal logic for Substrait relations.
-// For cycle detection in DAG structures, wrap your visitor with CycleDetectingVisitor.
 func walk(root *proto.Rel, visitor Visitor) {
 	// Pre-compute interface capabilities to avoid repeated type assertions
 	relVisitor, canVisitRel := visitor.(RelVisitor)
