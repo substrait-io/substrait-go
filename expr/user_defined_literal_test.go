@@ -43,6 +43,7 @@ func TestUserDefinedLiteralRoundTrip(t *testing.T) {
 			literal.NewInt32(20, false),
 		},
 		false,
+		nil,
 	)
 	require.NoError(t, err)
 	require.NotNil(t, pointLiteral)
@@ -70,7 +71,8 @@ func TestNewUserDefinedLiteralHelper(t *testing.T) {
 			literal.NewInt32(42, false), // latitude
 			literal.NewInt32(73, false), // longitude
 		},
-		false, // nullable
+		false,
+		nil,
 	)
 
 	require.NoError(t, err)
@@ -80,4 +82,46 @@ func TestNewUserDefinedLiteralHelper(t *testing.T) {
 	udt := protoLit.GetType().(*types.UserDefinedType)
 	require.Equal(t, registry.GetTypeAnchor(pointID), udt.TypeReference)
 	require.Equal(t, types.NullabilityRequired, udt.Nullability)
+}
+
+// Test extension YAML with a parameterized generic_box<T> type
+const parameterizedExtensionYAML = `---
+urn: extension:test:generic
+types:
+  - name: generic_box
+    structure:
+      value: T
+`
+
+// TestNewUserDefinedLiteralWithTypeParameters demonstrates creating a user-defined literal
+// with type parameters (e.g., generic_box<i32>)
+func TestNewUserDefinedLiteralWithTypeParameters(t *testing.T) {
+	collection := &extensions.Collection{}
+	err := collection.Load("test/uri", strings.NewReader(parameterizedExtensionYAML))
+	require.NoError(t, err)
+
+	registry := expr.NewEmptyExtensionRegistry(collection)
+	boxID := extensions.ID{URN: "extension:test:generic", Name: "generic_box"}
+
+	boxLiteral, err := literal.NewUserDefinedLiteral(
+		registry.GetTypeAnchor(boxID),
+		expr.StructLiteralValue{
+			literal.NewInt32(100, false),
+		},
+		false, // nullable
+		[]types.TypeParam{&types.DataTypeParameter{Type: &types.Int32Type{}}},
+	)
+
+	require.NoError(t, err)
+	require.NotNil(t, boxLiteral)
+
+	protoLit := boxLiteral.(*expr.ProtoLiteral)
+	udt := protoLit.GetType().(*types.UserDefinedType)
+	require.Equal(t, registry.GetTypeAnchor(boxID), udt.TypeReference)
+	require.Len(t, udt.TypeParameters, 1)
+
+	// Test roundtrip
+	protoLiteral := boxLiteral.ToProtoLiteral()
+	roundTripLiteral := expr.LiteralFromProto(protoLiteral)
+	require.Equal(t, boxLiteral, roundTripLiteral)
 }
