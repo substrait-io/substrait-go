@@ -1006,3 +1006,43 @@ func TestNewTimeFromString(t *testing.T) {
 		})
 	}
 }
+
+func TestNewUserDefinedLiteral(t *testing.T) {
+	// Test without type parameters
+	structVal := expr.StructLiteralValue{
+		NewInt32(42, false),
+		NewString("test", false),
+	}
+
+	lit, err := NewUserDefinedLiteral(10, structVal, false, nil)
+	require.NoError(t, err)
+	require.NotNil(t, lit)
+
+	protoLit, ok := lit.(*expr.ProtoLiteral)
+	require.True(t, ok)
+	udt, ok := protoLit.GetType().(*types.UserDefinedType)
+	require.True(t, ok)
+	require.Equal(t, uint32(10), udt.TypeReference)
+	require.Empty(t, udt.TypeParameters)
+
+	// Test with type parameters
+	litWithParams, err := NewUserDefinedLiteral(
+		20,
+		structVal,
+		true,
+		[]types.TypeParam{
+			&types.DataTypeParameter{Type: &types.Int32Type{}},
+			&types.DataTypeParameter{Type: &types.StringType{}},
+		},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, litWithParams)
+
+	protoLit2, ok := litWithParams.(*expr.ProtoLiteral)
+	require.True(t, ok)
+	udt2, ok := protoLit2.GetType().(*types.UserDefinedType)
+	require.True(t, ok)
+	require.Equal(t, uint32(20), udt2.TypeReference)
+	require.Len(t, udt2.TypeParameters, 2)
+	require.Equal(t, types.NullabilityNullable, udt2.Nullability)
+}
