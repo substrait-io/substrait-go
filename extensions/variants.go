@@ -740,10 +740,13 @@ func ValidateConstrainedAnyTypeConsistency(funcParameters []types.FuncDefArgType
 	expandedFuncParameters := funcParameters
 	if variadicBehavior != nil && len(argumentTypes) > len(funcParameters) {
 		numVariadicArgs := len(argumentTypes) - len(funcParameters) + 1
-		expandedFuncParameters = make([]types.FuncDefArgType, len(funcParameters)-1+numVariadicArgs)
-		copy(expandedFuncParameters, funcParameters[:len(funcParameters)-1])
-		for i := 0; i < numVariadicArgs; i++ {
-			expandedFuncParameters[len(funcParameters)-1+i] = funcParameters[len(funcParameters)-1]
+		nonVariadicParams := funcParameters[:len(funcParameters)-1]
+		variadicParam := funcParameters[len(funcParameters)-1]
+
+		expandedFuncParameters = make([]types.FuncDefArgType, len(nonVariadicParams)+numVariadicArgs)
+		copy(expandedFuncParameters, nonVariadicParams)
+		for i := range numVariadicArgs {
+			expandedFuncParameters[len(nonVariadicParams)+i] = variadicParam
 		}
 	}
 
