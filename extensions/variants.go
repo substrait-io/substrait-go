@@ -683,7 +683,11 @@ func validateAnyTypeBinding(paramType types.FuncDefArgType, argType types.Type, 
 		if listType, ok := argType.(*types.ListType); ok {
 			params := listType.GetParameters()
 			if len(params) > 0 && params[0] != nil {
-				if err := validateAnyTypeBinding(p.Type, params[0].(types.Type), bindings); err != nil {
+				elementType, ok := params[0].(types.Type)
+				if !ok {
+					return fmt.Errorf("%w: invalid list element type", substraitgo.ErrInvalidType)
+				}
+				if err := validateAnyTypeBinding(p.Type, elementType, bindings); err != nil {
 					return err
 				}
 			}
@@ -692,10 +696,18 @@ func validateAnyTypeBinding(paramType types.FuncDefArgType, argType types.Type, 
 		if mapType, ok := argType.(*types.MapType); ok {
 			params := mapType.GetParameters()
 			if len(params) >= 2 && params[0] != nil && params[1] != nil {
-				if err := validateAnyTypeBinding(p.Key, params[0].(types.Type), bindings); err != nil {
+				keyType, ok := params[0].(types.Type)
+				if !ok {
+					return fmt.Errorf("%w: invalid map key type", substraitgo.ErrInvalidType)
+				}
+				valueType, ok := params[1].(types.Type)
+				if !ok {
+					return fmt.Errorf("%w: invalid map value type", substraitgo.ErrInvalidType)
+				}
+				if err := validateAnyTypeBinding(p.Key, keyType, bindings); err != nil {
 					return err
 				}
-				if err := validateAnyTypeBinding(p.Value, params[1].(types.Type), bindings); err != nil {
+				if err := validateAnyTypeBinding(p.Value, valueType, bindings); err != nil {
 					return err
 				}
 			}
@@ -706,7 +718,11 @@ func validateAnyTypeBinding(paramType types.FuncDefArgType, argType types.Type, 
 			if len(params) == len(p.Types) {
 				for i, fieldType := range p.Types {
 					if params[i] != nil {
-						if err := validateAnyTypeBinding(fieldType, params[i].(types.Type), bindings); err != nil {
+						elementType, ok := params[i].(types.Type)
+						if !ok {
+							return fmt.Errorf("%w: invalid struct field type at position %d", substraitgo.ErrInvalidType, i)
+						}
+						if err := validateAnyTypeBinding(fieldType, elementType, bindings); err != nil {
 							return err
 						}
 					}
