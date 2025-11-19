@@ -659,6 +659,79 @@ func TestValidateConstrainedAnyTypeConsistency(t *testing.T) {
 		require.Contains(t, err.Error(), "type parameter any1 cannot be both i32 and i64")
 	})
 
+	t.Run("nested map types with mismatched values fails", func(t *testing.T) {
+		// func(map<any1, any2>, map<any1, any2>) with (map<i32, string>, map<i32, i64>)
+		params := []types.FuncDefArgType{
+			&types.ParameterizedMapType{
+				Key:   &types.AnyType{Name: "any1"},
+				Value: &types.AnyType{Name: "any2"},
+			},
+			&types.ParameterizedMapType{
+				Key:   &types.AnyType{Name: "any1"},
+				Value: &types.AnyType{Name: "any2"},
+			},
+		}
+		args := []types.Type{
+			&types.MapType{Key: &types.Int32Type{}, Value: &types.StringType{}},
+			&types.MapType{Key: &types.Int32Type{}, Value: &types.Int64Type{}},
+		}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "type parameter any2 cannot be both str and i64")
+	})
+
+	t.Run("nested struct types with matching fields", func(t *testing.T) {
+		// func(struct<any1, any2>, struct<any1, any2>) with (struct<i32, string>, struct<i32, string>)
+		params := []types.FuncDefArgType{
+			&types.ParameterizedStructType{
+				Types: []types.FuncDefArgType{
+					&types.AnyType{Name: "any1"},
+					&types.AnyType{Name: "any2"},
+				},
+			},
+			&types.ParameterizedStructType{
+				Types: []types.FuncDefArgType{
+					&types.AnyType{Name: "any1"},
+					&types.AnyType{Name: "any2"},
+				},
+			},
+		}
+		args := []types.Type{
+			&types.StructType{Types: []types.Type{&types.Int32Type{}, &types.StringType{}}},
+			&types.StructType{Types: []types.Type{&types.Int32Type{}, &types.StringType{}}},
+		}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("nested struct types with mismatched fields fails", func(t *testing.T) {
+		// func(struct<any1, any2>, struct<any1, any2>) with (struct<i32, string>, struct<i64, string>)
+		params := []types.FuncDefArgType{
+			&types.ParameterizedStructType{
+				Types: []types.FuncDefArgType{
+					&types.AnyType{Name: "any1"},
+					&types.AnyType{Name: "any2"},
+				},
+			},
+			&types.ParameterizedStructType{
+				Types: []types.FuncDefArgType{
+					&types.AnyType{Name: "any1"},
+					&types.AnyType{Name: "any2"},
+				},
+			},
+		}
+		args := []types.Type{
+			&types.StructType{Types: []types.Type{&types.Int32Type{}, &types.StringType{}}},
+			&types.StructType{Types: []types.Type{&types.Int64Type{}, &types.StringType{}}},
+		}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "type parameter any1 cannot be both i32 and i64")
+	})
+
 	t.Run("single any1 parameter is always valid", func(t *testing.T) {
 		// func(any1) with (i32) - no constraint checking needed
 		params := []types.FuncDefArgType{
