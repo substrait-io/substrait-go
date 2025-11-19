@@ -665,6 +665,10 @@ func validateAnyTypeBinding(paramType types.FuncDefArgType, argType types.Type, 
 	switch p := paramType.(type) {
 	case *types.AnyType:
 		if existingType, exists := bindings[p.Name]; exists {
+			// Compare base types ignoring nullability. Nullability is enforced separately
+			// at the individual argument level by MatchWithNullability/MatchWithoutNullability
+			// (see matchArgumentAtCommon in variants.go). Here we only validate that all uses
+			// of the same type parameter (e.g., any1) resolve to the same base type.
 			existingBase := existingType.WithNullability(types.NullabilityRequired)
 			argBase := argType.WithNullability(types.NullabilityRequired)
 			if !existingBase.Equals(argBase) {
