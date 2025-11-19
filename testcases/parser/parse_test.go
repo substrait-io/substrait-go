@@ -850,6 +850,21 @@ func TestLoadAllSubstraitTestFiles(t *testing.T) {
 			require.NotNil(t, testFile)
 			reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(extensions.GetDefaultCollectionWithNoError())
 			for _, tc := range testFile.TestCases {
+				// TODO: Remove this skip once https://github.com/substrait-io/substrait/pull/893 is merged
+				// Skip specific invalid test cases where equal:dec_dec compares decimals
+				// with mismatched precision/scale parameters
+				if tc.CompoundFunctionName() == "equal:dec_dec" && len(tc.Args) == 2 {
+					dec1, ok1 := tc.Args[0].Type.(*types.DecimalType)
+					dec2, ok2 := tc.Args[1].Type.(*types.DecimalType)
+					if ok1 && ok2 && (dec1.Precision != dec2.Precision || dec1.Scale != dec2.Scale) {
+						// This test uses equal(dec<P1,S1>, dec<P2,S2>) where P1!=P2 or S1!=S2
+						// which violates the Substrait spec requirement that any1 parameters
+						// must be the exact same type (including type parameters)
+						t.Logf("Skipping invalid test case: equal(dec<%d,%d>, dec<%d,%d>)",
+							dec1.Precision, dec1.Scale, dec2.Precision, dec2.Scale)
+						continue
+					}
+				}
 				testGetFunctionInvocation(t, tc, &reg, funcRegistry)
 			}
 		})
