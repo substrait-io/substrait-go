@@ -470,3 +470,257 @@ func TestResolveTypeErrorHandling(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "mismatch in number of arguments")
 }
+
+func TestValidateConstrainedAnyTypeConsistency(t *testing.T) {
+	t.Run("non-variadic with matching types succeeds", func(t *testing.T) {
+		// func(any1, any1) with (i32, i32)
+		params := []types.FuncDefArgType{
+			&types.AnyType{Name: "any1"},
+			&types.AnyType{Name: "any1"},
+		}
+		args := []types.Type{
+			&types.Int32Type{},
+			&types.Int32Type{},
+		}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("non-variadic with mismatched types fails", func(t *testing.T) {
+		// func(any1, any1) with (i32, i64)
+		params := []types.FuncDefArgType{
+			&types.AnyType{Name: "any1"},
+			&types.AnyType{Name: "any1"},
+		}
+		args := []types.Type{
+			&types.Int32Type{},
+			&types.Int64Type{},
+		}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "type parameter any1 cannot be both i32 and i64")
+	})
+
+	t.Run("variadic with matching types succeeds", func(t *testing.T) {
+		// func(any1, ...) with (i32, i32, i32)
+		params := []types.FuncDefArgType{
+			&types.AnyType{Name: "any1"},
+		}
+		args := []types.Type{
+			&types.Int32Type{},
+			&types.Int32Type{},
+			&types.Int32Type{},
+		}
+		variadic := &extensions.VariadicBehavior{Min: 2}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, variadic)
+		require.NoError(t, err)
+	})
+
+	t.Run("variadic with mismatched types fails", func(t *testing.T) {
+		// func(any1, ...) with (i32, i64, i32)
+		params := []types.FuncDefArgType{
+			&types.AnyType{Name: "any1"},
+		}
+		args := []types.Type{
+			&types.Int32Type{},
+			&types.Int64Type{},
+			&types.Int32Type{},
+		}
+		variadic := &extensions.VariadicBehavior{Min: 2}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, variadic)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "type parameter any1 cannot be both")
+	})
+
+	t.Run("multiple any parameters are independent", func(t *testing.T) {
+		// func(any1, any2, any1, any2) with (i32, string, i32, string)
+		params := []types.FuncDefArgType{
+			&types.AnyType{Name: "any1"},
+			&types.AnyType{Name: "any2"},
+			&types.AnyType{Name: "any1"},
+			&types.AnyType{Name: "any2"},
+		}
+		args := []types.Type{
+			&types.Int32Type{},
+			&types.StringType{},
+			&types.Int32Type{},
+			&types.StringType{},
+		}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("multiple any parameters can have different types", func(t *testing.T) {
+		// func(any1, any2) with (i32, i64) - any1 != any2 is OK
+		params := []types.FuncDefArgType{
+			&types.AnyType{Name: "any1"},
+			&types.AnyType{Name: "any2"},
+		}
+		args := []types.Type{
+			&types.Int32Type{},
+			&types.Int64Type{},
+		}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("nullability differences are ignored", func(t *testing.T) {
+		// func(any1, any1) with (i32, i32?) - should match
+		params := []types.FuncDefArgType{
+			&types.AnyType{Name: "any1"},
+			&types.AnyType{Name: "any1"},
+		}
+		args := []types.Type{
+			&types.Int32Type{Nullability: types.NullabilityRequired},
+			&types.Int32Type{Nullability: types.NullabilityNullable},
+		}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("nested list types with matching elements", func(t *testing.T) {
+		// func(list<any1>, list<any1>) with (list<i32>, list<i32>)
+		params := []types.FuncDefArgType{
+			&types.ParameterizedListType{Type: &types.AnyType{Name: "any1"}},
+			&types.ParameterizedListType{Type: &types.AnyType{Name: "any1"}},
+		}
+		args := []types.Type{
+			&types.ListType{Type: &types.Int32Type{}},
+			&types.ListType{Type: &types.Int32Type{}},
+		}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("nested list types with mismatched elements fails", func(t *testing.T) {
+		// func(list<any1>, list<any1>) with (list<i32>, list<i64>)
+		params := []types.FuncDefArgType{
+			&types.ParameterizedListType{Type: &types.AnyType{Name: "any1"}},
+			&types.ParameterizedListType{Type: &types.AnyType{Name: "any1"}},
+		}
+		args := []types.Type{
+			&types.ListType{Type: &types.Int32Type{}},
+			&types.ListType{Type: &types.Int64Type{}},
+		}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "type parameter any1 cannot be both i32 and i64")
+	})
+
+	t.Run("nested map types with matching key and value", func(t *testing.T) {
+		// func(map<any1, any2>, map<any1, any2>) with (map<i32, string>, map<i32, string>)
+		params := []types.FuncDefArgType{
+			&types.ParameterizedMapType{
+				Key:   &types.AnyType{Name: "any1"},
+				Value: &types.AnyType{Name: "any2"},
+			},
+			&types.ParameterizedMapType{
+				Key:   &types.AnyType{Name: "any1"},
+				Value: &types.AnyType{Name: "any2"},
+			},
+		}
+		args := []types.Type{
+			&types.MapType{Key: &types.Int32Type{}, Value: &types.StringType{}},
+			&types.MapType{Key: &types.Int32Type{}, Value: &types.StringType{}},
+		}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("nested map types with mismatched keys fails", func(t *testing.T) {
+		// func(map<any1, any2>, map<any1, any2>) with (map<i32, string>, map<i64, string>)
+		params := []types.FuncDefArgType{
+			&types.ParameterizedMapType{
+				Key:   &types.AnyType{Name: "any1"},
+				Value: &types.AnyType{Name: "any2"},
+			},
+			&types.ParameterizedMapType{
+				Key:   &types.AnyType{Name: "any1"},
+				Value: &types.AnyType{Name: "any2"},
+			},
+		}
+		args := []types.Type{
+			&types.MapType{Key: &types.Int32Type{}, Value: &types.StringType{}},
+			&types.MapType{Key: &types.Int64Type{}, Value: &types.StringType{}},
+		}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "type parameter any1 cannot be both i32 and i64")
+	})
+
+	t.Run("single any1 parameter is always valid", func(t *testing.T) {
+		// func(any1) with (i32) - no constraint checking needed
+		params := []types.FuncDefArgType{
+			&types.AnyType{Name: "any1"},
+		}
+		args := []types.Type{
+			&types.Int32Type{},
+		}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("no any parameters always succeeds", func(t *testing.T) {
+		// func(i32, i64) with (i32, i64)
+		params := []types.FuncDefArgType{
+			&types.Int32Type{},
+			&types.Int64Type{},
+		}
+		args := []types.Type{
+			&types.Int32Type{},
+			&types.Int64Type{},
+		}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("variadic with mixed types across non-variadic and variadic", func(t *testing.T) {
+		// func(any1, any2, any1, ...) with (i32, string, i64, i32)
+		// First any1=i32, any2=string, third any1=i64 (conflict!)
+		params := []types.FuncDefArgType{
+			&types.AnyType{Name: "any1"},
+			&types.AnyType{Name: "any2"},
+			&types.AnyType{Name: "any1"}, // This is the variadic param
+		}
+		args := []types.Type{
+			&types.Int32Type{},
+			&types.StringType{},
+			&types.Int64Type{}, // Third arg tries to bind any1 to i64
+			&types.Int32Type{}, // Fourth arg (variadic) tries to bind any1 to i32
+		}
+		variadic := &extensions.VariadicBehavior{Min: 1}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, variadic)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "type parameter any1 cannot be both")
+	})
+
+	t.Run("string vs int mismatch", func(t *testing.T) {
+		// func(any1, any1) with (string, i32)
+		params := []types.FuncDefArgType{
+			&types.AnyType{Name: "any1"},
+			&types.AnyType{Name: "any1"},
+		}
+		args := []types.Type{
+			&types.StringType{},
+			&types.Int32Type{},
+		}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "type parameter any1 cannot be both")
+	})
+}
