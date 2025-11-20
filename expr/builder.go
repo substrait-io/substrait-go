@@ -245,6 +245,7 @@ type windowFuncBuilder struct {
 	partitions []Builder
 	sortList   []SortField
 
+	boundsType             types.BoundsType
 	lowerBound, upperBound Bound
 }
 
@@ -269,8 +270,13 @@ func (wb *windowFuncBuilder) Build() (*WindowFunction, error) {
 		return nil, err
 	}
 
-	wf.Sorts, wf.LowerBound, wf.UpperBound = wb.sortList, wb.lowerBound, wb.upperBound
+	wf.Sorts, wf.BoundsType, wf.LowerBound, wf.UpperBound = wb.sortList, wb.boundsType, wb.lowerBound, wb.upperBound
 	wf.Partitions = parts
+
+	if err := wf.validate(); err != nil {
+		return nil, err
+	}
+
 	return wf, nil
 }
 
@@ -321,6 +327,13 @@ func (wb *windowFuncBuilder) Partitions(parts ...Builder) *windowFuncBuilder {
 
 func (wb *windowFuncBuilder) Bounds(lower, upper Bound) *windowFuncBuilder {
 	wb.lowerBound, wb.upperBound = lower, upper
+	return wb
+}
+
+// BoundsType sets the bounds type for this WindowFunction which specifies
+// how the window frame is interpreted (ROWS vs RANGE).
+func (wb *windowFuncBuilder) BoundsType(bt types.BoundsType) *windowFuncBuilder {
+	wb.boundsType = bt
 	return wb
 }
 
