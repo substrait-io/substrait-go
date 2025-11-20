@@ -536,6 +536,25 @@ func TestValidateConstrainedAnyTypeConsistency(t *testing.T) {
 		require.Contains(t, err.Error(), "type parameter any1 cannot be both")
 	})
 
+	t.Run("variadic with multiple any parameters", func(t *testing.T) {
+		// func(any1, any2, ...) with (i32, string, string, string)
+		// any1 = i32, any2 (variadic) = string repeated
+		params := []types.FuncDefArgType{
+			&types.AnyType{Name: "any1"},
+			&types.AnyType{Name: "any2"},
+		}
+		args := []types.Type{
+			&types.Int32Type{},
+			&types.StringType{},
+			&types.StringType{},
+			&types.StringType{},
+		}
+		variadic := &extensions.VariadicBehavior{Min: 2}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, variadic)
+		require.NoError(t, err)
+	})
+
 	t.Run("multiple any parameters are independent", func(t *testing.T) {
 		// func(any1, any2, any1, any2) with (i32, string, i32, string)
 		params := []types.FuncDefArgType{
@@ -564,6 +583,21 @@ func TestValidateConstrainedAnyTypeConsistency(t *testing.T) {
 		args := []types.Type{
 			&types.Int32Type{},
 			&types.Int64Type{},
+		}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("multiple any parameters can have same concrete type", func(t *testing.T) {
+		// func(any1, any2) with (i32, i32) - any1 and any2 both resolve to i32 is OK
+		params := []types.FuncDefArgType{
+			&types.AnyType{Name: "any1"},
+			&types.AnyType{Name: "any2"},
+		}
+		args := []types.Type{
+			&types.Int32Type{},
+			&types.Int32Type{},
 		}
 
 		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
