@@ -477,6 +477,7 @@ type WindowFunction struct {
 	invocation types.AggregationInvocation
 	Partitions []Expression
 
+	BoundsType             types.BoundsType
 	LowerBound, UpperBound Bound
 }
 
@@ -623,6 +624,18 @@ func (w *WindowFunction) GetArgTypes() []types.Type {
 }
 
 func (w *WindowFunction) GetType() types.Type { return w.outputType }
+
+// validate checks that the WindowFunction is valid according to Substrait
+// specification rules. Currently validates that RANGE bounds type requires
+// exactly one sort field.
+func (w *WindowFunction) validate() error {
+	if w.BoundsType == types.BoundsTypeRange && len(w.Sorts) != 1 {
+		return fmt.Errorf("%w: RANGE bounds type requires exactly one sort field, got %d",
+			substraitgo.ErrInvalidExpr, len(w.Sorts))
+	}
+	return nil
+}
+
 func (w *WindowFunction) Equals(other Expression) bool {
 	rhs, ok := other.(*WindowFunction)
 	if !ok {
@@ -704,6 +717,7 @@ func (w *WindowFunction) ToProto() *proto.Expression {
 				Sorts:             sorts,
 				Invocation:        w.invocation,
 				Partitions:        parts,
+				BoundsType:        w.BoundsType,
 				LowerBound:        lowerBound,
 				UpperBound:        upperBound,
 			},

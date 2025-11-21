@@ -157,6 +157,14 @@ const (
 	AggInvocationDistinct    = proto.AggregateFunction_AGGREGATION_INVOCATION_DISTINCT
 )
 
+type BoundsType = proto.Expression_WindowFunction_BoundsType
+
+const (
+	BoundsTypeUnspecified = proto.Expression_WindowFunction_BOUNDS_TYPE_UNSPECIFIED
+	BoundsTypeRows        = proto.Expression_WindowFunction_BOUNDS_TYPE_ROWS
+	BoundsTypeRange       = proto.Expression_WindowFunction_BOUNDS_TYPE_RANGE
+)
+
 type SortDirection proto.SortField_SortDirection
 
 const (
