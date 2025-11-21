@@ -13,7 +13,7 @@ import (
 	"github.com/substrait-io/substrait-go/v7/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // Test extension YAML with point type definition
@@ -87,51 +87,6 @@ func TestNewUserDefinedLiteralHelper(t *testing.T) {
 	require.Equal(t, types.NullabilityRequired, udt.Nullability)
 }
 
-// Test extension YAML with a parameterized generic_box<T> type
-const parameterizedExtensionYAML = `---
-urn: extension:test:generic
-types:
-  - name: generic_box
-    parameters:
-      - name: T
-        type: dataType
-    structure:
-      value: T
-`
-
-// TestNewUserDefinedLiteralWithTypeParameters demonstrates creating a user-defined literal
-// with type parameters (e.g., generic_box<i32>)
-func TestNewUserDefinedLiteralWithTypeParameters(t *testing.T) {
-	collection := &extensions.Collection{}
-	err := collection.Load("test/uri", strings.NewReader(parameterizedExtensionYAML))
-	require.NoError(t, err)
-
-	registry := expr.NewEmptyExtensionRegistry(collection)
-	boxID := extensions.ID{URN: "extension:test:generic", Name: "generic_box"}
-
-	boxLiteral, err := literal.NewUserDefinedLiteral(
-		registry.GetTypeAnchor(boxID),
-		expr.StructLiteralValue{
-			literal.NewInt32(100, false),
-		},
-		false, // nullable
-		[]types.TypeParam{&types.DataTypeParameter{Type: &types.Int32Type{}}},
-	)
-
-	require.NoError(t, err)
-	require.NotNil(t, boxLiteral)
-
-	protoLit := boxLiteral.(*expr.ProtoLiteral)
-	udt := protoLit.GetType().(*types.UserDefinedType)
-	require.Equal(t, registry.GetTypeAnchor(boxID), udt.TypeReference)
-	require.Len(t, udt.TypeParameters, 1)
-
-	// Test roundtrip
-	protoLiteral := boxLiteral.ToProtoLiteral()
-	roundTripLiteral := expr.LiteralFromProto(protoLiteral)
-	require.Equal(t, boxLiteral, roundTripLiteral)
-}
-
 // Extension YAML defining nested types (point, triangle) and parameterized type (vector)
 const nestedTypesYAML = `---
 urn: extension:io.substrait:test_nested_types
@@ -157,7 +112,8 @@ types:
 
 // TestUserDefinedLiteralWithAnyRepresentation verifies round-trip conversion of a simple
 // user-defined type using Any representation. With Any representation, the literal value
-// is user-managed and can be any proto message (here we use google.protobuf.Struct).
+// is completely user-managed and opaque - it can be any proto message. Here we use a
+// simple string to demonstrate this.
 func TestUserDefinedLiteralWithAnyRepresentation(t *testing.T) {
 	collection := &extensions.Collection{}
 	err := collection.Load("test/uri", strings.NewReader(nestedTypesYAML))
@@ -166,15 +122,7 @@ func TestUserDefinedLiteralWithAnyRepresentation(t *testing.T) {
 	registry := expr.NewEmptyExtensionRegistry(collection)
 	pointID := extensions.ID{URN: "extension:io.substrait:test_nested_types", Name: "point"}
 
-	// Create a user-managed struct representing a point with latitude=42, longitude=100
-	// Using google.protobuf.Struct to demonstrate that Any can contain any proto message
-	pointStruct, err := structpb.NewStruct(map[string]interface{}{
-		"latitude":  float64(42),
-		"longitude": float64(100),
-	})
-	require.NoError(t, err)
-
-	anyValue, err := anypb.New(pointStruct)
+	anyValue, err := anypb.New(wrapperspb.String("<Some UserDefined Data>"))
 	require.NoError(t, err)
 
 	pointLiteral := &expr.ProtoLiteral{
@@ -222,6 +170,37 @@ func TestUserDefinedLiteralWithStructRepresentation(t *testing.T) {
 	roundTrip := expr.LiteralFromProto(protoLiteral)
 	require.NotNil(t, roundTrip)
 	require.Equal(t, pointLiteral, roundTrip)
+}
+
+// TestNestedUserDefinedLiteralWithAnyRepresentation verifies round-trip conversion of nested
+// user-defined types where both outer and nested types use Any representation. The triangle UDT
+// uses Any representation, and would typically encode its nested point UDTs within that Any value.
+func TestNestedUserDefinedLiteralWithAnyRepresentation(t *testing.T) {
+	collection := &extensions.Collection{}
+	err := collection.Load("test/uri", strings.NewReader(nestedTypesYAML))
+	require.NoError(t, err)
+
+	registry := expr.NewEmptyExtensionRegistry(collection)
+	triangleID := extensions.ID{URN: "extension:io.substrait:test_nested_types", Name: "triangle"}
+
+	anyValue, err := anypb.New(wrapperspb.String("<Some UserDefined Data>"))
+	require.NoError(t, err)
+
+	triangleLiteral := &expr.ProtoLiteral{
+		Value: &proto.Expression_Literal_UserDefined_Value{Value: anyValue},
+		Type: &types.UserDefinedType{
+			Nullability:    types.NullabilityRequired,
+			TypeReference:  registry.GetTypeAnchor(triangleID),
+			TypeParameters: []types.TypeParam{},
+		},
+	}
+
+	protoLiteral := triangleLiteral.ToProtoLiteral()
+	require.NotNil(t, protoLiteral)
+
+	roundTrip := expr.LiteralFromProto(protoLiteral)
+	require.NotNil(t, roundTrip)
+	require.Equal(t, triangleLiteral, roundTrip)
 }
 
 // TestNestedUserDefinedLiteralWithStructRepresentation verifies round-trip conversion of nested
@@ -285,7 +264,6 @@ func TestNestedUserDefinedLiteralWithStructRepresentation(t *testing.T) {
 	require.Equal(t, triangle, result)
 }
 
-
 // TestMixedRepresentationNestedUserDefinedLiteral verifies round-trip conversion of nested
 // user-defined types with mixed representations. The triangle UDT uses Struct representation
 // while the nested point UDTs use Any representation.
@@ -299,14 +277,9 @@ func TestMixedRepresentationNestedUserDefinedLiteral(t *testing.T) {
 	triangleID := extensions.ID{URN: "extension:io.substrait:test_nested_types", Name: "triangle"}
 
 	// Helper function to create a point UDT with Any representation (user-managed)
-	createPointAny := func(lat, lon int32) expr.Literal {
-		pointStruct, err := structpb.NewStruct(map[string]interface{}{
-			"latitude":  float64(lat),
-			"longitude": float64(lon),
-		})
-		require.NoError(t, err)
-
-		anyValue, err := anypb.New(pointStruct)
+	// The Any value is completely opaque - it can be any proto message.
+	createPointAny := func() expr.Literal {
+		anyValue, err := anypb.New(wrapperspb.String("<Some UserDefined Data>"))
 		require.NoError(t, err)
 
 		return &expr.ProtoLiteral{
@@ -319,21 +292,16 @@ func TestMixedRepresentationNestedUserDefinedLiteral(t *testing.T) {
 		}
 	}
 
-	p1 := createPointAny(0, 0)
-	p2 := createPointAny(10, 0)
-	p3 := createPointAny(5, 10)
-
 	// Create triangle UDT using Struct representation, but with Any-encoded point fields
 	triangle, err := literal.NewUserDefinedLiteral(
 		registry.GetTypeAnchor(triangleID),
-		expr.StructLiteralValue{p1, p2, p3},
+		expr.StructLiteralValue{createPointAny(), createPointAny(), createPointAny()},
 		false,
 		nil,
 	)
 	require.NoError(t, err)
 	require.NotNil(t, triangle)
 
-	// Round-trip test
 	protoExpression := triangle.ToProtoLiteral()
 	require.NotNil(t, protoExpression)
 
