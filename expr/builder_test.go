@@ -169,7 +169,7 @@ window_functions:
 
 	customLiteral := planBuilder.GetExprBuilder().Literal(&expr.ProtoLiteral{
 		Type:  &customType2,
-		Value: anyVal,
+		Value: &substraitpb.Expression_Literal_UserDefined_Value{Value: anyVal},
 	})
 
 	// check scalar function

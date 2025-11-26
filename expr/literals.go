@@ -18,7 +18,6 @@ import (
 	"github.com/substrait-io/substrait-go/v7/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"golang.org/x/exp/slices"
-	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // PrimitiveLiteralValue is a type constraint that represents
@@ -602,13 +601,22 @@ func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
 			params[i] = p.ToProto()
 		}
 
-		v := t.Value.(*anypb.Any)
+		udt := &proto.Expression_Literal_UserDefined{
+			TypeReference:  literalType.TypeReference,
+			TypeParameters: params,
+		}
+
+		switch v := t.Value.(type) {
+		case *proto.Expression_Literal_UserDefined_Value:
+			udt.Val = v
+		case *proto.Expression_Literal_UserDefined_Struct:
+			udt.Val = v
+		default:
+			panic(fmt.Sprintf("unexpected UserDefined literal value type: %T", t.Value))
+		}
+
 		lit.LiteralType = &proto.Expression_Literal_UserDefined_{
-			UserDefined: &proto.Expression_Literal_UserDefined{
-				Val:            &proto.Expression_Literal_UserDefined_Value{Value: v},
-				TypeReference:  literalType.TypeReference,
-				TypeParameters: params,
-			},
+			UserDefined: udt,
 		}
 	case *types.IntervalYearType:
 		v := t.Value.(*types.IntervalYearToMonth)
