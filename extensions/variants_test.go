@@ -160,6 +160,22 @@ func TestEvaluateTypeExpression(t *testing.T) {
 			args:     nil,
 			expected: &types.UserDefinedType{Nullability: types.NullabilityRequired, TypeReference: 1},
 		},
+		{
+			name:     "any1 returning UDT with TypeReference set",
+			nulls:    extensions.MirrorNullability,
+			ret:      any1NonNull,
+			extArgs:  extensions.FuncParameterList{valArg(any1NonNull)},
+			args:     []types.Type{&types.UserDefinedType{Nullability: types.NullabilityRequired, TypeReference: 5}},
+			expected: &types.UserDefinedType{Nullability: types.NullabilityRequired, TypeReference: 5},
+		},
+		{
+			name:     "any1 returning UDT with TypeReference zero",
+			nulls:    extensions.MirrorNullability,
+			ret:      any1NonNull,
+			extArgs:  extensions.FuncParameterList{valArg(any1NonNull)},
+			args:     []types.Type{&types.UserDefinedType{Nullability: types.NullabilityRequired, TypeReference: 0}},
+			expected: &types.UserDefinedType{Nullability: types.NullabilityRequired, TypeReference: 0},
+		},
 	}
 
 	for _, tt := range tests {

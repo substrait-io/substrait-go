@@ -139,9 +139,14 @@ func EvaluateTypeExpression(urn string, nullHandling NullabilityHandling, return
 		return nil, err
 	}
 
+	// If the return type expression is a ParameterizedUserDefinedType, we need to
+	// fill in the TypeReference since ParameterizedUserDefinedType.ReturnType()
+	// doesn't have access to the registry to set it itself.
+	// For other types like AnyType, the TypeReference is already correctly set.
 	if udt, ok := outType.(*types.UserDefinedType); ok {
-		name := strings.TrimPrefix(returnTypeExpr.ShortString(), "u!") // short string contains the u! prefix, but type definitions in the extensions don't
-		udt.TypeReference = registry.GetTypeAnchor(ID{Name: name, URN: urn})
+		if paramUDT, ok := returnTypeExpr.(*types.ParameterizedUserDefinedType); ok {
+			udt.TypeReference = registry.GetTypeAnchor(ID{Name: paramUDT.Name, URN: urn})
+		}
 	}
 
 	if nullHandling == MirrorNullability || nullHandling == "" {
