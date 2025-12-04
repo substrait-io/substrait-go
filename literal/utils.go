@@ -422,3 +422,25 @@ func NewList(elements []expr.Literal, nullable bool) (expr.Literal, error) {
 	}
 	return expr.NewLiteral[expr.ListLiteralValue](elements, nullable)
 }
+
+// NewUserDefinedLiteral creates a user-defined literal using the struct representation.
+// The typeRef should be obtained from an extension registry's GetTypeAnchor method.
+// The structValue contains the field values for the user-defined type.
+// Optional type parameters can be provided for parameterized user-defined types (pass nil for none).
+func NewUserDefinedLiteral(typeRef uint32, structValue expr.StructLiteralValue, nullable bool, typeParams []types.TypeParam) (expr.Literal, error) {
+	structProto := structValue.ToProto()
+
+	protoParams := make([]*proto.Type_Parameter, len(typeParams))
+	for i, p := range typeParams {
+		protoParams[i] = p.ToProto()
+	}
+
+	return expr.NewLiteral(
+		&types.UserDefinedLiteral{
+			Val:            &proto.Expression_Literal_UserDefined_Struct{Struct: structProto},
+			TypeAnchorType: &proto.Expression_Literal_UserDefined_TypeReference{TypeReference: typeRef},
+			TypeParameters: protoParams,
+		},
+		nullable,
+	)
+}
