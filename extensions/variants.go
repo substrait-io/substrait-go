@@ -186,6 +186,10 @@ func matchArguments(nullability NullabilityHandling, paramTypeList FuncParameter
 	if HasSyncParams(funcDefArgList) {
 		return types.AreSyncTypeParametersMatching(funcDefArgList, actualTypes), nil
 	}
+
+	if err := ValidateConstrainedAnyTypeConsistency(funcDefArgList, actualTypes, variadicBehavior); err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
@@ -658,4 +662,107 @@ func getLeafParameterizedParams(abstractTypes interface{}) []string {
 	}
 	// invalid type
 	panic("invalid non-leaf, non-parameterized type param")
+}
+
+// validateAnyTypeBinding validates and records the binding of an AnyType parameter to a concrete type.
+// It recursively handles nested types (lists, maps, structs).
+func validateAnyTypeBinding(paramType types.FuncDefArgType, argType types.Type, bindings map[string]types.Type) error {
+	switch p := paramType.(type) {
+	case *types.AnyType:
+		if existingType, exists := bindings[p.Name]; exists {
+			// Compare base types ignoring nullability. Nullability is enforced separately
+			// at the individual argument level by MatchWithNullability/MatchWithoutNullability
+			// (see matchArgumentAtCommon in variants.go). Here we only validate that all uses
+			// of the same type parameter (e.g., any1) resolve to the same base type.
+			existingBase := existingType.WithNullability(types.NullabilityRequired)
+			argBase := argType.WithNullability(types.NullabilityRequired)
+			if !existingBase.Equals(argBase) {
+				return fmt.Errorf("%w: type parameter %s cannot be both %s and %s",
+					substraitgo.ErrInvalidType, p.Name,
+					existingType.ShortString(), argType.ShortString())
+			}
+		} else {
+			bindings[p.Name] = argType
+		}
+	case *types.ParameterizedListType:
+		if listType, ok := argType.(*types.ListType); ok {
+			params := listType.GetParameters()
+			if len(params) > 0 && params[0] != nil {
+				elementType, ok := params[0].(types.Type)
+				if !ok {
+					return fmt.Errorf("%w: invalid list element type", substraitgo.ErrInvalidType)
+				}
+				if err := validateAnyTypeBinding(p.Type, elementType, bindings); err != nil {
+					return err
+				}
+			}
+		}
+	case *types.ParameterizedMapType:
+		if mapType, ok := argType.(*types.MapType); ok {
+			params := mapType.GetParameters()
+			if len(params) >= 2 && params[0] != nil && params[1] != nil {
+				keyType, ok := params[0].(types.Type)
+				if !ok {
+					return fmt.Errorf("%w: invalid map key type", substraitgo.ErrInvalidType)
+				}
+				valueType, ok := params[1].(types.Type)
+				if !ok {
+					return fmt.Errorf("%w: invalid map value type", substraitgo.ErrInvalidType)
+				}
+				if err := validateAnyTypeBinding(p.Key, keyType, bindings); err != nil {
+					return err
+				}
+				if err := validateAnyTypeBinding(p.Value, valueType, bindings); err != nil {
+					return err
+				}
+			}
+		}
+	case *types.ParameterizedStructType:
+		if structType, ok := argType.(*types.StructType); ok {
+			params := structType.GetParameters()
+			if len(params) == len(p.Types) {
+				for i, fieldType := range p.Types {
+					if params[i] != nil {
+						elementType, ok := params[i].(types.Type)
+						if !ok {
+							return fmt.Errorf("%w: invalid struct field type at position %d", substraitgo.ErrInvalidType, i)
+						}
+						if err := validateAnyTypeBinding(fieldType, elementType, bindings); err != nil {
+							return err
+						}
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// ValidateConstrainedAnyTypeConsistency validates that all uses of the same AnyN parameter
+// (e.g., any1, any2, etc.) resolve to the same concrete type across all arguments
+func ValidateConstrainedAnyTypeConsistency(funcParameters []types.FuncDefArgType, argumentTypes []types.Type, variadicBehavior *VariadicBehavior) error {
+	// For variadic functions, expand the parameter list to match actual arguments
+	expandedFuncParameters := funcParameters
+	if variadicBehavior != nil && len(argumentTypes) > len(funcParameters) {
+		numVariadicArgs := len(argumentTypes) - len(funcParameters) + 1
+		nonVariadicParams := funcParameters[:len(funcParameters)-1]
+		variadicParam := funcParameters[len(funcParameters)-1]
+
+		expandedFuncParameters = make([]types.FuncDefArgType, len(nonVariadicParams)+numVariadicArgs)
+		copy(expandedFuncParameters, nonVariadicParams)
+		for i := range numVariadicArgs {
+			expandedFuncParameters[len(nonVariadicParams)+i] = variadicParam
+		}
+	}
+
+	bindings := make(map[string]types.Type)
+
+	// Validate each argument against its parameter type
+	for i := 0; i < len(expandedFuncParameters) && i < len(argumentTypes); i++ {
+		if err := validateAnyTypeBinding(expandedFuncParameters[i], argumentTypes[i], bindings); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
