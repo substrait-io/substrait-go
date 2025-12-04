@@ -438,7 +438,7 @@ func NewUserDefinedLiteral(typeRef uint32, structValue expr.StructLiteralValue, 
 	return expr.NewLiteral(
 		&types.UserDefinedLiteral{
 			Val:            &proto.Expression_Literal_UserDefined_Struct{Struct: structProto},
-			TypeReference:  typeRef,
+			TypeAnchorType: &proto.Expression_Literal_UserDefined_TypeReference{TypeReference: typeRef},
 			TypeParameters: protoParams,
 		},
 		nullable,
