@@ -606,7 +606,7 @@ func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
 		lit.LiteralType = &proto.Expression_Literal_UserDefined_{
 			UserDefined: &proto.Expression_Literal_UserDefined{
 				Val:            &proto.Expression_Literal_UserDefined_Value{Value: v},
-				TypeReference:  literalType.TypeReference,
+				TypeAnchorType: &proto.Expression_Literal_UserDefined_TypeReference{TypeReference: literalType.TypeReference},
 				TypeParameters: params,
 			},
 		}
@@ -966,7 +966,7 @@ func NewLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {
 			Value: v.Val,
 			Type: &types.UserDefinedType{
 				Nullability:    getNullability(nullable),
-				TypeReference:  v.TypeReference,
+				TypeReference:  v.GetTypeReference(),
 				TypeParameters: params,
 			},
 		}, nil
@@ -1217,7 +1217,7 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 			Type: &types.UserDefinedType{
 				Nullability:      nullability,
 				TypeVariationRef: l.TypeVariationReference,
-				TypeReference:    lit.UserDefined.TypeReference,
+				TypeReference:    lit.UserDefined.GetTypeReference(),
 				TypeParameters:   params,
 			},
 		}
