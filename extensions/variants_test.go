@@ -278,6 +278,39 @@ func TestVariantWithVariadic(t *testing.T) {
 			nil, extensions.VariadicBehavior{
 				Min: 2, ParameterConsistency: extensions.ConsistentParams},
 			"invalid expression: mismatch in number of arguments provided, invalid number of variadic params. got 0 total"},
+		{"inconsistent1param2argsSameType", extensions.MirrorNullability, i64NonNull, extensions.FuncParameterList{
+			extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64Null}}},
+			[]types.Type{
+				&types.Int64Type{Nullability: types.NullabilityNullable},
+				&types.Int64Type{Nullability: types.NullabilityNullable},
+			},
+			&types.Int64Type{Nullability: types.NullabilityNullable},
+			extensions.VariadicBehavior{
+				Min: 0, ParameterConsistency: extensions.InconsistentParams}, ""},
+		{"inconsistent1param3argsSameType", extensions.MirrorNullability, i64NonNull,
+			extensions.FuncParameterList{
+				extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64Null}},
+			},
+			[]types.Type{
+				&types.Int64Type{Nullability: types.NullabilityNullable},
+				&types.Int64Type{Nullability: types.NullabilityNullable},
+				&types.Int64Type{Nullability: types.NullabilityNullable}},
+			&types.Int64Type{Nullability: types.NullabilityNullable},
+			extensions.VariadicBehavior{
+				Min: 0, ParameterConsistency: extensions.InconsistentParams}, ""},
+		{"inconsistent2params3args", extensions.MirrorNullability, i64NonNull,
+			extensions.FuncParameterList{
+				extensions.ValueArg{Value: &parser.TypeExpression{ValueType: varcharNull}},
+				extensions.ValueArg{Value: &parser.TypeExpression{ValueType: i64Null}},
+			},
+			[]types.Type{
+				&types.VarCharType{Nullability: types.NullabilityNullable, Length: 20},
+				&types.Int64Type{Nullability: types.NullabilityNullable},
+				&types.Int64Type{Nullability: types.NullabilityNullable},
+			},
+			&types.Int64Type{Nullability: types.NullabilityNullable},
+			extensions.VariadicBehavior{
+				Min: 0, ParameterConsistency: extensions.InconsistentParams}, ""},
 	}
 
 	for _, tt := range tests {
@@ -844,6 +877,143 @@ func TestValidateConstrainedAnyTypeConsistency(t *testing.T) {
 
 		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
 		require.Error(t, err)
+		require.Contains(t, err.Error(), "type parameter any1 cannot be both")
+	})
+
+	t.Run("plain any should allow different types", func(t *testing.T) {
+		// func(any, any, any) with (i32, string, fp64)
+		params := []types.FuncDefArgType{
+			&types.AnyType{Name: "any"},
+			&types.AnyType{Name: "any"},
+			&types.AnyType{Name: "any"},
+		}
+		args := []types.Type{
+			&types.Int32Type{},
+			&types.StringType{},
+			&types.Float64Type{},
+		}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
+		require.NoError(t, err, "plain 'any' should allow any combination of types")
+	})
+
+	t.Run("mixed any and any1 should be independent", func(t *testing.T) {
+		// func(any, any1, any1) with (i32, string, string) - any is unconstrained, any1 must match
+		params := []types.FuncDefArgType{
+			&types.AnyType{Name: "any"},
+			&types.AnyType{Name: "any1"},
+			&types.AnyType{Name: "any1"},
+		}
+		args := []types.Type{
+			&types.Int32Type{},
+			&types.StringType{},
+			&types.StringType{},
+		}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
+		require.NoError(t, err, "plain 'any' should be independent from any1")
+	})
+
+	t.Run("mixed any and any1 with any1 mismatch should fail", func(t *testing.T) {
+		// func(any, any1, any1) with (i32, string, i64) - any1 mismatch should fail
+		params := []types.FuncDefArgType{
+			&types.AnyType{Name: "any"},
+			&types.AnyType{Name: "any1"},
+			&types.AnyType{Name: "any1"},
+		}
+		args := []types.Type{
+			&types.Int32Type{},
+			&types.StringType{},
+			&types.Int64Type{},
+		}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
+		require.Error(t, err, "any1 should still enforce consistency")
+		require.Contains(t, err.Error(), "type parameter any1 cannot be both")
+	})
+
+	t.Run("nested list<any> should be unconstrained", func(t *testing.T) {
+		// func(list<any>, list<any>) with (list<i32>, list<string>)
+		params := []types.FuncDefArgType{
+			&types.ParameterizedListType{Type: &types.AnyType{Name: "any"}},
+			&types.ParameterizedListType{Type: &types.AnyType{Name: "any"}},
+		}
+		args := []types.Type{
+			&types.ListType{Type: &types.Int32Type{}},
+			&types.ListType{Type: &types.StringType{}},
+		}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
+		require.NoError(t, err, "nested plain 'any' in lists should be unconstrained")
+	})
+
+	t.Run("variadic plain any should allow different types", func(t *testing.T) {
+		// func(any, ...) with (i32, string, fp64)
+		params := []types.FuncDefArgType{
+			&types.AnyType{Name: "any"},
+		}
+		args := []types.Type{
+			&types.Int32Type{},
+			&types.StringType{},
+			&types.Float64Type{},
+		}
+		variadic := &extensions.VariadicBehavior{Min: 1}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, variadic)
+		require.NoError(t, err, "variadic plain 'any' should allow different types")
+	})
+
+	t.Run("complex mix with nested constraints", func(t *testing.T) {
+		// func(list<any>,  any1,   map<any,  any2>, list<any1>,   any2) with
+		//      (list<i32>, string, map<bool, fp64>, list<string>, fp64)
+		// - any1 = string
+		// - any2 = fp64
+		params := []types.FuncDefArgType{
+			&types.ParameterizedListType{Type: &types.AnyType{Name: "any"}},
+			&types.AnyType{Name: "any1"},
+			&types.ParameterizedMapType{
+				Key:   &types.AnyType{Name: "any"},
+				Value: &types.AnyType{Name: "any2"},
+			},
+			&types.ParameterizedListType{Type: &types.AnyType{Name: "any1"}},
+			&types.AnyType{Name: "any2"},
+		}
+		args := []types.Type{
+			&types.ListType{Type: &types.Int32Type{}},
+			&types.StringType{},
+			&types.MapType{Key: &types.BooleanType{}, Value: &types.Float64Type{}},
+			&types.ListType{Type: &types.StringType{}},
+			&types.Float64Type{},
+		}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
+		require.NoError(t, err, "nested plain 'any' should be independent while any1 and any2 enforce consistency")
+	})
+
+	t.Run("complex mix with nested any1 mismatch should fail", func(t *testing.T) {
+		// func(list<any>, any1,   map<any,  any2>, list<any1>, any2) with
+		//     (list<i32>, string, map<bool, fp64>, list<i64>,  fp64)
+		// Should fail because list<any1> expects list<string> but got list<i64>
+		params := []types.FuncDefArgType{
+			&types.ParameterizedListType{Type: &types.AnyType{Name: "any"}},
+			&types.AnyType{Name: "any1"},
+			&types.ParameterizedMapType{
+				Key:   &types.AnyType{Name: "any"},
+				Value: &types.AnyType{Name: "any2"},
+			},
+			&types.ParameterizedListType{Type: &types.AnyType{Name: "any1"}},
+			&types.AnyType{Name: "any2"},
+		}
+		args := []types.Type{
+			&types.ListType{Type: &types.Int32Type{}},
+			&types.StringType{},
+			&types.MapType{Key: &types.BooleanType{}, Value: &types.Float64Type{}},
+			&types.ListType{Type: &types.Int64Type{}}, // Mismatch: should be string
+			&types.Float64Type{},
+		}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
+		require.Error(t, err, "nested any1 mismatch should fail")
 		require.Contains(t, err.Error(), "type parameter any1 cannot be both")
 	})
 }
