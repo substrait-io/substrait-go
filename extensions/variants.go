@@ -231,6 +231,8 @@ func matchArgumentAtCommon(actualType types.Type, argPos int, nullability Nullab
 	return false, fmt.Errorf("invalid nullability type: %s", nullability)
 }
 
+// validateVariadicBehaviorForMatch validates variadic argument counts and enforces
+// ConsistentParams when required (all variadic args must have the same type).
 func validateVariadicBehaviorForMatch(variadicBehavior *VariadicBehavior, actualTypes []types.Type) bool {
 	if !variadicBehavior.IsValidArgumentCount(len(actualTypes)) {
 		return false
@@ -669,6 +671,10 @@ func getLeafParameterizedParams(abstractTypes interface{}) []string {
 func validateAnyTypeBinding(paramType types.FuncDefArgType, argType types.Type, bindings map[string]types.Type) error {
 	switch p := paramType.(type) {
 	case *types.AnyType:
+		// Plain "any" is unconstrained - each occurrence can be a different type
+		if p.Name == "any" {
+			return nil
+		}
 		if existingType, exists := bindings[p.Name]; exists {
 			// Compare base types ignoring nullability. Nullability is enforced separately
 			// at the individual argument level by MatchWithNullability/MatchWithoutNullability
