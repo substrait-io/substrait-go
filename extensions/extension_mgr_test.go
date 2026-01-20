@@ -1131,6 +1131,15 @@ scalar_functions:
           - name: value
             value: any1
         return: struct<any1>
+  - name: "make_map"
+    description: "Creates a map with any key and value types"
+    impls:
+      - args:
+          - name: key
+            value: any1
+          - name: value
+            value: any2
+        return: map<any1, any2>
 aggregate_functions:
   - name: "first_with_metadata"
     description: "Returns first value with timestamp"
@@ -1191,5 +1200,22 @@ aggregate_functions:
 		require.Len(t, structType.Types, 2)
 		assert.Equal(t, i64Type, structType.Types[0])
 		assert.Equal(t, fp64Nullable, structType.Types[1])
+	})
+
+	t.Run("scalar function with map<any1, any2>", func(t *testing.T) {
+		fn, ok := c.GetScalarFunc(extensions.ID{URN: urn, Name: "make_map:any_any"})
+		require.True(t, ok)
+		require.NotNil(t, fn)
+
+		stringType := &types.StringType{Nullability: types.NullabilityRequired}
+		i64Type := &types.Int64Type{Nullability: types.NullabilityRequired}
+
+		result, err := fn.ResolveType([]types.Type{stringType, i64Type}, extensions.NewSet())
+		require.NoError(t, err)
+
+		mapType, ok := result.(*types.MapType)
+		require.True(t, ok)
+		assert.Equal(t, stringType, mapType.Key)
+		assert.Equal(t, i64Type, mapType.Value)
 	})
 }

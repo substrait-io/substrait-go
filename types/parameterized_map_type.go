@@ -69,14 +69,14 @@ func (m *ParameterizedMapType) ShortString() string {
 	return "map"
 }
 
-func (m *ParameterizedMapType) ReturnType([]FuncDefArgType, []Type) (Type, error) {
-	keyType, kerr := m.Key.ReturnType(nil, nil)
+func (m *ParameterizedMapType) ReturnType(funcParams []FuncDefArgType, argTypes []Type) (Type, error) {
+	keyType, kerr := m.Key.ReturnType(funcParams, argTypes)
 	if kerr != nil {
 		return nil, fmt.Errorf("error in getting key type: %w", kerr)
 	}
-	valueType, verr := m.Value.ReturnType(nil, nil)
+	valueType, verr := m.Value.ReturnType(funcParams, argTypes)
 	if verr != nil {
-		return nil, fmt.Errorf("error in getting value type: %w", kerr)
+		return nil, fmt.Errorf("error in getting value type: %w", verr)
 	}
 
 	return &MapType{Nullability: m.Nullability, Key: keyType, Value: valueType}, nil
