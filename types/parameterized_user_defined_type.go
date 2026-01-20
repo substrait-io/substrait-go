@@ -26,6 +26,7 @@ func (d *DataTypeUDTParam) String() string {
 }
 
 func (d *DataTypeUDTParam) toTypeParam() (TypeParam, error) {
+	// TODO(#184): Pass funcParams and argTypes to support polymorphic types (any, any1, etc.)
 	typ, err := d.Type.ReturnType(nil, nil)
 	if err != nil {
 		return nil, err
