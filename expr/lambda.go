@@ -9,148 +9,138 @@ import (
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
+// Lambda represents a lambda expression with parameters and a body.
 type Lambda struct {
 	Parameters *types.StructType
 	Body       Expression
 }
 
-// NewLambda constructs a new Lambda expression with validation.
-func NewLambda(parameters *types.StructType, body Expression) (*Lambda, error) {
-	if parameters == nil {
+// LambdaBuilder constructs Lambda expressions with full validation.
+// Use NewLambdaBuilder() to create a builder, set parameters and body,
+// then call Build() to get a validated Lambda.
+//
+// For nested lambdas, use WithNestedLambda() instead of WithBody().
+type LambdaBuilder struct {
+	parameters *types.StructType
+	body       interface{} // Expression or *LambdaBuilder (internal)
+}
+
+// NewLambdaBuilder creates a new LambdaBuilder.
+func NewLambdaBuilder() *LambdaBuilder {
+	return &LambdaBuilder{}
+}
+
+// WithParameters sets the lambda's parameters.
+func (b *LambdaBuilder) WithParameters(params *types.StructType) *LambdaBuilder {
+	b.parameters = params
+	return b
+}
+
+// WithBody sets the lambda's body to an Expression.
+// Use WithNestedLambda() instead if the body is another lambda being built.
+func (b *LambdaBuilder) WithBody(body Expression) *LambdaBuilder {
+	b.body = body
+	return b
+}
+
+// WithNestedLambda sets the lambda's body to a nested LambdaBuilder.
+// The nested lambda will be built with proper outer context when Build() is called.
+func (b *LambdaBuilder) WithNestedLambda(nested *LambdaBuilder) *LambdaBuilder {
+	b.body = nested
+	return b
+}
+
+// Build constructs and validates the Lambda.
+// If the body contains nested LambdaBuilders, they are built first.
+// All lambda parameter references are validated, including outer refs (stepsOut > 0).
+func (b *LambdaBuilder) Build() (*Lambda, error) {
+	return b.buildWithContext(nil)
+}
+
+// buildWithContext builds the lambda with outer lambda context for validation.
+// outerParams[0] = immediate parent lambda's params, outerParams[1] = grandparent, etc.
+func (b *LambdaBuilder) buildWithContext(outerParams []*types.StructType) (*Lambda, error) {
+	// Validate parameters
+	if b.parameters == nil {
 		return nil, fmt.Errorf("%w: lambda must have parameters struct", substraitgo.ErrInvalidExpr)
 	}
-	if body == nil {
-		return nil, fmt.Errorf("%w: lambda must have a body expression", substraitgo.ErrInvalidExpr)
-	}
-	if parameters.Nullability != types.NullabilityRequired {
+	if b.parameters.Nullability != types.NullabilityRequired {
 		return nil, fmt.Errorf("%w: lambda parameters struct must have NULLABILITY_REQUIRED", substraitgo.ErrInvalidExpr)
 	}
-
-	// Validate each parameter type is non-nil
-	for i, paramType := range parameters.Types {
+	for i, paramType := range b.parameters.Types {
 		if paramType == nil {
 			return nil, fmt.Errorf("%w: lambda parameter %d has nil type", substraitgo.ErrInvalidExpr, i)
 		}
 	}
 
-	// Resolve types for FieldReferences with LambdaParameterReference roots.
-	// This is needed because when parsing from protobuf, the body is parsed
-	// before we know the lambda parameters, so types can't be resolved then.
-	resolvedBody := resolveLambdaParamTypes(body, parameters)
+	// Validate body is set
+	if b.body == nil {
+		return nil, fmt.Errorf("%w: lambda must have a body expression", substraitgo.ErrInvalidExpr)
+	}
 
-	// Create the lambda
-	lambda := &Lambda{Parameters: parameters, Body: resolvedBody}
+	// Get/build the body
+	var body Expression
+	switch bd := b.body.(type) {
+	case *LambdaBuilder:
+		// Nested lambda: build it with this lambda as outer context
+		nestedContext := append([]*types.StructType{b.parameters}, outerParams...)
+		built, err := bd.buildWithContext(nestedContext) // recursive
+		if err != nil {
+			return nil, err
+		}
+		body = built
+	case Expression:
+		body = bd
+	default:
+		return nil, fmt.Errorf("%w: invalid body type %T", substraitgo.ErrInvalidExpr, b.body)
+	}
 
-	// Validate lambda parameter references for stepsOut == 0 only
-	// (outer refs can't be validated without context, so skip them at construction)
-	if err := validateCurrentLambdaRefs(lambda.Body, lambda.Parameters); err != nil {
+	// Resolve types for FieldReferences with LambdaParameterReference roots
+	resolvedBody := resolveLambdaParamTypes(body, b.parameters)
+
+	// Validate ALL lambda parameter references (stepsOut=0 and stepsOut>0)
+	if err := validateAllFieldRefs(resolvedBody, b.parameters, outerParams); err != nil {
 		return nil, err
 	}
 
-	return lambda, nil
+	return &Lambda{Parameters: b.parameters, Body: resolvedBody}, nil
 }
 
-// ValidateAllRefs validates ALL lambda parameter references in this lambda and any
-// nested lambdas within its body. Call this on the outermost lambda to validate
-// the entire tree - it automatically tracks outer lambda context as it recurses.
-//
-// For top-level lambdas, any stepsOut > 0 will error (no outer lambdas exist).
-// For nested lambdas, outer references are validated against the accumulated context.
-func (l *Lambda) ValidateAllRefs() error {
-	return l.validateRefsRecursive(nil)
-}
+// validateAllFieldRefs validates ALL lambda parameter references in the body.
+// Unlike construction-time validation, this validates both stepsOut=0 and stepsOut>0.
+func validateAllFieldRefs(body Expression, currentParams *types.StructType, outerParams []*types.StructType) error {
+	// If body is a Lambda, validate it recursively with updated context
+	if lambda, ok := body.(*Lambda); ok {
+		nestedContext := append([]*types.StructType{currentParams}, outerParams...)
+		return validateAllFieldRefs(lambda.Body, lambda.Parameters, nestedContext)
+	}
 
-// validateRefsRecursive validates this lambda and recursively validates nested lambdas.
-// outerParams accumulates the parameters of outer lambdas as we recurse inward.
-func (l *Lambda) validateRefsRecursive(outerParams []*types.StructType) error {
-	// Validate FieldReferences in this lambda's body (not nested lambdas)
-	if err := validateFieldRefsInBody(l.Body, l.Parameters, outerParams); err != nil {
+	// Validate body itself
+	if err := validateFieldRef(body, currentParams, outerParams); err != nil {
 		return err
 	}
 
-	// Find and recursively validate any nested lambdas
-	// When we enter a nested lambda, prepend our params to the outer context
-	var validationErr error
-	nestedOuterParams := append([]*types.StructType{l.Parameters}, outerParams...)
-
-	l.Body.Visit(func(e Expression) Expression {
-		if validationErr != nil {
-			return e
-		}
-		if nestedLambda, ok := e.(*Lambda); ok {
-			validationErr = nestedLambda.validateRefsRecursive(nestedOuterParams)
-		}
-		return e
-	})
-
-	// Also check if body itself is a lambda
-	if nestedLambda, ok := l.Body.(*Lambda); ok {
-		if err := nestedLambda.validateRefsRecursive(nestedOuterParams); err != nil {
-			return err
-		}
-	}
-
-	return validationErr
-}
-
-// validateCurrentLambdaRefs validates stepsOut=0 references only (used during construction).
-// Outer refs (stepsOut > 0) are skipped since we don't have outer context yet.
-func validateCurrentLambdaRefs(body Expression, params *types.StructType) error {
-	// If body IS a nested lambda, don't validate it here - nested lambdas validate themselves
-	if _, ok := body.(*Lambda); ok {
-		return nil
-	}
-
-	// Check body itself
-	if err := validateFieldRef(body, params, nil, true); err != nil {
-		return err
-	}
-	// Check children (but not nested lambdas - they'll validate themselves)
+	// Validate children
 	var validationErr error
 	body.Visit(func(e Expression) Expression {
 		if validationErr != nil {
 			return e
 		}
-		if _, ok := e.(*Lambda); ok {
-			return e // Skip nested lambdas
-		}
-		validationErr = validateFieldRef(e, params, nil, true)
-		return e
-	})
-	return validationErr
-}
-
-// validateFieldRefsInBody validates all FieldReferences in a lambda body (not nested lambdas).
-func validateFieldRefsInBody(body Expression, currentParams *types.StructType, outerParams []*types.StructType) error {
-	// If body IS a nested lambda, don't validate it here - it's handled by validateRefsRecursive
-	// Otherwise body.Visit() would visit INTO the nested lambda's body with wrong context
-	if _, ok := body.(*Lambda); ok {
-		return nil
-	}
-
-	// Check body itself
-	if err := validateFieldRef(body, currentParams, outerParams, false); err != nil {
-		return err
-	}
-	// Check children (but not nested lambdas - they're handled recursively)
-	var validationErr error
-	body.Visit(func(e Expression) Expression {
-		if validationErr != nil {
+		// For nested lambdas, validate recursively with updated context
+		if lambda, ok := e.(*Lambda); ok {
+			nestedContext := append([]*types.StructType{currentParams}, outerParams...)
+			validationErr = validateAllFieldRefs(lambda.Body, lambda.Parameters, nestedContext)
 			return e
 		}
-		if _, ok := e.(*Lambda); ok {
-			return e // Skip nested lambdas - handled by validateRefsRecursive
-		}
-		validationErr = validateFieldRef(e, currentParams, outerParams, false)
+		validationErr = validateFieldRef(e, currentParams, outerParams)
 		return e
 	})
+
 	return validationErr
 }
 
-// validateFieldRef validates a single expression if it's a FieldReference
-// with LambdaParameterReference root, checking against current or outer lambda params.
-// If skipOuterRefs is true, stepsOut > 0 references are skipped.
-func validateFieldRef(e Expression, currentParams *types.StructType, outerParams []*types.StructType, skipOuterRefs bool) error {
+// validateFieldRef validates a single FieldReference with LambdaParameterReference root.
+func validateFieldRef(e Expression, currentParams *types.StructType, outerParams []*types.StructType) error {
 	fieldRef, ok := e.(*FieldReference)
 	if !ok {
 		return nil
@@ -166,11 +156,6 @@ func validateFieldRef(e Expression, currentParams *types.StructType, outerParams
 	if lambdaRef.StepsOut == 0 {
 		targetParams = currentParams
 	} else {
-		// stepsOut > 0: references outer lambda's parameter
-		if skipOuterRefs {
-			// Skip validation during construction (can't validate without context)
-			return nil
-		}
 		// stepsOut 1 = outerParams[0], stepsOut 2 = outerParams[1], etc.
 		outerIndex := int(lambdaRef.StepsOut) - 1
 		if outerIndex >= len(outerParams) {
@@ -201,8 +186,6 @@ func validateFieldRef(e Expression, currentParams *types.StructType, outerParams
 
 // resolveLambdaParamTypes walks the body expression and resolves types for any
 // FieldReferences that have LambdaParameterReference roots (StepsOut == 0).
-// This is needed because when parsing from protobuf, the body is parsed before
-// the lambda parameters are known, so types can't be resolved at parse time.
 func resolveLambdaParamTypes(body Expression, params *types.StructType) Expression {
 	// First, try to resolve the body itself if it's a FieldReference
 	resolved := tryResolveFieldRef(body, params)
@@ -214,8 +197,7 @@ func resolveLambdaParamTypes(body Expression, params *types.StructType) Expressi
 }
 
 // tryResolveFieldRef attempts to resolve the type of a FieldReference with
-// LambdaParameterReference root. Returns the expression unchanged if it's not
-// applicable or already resolved.
+// LambdaParameterReference root. Returns the expression unchanged if not applicable.
 func tryResolveFieldRef(e Expression, params *types.StructType) Expression {
 	fieldRef, ok := e.(*FieldReference)
 	if !ok {
@@ -238,7 +220,6 @@ func tryResolveFieldRef(e Expression, params *types.StructType) Expression {
 		if err != nil {
 			return e // Can't resolve, leave as-is
 		}
-		// Return new FieldReference with resolved type
 		return &FieldReference{
 			Root:      fieldRef.Root,
 			Reference: fieldRef.Reference,
@@ -246,6 +227,13 @@ func tryResolveFieldRef(e Expression, params *types.StructType) Expression {
 		}
 	}
 	return e
+}
+
+// lambdaFromProto creates a Lambda directly from protobuf without builder validation.
+// This is used internally when parsing from protobuf where the structure is already valid.
+func lambdaFromProto(parameters *types.StructType, body Expression) *Lambda {
+	resolvedBody := resolveLambdaParamTypes(body, parameters)
+	return &Lambda{Parameters: parameters, Body: resolvedBody}
 }
 
 func (l *Lambda) GetParameters() *types.StructType {

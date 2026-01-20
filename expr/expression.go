@@ -330,16 +330,16 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 			paramTypes[i] = types.TypeFromProto(pt)
 		}
 		params := &types.StructType{
-			Types: paramTypes,
+			Types:            paramTypes,
 			TypeVariationRef: et.Lambda.Parameters.TypeVariationReference,
-			Nullability: et.Lambda.Parameters.Nullability,
+			Nullability:      et.Lambda.Parameters.Nullability,
 		}
 
 		body, err := ExprFromProto(et.Lambda.Body, baseSchema, reg)
 		if err != nil {
 			return nil, err
 		}
-		return NewLambda(params, body)
+		return lambdaFromProto(params, body), nil
 	}
 	return nil, fmt.Errorf("%w: ExprFromProto: %s", substraitgo.ErrNotImplemented, e)
 }

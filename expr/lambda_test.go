@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/v7/expr"
 	ext "github.com/substrait-io/substrait-go/v7/extensions"
+	"github.com/substrait-io/substrait-go/v7/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/encoding/protojson"
 	pb "google.golang.org/protobuf/proto"
@@ -642,130 +643,263 @@ func TestLambdaWithFunctionExprFromProto(t *testing.T) {
 	t.Logf("Body function: %s, return type: %s", scalarFunc.Name(), lambdaType.ShortString())
 }
 
-// TestValidateAllRefs_Valid tests that ValidateAllRefs passes for valid references.
-func TestValidateAllRefs_Valid(t *testing.T) {
-	const lambdaJSON = `{
-		"lambda": {
-			"parameters": {
-				"nullability": "NULLABILITY_REQUIRED",
-				"types": [
-					{"i32": {"nullability": "NULLABILITY_REQUIRED"}}
-				]
-			},
-			"body": {
-				"selection": {
-					"directReference": {"structField": {"field": 0}},
-					"lambdaParameterReference": {"stepsOut": 0}
-				}
-			}
-		}
-	}`
+// TestLambdaBuilder_ValidStepsOut0 tests that Build() passes for valid stepsOut=0 references.
+func TestLambdaBuilder_ValidStepsOut0(t *testing.T) {
+	// Create a parameter reference to field 0 of the lambda
+	params := &types.StructType{
+		Nullability: types.NullabilityRequired,
+		Types:       []types.Type{&types.Int32Type{Nullability: types.NullabilityRequired}},
+	}
+	fieldRef := &expr.FieldReference{
+		Root:      expr.LambdaParameterReference{StepsOut: 0},
+		Reference: &expr.StructFieldRef{Field: 0},
+	}
 
-	var exprProto proto.Expression
-	err := protojson.Unmarshal([]byte(lambdaJSON), &exprProto)
-	require.NoError(t, err)
+	// Build should succeed - valid stepsOut=0 reference
+	lambda, err := expr.NewLambdaBuilder().
+		WithParameters(params).
+		WithBody(fieldRef).
+		Build()
 
-	reg := expr.NewEmptyExtensionRegistry(ext.GetDefaultCollectionWithNoError())
-	goExpr, err := expr.ExprFromProto(&exprProto, nil, reg)
-	require.NoError(t, err)
-
-	lambda := goExpr.(*expr.Lambda)
-
-	// ValidateAllRefs should pass for valid stepsOut=0 reference
-	err = lambda.ValidateAllRefs()
-	require.NoError(t, err, "ValidateAllRefs should pass for valid reference")
-
-	t.Logf("Lambda validated successfully: %s", lambda.String())
+	require.NoError(t, err, "Build should pass for valid stepsOut=0 reference")
+	require.NotNil(t, lambda)
+	t.Logf("Lambda built successfully: %s", lambda.String())
 }
 
-// TestValidateAllRefs_InvalidOuterRef tests that ValidateAllRefs catches
-// invalid outer lambda references (stepsOut > 0 with no outer context).
-func TestValidateAllRefs_InvalidOuterRef(t *testing.T) {
-	// Lambda with stepsOut=1 but no outer lambda exists
-	const lambdaJSON = `{
-		"lambda": {
-			"parameters": {
-				"nullability": "NULLABILITY_REQUIRED",
-				"types": [
-					{"i32": {"nullability": "NULLABILITY_REQUIRED"}}
-				]
-			},
-			"body": {
-				"selection": {
-					"directReference": {"structField": {"field": 0}},
-					"lambdaParameterReference": {"stepsOut": 1}
-				}
-			}
-		}
-	}`
+// TestLambdaBuilder_InvalidOuterRef tests that Build() fails for invalid outer refs.
+func TestLambdaBuilder_InvalidOuterRef(t *testing.T) {
+	// Create a parameter reference with stepsOut=1 but no outer lambda
+	params := &types.StructType{
+		Nullability: types.NullabilityRequired,
+		Types:       []types.Type{&types.Int32Type{Nullability: types.NullabilityRequired}},
+	}
+	fieldRef := &expr.FieldReference{
+		Root:      expr.LambdaParameterReference{StepsOut: 1},
+		Reference: &expr.StructFieldRef{Field: 0},
+	}
 
-	var exprProto proto.Expression
-	err := protojson.Unmarshal([]byte(lambdaJSON), &exprProto)
-	require.NoError(t, err)
+	// Build should fail - stepsOut=1 but no outer lambda
+	lambda, err := expr.NewLambdaBuilder().
+		WithParameters(params).
+		WithBody(fieldRef).
+		Build()
 
-	reg := expr.NewEmptyExtensionRegistry(ext.GetDefaultCollectionWithNoError())
-	goExpr, err := expr.ExprFromProto(&exprProto, nil, reg)
-	require.NoError(t, err, "ExprFromProto should succeed - outer refs are allowed")
-
-	lambda := goExpr.(*expr.Lambda)
-
-	// ValidateAllRefs should fail because stepsOut=1 but no outer lambdas provided
-	err = lambda.ValidateAllRefs()
-	require.Error(t, err, "ValidateAllRefs should fail for invalid outer reference")
+	require.Error(t, err, "Build should fail for invalid outer reference")
+	require.Nil(t, lambda)
 	require.Contains(t, err.Error(), "stepsOut 1")
 	require.Contains(t, err.Error(), "non-existent outer lambda")
-
 	t.Logf("Expected error: %v", err)
 }
 
-// TestValidateAllRefs_ValidNestedLambda tests that ValidateAllRefs passes
-// when validating from the outermost lambda (recursive validation tracks context).
-func TestValidateAllRefs_ValidNestedLambda(t *testing.T) {
-	// Outer lambda containing an inner lambda that references outer's parameter
-	// The inner lambda references field 0 of the outer lambda (stepsOut=1)
-	const nestedLambdaJSON = `{
-		"lambda": {
-			"parameters": {
-				"nullability": "NULLABILITY_REQUIRED",
-				"types": [
-					{"i64": {"nullability": "NULLABILITY_REQUIRED"}},
-					{"i64": {"nullability": "NULLABILITY_REQUIRED"}}
-				]
+// TestLambdaBuilder_InvalidFieldIndex tests that Build() fails when referencing
+// a field index that is out of bounds for the lambda's parameters.
+func TestLambdaBuilder_InvalidFieldIndex(t *testing.T) {
+	// Lambda has 1 parameter but body references field 5
+	params := &types.StructType{
+		Nullability: types.NullabilityRequired,
+		Types:       []types.Type{&types.Int32Type{Nullability: types.NullabilityRequired}},
+	}
+	fieldRef := &expr.FieldReference{
+		Root:      expr.LambdaParameterReference{StepsOut: 0},
+		Reference: &expr.StructFieldRef{Field: 5}, // invalid - only 1 param (index 0)
+	}
+
+	lambda, err := expr.NewLambdaBuilder().
+		WithParameters(params).
+		WithBody(fieldRef).
+		Build()
+
+	require.Error(t, err, "Build should fail for out-of-bounds field index")
+	require.Nil(t, lambda)
+	require.Contains(t, err.Error(), "references parameter 5")
+	require.Contains(t, err.Error(), "only has 1 parameters")
+	t.Logf("Expected error: %v", err)
+}
+
+// TestLambdaBuilder_ValidFieldIndex tests that Build() passes for valid field indices.
+func TestLambdaBuilder_ValidFieldIndex(t *testing.T) {
+	// Lambda has 3 parameters, body references field 2 (valid)
+	params := &types.StructType{
+		Nullability: types.NullabilityRequired,
+		Types: []types.Type{
+			&types.Int32Type{Nullability: types.NullabilityRequired},
+			&types.Int64Type{Nullability: types.NullabilityRequired},
+			&types.StringType{Nullability: types.NullabilityRequired},
+		},
+	}
+	fieldRef := &expr.FieldReference{
+		Root:      expr.LambdaParameterReference{StepsOut: 0},
+		Reference: &expr.StructFieldRef{Field: 2}, // valid - references 3rd param (string)
+	}
+
+	lambda, err := expr.NewLambdaBuilder().
+		WithParameters(params).
+		WithBody(fieldRef).
+		Build()
+
+	require.NoError(t, err, "Build should pass for valid field index")
+	require.NotNil(t, lambda)
+
+	// Verify the resolved type is string
+	require.NotNil(t, lambda.GetType())
+	require.Equal(t, "str", lambda.GetType().ShortString())
+	t.Logf("Lambda built successfully: %s", lambda.String())
+}
+
+// TestLambdaBuilder_NestedLambda tests building nested lambdas with outer refs.
+func TestLambdaBuilder_NestedLambda(t *testing.T) {
+	// Inner lambda references outer's parameter via stepsOut=1
+	innerParams := &types.StructType{
+		Nullability: types.NullabilityRequired,
+		Types:       []types.Type{&types.Int32Type{Nullability: types.NullabilityRequired}},
+	}
+	innerBody := &expr.FieldReference{
+		Root:      expr.LambdaParameterReference{StepsOut: 1}, // references outer
+		Reference: &expr.StructFieldRef{Field: 0},
+	}
+	innerBuilder := expr.NewLambdaBuilder().
+		WithParameters(innerParams).
+		WithBody(innerBody)
+
+	// Outer lambda has 2 parameters
+	outerParams := &types.StructType{
+		Nullability: types.NullabilityRequired,
+		Types: []types.Type{
+			&types.Int64Type{Nullability: types.NullabilityRequired},
+			&types.Int64Type{Nullability: types.NullabilityRequired},
+		},
+	}
+
+	// Build outer lambda - should succeed because inner's stepsOut=1 is valid
+	outerLambda, err := expr.NewLambdaBuilder().
+		WithParameters(outerParams).
+		WithNestedLambda(innerBuilder). // pass the builder, not built lambda
+		Build()
+
+	require.NoError(t, err, "Build should pass - inner lambda validly references outer's parameter")
+	require.NotNil(t, outerLambda)
+
+	// Verify the structure
+	innerLambda, ok := outerLambda.Body.(*expr.Lambda)
+	require.True(t, ok, "Body should be a Lambda")
+	require.Len(t, innerLambda.Parameters.Types, 1)
+
+	t.Logf("Nested lambda built successfully: %s", outerLambda.String())
+}
+
+// TestLambdaBuilder_NestedInvalidOuterRef tests that Build() fails for invalid nested outer refs.
+func TestLambdaBuilder_NestedInvalidOuterRef(t *testing.T) {
+	// Inner lambda references stepsOut=2, but only 1 outer lambda exists
+	innerParams := &types.StructType{
+		Nullability: types.NullabilityRequired,
+		Types:       []types.Type{&types.Int32Type{Nullability: types.NullabilityRequired}},
+	}
+	innerBody := &expr.FieldReference{
+		Root:      expr.LambdaParameterReference{StepsOut: 2}, // invalid - no grandparent
+		Reference: &expr.StructFieldRef{Field: 0},
+	}
+	innerBuilder := expr.NewLambdaBuilder().
+		WithParameters(innerParams).
+		WithBody(innerBody)
+
+	// Outer lambda
+	outerParams := &types.StructType{
+		Nullability: types.NullabilityRequired,
+		Types:       []types.Type{&types.Int64Type{Nullability: types.NullabilityRequired}},
+	}
+
+	// Build should fail - inner references stepsOut=2 but only 1 outer lambda exists
+	outerLambda, err := expr.NewLambdaBuilder().
+		WithParameters(outerParams).
+		WithNestedLambda(innerBuilder).
+		Build()
+
+	require.Error(t, err, "Build should fail - inner references non-existent grandparent")
+	require.Nil(t, outerLambda)
+	require.Contains(t, err.Error(), "stepsOut 2")
+	t.Logf("Expected error: %v", err)
+}
+
+// TestLambdaBuilder_TypeResolution verifies that GetType() returns the correct type
+// after building a lambda, including type resolution for LambdaParameterReferences.
+func TestLambdaBuilder_TypeResolution(t *testing.T) {
+	tests := []struct {
+		name         string
+		paramTypes   []types.Type
+		fieldIndex   int32
+		expectedType string
+	}{
+		{
+			name: "reference first param (i32)",
+			paramTypes: []types.Type{
+				&types.Int32Type{Nullability: types.NullabilityRequired},
 			},
-			"body": {
-				"lambda": {
-					"parameters": {
-						"nullability": "NULLABILITY_REQUIRED",
-						"types": [
-							{"i32": {"nullability": "NULLABILITY_REQUIRED"}}
-						]
-					},
-					"body": {
-						"selection": {
-							"directReference": {"structField": {"field": 0}},
-							"lambdaParameterReference": {"stepsOut": 1}
-						}
-					}
-				}
+			fieldIndex:   0,
+			expectedType: "i32",
+		},
+		{
+			name: "reference second param (i64)",
+			paramTypes: []types.Type{
+				&types.Int32Type{Nullability: types.NullabilityRequired},
+				&types.Int64Type{Nullability: types.NullabilityRequired},
+			},
+			fieldIndex:   1,
+			expectedType: "i64",
+		},
+		{
+			name: "reference third param (string)",
+			paramTypes: []types.Type{
+				&types.Int32Type{Nullability: types.NullabilityRequired},
+				&types.Int64Type{Nullability: types.NullabilityRequired},
+				&types.StringType{Nullability: types.NullabilityRequired},
+			},
+			fieldIndex:   2,
+			expectedType: "str",
+		},
+		{
+			name: "reference float64 param",
+			paramTypes: []types.Type{
+				&types.Float64Type{Nullability: types.NullabilityRequired},
+			},
+			fieldIndex:   0,
+			expectedType: "fp64",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			params := &types.StructType{
+				Nullability: types.NullabilityRequired,
+				Types:       tc.paramTypes,
 			}
-		}
-	}`
+			fieldRef := &expr.FieldReference{
+				Root:      expr.LambdaParameterReference{StepsOut: 0},
+				Reference: &expr.StructFieldRef{Field: tc.fieldIndex},
+			}
 
-	var exprProto proto.Expression
-	err := protojson.Unmarshal([]byte(nestedLambdaJSON), &exprProto)
-	require.NoError(t, err)
+			lambda, err := expr.NewLambdaBuilder().
+				WithParameters(params).
+				WithBody(fieldRef).
+				Build()
 
-	reg := expr.NewEmptyExtensionRegistry(ext.GetDefaultCollectionWithNoError())
-	goExpr, err := expr.ExprFromProto(&exprProto, nil, reg)
-	require.NoError(t, err)
+			require.NoError(t, err, "Build should succeed")
+			require.NotNil(t, lambda)
 
-	outerLambda := goExpr.(*expr.Lambda)
+			// Verify GetType() returns the correct resolved type
+			lambdaType := lambda.GetType()
+			require.NotNil(t, lambdaType, "Lambda should have a resolved type")
+			require.Equal(t, tc.expectedType, lambdaType.ShortString(),
+				"Lambda type should match referenced parameter type")
 
-	// ValidateAllRefs from the outermost lambda - it recursively validates nested lambdas
-	err = outerLambda.ValidateAllRefs()
-	require.NoError(t, err, "ValidateAllRefs should pass - inner lambda validly references outer's parameter")
+			// Also verify body's type matches
+			bodyType := lambda.Body.GetType()
+			require.NotNil(t, bodyType, "Body should have a resolved type")
+			require.Equal(t, tc.expectedType, bodyType.ShortString(),
+				"Body type should match referenced parameter type")
 
-	t.Logf("Nested lambda validated successfully: %s", outerLambda.String())
+			t.Logf("Lambda: %s → type: %s", lambda.String(), lambdaType.ShortString())
+		})
+	}
 }
 
 func TestBasicLambdaRoundTrip(t *testing.T) {
@@ -923,4 +1057,163 @@ func TestLambdaPlanRoundTrip(t *testing.T) {
 		"Round-trip failed!\nOriginal: %v\nResult: %v", originalLambdaProto, resultProto)
 
 	t.Logf("Round-trip successful for lambda with function body")
+}
+
+// TestNestedLambdaRoundTrip tests round-trip serialization of a complex nested lambda
+// with stepsOut > 0, field > 0, and a function in the body.
+// Structure: outer(a: i32, b: i64, c: i32) -> inner(x: i32) -> add(outer.c, x)
+// where outer.c is stepsOut=1, field=2
+func TestNestedLambdaRoundTrip(t *testing.T) {
+	const planJSON = `{
+		"extensionUris": [
+			{
+				"extensionUriAnchor": 1,
+				"uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+			}
+		],
+		"extensions": [
+			{
+				"extensionFunction": {
+					"extensionUriReference": 1,
+					"functionAnchor": 1,
+					"name": "add:i32_i32"
+				}
+			}
+		],
+		"relations": [
+			{
+				"root": {
+					"input": {
+						"project": {
+							"input": {
+								"read": {
+									"baseSchema": {
+										"names": ["values"],
+										"struct": {
+											"types": [{"i32": {"nullability": "NULLABILITY_REQUIRED"}}],
+											"nullability": "NULLABILITY_REQUIRED"
+										}
+									},
+									"namedTable": {"names": ["test_table"]}
+								}
+							},
+							"expressions": [
+								{
+									"lambda": {
+										"parameters": {
+											"nullability": "NULLABILITY_REQUIRED",
+											"types": [
+												{"i32": {"nullability": "NULLABILITY_REQUIRED"}},
+												{"i64": {"nullability": "NULLABILITY_REQUIRED"}},
+												{"i32": {"nullability": "NULLABILITY_REQUIRED"}}
+											]
+										},
+										"body": {
+											"lambda": {
+												"parameters": {
+													"nullability": "NULLABILITY_REQUIRED",
+													"types": [
+														{"i32": {"nullability": "NULLABILITY_REQUIRED"}}
+													]
+												},
+												"body": {
+													"scalarFunction": {
+														"functionReference": 1,
+														"outputType": {"i32": {"nullability": "NULLABILITY_REQUIRED"}},
+														"arguments": [
+															{
+																"value": {
+																	"selection": {
+																		"directReference": {"structField": {"field": 2}},
+																		"lambdaParameterReference": {"stepsOut": 1}
+																	}
+																}
+															},
+															{
+																"value": {
+																	"selection": {
+																		"directReference": {"structField": {"field": 0}},
+																		"lambdaParameterReference": {"stepsOut": 0}
+																	}
+																}
+															}
+														]
+													}
+												}
+											}
+										}
+									}
+								}
+							]
+						}
+					},
+					"names": ["result"]
+				}
+			}
+		]
+	}`
+
+	// Parse JSON → protobuf Plan
+	var plan proto.Plan
+	err := protojson.Unmarshal([]byte(planJSON), &plan)
+	require.NoError(t, err, "Should parse plan JSON")
+
+	// Extract the lambda from the plan
+	projectRel := plan.Relations[0].GetRoot().GetInput().GetProject()
+	require.NotNil(t, projectRel, "Should have project relation")
+
+	originalLambdaProto := projectRel.Expressions[0].GetLambda()
+	require.NotNil(t, originalLambdaProto, "Should have nested lambda expression")
+
+	// Verify nested structure in protobuf
+	innerLambdaProto := originalLambdaProto.GetBody().GetLambda()
+	require.NotNil(t, innerLambdaProto, "Should have inner lambda")
+
+	funcProto := innerLambdaProto.GetBody().GetScalarFunction()
+	require.NotNil(t, funcProto, "Inner body should be scalar function")
+	require.Len(t, funcProto.Arguments, 2, "Function should have 2 args")
+
+	// First arg: stepsOut=1, field=2 (outer.c)
+	arg0 := funcProto.Arguments[0].GetValue().GetSelection()
+	require.Equal(t, uint32(1), arg0.GetLambdaParameterReference().GetStepsOut())
+	require.Equal(t, int32(2), arg0.GetDirectReference().GetStructField().GetField())
+
+	// Second arg: stepsOut=0, field=0 (inner.x)
+	arg1 := funcProto.Arguments[1].GetValue().GetSelection()
+	require.Equal(t, uint32(0), arg1.GetLambdaParameterReference().GetStepsOut())
+	require.Equal(t, int32(0), arg1.GetDirectReference().GetStructField().GetField())
+
+	// Convert protobuf → Go Expression
+	collection := ext.GetDefaultCollectionWithNoError()
+	extSet, err := ext.GetExtensionSet(&plan, collection)
+	require.NoError(t, err, "Should get extension set from plan")
+
+	reg := expr.NewExtensionRegistry(extSet, collection)
+	goExpr, err := expr.ExprFromProto(projectRel.Expressions[0], nil, reg)
+	require.NoError(t, err, "Should convert nested lambda to Go expression")
+
+	// Verify structure in Go
+	outerLambda, ok := goExpr.(*expr.Lambda)
+	require.True(t, ok, "Should be a Lambda expression")
+	require.Len(t, outerLambda.Parameters.Types, 3, "Outer lambda should have 3 parameters")
+
+	innerLambda, ok := outerLambda.Body.(*expr.Lambda)
+	require.True(t, ok, "Body should be inner Lambda")
+	require.Len(t, innerLambda.Parameters.Types, 1, "Inner lambda should have 1 parameter")
+
+	scalarFunc, ok := innerLambda.Body.(*expr.ScalarFunction)
+	require.True(t, ok, "Inner body should be ScalarFunction")
+	require.Equal(t, 2, scalarFunc.NArgs(), "Function should have 2 args")
+	require.Equal(t, "add", scalarFunc.Name(), "Function should be 'add'")
+
+	t.Logf("Nested lambda: %s", outerLambda.String())
+
+	// Convert Go Expression → protobuf
+	resultProto := goExpr.ToProto()
+
+	// Verify round-trip
+	require.True(t, pb.Equal(projectRel.Expressions[0], resultProto),
+		"Round-trip failed for nested lambda!")
+
+	t.Logf("Round-trip successful: nested lambda with stepsOut=1, field=2, and add() function")
 }
