@@ -1118,3 +1118,78 @@ func TestResolveRefToURNAllConditions(t *testing.T) {
 		assert.Contains(t, err.Error(), "unable to resolve extension reference: neither URN reference 0 nor URI reference 0 could be resolved")
 	})
 }
+
+func TestStructReturnTypeWithAny(t *testing.T) {
+	// Test for #182: struct return types with polymorphic (any) fields
+	const structAnyYAML = `---
+urn: extension:test:struct_any
+scalar_functions:
+  - name: "wrap_in_struct"
+    description: "Wraps a value in a struct"
+    impls:
+      - args:
+          - name: value
+            value: any1
+        return: struct<any1>
+aggregate_functions:
+  - name: "first_with_metadata"
+    description: "Returns first value with timestamp"
+    impls:
+      - args:
+          - name: timestamp
+            value: i64
+          - name: value
+            value: any1?
+        return: struct<i64, any1?>
+`
+
+	const uri = "http://localhost/struct_any.yaml"
+	const urn = "extension:test:struct_any"
+
+	var c extensions.Collection
+	require.NoError(t, c.Load(uri, strings.NewReader(structAnyYAML)))
+
+	t.Run("scalar function with struct<any1>", func(t *testing.T) {
+		fn, ok := c.GetScalarFunc(extensions.ID{URN: urn, Name: "wrap_in_struct:any"})
+		require.True(t, ok)
+		require.NotNil(t, fn)
+
+		// Test with i64
+		i64Type := &types.Int64Type{Nullability: types.NullabilityRequired}
+		result, err := fn.ResolveType([]types.Type{i64Type}, extensions.NewSet())
+		require.NoError(t, err)
+
+		structType, ok := result.(*types.StructType)
+		require.True(t, ok)
+		require.Len(t, structType.Types, 1)
+		assert.Equal(t, i64Type, structType.Types[0])
+
+		// Test with string
+		stringType := &types.StringType{Nullability: types.NullabilityRequired}
+		result, err = fn.ResolveType([]types.Type{stringType}, extensions.NewSet())
+		require.NoError(t, err)
+
+		structType, ok = result.(*types.StructType)
+		require.True(t, ok)
+		require.Len(t, structType.Types, 1)
+		assert.Equal(t, stringType, structType.Types[0])
+	})
+
+	t.Run("aggregate function with struct<i64, any1?>", func(t *testing.T) {
+		fn, ok := c.GetAggregateFunc(extensions.ID{URN: urn, Name: "first_with_metadata:i64_any"})
+		require.True(t, ok)
+		require.NotNil(t, fn)
+
+		i64Type := &types.Int64Type{Nullability: types.NullabilityRequired}
+		fp64Nullable := &types.Float64Type{Nullability: types.NullabilityNullable}
+
+		result, err := fn.ResolveType([]types.Type{i64Type, fp64Nullable}, extensions.NewSet())
+		require.NoError(t, err)
+
+		structType, ok := result.(*types.StructType)
+		require.True(t, ok)
+		require.Len(t, structType.Types, 2)
+		assert.Equal(t, i64Type, structType.Types[0])
+		assert.Equal(t, fp64Nullable, structType.Types[1])
+	})
+}

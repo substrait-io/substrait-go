@@ -57,3 +57,30 @@ func TestParameterizedStructType(t *testing.T) {
 		})
 	}
 }
+
+func TestParameterizedStructTypeWithAny(t *testing.T) {
+	// Test for #182: any types should work inside struct return types
+	// Test struct<any1, i32, any2, any1> - covers mixed concrete/any types and any reuse
+	any1Type := &types.AnyType{Name: "any1", Nullability: types.NullabilityRequired}
+	any2Type := &types.AnyType{Name: "any2", Nullability: types.NullabilityNullable}
+	i32Type := &types.Int32Type{Nullability: types.NullabilityRequired}
+	stringType := &types.StringType{Nullability: types.NullabilityRequired}
+	fp64Nullable := &types.Float64Type{Nullability: types.NullabilityNullable}
+
+	structType := &types.ParameterizedStructType{
+		Nullability: types.NullabilityRequired,
+		Types:       []types.FuncDefArgType{any1Type, i32Type, any2Type, any1Type},
+	}
+
+	funcParams := []types.FuncDefArgType{any1Type, any2Type}
+	argTypes := []types.Type{stringType, fp64Nullable}
+
+	result, err := structType.ReturnType(funcParams, argTypes)
+	require.NoError(t, err)
+
+	expected := &types.StructType{
+		Nullability: types.NullabilityRequired,
+		Types:       []types.Type{stringType, i32Type, fp64Nullable, stringType},
+	}
+	require.Equal(t, expected, result)
+}
