@@ -502,6 +502,20 @@ type (
 		MatchWithoutNullability(ot Type) bool
 		ShortString() string
 		GetNullability() Nullability
+
+		// ReturnType resolves this unresolved type to a concrete Type.
+		// Called when this type is used as a function return type (or nested within one).
+		//
+		// funcParameters are the abstract parameter types from the function definition.
+		// argumentTypes are the concrete types passed to the function.
+		//
+		// For polymorphic types (any, any1, etc.): searches funcParameters to find itself,
+		// returns the corresponding concrete type from argumentTypes.
+		// For compound types (struct, list, map): recursively resolves nested types.
+		// For concrete types: returns itself unchanged.
+		//
+		// Note: The same type may appear in both parameter and return positions (e.g., any1
+		// as a parameter and nested inside struct<any1>). This interface covers both cases.
 		ReturnType(funcParameters []FuncDefArgType, argumentTypes []Type) (Type, error)
 
 		// WithParameters returns a new instance of this type with the given parameters.
