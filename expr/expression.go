@@ -323,8 +323,24 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 			return nil, fmt.Errorf("%w: subquery expressions require a subquery converter to be configured", substraitgo.ErrNotImplemented)
 		}
 		return reg.SubqueryFromProto(et.Subquery, baseSchema, reg)
-	}
+	case *proto.Expression_Lambda_:
+		// Convert proto Type_Struct to types.StructType
+		paramTypes := make([]types.Type, len(et.Lambda.Parameters.Types))
+		for i, pt := range et.Lambda.Parameters.Types {
+			paramTypes[i] = types.TypeFromProto(pt)
+		}
+		params := &types.StructType{
+			Types: paramTypes,
+			TypeVariationRef: et.Lambda.Parameters.TypeVariationReference,
+			Nullability: et.Lambda.Parameters.Nullability,
+		}
 
+		body, err := ExprFromProto(et.Lambda.Body, baseSchema, reg)
+		if err != nil {
+			return nil, err
+		}
+		return NewLambda(params, body)
+	}
 	return nil, fmt.Errorf("%w: ExprFromProto: %s", substraitgo.ErrNotImplemented, e)
 }
 
