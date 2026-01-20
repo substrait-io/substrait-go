@@ -84,3 +84,38 @@ func TestParameterizedStructTypeWithAny(t *testing.T) {
 	}
 	require.Equal(t, expected, result)
 }
+
+func TestParameterizedStructTypeWithNestedMapAny(t *testing.T) {
+	// Test struct<any1, map<any1, any2>, any2> - covers nested compound types with any
+	any1Type := &types.AnyType{Name: "any1", Nullability: types.NullabilityRequired}
+	any2Type := &types.AnyType{Name: "any2", Nullability: types.NullabilityRequired}
+	i64Type := &types.Int64Type{Nullability: types.NullabilityRequired}
+	stringType := &types.StringType{Nullability: types.NullabilityRequired}
+
+	mapType := &types.ParameterizedMapType{
+		Nullability: types.NullabilityRequired,
+		Key:         any1Type,
+		Value:       any2Type,
+	}
+
+	structType := &types.ParameterizedStructType{
+		Nullability: types.NullabilityRequired,
+		Types:       []types.FuncDefArgType{any1Type, mapType, any2Type},
+	}
+
+	funcParams := []types.FuncDefArgType{any1Type, any2Type}
+	argTypes := []types.Type{i64Type, stringType}
+
+	result, err := structType.ReturnType(funcParams, argTypes)
+	require.NoError(t, err)
+
+	expected := &types.StructType{
+		Nullability: types.NullabilityRequired,
+		Types: []types.Type{
+			i64Type,
+			&types.MapType{Nullability: types.NullabilityRequired, Key: i64Type, Value: stringType},
+			stringType,
+		},
+	}
+	require.Equal(t, expected, result)
+}
