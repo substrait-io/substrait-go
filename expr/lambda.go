@@ -107,24 +107,25 @@ func (b *LambdaBuilder) buildWithContext(outerParams []*types.StructType) (*Lamb
 // validateAllFieldRefs validates ALL lambda parameter references in the body.
 // Unlike construction-time validation, this validates both stepsOut=0 and stepsOut>0.
 func validateAllFieldRefs(body Expression, currentParams *types.StructType, outerParams []*types.StructType) error {
-	// If body is a Lambda, validate it recursively with updated context
+	// Handle case where body IS a Lambda (e.g., outer lambda's body is inner lambda)
 	if lambda, ok := body.(*Lambda); ok {
 		nestedContext := append([]*types.StructType{currentParams}, outerParams...)
 		return validateAllFieldRefs(lambda.Body, lambda.Parameters, nestedContext)
 	}
 
-	// Validate body itself
+	// Validate body itself (if it's a FieldReference)
 	if err := validateFieldRef(body, currentParams, outerParams); err != nil {
 		return err
 	}
 
-	// Validate children
+	// Validate children - handles case where body CONTAINS lambdas
+	// (e.g., body is a ScalarFunction with a Lambda argument)
 	var validationErr error
 	body.Visit(func(e Expression) Expression {
 		if validationErr != nil {
-			return e
+			return e // Already found an error, skip remaining children
 		}
-		// For nested lambdas, validate recursively with updated context
+		// Nested lambda found in expression tree - validate with updated context
 		if lambda, ok := e.(*Lambda); ok {
 			nestedContext := append([]*types.StructType{currentParams}, outerParams...)
 			validationErr = validateAllFieldRefs(lambda.Body, lambda.Parameters, nestedContext)
@@ -258,10 +259,12 @@ func lambdaFromProto(parameters *types.StructType, body Expression) *Lambda {
 	return &Lambda{Parameters: parameters, Body: resolvedBody}
 }
 
+// GetParameters returns the structure defining this lambda's parameters.
 func (l *Lambda) GetParameters() *types.StructType {
 	return l.Parameters
 }
 
+// GetBody returns the expression that forms the body of this lambda.
 func (l *Lambda) GetBody() Expression {
 	return l.Body
 }

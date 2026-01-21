@@ -668,7 +668,7 @@ func (f *FieldReference) ToProtoFieldRef() *proto.Expression_FieldReference {
 					StepsOut: uint32(r),
 				},
 			}
-			case LambdaParameterReference:
+		case LambdaParameterReference:
 			ret.RootType = &proto.Expression_FieldReference_LambdaParameterReference_{
 				LambdaParameterReference: &proto.Expression_FieldReference_LambdaParameterReference{
 					StepsOut: r.StepsOut,
