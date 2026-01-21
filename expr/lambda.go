@@ -118,22 +118,29 @@ func validateAllFieldRefs(body Expression, currentParams *types.StructType, oute
 		return err
 	}
 
-	// Validate children - handles case where body CONTAINS lambdas
-	// (e.g., body is a ScalarFunction with a Lambda argument)
+	// Recursively validate all descendants - handles deeply nested expressions
+	// (e.g., Cast(FieldRef), ScalarFunction(Cast(FieldRef)))
 	var validationErr error
-	body.Visit(func(e Expression) Expression {
+	var recurse func(e Expression) Expression
+	recurse = func(e Expression) Expression {
 		if validationErr != nil {
-			return e // Already found an error, skip remaining children
+			return e // Already found an error, skip remaining
 		}
-		// Nested lambda found in expression tree - validate with updated context
+		// Nested lambda found - validate with updated context
 		if lambda, ok := e.(*Lambda); ok {
 			nestedContext := append([]*types.StructType{currentParams}, outerParams...)
 			validationErr = validateAllFieldRefs(lambda.Body, lambda.Parameters, nestedContext)
 			return e
 		}
+		// Validate this node
 		validationErr = validateFieldRef(e, currentParams, outerParams)
-		return e
-	})
+		if validationErr != nil {
+			return e
+		}
+		// Recurse into this node's children
+		return e.Visit(recurse)
+	}
+	body.Visit(recurse)
 
 	return validationErr
 }
@@ -164,10 +171,11 @@ func validateFieldRef(e Expression, currentParams *types.StructType, outerParams
 		targetParams = outerParams[outerIndex]
 	}
 
-	// Check if the reference is a struct field
+	// Lambda parameters are a struct, so the first reference segment must be StructFieldRef
 	structRef, ok := fieldRef.Reference.(*StructFieldRef)
 	if !ok {
-		return nil
+		return fmt.Errorf("%w: lambda parameter reference must use StructFieldRef, got %T",
+			substraitgo.ErrInvalidExpr, fieldRef.Reference)
 	}
 
 	// Validate the field index is within bounds
@@ -178,6 +186,9 @@ func validateFieldRef(e Expression, currentParams *types.StructType, outerParams
 		}
 		return fmt.Errorf("%w: lambda body references outer parameter %d (stepsOut=%d) but outer lambda only has %d parameters",
 			substraitgo.ErrInvalidExpr, structRef.Field, lambdaRef.StepsOut, len(targetParams.Types))
+	} else if int(structRef.Field) < 0 {
+		return fmt.Errorf("%w: lambda body references negative field index %d",
+			substraitgo.ErrInvalidExpr, structRef.Field)
 	}
 
 	return nil
@@ -187,14 +198,32 @@ func validateFieldRef(e Expression, currentParams *types.StructType, outerParams
 // FieldReferences that have LambdaParameterReference roots.
 // - stepsOut=0: resolves against params (this lambda's parameters)
 // - stepsOut>0: resolves against outerParams (outer lambda parameters)
+// For nested lambdas, recursively resolves with updated outer context.
+// Recurses into all descendants (e.g., Cast(FieldRef), ScalarFunction(Cast(FieldRef))).
 func resolveLambdaParamTypes(body Expression, params *types.StructType, outerParams []*types.StructType) Expression {
 	// First, try to resolve the body itself if it's a FieldReference
 	resolved := tryResolveFieldRef(body, params, outerParams)
 
-	// Then walk children via Visit to handle nested FieldReferences
-	return resolved.Visit(func(e Expression) Expression {
-		return tryResolveFieldRef(e, params, outerParams)
-	})
+	// Recursively walk all descendants via Visit
+	var recurse func(e Expression) Expression
+	recurse = func(e Expression) Expression {
+		// Handle nested lambdas: resolve their bodies with updated context
+		if nestedLambda, ok := e.(*Lambda); ok {
+			nestedContext := append([]*types.StructType{params}, outerParams...)
+			resolvedNestedBody := resolveLambdaParamTypes(nestedLambda.Body, nestedLambda.Parameters, nestedContext)
+			if resolvedNestedBody != nestedLambda.Body {
+				return &Lambda{
+					Parameters: nestedLambda.Parameters,
+					Body:       resolvedNestedBody,
+				}
+			}
+			return e
+		}
+		// Try to resolve this node, then recurse into its children
+		resolvedNode := tryResolveFieldRef(e, params, outerParams)
+		return resolvedNode.Visit(recurse)
+	}
+	return resolved.Visit(recurse)
 }
 
 // tryResolveFieldRef attempts to resolve the type of a FieldReference with
@@ -231,7 +260,7 @@ func tryResolveFieldRef(e Expression, currentParams *types.StructType, outerPara
 	// Guard against out-of-bounds field index before resolving type
 	// (validation happens after resolution, so we need to be defensive here)
 	if structRef, ok := fieldRef.Reference.(*StructFieldRef); ok {
-		if int(structRef.Field) >= len(targetParams.Types) {
+		if int(structRef.Field) >= len(targetParams.Types) || int(structRef.Field) < 0 {
 			return e // Out of bounds, leave unresolved (validation will catch this)
 		}
 	}
