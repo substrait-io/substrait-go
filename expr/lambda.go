@@ -21,8 +21,9 @@ type Lambda struct {
 //
 // For nested lambdas, use WithNestedLambda() instead of WithBody().
 type LambdaBuilder struct {
-	parameters *types.StructType
-	body       interface{} // Expression or *LambdaBuilder (internal)
+	parameters    *types.StructType
+	bodyExpr      Expression
+	nestedBuilder *LambdaBuilder
 }
 
 // NewLambdaBuilder creates a new LambdaBuilder.
@@ -39,14 +40,16 @@ func (b *LambdaBuilder) WithParameters(params *types.StructType) *LambdaBuilder 
 // WithBody sets the lambda's body to an Expression.
 // Use WithNestedLambda() instead if the body is another lambda being built.
 func (b *LambdaBuilder) WithBody(body Expression) *LambdaBuilder {
-	b.body = body
+	b.bodyExpr = body
+	b.nestedBuilder = nil // Clear alternative
 	return b
 }
 
 // WithNestedLambda sets the lambda's body to a nested LambdaBuilder.
 // The nested lambda will be built with proper outer context when Build() is called.
 func (b *LambdaBuilder) WithNestedLambda(nested *LambdaBuilder) *LambdaBuilder {
-	b.body = nested
+	b.nestedBuilder = nested
+	b.bodyExpr = nil // Clear alternative
 	return b
 }
 
@@ -73,26 +76,21 @@ func (b *LambdaBuilder) buildWithContext(outerParams []*types.StructType) (*Lamb
 		}
 	}
 
-	// Validate body is set
-	if b.body == nil {
-		return nil, fmt.Errorf("%w: lambda must have a body expression", substraitgo.ErrInvalidExpr)
-	}
-
 	// Get/build the body
 	var body Expression
-	switch bd := b.body.(type) {
-	case *LambdaBuilder:
+	switch {
+	case b.nestedBuilder != nil:
 		// Nested lambda: build it with this lambda as outer context
 		nestedContext := append([]*types.StructType{b.parameters}, outerParams...)
-		built, err := bd.buildWithContext(nestedContext) // recursive
+		built, err := b.nestedBuilder.buildWithContext(nestedContext) // recursive
 		if err != nil {
 			return nil, err
 		}
 		body = built
-	case Expression:
-		body = bd
+	case b.bodyExpr != nil:
+		body = b.bodyExpr
 	default:
-		return nil, fmt.Errorf("%w: invalid body type %T", substraitgo.ErrInvalidExpr, b.body)
+		return nil, fmt.Errorf("%w: lambda must have a body expression", substraitgo.ErrInvalidExpr)
 	}
 
 	// Resolve types for FieldReferences with LambdaParameterReference roots
