@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	substraitgo "github.com/substrait-io/substrait-go/v7"
 	"github.com/substrait-io/substrait-go/v7/expr"
 	ext "github.com/substrait-io/substrait-go/v7/extensions"
 	"github.com/substrait-io/substrait-go/v7/types"
@@ -957,6 +958,333 @@ func TestLambdaBuilder_OuterRefTypeResolution(t *testing.T) {
 
 	t.Logf("Outer lambda: %s", outerLambda.String())
 	t.Logf("Inner lambda type (from outer.c): %s", innerType.ShortString())
+}
+
+// TestLambdaBuilder_DeeplyNestedFieldRef tests that validation and type resolution
+// work for FieldReferences nested inside other expressions (e.g., Cast(FieldRef)).
+// This exercises the recursive traversal in validateAllFieldRefs and resolveLambdaParamTypes.
+func TestLambdaBuilder_DeeplyNestedFieldRef(t *testing.T) {
+	// Create a lambda with body: Cast(FieldReference($0))
+	// The FieldRef is nested inside Cast, requiring recursive traversal
+
+	params := &types.StructType{
+		Types:       []types.Type{&types.Int32Type{Nullability: types.NullabilityRequired}},
+		Nullability: types.NullabilityRequired,
+	}
+
+	// Create a FieldReference to parameter 0
+	fieldRef := &expr.FieldReference{
+		Root:      expr.LambdaParameterReference{StepsOut: 0},
+		Reference: &expr.StructFieldRef{Field: 0},
+	}
+
+	// Wrap it in a Cast expression
+	castExpr := &expr.Cast{
+		Type:            &types.Int64Type{Nullability: types.NullabilityRequired},
+		Input:           fieldRef,
+		FailureBehavior: types.BehaviorUnspecified,
+	}
+
+	// Build lambda with Cast(FieldRef) as body
+	lambda, err := expr.NewLambdaBuilder().
+		WithParameters(params).
+		WithBody(castExpr).
+		Build()
+
+	require.NoError(t, err, "Should build lambda with Cast(FieldRef) body")
+	require.NotNil(t, lambda)
+
+	// Verify the nested FieldRef has its type resolved
+	resultCast, ok := lambda.Body.(*expr.Cast)
+	require.True(t, ok, "Body should be Cast")
+
+	resultFieldRef, ok := resultCast.Input.(*expr.FieldReference)
+	require.True(t, ok, "Cast input should be FieldReference")
+
+	// This is the key assertion - type should be resolved despite being nested
+	require.NotNil(t, resultFieldRef.GetType(), "Nested FieldRef should have type resolved")
+	require.Equal(t, "i32", resultFieldRef.GetType().ShortString(), "Should resolve to i32")
+
+	t.Logf("Lambda with deeply nested FieldRef: %s", lambda.String())
+}
+
+// TestLambdaBuilder_DeeplyNestedInvalidFieldRef tests that validation catches
+// invalid FieldReferences even when nested inside other expressions.
+func TestLambdaBuilder_DeeplyNestedInvalidFieldRef(t *testing.T) {
+	params := &types.StructType{
+		Types:       []types.Type{&types.Int32Type{Nullability: types.NullabilityRequired}},
+		Nullability: types.NullabilityRequired,
+	}
+
+	// Create a FieldReference to parameter 5 (out of bounds - only 1 param)
+	fieldRef := &expr.FieldReference{
+		Root:      expr.LambdaParameterReference{StepsOut: 0},
+		Reference: &expr.StructFieldRef{Field: 5}, // Invalid!
+	}
+
+	// Wrap it in a Cast expression - the invalid ref is now nested
+	castExpr := &expr.Cast{
+		Type:            &types.Int64Type{Nullability: types.NullabilityRequired},
+		Input:           fieldRef,
+		FailureBehavior: types.BehaviorUnspecified,
+	}
+
+	// Build should fail because validation recurses into Cast
+	_, err := expr.NewLambdaBuilder().
+		WithParameters(params).
+		WithBody(castExpr).
+		Build()
+
+	require.Error(t, err, "Should fail for invalid nested FieldRef")
+	require.ErrorIs(t, err, substraitgo.ErrInvalidExpr)
+	require.Contains(t, err.Error(), "parameter 5")
+
+	t.Logf("Correctly caught deeply nested invalid ref: %v", err)
+}
+
+// TestNestedLambdaFromProto_OuterRefTypeResolution verifies that when parsing
+// a nested lambda from proto, stepsOut > 0 references get their types resolved.
+// This exercises the nested lambda handling in resolveLambdaParamTypes.
+func TestNestedLambdaFromProto_OuterRefTypeResolution(t *testing.T) {
+	// Nested lambda: outer(x: i32) -> inner(y: fp64) -> $x (stepsOut=1, field=0)
+	// The inner lambda references outer's parameter, which requires type resolution
+	// to happen during the Visit walk in resolveLambdaParamTypes.
+	const planJSON = `{
+		"relations": [
+			{
+				"root": {
+					"input": {
+						"project": {
+							"input": {
+								"read": {
+									"baseSchema": {
+										"names": ["dummy"],
+										"struct": {
+											"types": [{"i32": {"nullability": "NULLABILITY_REQUIRED"}}],
+											"nullability": "NULLABILITY_REQUIRED"
+										}
+									},
+									"namedTable": {"names": ["test"]}
+								}
+							},
+							"expressions": [
+								{
+									"lambda": {
+										"parameters": {
+											"nullability": "NULLABILITY_REQUIRED",
+											"types": [
+												{"i32": {"nullability": "NULLABILITY_REQUIRED"}}
+											]
+										},
+										"body": {
+											"lambda": {
+												"parameters": {
+													"nullability": "NULLABILITY_REQUIRED",
+													"types": [
+														{"fp64": {"nullability": "NULLABILITY_REQUIRED"}}
+													]
+												},
+												"body": {
+													"selection": {
+														"directReference": {
+															"structField": {"field": 0}
+														},
+														"lambdaParameterReference": {"stepsOut": 1}
+													}
+												}
+											}
+										}
+									}
+								}
+							]
+						}
+					}
+				}
+			}
+		]
+	}`
+
+	var plan proto.Plan
+	err := protojson.Unmarshal([]byte(planJSON), &plan)
+	require.NoError(t, err)
+
+	projectRel := plan.Relations[0].GetRoot().GetInput().GetProject()
+	require.NotNil(t, projectRel)
+
+	// Parse to Go expression
+	collection := ext.GetDefaultCollectionWithNoError()
+	extSet, err := ext.GetExtensionSet(&plan, collection)
+	require.NoError(t, err)
+
+	reg := expr.NewExtensionRegistry(extSet, collection)
+	goExpr, err := expr.ExprFromProto(projectRel.Expressions[0], nil, reg)
+	require.NoError(t, err)
+
+	// Navigate to the inner lambda's body (the FieldReference with stepsOut=1)
+	outerLambda := goExpr.(*expr.Lambda)
+	innerLambda := outerLambda.Body.(*expr.Lambda)
+	fieldRef := innerLambda.Body.(*expr.FieldReference)
+
+	// Verify the stepsOut=1 reference has its type resolved
+	// This is the key assertion - it proves resolveLambdaParamTypes recursed into the nested lambda
+	require.NotNil(t, fieldRef.GetType(),
+		"stepsOut=1 FieldRef should have type resolved when parsing nested lambda from proto")
+	require.Equal(t, "i32", fieldRef.GetType().ShortString(),
+		"Should resolve to outer lambda's param type (i32)")
+
+	t.Logf("Nested lambda with resolved outer ref: %s", outerLambda.String())
+}
+
+// TestLambdaBuilder_DoublyNestedFieldRef tests FieldRef nested two levels deep:
+// Cast(Cast(FieldRef)) - ensures recursive traversal goes beyond depth 1
+func TestLambdaBuilder_DoublyNestedFieldRef(t *testing.T) {
+	params := &types.StructType{
+		Types:       []types.Type{&types.Int32Type{Nullability: types.NullabilityRequired}},
+		Nullability: types.NullabilityRequired,
+	}
+
+	// Build: Cast(Cast(FieldRef($0)))
+	fieldRef := &expr.FieldReference{
+		Root:      expr.LambdaParameterReference{StepsOut: 0},
+		Reference: &expr.StructFieldRef{Field: 0},
+	}
+
+	innerCast := &expr.Cast{
+		Type:            &types.Int64Type{Nullability: types.NullabilityRequired},
+		Input:           fieldRef,
+		FailureBehavior: types.BehaviorUnspecified,
+	}
+
+	outerCast := &expr.Cast{
+		Type:            &types.StringType{Nullability: types.NullabilityRequired},
+		Input:           innerCast,
+		FailureBehavior: types.BehaviorUnspecified,
+	}
+
+	lambda, err := expr.NewLambdaBuilder().
+		WithParameters(params).
+		WithBody(outerCast).
+		Build()
+
+	require.NoError(t, err)
+	require.NotNil(t, lambda)
+
+	// Navigate to the deeply nested FieldRef (2 levels deep)
+	resultOuter := lambda.Body.(*expr.Cast)
+	resultInner := resultOuter.Input.(*expr.Cast)
+	resultFieldRef := resultInner.Input.(*expr.FieldReference)
+
+	// Verify type is resolved even at depth 2
+	require.NotNil(t, resultFieldRef.GetType(), "FieldRef at depth 2 should have type resolved")
+	require.Equal(t, "i32", resultFieldRef.GetType().ShortString())
+}
+
+// TestLambdaAsArgumentFromProto tests type resolution when a Lambda is an ARGUMENT
+// to another expression (not the body itself). This exercises the nested lambda
+// handling inside the recurse callback in resolveLambdaParamTypes.
+// Structure: outer(x: i32) -> if_then(condition, inner(y) -> $x)
+// The inner lambda is an argument to if_then, not the body of outer.
+func TestLambdaAsArgumentFromProto(t *testing.T) {
+	// This JSON has: outer lambda whose body is an if_then expression
+	// One branch of the if_then contains an inner lambda that references outer's param
+	const planJSON = `{
+		"relations": [
+			{
+				"root": {
+					"input": {
+						"project": {
+							"input": {
+								"read": {
+									"baseSchema": {
+										"names": ["dummy"],
+										"struct": {
+											"types": [{"i32": {"nullability": "NULLABILITY_REQUIRED"}}],
+											"nullability": "NULLABILITY_REQUIRED"
+										}
+									},
+									"namedTable": {"names": ["test"]}
+								}
+							},
+							"expressions": [
+								{
+									"lambda": {
+										"parameters": {
+											"nullability": "NULLABILITY_REQUIRED",
+											"types": [
+												{"i32": {"nullability": "NULLABILITY_REQUIRED"}}
+											]
+										},
+										"body": {
+											"ifThen": {
+												"ifs": [
+													{
+														"if": {
+															"literal": {"boolean": true}
+														},
+														"then": {
+															"lambda": {
+																"parameters": {
+																	"nullability": "NULLABILITY_REQUIRED",
+																	"types": [
+																		{"fp64": {"nullability": "NULLABILITY_REQUIRED"}}
+																	]
+																},
+																"body": {
+																	"selection": {
+																		"directReference": {
+																			"structField": {"field": 0}
+																		},
+																		"lambdaParameterReference": {"stepsOut": 1}
+																	}
+																}
+															}
+														}
+													}
+												],
+												"else": {
+													"literal": {"i32": 0}
+												}
+											}
+										}
+									}
+								}
+							]
+						}
+					}
+				}
+			}
+		]
+	}`
+
+	var plan proto.Plan
+	err := protojson.Unmarshal([]byte(planJSON), &plan)
+	require.NoError(t, err)
+
+	projectRel := plan.Relations[0].GetRoot().GetInput().GetProject()
+	require.NotNil(t, projectRel)
+
+	// Parse to Go expression
+	collection := ext.GetDefaultCollectionWithNoError()
+	extSet, err := ext.GetExtensionSet(&plan, collection)
+	require.NoError(t, err)
+
+	reg := expr.NewExtensionRegistry(extSet, collection)
+	goExpr, err := expr.ExprFromProto(projectRel.Expressions[0], nil, reg)
+	require.NoError(t, err)
+
+	// Navigate: outer lambda -> if_then body -> first clause's then -> inner lambda -> body
+	outerLambda := goExpr.(*expr.Lambda)
+	ifThenBody := outerLambda.Body.(*expr.IfThen)
+	innerLambda := ifThenBody.IfPair(0).Then.(*expr.Lambda)
+	fieldRef := innerLambda.Body.(*expr.FieldReference)
+
+	// The key assertion: stepsOut=1 ref should be resolved even though
+	// the inner lambda is an ARGUMENT to if_then, not the body of outer
+	require.NotNil(t, fieldRef.GetType(),
+		"stepsOut=1 ref should be resolved when lambda is an argument (not body)")
+	require.Equal(t, "i32", fieldRef.GetType().ShortString())
+
+	t.Logf("Lambda-as-argument resolved correctly: %s", outerLambda.String())
 }
 
 func TestBasicLambdaRoundTrip(t *testing.T) {

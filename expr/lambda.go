@@ -201,13 +201,27 @@ func validateFieldRef(e Expression, currentParams *types.StructType, outerParams
 // For nested lambdas, recursively resolves with updated outer context.
 // Recurses into all descendants (e.g., Cast(FieldRef), ScalarFunction(Cast(FieldRef))).
 func resolveLambdaParamTypes(body Expression, params *types.StructType, outerParams []*types.StructType) Expression {
-	// First, try to resolve the body itself if it's a FieldReference
+	// Handle if body itself is a nested lambda - must check BEFORE Visit
+	// because Lambda.Visit would bypass our nested lambda context handling
+	if nestedLambda, ok := body.(*Lambda); ok {
+		nestedContext := append([]*types.StructType{params}, outerParams...)
+		resolvedNestedBody := resolveLambdaParamTypes(nestedLambda.Body, nestedLambda.Parameters, nestedContext)
+		if resolvedNestedBody != nestedLambda.Body {
+			return &Lambda{
+				Parameters: nestedLambda.Parameters,
+				Body:       resolvedNestedBody,
+			}
+		}
+		return body
+	}
+
+	// Try to resolve the body itself if it's a FieldReference
 	resolved := tryResolveFieldRef(body, params, outerParams)
 
 	// Recursively walk all descendants via Visit
 	var recurse func(e Expression) Expression
 	recurse = func(e Expression) Expression {
-		// Handle nested lambdas: resolve their bodies with updated context
+		// Handle nested lambdas found in expression tree (e.g., as function args)
 		if nestedLambda, ok := e.(*Lambda); ok {
 			nestedContext := append([]*types.StructType{params}, outerParams...)
 			resolvedNestedBody := resolveLambdaParamTypes(nestedLambda.Body, nestedLambda.Parameters, nestedContext)
