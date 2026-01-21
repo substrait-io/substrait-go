@@ -96,7 +96,7 @@ func (b *LambdaBuilder) buildWithContext(outerParams []*types.StructType) (*Lamb
 	}
 
 	// Resolve types for FieldReferences with LambdaParameterReference roots
-	resolvedBody := resolveLambdaParamTypes(body, b.parameters)
+	resolvedBody := resolveLambdaParamTypes(body, b.parameters, outerParams)
 
 	// Validate ALL lambda parameter references (stepsOut=0 and stepsOut>0)
 	if err := validateAllFieldRefs(resolvedBody, b.parameters, outerParams); err != nil {
@@ -185,28 +185,30 @@ func validateFieldRef(e Expression, currentParams *types.StructType, outerParams
 }
 
 // resolveLambdaParamTypes walks the body expression and resolves types for any
-// FieldReferences that have LambdaParameterReference roots (StepsOut == 0).
-func resolveLambdaParamTypes(body Expression, params *types.StructType) Expression {
+// FieldReferences that have LambdaParameterReference roots.
+// - stepsOut=0: resolves against params (this lambda's parameters)
+// - stepsOut>0: resolves against outerParams (outer lambda parameters)
+func resolveLambdaParamTypes(body Expression, params *types.StructType, outerParams []*types.StructType) Expression {
 	// First, try to resolve the body itself if it's a FieldReference
-	resolved := tryResolveFieldRef(body, params)
+	resolved := tryResolveFieldRef(body, params, outerParams)
 
 	// Then walk children via Visit to handle nested FieldReferences
 	return resolved.Visit(func(e Expression) Expression {
-		return tryResolveFieldRef(e, params)
+		return tryResolveFieldRef(e, params, outerParams)
 	})
 }
 
 // tryResolveFieldRef attempts to resolve the type of a FieldReference with
 // LambdaParameterReference root. Returns the expression unchanged if not applicable.
-func tryResolveFieldRef(e Expression, params *types.StructType) Expression {
+func tryResolveFieldRef(e Expression, currentParams *types.StructType, outerParams []*types.StructType) Expression {
 	fieldRef, ok := e.(*FieldReference)
 	if !ok {
 		return e
 	}
 
 	lambdaRef, ok := fieldRef.Root.(LambdaParameterReference)
-	if !ok || lambdaRef.StepsOut != 0 {
-		return e // Not a reference to this lambda's parameters
+	if !ok {
+		return e // Not a lambda parameter reference
 	}
 
 	// Already has a type resolved
@@ -214,9 +216,30 @@ func tryResolveFieldRef(e Expression, params *types.StructType) Expression {
 		return e
 	}
 
-	// Resolve the type using the lambda parameters as the base struct type
+	// Determine which lambda's parameters to resolve against
+	var targetParams *types.StructType
+	if lambdaRef.StepsOut == 0 {
+		targetParams = currentParams
+	} else {
+		// stepsOut 1 = outerParams[0], stepsOut 2 = outerParams[1], etc.
+		outerIndex := int(lambdaRef.StepsOut) - 1
+		if outerIndex >= len(outerParams) {
+			return e // Can't resolve without outer context
+		}
+		targetParams = outerParams[outerIndex]
+	}
+
+	// Guard against out-of-bounds field index before resolving type
+	// (validation happens after resolution, so we need to be defensive here)
+	if structRef, ok := fieldRef.Reference.(*StructFieldRef); ok {
+		if int(structRef.Field) >= len(targetParams.Types) {
+			return e // Out of bounds, leave unresolved (validation will catch this)
+		}
+	}
+
+	// Resolve the type using the target lambda's parameters
 	if refSeg, ok := fieldRef.Reference.(ReferenceSegment); ok {
-		resolvedType, err := refSeg.GetType(params)
+		resolvedType, err := refSeg.GetType(targetParams)
 		if err != nil {
 			return e // Can't resolve, leave as-is
 		}
@@ -231,8 +254,9 @@ func tryResolveFieldRef(e Expression, params *types.StructType) Expression {
 
 // lambdaFromProto creates a Lambda directly from protobuf without builder validation.
 // This is used internally when parsing from protobuf where the structure is already valid.
+// Note: Only stepsOut=0 refs are resolved; outer refs can't be resolved without context.
 func lambdaFromProto(parameters *types.StructType, body Expression) *Lambda {
-	resolvedBody := resolveLambdaParamTypes(body, parameters)
+	resolvedBody := resolveLambdaParamTypes(body, parameters, nil)
 	return &Lambda{Parameters: parameters, Body: resolvedBody}
 }
 

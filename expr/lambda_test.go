@@ -902,6 +902,63 @@ func TestLambdaBuilder_TypeResolution(t *testing.T) {
 	}
 }
 
+// TestLambdaBuilder_OuterRefTypeResolution verifies that GetType() correctly resolves
+// types for outer lambda parameter references (stepsOut > 0).
+func TestLambdaBuilder_OuterRefTypeResolution(t *testing.T) {
+	// Outer lambda: (a: i32, b: i64, c: string)
+	// Inner lambda: (x: fp64) -> outer.c (stepsOut=1, field=2) → should be string
+	outerParams := &types.StructType{
+		Nullability: types.NullabilityRequired,
+		Types: []types.Type{
+			&types.Int32Type{Nullability: types.NullabilityRequired},
+			&types.Int64Type{Nullability: types.NullabilityRequired},
+			&types.StringType{Nullability: types.NullabilityRequired},
+		},
+	}
+
+	innerParams := &types.StructType{
+		Nullability: types.NullabilityRequired,
+		Types:       []types.Type{&types.Float64Type{Nullability: types.NullabilityRequired}},
+	}
+
+	// Reference outer.c (stepsOut=1, field=2)
+	outerRef := &expr.FieldReference{
+		Root:      expr.LambdaParameterReference{StepsOut: 1},
+		Reference: &expr.StructFieldRef{Field: 2},
+	}
+
+	innerBuilder := expr.NewLambdaBuilder().
+		WithParameters(innerParams).
+		WithBody(outerRef)
+
+	outerLambda, err := expr.NewLambdaBuilder().
+		WithParameters(outerParams).
+		WithNestedLambda(innerBuilder).
+		Build()
+
+	require.NoError(t, err)
+	require.NotNil(t, outerLambda)
+
+	// Get inner lambda
+	innerLambda, ok := outerLambda.Body.(*expr.Lambda)
+	require.True(t, ok)
+
+	// Verify inner lambda's type is resolved to string (outer.c's type)
+	innerType := innerLambda.GetType()
+	require.NotNil(t, innerType, "Inner lambda should have resolved type")
+	require.Equal(t, "str", innerType.ShortString(),
+		"Inner lambda type should be string (from outer.c)")
+
+	// Verify the body's type is also resolved
+	bodyType := innerLambda.Body.GetType()
+	require.NotNil(t, bodyType, "Body should have resolved type")
+	require.Equal(t, "str", bodyType.ShortString(),
+		"Body type should be string (outer param at field 2)")
+
+	t.Logf("Outer lambda: %s", outerLambda.String())
+	t.Logf("Inner lambda type (from outer.c): %s", innerType.ShortString())
+}
+
 func TestBasicLambdaRoundTrip(t *testing.T) {
 	const lambdaJSON = `{
 		"lambda": {
