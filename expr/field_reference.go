@@ -629,7 +629,7 @@ func (f *FieldReference) String() string {
 	} else if outerRef, ok := f.Root.(OuterReference); ok {
 		fmt.Fprintf(&b, "[outerRef:%d]", outerRef)
 	} else if lambdaRef, ok := f.Root.(LambdaParameterReference); ok {
-		fmt.Fprintf(&b, "[lambdaParam:%d]", lambdaRef.StepsOut)
+		fmt.Fprintf(&b, "[lambdaParamRef:%d]", lambdaRef.StepsOut)
 	}
 
 	var typ string
