@@ -69,6 +69,62 @@ func TestLambda_BasicMethods(t *testing.T) {
 	require.Equal(t, newBody, newLambda.(*expr.Lambda).GetBody())
 }
 
+// TestLambdaBuilder_ValidationErrors tests error cases in the builder.
+func TestLambdaBuilder_ValidationErrors(t *testing.T) {
+	body := &expr.PrimitiveLiteral[int32]{Value: 42, Type: &types.Int32Type{Nullability: types.NullabilityRequired}}
+
+	// Error: nil parameters
+	_, err := expr.NewLambdaBuilder().WithBody(body).Build()
+	require.ErrorIs(t, err, substraitgo.ErrInvalidExpr)
+	require.Contains(t, err.Error(), "must have parameters")
+
+	// Error: no body
+	params := &types.StructType{
+		Types:       []types.Type{&types.Int32Type{Nullability: types.NullabilityRequired}},
+		Nullability: types.NullabilityRequired,
+	}
+	_, err = expr.NewLambdaBuilder().WithParameters(params).Build()
+	require.ErrorIs(t, err, substraitgo.ErrInvalidExpr)
+	require.Contains(t, err.Error(), "must have a body")
+
+	// Error: wrong nullability on parameters struct
+	badNullParams := &types.StructType{
+		Types:       []types.Type{&types.Int32Type{Nullability: types.NullabilityRequired}},
+		Nullability: types.NullabilityNullable, // Should be Required
+	}
+	_, err = expr.NewLambdaBuilder().WithParameters(badNullParams).WithBody(body).Build()
+	require.ErrorIs(t, err, substraitgo.ErrInvalidExpr)
+	require.Contains(t, err.Error(), "NULLABILITY_REQUIRED")
+
+	// Error: nil parameter type in list
+	nilParamType := &types.StructType{
+		Types:       []types.Type{nil},
+		Nullability: types.NullabilityRequired,
+	}
+	_, err = expr.NewLambdaBuilder().WithParameters(nilParamType).WithBody(body).Build()
+	require.ErrorIs(t, err, substraitgo.ErrInvalidExpr)
+	require.Contains(t, err.Error(), "nil type")
+
+	// Error: outer lambda parameter out of bounds (stepsOut > 0 case)
+	outerParams := &types.StructType{
+		Types:       []types.Type{&types.Int32Type{Nullability: types.NullabilityRequired}},
+		Nullability: types.NullabilityRequired,
+	}
+	innerParams := &types.StructType{
+		Types:       []types.Type{&types.Float64Type{Nullability: types.NullabilityRequired}},
+		Nullability: types.NullabilityRequired,
+	}
+	// Inner body references outer.field(5) but outer only has 1 param
+	badOuterRef := &expr.FieldReference{
+		Root:      expr.LambdaParameterReference{StepsOut: 1},
+		Reference: &expr.StructFieldRef{Field: 5}, // Out of bounds!
+	}
+	innerBuilder := expr.NewLambdaBuilder().WithParameters(innerParams).WithBody(badOuterRef)
+	_, err = expr.NewLambdaBuilder().WithParameters(outerParams).WithNestedLambda(innerBuilder).Build()
+	require.ErrorIs(t, err, substraitgo.ErrInvalidExpr)
+	require.Contains(t, err.Error(), "outer parameter")
+}
+
 // TestLoadLambdaPlan verifies we can parse a full Substrait plan
 // containing a lambda expression from JSON into protobuf structures.
 func TestBasicLambdaPlan(t *testing.T) {
