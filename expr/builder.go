@@ -3,6 +3,9 @@
 package expr
 
 import (
+	"fmt"
+
+	substraitgo "github.com/substrait-io/substrait-go/v7"
 	"github.com/substrait-io/substrait-go/v7/extensions"
 	"github.com/substrait-io/substrait-go/v7/types"
 )
@@ -18,9 +21,9 @@ type Builder interface {
 
 // ExprBuilder is the parent context for all the expression builders.
 // It maintains a pointer to an extension registry and, optionally,
-// a pointer to a base input schema. This allows less verbose expression
-// building as it isn't necessary to pass these to every `New*` function
-// to construct the expressions.
+// a pointer to a base input schema and a slice of lambda parameters.
+// This allows less verbose expressionbuilding as it isn't necessary
+// to pass these to every `New*` function to construct the expressions.
 //
 // This is intended to be used like:
 //
@@ -36,8 +39,9 @@ type Builder interface {
 //
 // See the unit tests for additional examples / constructs.
 type ExprBuilder struct {
-	Reg        ExtensionRegistry
-	BaseSchema *types.RecordType
+	Reg           ExtensionRegistry
+	BaseSchema    *types.RecordType
+	lambdaContext []*types.StructType // keeps track of the lambda context for nested lambdas
 }
 
 // Literal returns a wrapped literal that can be passed as an argument
@@ -152,6 +156,104 @@ func (e *ExprBuilder) Cast(from Builder, to types.Type) *castBuilder {
 	return &castBuilder{
 		toType: to, input: from,
 	}
+}
+
+// Lambda returns a builder for constructing a Lambda expression with the
+// given parameters. The body can be set via the Body method, which accepts
+// any Builder (expressions, functions, or nested lambdas).
+//
+// When building nested lambdas (e.g., a function that takes a lambda argument
+// which itself references outer lambda parameters), the ExprBuilder maintains
+// a context stack that allows inner lambdas to validate stepsOut references
+// against outer lambda parameters.
+//
+// Example:
+//
+//	// (x -> double_output(y -> x + y))
+//	lambda, err := b.Lambda(xParams).Body(
+//	    b.ScalarFunc(doubleOutputID).Args(
+//	        b.Lambda(yParams).Body(xPlusYExpr),
+//	    ),
+//	).Build()
+func (e *ExprBuilder) Lambda(params *types.StructType) *lambdaBuilder {
+	return &lambdaBuilder{
+		b:      e,
+		params: params,
+	}
+}
+
+type lambdaBuilder struct {
+	b      *ExprBuilder
+	params *types.StructType
+	body   Builder
+}
+
+// Body sets the body expression for this lambda. The body can be any Builder,
+// including wrapped expressions, scalar functions, or nested lambdas.
+// Subsequent calls to Body will replace the body, not append to it.
+func (lb *lambdaBuilder) Body(body Builder) *lambdaBuilder {
+	lb.body = body
+	return lb
+}
+
+// Build constructs and validates the Lambda expression.
+// During building, this lambda's parameters are pushed onto the ExprBuilder's
+// context stack, allowing nested lambdas to validate stepsOut references.
+func (lb *lambdaBuilder) Build() (*Lambda, error) {
+	// Validate parameters
+	if lb.params == nil {
+		return nil, fmt.Errorf("%w: lambda must have parameters struct", substraitgo.ErrInvalidExpr)
+	}
+	if lb.params.Nullability != types.NullabilityRequired {
+		return nil, fmt.Errorf("%w: lambda parameters struct must have NULLABILITY_REQUIRED", substraitgo.ErrInvalidExpr)
+	}
+	for i, paramType := range lb.params.Types {
+		if paramType == nil {
+			return nil, fmt.Errorf("%w: lambda parameter %d has nil type", substraitgo.ErrInvalidExpr, i)
+		}
+	}
+
+	// Validate body is set
+	if lb.body == nil {
+		return nil, fmt.Errorf("%w: lambda must have a body", substraitgo.ErrInvalidExpr)
+	}
+
+	// Push this lambda's params onto context stack before building body.
+	// This allows nested lambdas to validate stepsOut references against
+	// outer lambda parameters.
+	lb.b.lambdaContext = append(lb.b.lambdaContext, lb.params)
+
+	// Build the body - nested lambdas will see our params in the context stack
+	bodyExpr, err := lb.body.BuildExpr()
+
+	// Pop our params from context stack (always, even on error)
+	lb.b.lambdaContext = lb.b.lambdaContext[:len(lb.b.lambdaContext)-1]
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Resolve types for FieldReferences with LambdaParameterReference roots.
+	// stepsOut=0 resolves against lb.params, stepsOut=1+ against lb.b.lambdaContext
+	resolvedBody := resolveLambdaParamTypes(bodyExpr, lb.params, lb.b.lambdaContext)
+
+	// Validate ALL lambda parameter references (stepsOut=0 and stepsOut>0)
+	if err := validateAllFieldRefs(resolvedBody, lb.params, lb.b.lambdaContext); err != nil {
+		return nil, err
+	}
+
+	return &Lambda{Parameters: lb.params, Body: resolvedBody}, nil
+}
+
+// BuildExpr implements the Builder interface.
+func (lb *lambdaBuilder) BuildExpr() (Expression, error) {
+	return lb.Build()
+}
+
+// BuildFuncArg implements the FuncArgBuilder interface, allowing lambdas
+// to be passed directly as arguments to function builders.
+func (lb *lambdaBuilder) BuildFuncArg() (types.FuncArg, error) {
+	return lb.Build()
 }
 
 type exprWrapper struct {
