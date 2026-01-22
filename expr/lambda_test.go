@@ -125,9 +125,6 @@ func TestLambdaBuilder_ValidationErrors(t *testing.T) {
 	require.Contains(t, err.Error(), "outer parameter")
 }
 
-
-
-
 // TestBasicLambdaPlanExprFromProto converts a basic lambda plan from protobuf
 // to Go expressions. Lambda: (x: i32) -> 42
 func TestBasicLambdaPlanExprFromProto(t *testing.T) {
@@ -208,16 +205,16 @@ func TestBasicLambdaPlanExprFromProto(t *testing.T) {
 // This represents: (x: i32) -> multiply(x, 2)
 func TestLambdaPlanExprFromProto(t *testing.T) {
 	const planJSON = `{
-		"extensionUris": [
+		"extensionUrns": [
 			{
-				"extensionUriAnchor": 1,
-				"uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+				"extensionUrnAnchor": 1,
+				"urn": "extension:io.substrait:functions_arithmetic"
 			}
 		],
 		"extensions": [
 			{
 				"extensionFunction": {
-					"extensionUriReference": 1,
+					"extensionUrnReference": 1,
 					"functionAnchor": 1,
 					"name": "multiply:i32_i32"
 				}
@@ -415,16 +412,16 @@ func TestLambdaReferenceExprFromProto(t *testing.T) {
 func TestLambdaWithFunctionExprFromProto(t *testing.T) {
 	// Minimal plan with just extensions (needed to resolve function reference)
 	const planJSON = `{
-		"extensionUris": [
+		"extensionUrns": [
 			{
-				"extensionUriAnchor": 1,
-				"uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+				"extensionUrnAnchor": 1,
+				"urn": "extension:io.substrait:functions_arithmetic"
 			}
 		],
 		"extensions": [
 			{
 				"extensionFunction": {
-					"extensionUriReference": 1,
+					"extensionUrnReference": 1,
 					"functionAnchor": 1,
 					"name": "multiply:i32_i32"
 				}
@@ -1207,16 +1204,16 @@ func TestBasicLambdaRoundTrip(t *testing.T) {
 // This represents: SELECT transform(column, x -> x * 2) FROM table
 func TestLambdaPlanRoundTrip(t *testing.T) {
 	const planJSON = `{
-		"extensionUris": [
+		"extensionUrns": [
 			{
-				"extensionUriAnchor": 1,
-				"uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+				"extensionUrnAnchor": 1,
+				"urn": "extension:io.substrait:functions_arithmetic"
 			}
 		],
 		"extensions": [
 			{
 				"extensionFunction": {
-					"extensionUriReference": 1,
+					"extensionUrnReference": 1,
 					"functionAnchor": 1,
 					"name": "multiply:i32_i32"
 				}
@@ -1332,16 +1329,16 @@ func TestLambdaPlanRoundTrip(t *testing.T) {
 // where outer.c is stepsOut=1, field=2
 func TestNestedLambdaRoundTrip(t *testing.T) {
 	const planJSON = `{
-		"extensionUris": [
+		"extensionUrns": [
 			{
-				"extensionUriAnchor": 1,
-				"uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+				"extensionUrnAnchor": 1,
+				"urn": "extension:io.substrait:functions_arithmetic"
 			}
 		],
 		"extensions": [
 			{
 				"extensionFunction": {
-					"extensionUriReference": 1,
+					"extensionUrnReference": 1,
 					"functionAnchor": 1,
 					"name": "add:i32_i32"
 				}
