@@ -201,8 +201,6 @@ func TestBasicLambdaPlanExprFromProto(t *testing.T) {
 	require.NotNil(t, lambdaType, "Lambda type should be resolved")
 	require.Equal(t, "i32", lambdaType.ShortString(), "Lambda return type should be i32")
 
-	t.Logf("Lambda: %s", lambda.String())
-	t.Logf("Body: literal %d, return type: %s", literal.Value, lambdaType.ShortString())
 }
 
 // TestLambdaPlanExprFromProto tests converting a full plan with a lambda expression
