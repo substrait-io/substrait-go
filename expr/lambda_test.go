@@ -15,6 +15,50 @@ import (
 	pb "google.golang.org/protobuf/proto"
 )
 
+// TestLambda_BasicMethods tests simple getters and interface methods.
+func TestLambda_BasicMethods(t *testing.T) {
+	params := &types.StructType{
+		Types:       []types.Type{&types.Int32Type{Nullability: types.NullabilityRequired}},
+		Nullability: types.NullabilityRequired,
+	}
+	body := &expr.PrimitiveLiteral[int32]{Value: 42, Type: &types.Int32Type{Nullability: types.NullabilityRequired}}
+
+	lambda, err := expr.NewLambdaBuilder().WithParameters(params).WithBody(body).Build()
+	require.NoError(t, err)
+
+	// Test getters
+	require.Equal(t, params, lambda.GetParameters())
+	require.Equal(t, body, lambda.GetBody())
+
+	// Test IsScalar - delegates to body (PrimitiveLiteral is scalar)
+	require.True(t, lambda.IsScalar())
+
+	// Test Equals - same lambda
+	lambda2, _ := expr.NewLambdaBuilder().WithParameters(params).WithBody(body).Build()
+	require.True(t, lambda.Equals(lambda2))
+
+	// Test Equals - different params
+	differentParams := &types.StructType{
+		Types:       []types.Type{&types.Int64Type{Nullability: types.NullabilityRequired}},
+		Nullability: types.NullabilityRequired,
+	}
+	lambda3, _ := expr.NewLambdaBuilder().WithParameters(differentParams).WithBody(body).Build()
+	require.False(t, lambda.Equals(lambda3))
+
+	// Test Equals - different body
+	differentBody := &expr.PrimitiveLiteral[int32]{Value: 99, Type: &types.Int32Type{Nullability: types.NullabilityRequired}}
+	lambda4, _ := expr.NewLambdaBuilder().WithParameters(params).WithBody(differentBody).Build()
+	require.False(t, lambda.Equals(lambda4))
+
+	// Test Equals - different type
+	require.False(t, lambda.Equals(body))
+
+	// Test ToProtoFuncArg - used when lambda is a function argument
+	funcArg := lambda.ToProtoFuncArg()
+	require.NotNil(t, funcArg)
+	require.NotNil(t, funcArg.GetValue().GetLambda())
+}
+
 // TestLoadLambdaPlan verifies we can parse a full Substrait plan
 // containing a lambda expression from JSON into protobuf structures.
 func TestBasicLambdaPlan(t *testing.T) {
