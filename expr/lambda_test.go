@@ -410,71 +410,73 @@ func TestLambdaReferenceExprFromProto(t *testing.T) {
 }
 
 // TestLambdaWithFunctionExprFromProto converts a lambda with a scalar function
-// from protobuf to Go expression. Uses a minimal plan to set up extensions.
-// Lambda: (x: i32) -> multiply(x, 2)
+// from protobuf to Go expression. Lambda: (x: i32) -> multiply(x, 2)
 func TestLambdaWithFunctionExprFromProto(t *testing.T) {
-	// Minimal plan with just extensions (needed to resolve function reference)
 	const planJSON = `{
 		"extensionUrns": [
-			{
-				"extensionUrnAnchor": 1,
-				"urn": "extension:io.substrait:functions_arithmetic"
-			}
+			{"extensionUrnAnchor": 1, "urn": "extension:io.substrait:functions_arithmetic"}
 		],
 		"extensions": [
-			{
-				"extensionFunction": {
-					"extensionUrnReference": 1,
-					"functionAnchor": 1,
-					"name": "multiply:i32_i32"
-				}
-			}
+			{"extensionFunction": {"extensionUrnReference": 1, "functionAnchor": 1, "name": "multiply:i32_i32"}}
 		],
-		"relations": []
-	}`
-
-	// Lambda expression with function body
-	const lambdaJSON = `{
-		"lambda": {
-			"parameters": {
-				"nullability": "NULLABILITY_REQUIRED",
-				"types": [
-					{"i32": {"nullability": "NULLABILITY_REQUIRED"}}
-				]
-			},
-			"body": {
-				"scalarFunction": {
-					"functionReference": 1,
-					"outputType": {"i32": {"nullability": "NULLABILITY_REQUIRED"}},
-					"arguments": [
-						{
-							"value": {
-								"selection": {
-									"directReference": {"structField": {"field": 0}},
-									"lambdaParameterReference": {"stepsOut": 0}
-								}
+		"relations": [{
+			"root": {
+				"input": {
+					"project": {
+						"common": {"direct": {}},
+						"input": {
+							"read": {
+								"common": {"direct": {}},
+								"baseSchema": {
+									"names": ["dummy"],
+									"struct": {
+										"nullability": "NULLABILITY_REQUIRED",
+										"types": [{"i32": {"nullability": "NULLABILITY_REQUIRED"}}]
+									}
+								},
+								"virtualTable": {"expressions": [{"fields": [{"literal": {"i32": 0}}]}]}
 							}
 						},
-						{
-							"value": {
-								"literal": {"i32": 2}
+						"expressions": [{
+							"lambda": {
+								"parameters": {
+									"nullability": "NULLABILITY_REQUIRED",
+									"types": [{"i32": {"nullability": "NULLABILITY_REQUIRED"}}]
+								},
+								"body": {
+									"scalarFunction": {
+										"functionReference": 1,
+										"outputType": {"i32": {"nullability": "NULLABILITY_REQUIRED"}},
+										"arguments": [
+											{
+												"value": {
+													"selection": {
+														"directReference": {"structField": {"field": 0}},
+														"lambdaParameterReference": {"stepsOut": 0}
+													}
+												}
+											},
+											{"value": {"literal": {"i32": 2}}}
+										]
+									}
+								}
 							}
-						}
-					]
-				}
+						}]
+					}
+				},
+				"names": ["result"]
 			}
-		}
+		}]
 	}`
 
-	// Parse plan to get extensions
+	// Parse plan
 	var plan proto.Plan
 	err := protojson.Unmarshal([]byte(planJSON), &plan)
 	require.NoError(t, err, "Plan JSON should parse")
 
-	// Parse lambda expression
-	var exprProto proto.Expression
-	err = protojson.Unmarshal([]byte(lambdaJSON), &exprProto)
-	require.NoError(t, err, "Lambda JSON should parse")
+	// Extract the lambda expression from the project
+	project := plan.Relations[0].GetRoot().GetInput().GetProject()
+	lambdaProto := project.Expressions[0]
 
 	// Build extension registry from plan
 	collection := ext.GetDefaultCollectionWithNoError()
@@ -483,7 +485,7 @@ func TestLambdaWithFunctionExprFromProto(t *testing.T) {
 	reg := expr.NewExtensionRegistry(extSet, collection)
 
 	// Convert protobuf → Go Expression
-	goExpr, err := expr.ExprFromProto(&exprProto, nil, reg)
+	goExpr, err := expr.ExprFromProto(lambdaProto, nil, reg)
 	require.NoError(t, err, "Should convert lambda to Go expression")
 
 	// Verify it's a Lambda
