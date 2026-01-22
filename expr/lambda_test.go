@@ -57,6 +57,16 @@ func TestLambda_BasicMethods(t *testing.T) {
 	funcArg := lambda.ToProtoFuncArg()
 	require.NotNil(t, funcArg)
 	require.NotNil(t, funcArg.GetValue().GetLambda())
+
+	// Test Visit - body unchanged (returns same lambda)
+	sameLambda := lambda.Visit(func(e expr.Expression) expr.Expression { return e })
+	require.Equal(t, lambda, sameLambda)
+
+	// Test Visit - body changed (returns new lambda)
+	newBody := &expr.PrimitiveLiteral[int32]{Value: 99, Type: &types.Int32Type{Nullability: types.NullabilityRequired}}
+	newLambda := lambda.Visit(func(e expr.Expression) expr.Expression { return newBody })
+	require.NotEqual(t, lambda, newLambda)
+	require.Equal(t, newBody, newLambda.(*expr.Lambda).GetBody())
 }
 
 // TestLoadLambdaPlan verifies we can parse a full Substrait plan
