@@ -15,8 +15,8 @@ type Lambda struct {
 	Body       Expression
 }
 
-// validateAllFieldRefs validates ALL lambda parameter references in the body.
-// Unlike construction-time validation, this validates both stepsOut=0 and stepsOut>0.
+// validateAllFieldRefs recursively validates all lambda parameter references in the body,
+// checking both stepsOut=0 (current lambda) and stepsOut>0 (outer lambdas).
 func validateAllFieldRefs(body Expression, currentParams *types.StructType, outerParams []*types.StructType) error {
 	// Handle case where body IS a Lambda (e.g., outer lambda's body is inner lambda)
 	if lambda, ok := body.(*Lambda); ok {
@@ -30,7 +30,6 @@ func validateAllFieldRefs(body Expression, currentParams *types.StructType, oute
 	}
 
 	// Recursively validate all descendants - handles deeply nested expressions
-	// (e.g., Cast(FieldRef), ScalarFunction(Cast(FieldRef)))
 	var validationErr error
 	var recurse func(e Expression) Expression
 	recurse = func(e Expression) Expression {
@@ -107,10 +106,6 @@ func validateFieldRef(e Expression, currentParams *types.StructType, outerParams
 
 // resolveLambdaParamTypes walks the body expression and resolves types for any
 // FieldReferences that have LambdaParameterReference roots.
-// - stepsOut=0: resolves against params (this lambda's parameters)
-// - stepsOut>0: resolves against outerParams (outer lambda parameters)
-// For nested lambdas, recursively resolves with updated outer context.
-// Recurses into all descendants (e.g., Cast(FieldRef), ScalarFunction(Cast(FieldRef))).
 func resolveLambdaParamTypes(body Expression, params *types.StructType, outerParams []*types.StructType) Expression {
 	// Handle if body itself is a nested lambda - must check BEFORE Visit
 	// because Lambda.Visit would bypass our nested lambda context handling
@@ -161,7 +156,7 @@ func tryResolveFieldRef(e Expression, currentParams *types.StructType, outerPara
 
 	lambdaRef, ok := fieldRef.Root.(LambdaParameterReference)
 	if !ok {
-		return e // Not a lambda parameter reference
+		return e
 	}
 
 	// Already has a type resolved
@@ -183,7 +178,6 @@ func tryResolveFieldRef(e Expression, currentParams *types.StructType, outerPara
 	}
 
 	// Guard against out-of-bounds field index before resolving type
-	// (validation happens after resolution, so we need to be defensive here)
 	if structRef, ok := fieldRef.Reference.(*StructFieldRef); ok {
 		if int(structRef.Field) >= len(targetParams.Types) || int(structRef.Field) < 0 {
 			return e // Out of bounds, leave unresolved (validation will catch this)
@@ -194,7 +188,7 @@ func tryResolveFieldRef(e Expression, currentParams *types.StructType, outerPara
 	if refSeg, ok := fieldRef.Reference.(ReferenceSegment); ok {
 		resolvedType, err := refSeg.GetType(targetParams)
 		if err != nil {
-			return e // Can't resolve, leave as-is
+			return e
 		}
 		return &FieldReference{
 			Root:      fieldRef.Root,
@@ -207,7 +201,6 @@ func tryResolveFieldRef(e Expression, currentParams *types.StructType, outerPara
 
 // lambdaFromProto creates a Lambda directly from protobuf without builder validation.
 // This is used internally when parsing from protobuf where the structure is already valid.
-// Note: Only stepsOut=0 refs are resolved; outer refs can't be resolved without context.
 func lambdaFromProto(parameters *types.StructType, body Expression) *Lambda {
 	resolvedBody := resolveLambdaParamTypes(body, parameters, nil)
 	return &Lambda{Parameters: parameters, Body: resolvedBody}

@@ -166,15 +166,6 @@ func (e *ExprBuilder) Cast(from Builder, to types.Type) *castBuilder {
 // which itself references outer lambda parameters), the ExprBuilder maintains
 // a context stack that allows inner lambdas to validate stepsOut references
 // against outer lambda parameters.
-//
-// Example:
-//
-//	// (x -> double_output(y -> x + y))
-//	lambda, err := b.Lambda(xParams).Body(
-//	    b.ScalarFunc(doubleOutputID).Args(
-//	        b.Lambda(yParams).Body(xPlusYExpr),
-//	    ),
-//	).Build()
 func (e *ExprBuilder) Lambda(params *types.StructType) *lambdaBuilder {
 	return &lambdaBuilder{
 		b:      e,
@@ -234,7 +225,6 @@ func (lb *lambdaBuilder) Build() (*Lambda, error) {
 	}
 
 	// Resolve types for FieldReferences with LambdaParameterReference roots.
-	// stepsOut=0 resolves against lb.params, stepsOut=1+ against lb.b.lambdaContext
 	resolvedBody := resolveLambdaParamTypes(bodyExpr, lb.params, lb.b.lambdaContext)
 
 	// Validate ALL lambda parameter references (stepsOut=0 and stepsOut>0)
