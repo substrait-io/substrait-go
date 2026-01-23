@@ -514,6 +514,18 @@ func TestLambdaBuilder_ValidStepsOut0(t *testing.T) {
 	require.True(t, lambda.IsScalar()) // FieldReference is scalar
 	t.Logf("Lambda built successfully: %s", lambda.String())
 
+	// Test Equals - same lambda
+	lambda2, _ := b.Lambda(params).Body(b.Expression(fieldRef)).Build()
+	require.True(t, lambda.Equals(lambda2))
+
+	// Test Equals - different params
+	differentParams := &types.StructType{
+		Nullability: types.NullabilityRequired,
+		Types:       []types.Type{&types.Int64Type{Nullability: types.NullabilityRequired}},
+	}
+	lambda3, _ := b.Lambda(differentParams).Body(b.Expression(fieldRef)).Build()
+	require.False(t, lambda.Equals(lambda3))
+
 	// Test Visit - body unchanged returns same lambda
 	sameLambda := lambda.Visit(func(e expr.Expression) expr.Expression { return e })
 	require.Equal(t, lambda, sameLambda)
@@ -633,6 +645,22 @@ func TestLambdaBuilder_NestedLambda(t *testing.T) {
 	innerLambda, ok := outerLambda.Body.(*expr.Lambda)
 	require.True(t, ok, "Body should be a Lambda")
 	require.Len(t, innerLambda.Parameters.Types, 1)
+
+	// Test Equals - same nested lambda
+	outerLambda2, _ := b.Lambda(outerParams).Body(
+		b.Lambda(innerParams).Body(b.Expression(innerBody)),
+	).Build()
+	require.True(t, outerLambda.Equals(outerLambda2))
+
+	// Test Equals - different stepsOut in inner body (tests FieldReference.Equals with LambdaParameterReference)
+	innerBodyDifferentSteps := &expr.FieldReference{
+		Root:      expr.LambdaParameterReference{StepsOut: 0}, // different from stepsOut=1
+		Reference: &expr.StructFieldRef{Field: 0},
+	}
+	outerLambda3, _ := b.Lambda(outerParams).Body(
+		b.Lambda(innerParams).Body(b.Expression(innerBodyDifferentSteps)),
+	).Build()
+	require.False(t, outerLambda.Equals(outerLambda3))
 
 	t.Logf("Nested lambda built successfully: %s", outerLambda.String())
 }
