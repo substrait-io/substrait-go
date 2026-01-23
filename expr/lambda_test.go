@@ -23,7 +23,7 @@ func TestLambdaBuilder_ValidationErrors(t *testing.T) {
 	// Error: nil parameters
 	_, err := b.Lambda(nil).Body(b.Expression(body)).Build()
 	require.ErrorIs(t, err, substraitgo.ErrInvalidExpr)
-	require.Contains(t, err.Error(), "must have parameters")
+	require.Contains(t, err.Error(), "parameters cannot be nil")
 
 	// Error: no body
 	params := &types.StructType{
@@ -32,7 +32,7 @@ func TestLambdaBuilder_ValidationErrors(t *testing.T) {
 	}
 	_, err = b.Lambda(params).Build()
 	require.ErrorIs(t, err, substraitgo.ErrInvalidExpr)
-	require.Contains(t, err.Error(), "must have a body")
+	require.Contains(t, err.Error(), "body cannot be nil")
 
 	// Error: wrong nullability on parameters struct
 	badNullParams := &types.StructType{
@@ -471,6 +471,25 @@ func TestLambdaWithFunctionExprFromProto(t *testing.T) {
 
 	t.Logf("Lambda: %s", lambda.String())
 	t.Logf("Body function: %s, return type: %s", scalarFunc.Name(), lambdaType.ShortString())
+}
+
+// TestLambdaBuilder_ZeroParameters tests that lambdas with no parameters are valid.
+// Example: () -> 42
+func TestLambdaBuilder_ZeroParameters(t *testing.T) {
+	b := &expr.ExprBuilder{}
+	params := &types.StructType{
+		Nullability: types.NullabilityRequired,
+		Types:       []types.Type{}, // No parameters
+	}
+	body := &expr.PrimitiveLiteral[int32]{Value: 42, Type: &types.Int32Type{Nullability: types.NullabilityRequired}}
+
+	lambda, err := b.Lambda(params).Body(b.Expression(body)).Build()
+
+	require.NoError(t, err, "Zero-parameter lambda should be valid")
+	require.NotNil(t, lambda)
+	require.Len(t, lambda.Parameters.Types, 0, "Should have zero parameters")
+	require.Equal(t, "i32", lambda.GetType().ShortString(), "Return type should be i32")
+	t.Logf("Zero-parameter lambda: %s", lambda.String())
 }
 
 // TestLambdaBuilder_ValidStepsOut0 tests that Build() passes for valid stepsOut=0 references.
