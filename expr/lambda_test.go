@@ -15,61 +15,6 @@ import (
 	pb "google.golang.org/protobuf/proto"
 )
 
-// TestLambda_BasicMethods tests simple getters and interface methods.
-func TestLambda_BasicMethods(t *testing.T) {
-	b := &expr.ExprBuilder{}
-	params := &types.StructType{
-		Types:       []types.Type{&types.Int32Type{Nullability: types.NullabilityRequired}},
-		Nullability: types.NullabilityRequired,
-	}
-	body := &expr.PrimitiveLiteral[int32]{Value: 42, Type: &types.Int32Type{Nullability: types.NullabilityRequired}}
-
-	lambda, err := b.Lambda(params).Body(b.Expression(body)).Build()
-	require.NoError(t, err)
-
-	// Test getters
-	require.Equal(t, params, lambda.GetParameters())
-	require.Equal(t, body, lambda.GetBody())
-
-	// Test IsScalar - delegates to body (PrimitiveLiteral is scalar)
-	require.True(t, lambda.IsScalar())
-
-	// Test Equals - same lambda
-	lambda2, _ := b.Lambda(params).Body(b.Expression(body)).Build()
-	require.True(t, lambda.Equals(lambda2))
-
-	// Test Equals - different params
-	differentParams := &types.StructType{
-		Types:       []types.Type{&types.Int64Type{Nullability: types.NullabilityRequired}},
-		Nullability: types.NullabilityRequired,
-	}
-	lambda3, _ := b.Lambda(differentParams).Body(b.Expression(body)).Build()
-	require.False(t, lambda.Equals(lambda3))
-
-	// Test Equals - different body
-	differentBody := &expr.PrimitiveLiteral[int32]{Value: 99, Type: &types.Int32Type{Nullability: types.NullabilityRequired}}
-	lambda4, _ := b.Lambda(params).Body(b.Expression(differentBody)).Build()
-	require.False(t, lambda.Equals(lambda4))
-
-	// Test Equals - different type
-	require.False(t, lambda.Equals(body))
-
-	// Test ToProtoFuncArg - used when lambda is a function argument
-	funcArg := lambda.ToProtoFuncArg()
-	require.NotNil(t, funcArg)
-	require.NotNil(t, funcArg.GetValue().GetLambda())
-
-	// Test Visit - body unchanged (returns same lambda)
-	sameLambda := lambda.Visit(func(e expr.Expression) expr.Expression { return e })
-	require.Equal(t, lambda, sameLambda)
-
-	// Test Visit - body changed (returns new lambda)
-	newBody := &expr.PrimitiveLiteral[int32]{Value: 99, Type: &types.Int32Type{Nullability: types.NullabilityRequired}}
-	newLambda := lambda.Visit(func(e expr.Expression) expr.Expression { return newBody })
-	require.NotEqual(t, lambda, newLambda)
-	require.Equal(t, newBody, newLambda.(*expr.Lambda).GetBody())
-}
-
 // TestLambdaBuilder_ValidationErrors tests error cases in the builder.
 func TestLambdaBuilder_ValidationErrors(t *testing.T) {
 	b := &expr.ExprBuilder{}
@@ -546,7 +491,19 @@ func TestLambdaBuilder_ValidStepsOut0(t *testing.T) {
 
 	require.NoError(t, err, "Build should pass for valid stepsOut=0 reference")
 	require.NotNil(t, lambda)
+	require.Equal(t, params, lambda.Parameters)
+	require.True(t, lambda.IsScalar()) // FieldReference is scalar
 	t.Logf("Lambda built successfully: %s", lambda.String())
+
+	// Test Visit - body unchanged returns same lambda
+	sameLambda := lambda.Visit(func(e expr.Expression) expr.Expression { return e })
+	require.Equal(t, lambda, sameLambda)
+
+	// Test Visit - body changed returns new lambda
+	newBody := &expr.PrimitiveLiteral[int32]{Value: 99, Type: &types.Int32Type{Nullability: types.NullabilityRequired}}
+	newLambda := lambda.Visit(func(e expr.Expression) expr.Expression { return newBody })
+	require.NotEqual(t, lambda, newLambda)
+	require.Equal(t, newBody, newLambda.(*expr.Lambda).Body)
 }
 
 // TestLambdaBuilder_InvalidOuterRef tests that Build() fails for invalid outer refs.

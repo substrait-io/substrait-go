@@ -213,16 +213,6 @@ func lambdaFromProto(parameters *types.StructType, body Expression) *Lambda {
 	return &Lambda{Parameters: parameters, Body: resolvedBody}
 }
 
-// GetParameters returns the structure defining this lambda's parameters.
-func (l *Lambda) GetParameters() *types.StructType {
-	return l.Parameters
-}
-
-// GetBody returns the expression that forms the body of this lambda.
-func (l *Lambda) GetBody() Expression {
-	return l.Body
-}
-
 func (l *Lambda) String() string {
 	var b strings.Builder
 	b.WriteString("(")
