@@ -324,7 +324,13 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 		}
 		return reg.SubqueryFromProto(et.Subquery, baseSchema, reg)
 	case *proto.Expression_Lambda_:
-		// Convert proto Type_Struct to types.StructType
+		if et.Lambda.Parameters == nil {
+			return nil, fmt.Errorf("%w: lambda parameters cannot be nil", substraitgo.ErrInvalidExpr)
+		}
+		if et.Lambda.Body == nil {
+			return nil, fmt.Errorf("%w: lambda body cannot be nil", substraitgo.ErrInvalidExpr)
+		}
+
 		paramTypes := make([]types.Type, len(et.Lambda.Parameters.Types))
 		for i, pt := range et.Lambda.Parameters.Types {
 			paramTypes[i] = types.TypeFromProto(pt)
@@ -335,10 +341,15 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 			Nullability:      et.Lambda.Parameters.Nullability,
 		}
 
+		if params.Nullability != types.NullabilityRequired {
+			return nil, fmt.Errorf("%w: lambda parameters struct must have NULLABILITY_REQUIRED", substraitgo.ErrInvalidExpr)
+		}
+
 		body, err := ExprFromProto(et.Lambda.Body, baseSchema, reg)
 		if err != nil {
 			return nil, err
 		}
+
 		return lambdaFromProto(params, body), nil
 	}
 	return nil, fmt.Errorf("%w: ExprFromProto: %s", substraitgo.ErrNotImplemented, e)
