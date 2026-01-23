@@ -23,7 +23,7 @@ func TestLambdaBuilder_ValidationErrors(t *testing.T) {
 	// Error: nil parameters
 	_, err := b.Lambda(nil).Body(b.Expression(body)).Build()
 	require.ErrorIs(t, err, substraitgo.ErrInvalidExpr)
-	require.Contains(t, err.Error(), "parameters cannot be nil")
+	require.Contains(t, err.Error(), "must have parameters")
 
 	// Error: no body
 	params := &types.StructType{
@@ -32,7 +32,7 @@ func TestLambdaBuilder_ValidationErrors(t *testing.T) {
 	}
 	_, err = b.Lambda(params).Build()
 	require.ErrorIs(t, err, substraitgo.ErrInvalidExpr)
-	require.Contains(t, err.Error(), "body cannot be nil")
+	require.Contains(t, err.Error(), "must have a body")
 
 	// Error: wrong nullability on parameters struct
 	badNullParams := &types.StructType{
