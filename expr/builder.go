@@ -22,7 +22,7 @@ type Builder interface {
 // ExprBuilder is the parent context for all the expression builders.
 // It maintains a pointer to an extension registry and, optionally,
 // a pointer to a base input schema and a slice of lambda parameters.
-// This allows less verbose expressionbuilding as it isn't necessary
+// This allows less verbose expression building as it isn't necessary
 // to pass these to every `New*` function to construct the expressions.
 //
 // This is intended to be used like:
