@@ -191,7 +191,6 @@ func (lb *lambdaBuilder) Body(body Builder) *lambdaBuilder {
 // During building, this lambda's parameters are pushed onto the ExprBuilder's
 // context stack, allowing nested lambdas to validate stepsOut references.
 func (lb *lambdaBuilder) Build() (*Lambda, error) {
-	// Validate parameters
 	if lb.params == nil {
 		return nil, fmt.Errorf("%w: lambda must have parameters struct", substraitgo.ErrInvalidExpr)
 	}
