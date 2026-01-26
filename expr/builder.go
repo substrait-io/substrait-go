@@ -174,6 +174,14 @@ func (e *ExprBuilder) Lambda(params *types.StructType, body Builder) *lambdaBuil
 	}
 }
 
+func (e *ExprBuilder) pushLambdaContext(params *types.StructType) {
+	e.lambdaContext = append(e.lambdaContext, params)
+}
+
+func (e *ExprBuilder) popLambdaContext() {
+	e.lambdaContext = e.lambdaContext[:len(e.lambdaContext)-1]
+}
+
 type lambdaBuilder struct {
 	b      *ExprBuilder
 	params *types.StructType
@@ -203,12 +211,12 @@ func (lb *lambdaBuilder) Build() (*Lambda, error) {
 	// Push this lambda's params onto context stack before building body.
 	// This allows nested lambdas to validate stepsOut references against
 	// outer lambda parameters.
-	lb.b.lambdaContext = append(lb.b.lambdaContext, lb.params)
+	lb.b.pushLambdaContext(lb.params)
 
 	bodyExpr, err := lb.body.BuildExpr()
 
 	// Pop our params from context stack (always, even on error)
-	lb.b.lambdaContext = lb.b.lambdaContext[:len(lb.b.lambdaContext)-1]
+	lb.b.popLambdaContext()
 
 	if err != nil {
 		return nil, err
