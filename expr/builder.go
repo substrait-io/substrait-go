@@ -212,7 +212,6 @@ func (lb *lambdaBuilder) Build() (*Lambda, error) {
 	// outer lambda parameters.
 	lb.b.lambdaContext = append(lb.b.lambdaContext, lb.params)
 
-	// Build the body - nested lambdas will see our params in the context stack
 	bodyExpr, err := lb.body.BuildExpr()
 
 	// Pop our params from context stack (always, even on error)
