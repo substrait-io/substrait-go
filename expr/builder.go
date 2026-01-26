@@ -22,7 +22,7 @@ type Builder interface {
 // ExprBuilder is the parent context for all the expression builders.
 // It maintains a pointer to an extension registry and, optionally,
 // a pointer to a base input schema and a slice of lambda parameters.
-// This allows less verbose expressionbuilding as it isn't necessary
+// This allows less verbose expression building as it isn't necessary
 // to pass these to every `New*` function to construct the expressions.
 //
 // This is intended to be used like:
@@ -184,7 +184,6 @@ type lambdaBuilder struct {
 // During building, this lambda's parameters are pushed onto the ExprBuilder's
 // context stack, allowing nested lambdas to validate stepsOut references.
 func (lb *lambdaBuilder) Build() (*Lambda, error) {
-	// Validate parameters
 	if lb.params == nil {
 		return nil, fmt.Errorf("%w: lambda must have parameters struct", substraitgo.ErrInvalidExpr)
 	}
@@ -197,7 +196,6 @@ func (lb *lambdaBuilder) Build() (*Lambda, error) {
 		}
 	}
 
-	// Validate body is set
 	if lb.body == nil {
 		return nil, fmt.Errorf("%w: lambda must have a body", substraitgo.ErrInvalidExpr)
 	}
@@ -207,7 +205,6 @@ func (lb *lambdaBuilder) Build() (*Lambda, error) {
 	// outer lambda parameters.
 	lb.b.lambdaContext = append(lb.b.lambdaContext, lb.params)
 
-	// Build the body - nested lambdas will see our params in the context stack
 	bodyExpr, err := lb.body.BuildExpr()
 
 	// Pop our params from context stack (always, even on error)
