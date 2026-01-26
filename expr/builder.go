@@ -203,7 +203,6 @@ func (lb *lambdaBuilder) Build() (*Lambda, error) {
 		}
 	}
 
-	// Validate body is set
 	if lb.body == nil {
 		return nil, fmt.Errorf("%w: lambda must have a body", substraitgo.ErrInvalidExpr)
 	}
