@@ -21,7 +21,7 @@ func TestLambdaBuilder_ValidationErrors(t *testing.T) {
 	body := &expr.PrimitiveLiteral[int32]{Value: 42, Type: &types.Int32Type{Nullability: types.NullabilityRequired}}
 
 	// Error: nil parameters
-	_, err := b.Lambda(nil).Body(b.Expression(body)).Build()
+	_, err := b.Lambda(nil, b.Expression(body)).Build()
 	require.ErrorIs(t, err, substraitgo.ErrInvalidExpr)
 	require.Contains(t, err.Error(), "must have parameters")
 
@@ -30,7 +30,7 @@ func TestLambdaBuilder_ValidationErrors(t *testing.T) {
 		Types:       []types.Type{&types.Int32Type{Nullability: types.NullabilityRequired}},
 		Nullability: types.NullabilityRequired,
 	}
-	_, err = b.Lambda(params).Build()
+	_, err = b.Lambda(params, nil).Build()
 	require.ErrorIs(t, err, substraitgo.ErrInvalidExpr)
 	require.Contains(t, err.Error(), "must have a body")
 
@@ -39,7 +39,7 @@ func TestLambdaBuilder_ValidationErrors(t *testing.T) {
 		Types:       []types.Type{&types.Int32Type{Nullability: types.NullabilityRequired}},
 		Nullability: types.NullabilityNullable, // Should be Required
 	}
-	_, err = b.Lambda(badNullParams).Body(b.Expression(body)).Build()
+	_, err = b.Lambda(badNullParams, b.Expression(body)).Build()
 	require.ErrorIs(t, err, substraitgo.ErrInvalidExpr)
 	require.Contains(t, err.Error(), "NULLABILITY_REQUIRED")
 
@@ -48,7 +48,7 @@ func TestLambdaBuilder_ValidationErrors(t *testing.T) {
 		Types:       []types.Type{nil},
 		Nullability: types.NullabilityRequired,
 	}
-	_, err = b.Lambda(nilParamType).Body(b.Expression(body)).Build()
+	_, err = b.Lambda(nilParamType, b.Expression(body)).Build()
 	require.ErrorIs(t, err, substraitgo.ErrInvalidExpr)
 	require.Contains(t, err.Error(), "nil type")
 
@@ -66,8 +66,8 @@ func TestLambdaBuilder_ValidationErrors(t *testing.T) {
 		Root:      expr.LambdaParameterReference{StepsOut: 1},
 		Reference: &expr.StructFieldRef{Field: 5}, // Out of bounds!
 	}
-	_, err = b.Lambda(outerParams).Body(
-		b.Lambda(innerParams).Body(b.Expression(badOuterRef)),
+	_, err = b.Lambda(outerParams,
+		b.Lambda(innerParams, b.Expression(badOuterRef)),
 	).Build()
 	require.ErrorIs(t, err, substraitgo.ErrInvalidExpr)
 	require.Contains(t, err.Error(), "outer parameter")
@@ -483,7 +483,7 @@ func TestLambdaBuilder_ZeroParameters(t *testing.T) {
 	}
 	body := &expr.PrimitiveLiteral[int32]{Value: 42, Type: &types.Int32Type{Nullability: types.NullabilityRequired}}
 
-	lambda, err := b.Lambda(params).Body(b.Expression(body)).Build()
+	lambda, err := b.Lambda(params, b.Expression(body)).Build()
 
 	require.NoError(t, err, "Zero-parameter lambda should be valid")
 	require.NotNil(t, lambda)
@@ -506,7 +506,7 @@ func TestLambdaBuilder_ValidStepsOut0(t *testing.T) {
 	}
 
 	// Build should succeed - valid stepsOut=0 reference
-	lambda, err := b.Lambda(params).Body(b.Expression(fieldRef)).Build()
+	lambda, err := b.Lambda(params, b.Expression(fieldRef)).Build()
 
 	require.NoError(t, err, "Build should pass for valid stepsOut=0 reference")
 	require.NotNil(t, lambda)
@@ -515,7 +515,7 @@ func TestLambdaBuilder_ValidStepsOut0(t *testing.T) {
 	t.Logf("Lambda built successfully: %s", lambda.String())
 
 	// Test Equals - same lambda
-	lambda2, _ := b.Lambda(params).Body(b.Expression(fieldRef)).Build()
+	lambda2, _ := b.Lambda(params, b.Expression(fieldRef)).Build()
 	require.True(t, lambda.Equals(lambda2))
 
 	// Test Equals - different params
@@ -523,7 +523,7 @@ func TestLambdaBuilder_ValidStepsOut0(t *testing.T) {
 		Nullability: types.NullabilityRequired,
 		Types:       []types.Type{&types.Int64Type{Nullability: types.NullabilityRequired}},
 	}
-	lambda3, _ := b.Lambda(differentParams).Body(b.Expression(fieldRef)).Build()
+	lambda3, _ := b.Lambda(differentParams, b.Expression(fieldRef)).Build()
 	require.False(t, lambda.Equals(lambda3))
 
 	// Test Visit - body unchanged returns same lambda
@@ -551,7 +551,7 @@ func TestLambdaBuilder_InvalidOuterRef(t *testing.T) {
 	}
 
 	// Build should fail - stepsOut=1 but no outer lambda
-	lambda, err := b.Lambda(params).Body(b.Expression(fieldRef)).Build()
+	lambda, err := b.Lambda(params, b.Expression(fieldRef)).Build()
 
 	require.Error(t, err, "Build should fail for invalid outer reference")
 	require.Nil(t, lambda)
@@ -574,7 +574,7 @@ func TestLambdaBuilder_InvalidFieldIndex(t *testing.T) {
 		Reference: &expr.StructFieldRef{Field: 5}, // invalid - only 1 param (index 0)
 	}
 
-	lambda, err := b.Lambda(params).Body(b.Expression(fieldRef)).Build()
+	lambda, err := b.Lambda(params, b.Expression(fieldRef)).Build()
 
 	require.Error(t, err, "Build should fail for out-of-bounds field index")
 	require.Nil(t, lambda)
@@ -600,7 +600,7 @@ func TestLambdaBuilder_ValidFieldIndex(t *testing.T) {
 		Reference: &expr.StructFieldRef{Field: 2}, // valid - references 3rd param (string)
 	}
 
-	lambda, err := b.Lambda(params).Body(b.Expression(fieldRef)).Build()
+	lambda, err := b.Lambda(params, b.Expression(fieldRef)).Build()
 
 	require.NoError(t, err, "Build should pass for valid field index")
 	require.NotNil(t, lambda)
@@ -634,8 +634,8 @@ func TestLambdaBuilder_NestedLambda(t *testing.T) {
 	}
 
 	// Build outer lambda - should succeed because inner's stepsOut=1 is valid
-	outerLambda, err := b.Lambda(outerParams).Body(
-		b.Lambda(innerParams).Body(b.Expression(innerBody)),
+	outerLambda, err := b.Lambda(outerParams,
+		b.Lambda(innerParams, b.Expression(innerBody)),
 	).Build()
 
 	require.NoError(t, err, "Build should pass - inner lambda validly references outer's parameter")
@@ -647,8 +647,8 @@ func TestLambdaBuilder_NestedLambda(t *testing.T) {
 	require.Len(t, innerLambda.Parameters.Types, 1)
 
 	// Test Equals - same nested lambda
-	outerLambda2, _ := b.Lambda(outerParams).Body(
-		b.Lambda(innerParams).Body(b.Expression(innerBody)),
+	outerLambda2, _ := b.Lambda(outerParams,
+		b.Lambda(innerParams, b.Expression(innerBody)),
 	).Build()
 	require.True(t, outerLambda.Equals(outerLambda2))
 
@@ -657,8 +657,8 @@ func TestLambdaBuilder_NestedLambda(t *testing.T) {
 		Root:      expr.LambdaParameterReference{StepsOut: 0}, // different from stepsOut=1
 		Reference: &expr.StructFieldRef{Field: 0},
 	}
-	outerLambda3, _ := b.Lambda(outerParams).Body(
-		b.Lambda(innerParams).Body(b.Expression(innerBodyDifferentSteps)),
+	outerLambda3, _ := b.Lambda(outerParams,
+		b.Lambda(innerParams, b.Expression(innerBodyDifferentSteps)),
 	).Build()
 	require.False(t, outerLambda.Equals(outerLambda3))
 
@@ -685,8 +685,8 @@ func TestLambdaBuilder_NestedInvalidOuterRef(t *testing.T) {
 	}
 
 	// Build should fail - inner references stepsOut=2 but only 1 outer lambda exists
-	outerLambda, err := b.Lambda(outerParams).Body(
-		b.Lambda(innerParams).Body(b.Expression(innerBody)),
+	outerLambda, err := b.Lambda(outerParams,
+		b.Lambda(innerParams, b.Expression(innerBody)),
 	).Build()
 
 	require.Error(t, err, "Build should fail - inner references non-existent grandparent")
@@ -753,7 +753,7 @@ func TestLambdaBuilder_TypeResolution(t *testing.T) {
 				Reference: &expr.StructFieldRef{Field: tc.fieldIndex},
 			}
 
-			lambda, err := b.Lambda(params).Body(b.Expression(fieldRef)).Build()
+			lambda, err := b.Lambda(params, b.Expression(fieldRef)).Build()
 
 			require.NoError(t, err, "Build should succeed")
 			require.NotNil(t, lambda)
@@ -801,8 +801,8 @@ func TestLambdaBuilder_OuterRefTypeResolution(t *testing.T) {
 		Reference: &expr.StructFieldRef{Field: 2},
 	}
 
-	outerLambda, err := b.Lambda(outerParams).Body(
-		b.Lambda(innerParams).Body(b.Expression(outerRef)),
+	outerLambda, err := b.Lambda(outerParams,
+		b.Lambda(innerParams, b.Expression(outerRef)),
 	).Build()
 
 	require.NoError(t, err)
@@ -855,7 +855,7 @@ func TestLambdaBuilder_DeeplyNestedFieldRef(t *testing.T) {
 	}
 
 	// Build lambda with Cast(FieldRef) as body
-	lambda, err := b.Lambda(params).Body(b.Expression(castExpr)).Build()
+	lambda, err := b.Lambda(params, b.Expression(castExpr)).Build()
 
 	require.NoError(t, err, "Should build lambda with Cast(FieldRef) body")
 	require.NotNil(t, lambda)
@@ -897,7 +897,7 @@ func TestLambdaBuilder_DeeplyNestedInvalidFieldRef(t *testing.T) {
 	}
 
 	// Build should fail because validation recurses into Cast
-	_, err := b.Lambda(params).Body(b.Expression(castExpr)).Build()
+	_, err := b.Lambda(params, b.Expression(castExpr)).Build()
 
 	require.Error(t, err, "Should fail for invalid nested FieldRef")
 	require.ErrorIs(t, err, substraitgo.ErrInvalidExpr)
@@ -1026,7 +1026,7 @@ func TestLambdaBuilder_DoublyNestedFieldRef(t *testing.T) {
 		FailureBehavior: types.BehaviorUnspecified,
 	}
 
-	lambda, err := b.Lambda(params).Body(b.Expression(outerCast)).Build()
+	lambda, err := b.Lambda(params, b.Expression(outerCast)).Build()
 
 	require.NoError(t, err)
 	require.NotNil(t, lambda)

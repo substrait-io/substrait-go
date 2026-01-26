@@ -166,10 +166,11 @@ func (e *ExprBuilder) Cast(from Builder, to types.Type) *castBuilder {
 // which itself references outer lambda parameters), the ExprBuilder maintains
 // a context stack that allows inner lambdas to validate stepsOut references
 // against outer lambda parameters.
-func (e *ExprBuilder) Lambda(params *types.StructType) *lambdaBuilder {
+func (e *ExprBuilder) Lambda(params *types.StructType, body Builder) *lambdaBuilder {
 	return &lambdaBuilder{
 		b:      e,
 		params: params,
+		body:   body,
 	}
 }
 
@@ -177,14 +178,6 @@ type lambdaBuilder struct {
 	b      *ExprBuilder
 	params *types.StructType
 	body   Builder
-}
-
-// Body sets the body expression for this lambda. The body can be any Builder,
-// including wrapped expressions, scalar functions, or nested lambdas.
-// Subsequent calls to Body will replace the body, not append to it.
-func (lb *lambdaBuilder) Body(body Builder) *lambdaBuilder {
-	lb.body = body
-	return lb
 }
 
 // Build constructs and validates the Lambda expression.
