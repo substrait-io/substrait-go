@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
+// Package expr provides types and builders for constructing Substrait expressions.
+//
+// IMPORTANT: Always use ExprBuilder methods to construct expressions. Manual
+// construction using struct literals bypasses validation and may create invalid expressions.
 package expr
 
 import (
