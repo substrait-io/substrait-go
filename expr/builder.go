@@ -163,8 +163,7 @@ func (e *ExprBuilder) Cast(from Builder, to types.Type) *castBuilder {
 }
 
 // Lambda returns a builder for constructing a Lambda expression with the
-// given parameters. The body can be set via the Body method, which accepts
-// any Builder (expressions, functions, or nested lambdas).
+// given parameters.
 //
 // When building nested lambdas (e.g., a function that takes a lambda argument
 // which itself references outer lambda parameters), the ExprBuilder maintains

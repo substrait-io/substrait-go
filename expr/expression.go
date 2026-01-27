@@ -350,7 +350,8 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 			return nil, err
 		}
 
-		return lambdaFromProto(params, body), nil
+		// TODO (#189): add validation and type resolution for lambda parameter references
+		return &Lambda{Parameters: params, Body: body}, nil
 	}
 	return nil, fmt.Errorf("%w: ExprFromProto: %s", substraitgo.ErrNotImplemented, e)
 }

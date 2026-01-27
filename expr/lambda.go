@@ -203,14 +203,6 @@ func tryResolveFieldRef(e Expression, currentParams *types.StructType, outerPara
 	return e
 }
 
-// TODO (#189): add validation for lambda parameter references in ExprFromProto.
-// lambdaFromProto creates a Lambda directly from protobuf without builder validation.
-// This is used internally when parsing from protobuf where the structure is already valid.
-func lambdaFromProto(parameters *types.StructType, body Expression) *Lambda {
-	resolvedBody := resolveLambdaParamTypes(body, parameters, nil)
-	return &Lambda{Parameters: parameters, Body: resolvedBody}
-}
-
 func (l *Lambda) String() string {
 	var b strings.Builder
 	b.WriteString("(")
