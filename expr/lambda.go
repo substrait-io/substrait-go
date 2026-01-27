@@ -108,11 +108,12 @@ func validateFieldRef(e Expression, currentParams *types.StructType, outerParams
 	return nil
 }
 
-// NOTE: Currently unused by the builder.
-// This function will be used to validate lambda field references when parsing from
-// protobuf (see issue #189).
 // resolveLambdaParamTypes walks the body expression and resolves types for any
 // FieldReferences that have LambdaParameterReference roots.
+//
+// NOTE: Currently unused by the builder.
+// This function will be used to resolve lambda parameter types when parsing from
+// protobuf (see issue #189).
 func resolveLambdaParamTypes(body Expression, params *types.StructType, outerParams []*types.StructType) Expression {
 	// Handle if body itself is a nested lambda - must check BEFORE Visit
 	// because Lambda.Visit would bypass our nested lambda context handling
