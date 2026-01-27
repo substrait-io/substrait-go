@@ -154,6 +154,21 @@ func (e *ExprBuilder) RootRef(ref Reference) *fieldRefBuilder {
 	return e.Ref(RootReference, ref)
 }
 
+// LambdaParamRef constructs a field reference to a lambda parameter.
+//
+// The stepsOut parameter specifies how many lambda scopes to traverse outward from
+// the current lambda to find the target parameter.
+//
+// The Build method validates the stepsOut value and field index against the
+// available lambda context, and resolves the reference type automatically.
+func (e *ExprBuilder) LambdaParamRef(ref Reference, stepsOut uint32) *lambdaParamRefBuilder {
+	return &lambdaParamRefBuilder{
+		b:        e,
+		ref:      ref,
+		stepsOut: stepsOut,
+	}
+}
+
 // Cast returns a builder for constructing a Cast expression. The failure
 // behavior can be specified by calling FailBehavior before calling Build.
 func (e *ExprBuilder) Cast(from Builder, to types.Type) *castBuilder {
@@ -497,21 +512,6 @@ type lambdaParamRefBuilder struct {
 	b        *ExprBuilder
 	ref      Reference
 	stepsOut uint32
-}
-
-// LambdaParamRef constructs a field reference to a lambda parameter.
-//
-// The stepsOut parameter specifies how many lambda scopes to traverse outward from
-// the current lambda to find the target parameter.
-//
-// The Build method validates the stepsOut value and field index against the
-// available lambda context, and resolves the reference type automatically.
-func (e *ExprBuilder) LambdaParamRef(ref Reference, stepsOut uint32) *lambdaParamRefBuilder {
-	return &lambdaParamRefBuilder{
-		b:        e,
-		ref:      ref,
-		stepsOut: stepsOut,
-	}
 }
 
 func (lpb *lambdaParamRefBuilder) Build() (*FieldReference, error) {
