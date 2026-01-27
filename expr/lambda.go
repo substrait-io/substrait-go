@@ -17,6 +17,10 @@ type Lambda struct {
 
 // validateAllFieldRefs recursively validates all lambda parameter references in the body,
 // checking both stepsOut=0 (current lambda) and stepsOut>0 (outer lambdas).
+//
+// NOTE: Currently unused by the builder.
+// This function will be used to validate lambda field references when parsing from
+// protobuf (see issue #189).
 func validateAllFieldRefs(body Expression, currentParams *types.StructType, outerParams []*types.StructType) error {
 	// Handle case where body IS a Lambda (e.g., outer lambda's body is inner lambda)
 	if lambda, ok := body.(*Lambda); ok {
@@ -199,6 +203,7 @@ func tryResolveFieldRef(e Expression, currentParams *types.StructType, outerPara
 	return e
 }
 
+// TODO (#189): add validation for lambda parameter references in ExprFromProto.
 // lambdaFromProto creates a Lambda directly from protobuf without builder validation.
 // This is used internally when parsing from protobuf where the structure is already valid.
 func lambdaFromProto(parameters *types.StructType, body Expression) *Lambda {
