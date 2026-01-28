@@ -515,25 +515,19 @@ type lambdaParamRefBuilder struct {
 }
 
 func (lpb *lambdaParamRefBuilder) Build() (*FieldReference, error) {
-	// 1. Validate stepsOut - check we have enough outer lambdas
+	// Validate stepsOut - check we have enough outer lambdas
 	if int(lpb.stepsOut) >= len(lpb.b.lambdaContext) {
 		return nil, fmt.Errorf("%w: stepsOut %d references non-existent outer lambda (only %d outer lambdas available)",
 			substraitgo.ErrInvalidExpr, lpb.stepsOut, len(lpb.b.lambdaContext))
 	}
 
-	// 2. Get the target lambda parameters
-	targetParams := lpb.b.lambdaContext[len(lpb.b.lambdaContext)-1-int(lpb.stepsOut)]
-
-	// 3. Validate field index for StructFieldRef (most common case)
-	if structRef, ok := lpb.ref.(*StructFieldRef); ok {
-		if int(structRef.Field) >= len(targetParams.Types) {
-			return nil, fmt.Errorf("%w: lambda body references parameter %d but lambda only has %d parameters",
-				substraitgo.ErrInvalidExpr, structRef.Field, len(targetParams.Types))
-		}
+	// Get the target lambda parameters
+	targetParams, err := lpb.getLambdaParamType()
+	if err != nil {
+		return nil, err
 	}
 
-	// 4. Resolve type using polymorphic GetType method
-	// This works for ALL reference types: StructFieldRef, ListElement, MapKey, etc.
+	// Resolve type using polymorphic GetType method
 	if refSeg, ok := lpb.ref.(ReferenceSegment); ok {
 		resolvedType, err := refSeg.GetType(targetParams)
 		if err != nil {
@@ -551,6 +545,21 @@ func (lpb *lambdaParamRefBuilder) Build() (*FieldReference, error) {
 	// This should never happen - all Reference types should implement ReferenceSegment
 	return nil, fmt.Errorf("%w: reference type %T does not implement ReferenceSegment interface",
 		substraitgo.ErrInvalidExpr, lpb.ref)
+}
+
+// getLambdaParamType gets the target lambda parameters struct from the context stack and validates that the parameter exists.
+// Returns an error if the parameter does not exist.
+func (lpb *lambdaParamRefBuilder) getLambdaParamType() (*types.StructType, error) {
+	targetParams := lpb.b.lambdaContext[len(lpb.b.lambdaContext)-1-int(lpb.stepsOut)]
+
+	// Validate that the parameter exists by checking field index for StructFieldRef
+	if structRef, ok := lpb.ref.(*StructFieldRef); ok {
+		if int(structRef.Field) >= len(targetParams.Types) {
+			return nil, fmt.Errorf("%w: lambda body references parameter %d but lambda only has %d parameters",
+				substraitgo.ErrInvalidExpr, structRef.Field, len(targetParams.Types))
+		}
+	}
+	return targetParams, nil
 }
 
 func (lpb *lambdaParamRefBuilder) BuildExpr() (Expression, error) {
