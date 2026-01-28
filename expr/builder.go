@@ -192,10 +192,12 @@ func (e *ExprBuilder) Lambda(params *types.StructType, body Builder) *lambdaBuil
 	}
 }
 
+// pushLambdaContext pushes a lambda parameters struct onto the expression builder's context stack.
 func (e *ExprBuilder) pushLambdaContext(params *types.StructType) {
 	e.lambdaContext = append(e.lambdaContext, params)
 }
 
+// popLambdaContext pops a lambda parameters struct off the expression builder's context stack.
 func (e *ExprBuilder) popLambdaContext() {
 	e.lambdaContext = e.lambdaContext[:len(e.lambdaContext)-1]
 }
