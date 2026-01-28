@@ -2,8 +2,8 @@
 
 // Package expr provides types and builders for constructing Substrait expressions.
 //
-// IMPORTANT: Always use ExprBuilder methods to construct expressions. Manual
-// construction using struct literals bypasses validation and may create invalid expressions.
+// IMPORTANT: Only ExprBuilder methods guarantee construction of valid expressions. Manual
+// construction using struct literals bypasses validation and may create invalid expressions. It is highly recommended to only construct expressions via the builders
 package expr
 
 import (
@@ -207,8 +207,6 @@ type lambdaBuilder struct {
 }
 
 // Build constructs and validates the Lambda expression.
-// During building, this lambda's parameters are pushed onto the ExprBuilder's
-// context stack, allowing nested lambdas to validate stepsOut references.
 func (lb *lambdaBuilder) Build() (*Lambda, error) {
 	if lb.params == nil {
 		return nil, fmt.Errorf("%w: lambda must have parameters struct", substraitgo.ErrInvalidExpr)
