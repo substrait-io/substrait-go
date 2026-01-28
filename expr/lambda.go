@@ -10,6 +10,7 @@ import (
 )
 
 // Lambda represents a lambda expression with parameters and a body.
+// It is required that the parameters be a struct type with NULLABILITY_REQUIRED.
 type Lambda struct {
 	Parameters *types.StructType
 	Body       Expression
