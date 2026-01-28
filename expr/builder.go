@@ -207,8 +207,6 @@ type lambdaBuilder struct {
 }
 
 // Build constructs and validates the Lambda expression.
-// During building, this lambda's parameters are pushed onto the ExprBuilder's
-// context stack, allowing nested lambdas to validate stepsOut references.
 func (lb *lambdaBuilder) Build() (*Lambda, error) {
 	if lb.params == nil {
 		return nil, fmt.Errorf("%w: lambda must have parameters struct", substraitgo.ErrInvalidExpr)
