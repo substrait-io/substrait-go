@@ -1,17 +1,17 @@
 {
-	"lambda": {
-		"parameters": {
-			"nullability": "NULLABILITY_REQUIRED",
-			"types": [
-				{"i32": {"nullability": "NULLABILITY_REQUIRED"}}
-			]
-		},
-		"body": {
-			"selection": {
-				"directReference": {"structField": {"field": 0}},
-				"lambdaParameterReference": {"stepsOut": 0}
-			}
-		}
-	}
+  "lambda": {
+    "parameters": {
+      "nullability": "NULLABILITY_REQUIRED",
+      "types": [
+        {"i32": {"nullability": "NULLABILITY_REQUIRED"}}
+      ]
+    },
+    "body": {
+      "selection": {
+        "directReference": {"structField": {"field": 0}},
+        "lambdaParameterReference": {"stepsOut": 0}
+      }
+    }
+  }
 }
 

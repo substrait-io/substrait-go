@@ -1,40 +1,40 @@
 {
-	"version": {"majorNumber": 0, "minorNumber": 79},
-	"relations": [{
-		"root": {
-			"input": {
-				"project": {
-					"common": {"direct": {}},
-					"input": {
-						"read": {
-							"common": {"direct": {}},
-							"baseSchema": {
-								"names": ["dummy"],
-								"struct": {
-									"nullability": "NULLABILITY_REQUIRED",
-									"types": [{"i32": {"nullability": "NULLABILITY_REQUIRED"}}]
-								}
-							},
-							"virtualTable": {
-								"expressions": [{"fields": [{"literal": {"i32": 0}}]}]
-							}
-						}
-					},
-					"expressions": [{
-						"lambda": {
-							"parameters": {
-								"nullability": "NULLABILITY_REQUIRED",
-								"types": [{"i32": {"nullability": "NULLABILITY_REQUIRED"}}]
-							},
-							"body": {
-								"literal": {"i32": 42}
-							}
-						}
-					}]
-				}
-			},
-			"names": ["result"]
-		}
-	}]
+  "version": {"majorNumber": 0, "minorNumber": 79},
+  "relations": [{
+    "root": {
+      "input": {
+        "project": {
+          "common": {"direct": {}},
+          "input": {
+            "read": {
+              "common": {"direct": {}},
+              "baseSchema": {
+                "names": ["dummy"],
+                "struct": {
+                  "nullability": "NULLABILITY_REQUIRED",
+                  "types": [{"i32": {"nullability": "NULLABILITY_REQUIRED"}}]
+                }
+              },
+              "virtualTable": {
+                "expressions": [{"fields": [{"literal": {"i32": 0}}]}]
+              }
+            }
+          },
+          "expressions": [{
+            "lambda": {
+              "parameters": {
+                "nullability": "NULLABILITY_REQUIRED",
+                "types": [{"i32": {"nullability": "NULLABILITY_REQUIRED"}}]
+              },
+              "body": {
+                "literal": {"i32": 42}
+              }
+            }
+          }]
+        }
+      },
+      "names": ["result"]
+    }
+  }]
 }
 
