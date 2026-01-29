@@ -9,9 +9,8 @@ import (
 )
 
 // Lambda represents a lambda expression with parameters and a body.
-// It is required that the parameters be a struct type with NULLABILITY_REQUIRED.
 type Lambda struct {
-	Parameters *types.StructType
+	Parameters *types.StructType // The formal lambda parameters, required to have NULLABILITY_REQUIRED
 	Body       Expression
 }
 
@@ -32,7 +31,7 @@ func (l *Lambda) String() string {
 func (l *Lambda) isRootRef() {}
 
 func (l *Lambda) IsScalar() bool {
-	return l.Body.IsScalar()
+	return false
 }
 
 func (l *Lambda) GetType() types.Type {

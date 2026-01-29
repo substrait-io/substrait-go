@@ -182,7 +182,7 @@ func TestLambdaBuilder_ValidStepsOut0(t *testing.T) {
 	require.NoError(t, err, "Build should pass for valid stepsOut=0 reference")
 	require.NotNil(t, lambda)
 	require.Equal(t, params, lambda.Parameters)
-	require.True(t, lambda.IsScalar()) // FieldReference is scalar
+	require.False(t, lambda.IsScalar()) // Lambda is not scalar (type is func)
 	t.Logf("Lambda built successfully: %s", lambda.String())
 
 	// Test Equals - same lambda
