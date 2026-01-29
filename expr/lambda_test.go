@@ -158,7 +158,10 @@ func TestLambdaBuilder_ZeroParameters(t *testing.T) {
 	require.NoError(t, err, "Zero-parameter lambda should be valid")
 	require.NotNil(t, lambda)
 	require.Len(t, lambda.Parameters.Types, 0, "Should have zero parameters")
-	require.Equal(t, "i32", lambda.GetType().ShortString(), "Return type should be i32")
+
+	funcType, ok := lambda.GetType().(*types.FuncType)
+	require.True(t, ok, "Lambda type should be FuncType")
+	require.Equal(t, "i32", funcType.ReturnType.ShortString(), "Return type should be i32")
 	t.Logf("Zero-parameter lambda: %s", lambda.String())
 }
 
@@ -274,8 +277,9 @@ func TestLambdaBuilder_ValidFieldIndex(t *testing.T) {
 	require.NotNil(t, lambda)
 
 	// Verify the resolved type is string
-	require.NotNil(t, lambda.GetType())
-	require.Equal(t, "str", lambda.GetType().ShortString())
+	funcType, ok := lambda.GetType().(*types.FuncType)
+	require.True(t, ok, "Lambda type should be FuncType")
+	require.Equal(t, "str", funcType.ReturnType.ShortString())
 	t.Logf("Lambda built successfully: %s", lambda.String())
 }
 
@@ -420,11 +424,13 @@ func TestLambdaBuilder_TypeResolution(t *testing.T) {
 			require.NoError(t, err, "Build should succeed")
 			require.NotNil(t, lambda)
 
-			// Verify GetType() returns the correct resolved type
+			// Verify GetType() returns a FuncType
 			lambdaType := lambda.GetType()
 			require.NotNil(t, lambdaType, "Lambda should have a resolved type")
-			require.Equal(t, tc.expectedType, lambdaType.ShortString(),
-				"Lambda type should match referenced parameter type")
+			funcType, ok := lambdaType.(*types.FuncType)
+			require.True(t, ok, "Lambda type should be FuncType")
+			require.Equal(t, tc.expectedType, funcType.ReturnType.ShortString(),
+				"Lambda return type should match referenced parameter type")
 
 			// Also verify body's type matches
 			bodyType := lambda.Body.GetType()
@@ -432,7 +438,7 @@ func TestLambdaBuilder_TypeResolution(t *testing.T) {
 			require.Equal(t, tc.expectedType, bodyType.ShortString(),
 				"Body type should match referenced parameter type")
 
-			t.Logf("Lambda: %s → type: %s", lambda.String(), lambdaType.ShortString())
+			t.Logf("Lambda: %s → func type: %s", lambda.String(), lambdaType.String())
 		})
 	}
 }
@@ -471,11 +477,13 @@ func TestLambdaBuilder_OuterRefTypeResolution(t *testing.T) {
 	innerLambda, ok := outerLambda.Body.(*expr.Lambda)
 	require.True(t, ok)
 
-	// Verify inner lambda's type is resolved to string (outer.c's type)
+	// Verify inner lambda returns a FuncType with return type of string (outer.c's type)
 	innerType := innerLambda.GetType()
 	require.NotNil(t, innerType, "Inner lambda should have resolved type")
-	require.Equal(t, "str", innerType.ShortString(),
-		"Inner lambda type should be string (from outer.c)")
+	funcType, ok := innerType.(*types.FuncType)
+	require.True(t, ok, "Inner lambda type should be FuncType")
+	require.Equal(t, "str", funcType.ReturnType.ShortString(),
+		"Inner lambda return type should be string (from outer.c)")
 
 	// Verify the body's type is also resolved
 	bodyType := innerLambda.Body.GetType()
@@ -484,7 +492,7 @@ func TestLambdaBuilder_OuterRefTypeResolution(t *testing.T) {
 		"Body type should be string (outer param at field 2)")
 
 	t.Logf("Outer lambda: %s", outerLambda.String())
-	t.Logf("Inner lambda type (from outer.c): %s", innerType.ShortString())
+	t.Logf("Inner lambda type (from outer.c): %s", funcType.ReturnType.ShortString())
 }
 
 // TestLambdaBuilder_DeeplyNestedFieldRef tests that type resolution

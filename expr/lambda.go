@@ -36,7 +36,11 @@ func (l *Lambda) IsScalar() bool {
 }
 
 func (l *Lambda) GetType() types.Type {
-	return l.Body.GetType()
+	return &types.FuncType{
+		Nullability:    types.NullabilityRequired,
+		ParameterTypes: l.Parameters.Types,
+		ReturnType:     l.Body.GetType(),
+	}
 }
 
 func (l *Lambda) Equals(other Expression) bool {

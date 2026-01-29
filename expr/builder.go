@@ -515,41 +515,27 @@ type lambdaParamRefBuilder struct {
 }
 
 func (lpb *lambdaParamRefBuilder) Build() (*FieldReference, error) {
+	// Get the target lambda parameters
+	resolvedType, err := lpb.getLambdaParamType()
+	if err != nil {
+		return nil, err
+	}
+
+	return &FieldReference{
+		Root:      LambdaParameterReference{StepsOut: lpb.stepsOut},
+		Reference: lpb.ref,
+		knownType: resolvedType,
+	}, nil
+}
+
+// getLambdaParamType gets the target lambda parameters struct from the context stack and validates that the parameter exists.
+// Returns an error if the parameter does not exist.
+func (lpb *lambdaParamRefBuilder) getLambdaParamType() (types.Type, error) {
 	// Validate stepsOut - check we have enough outer lambdas
 	if int(lpb.stepsOut) >= len(lpb.b.lambdaContext) {
 		return nil, fmt.Errorf("%w: stepsOut %d references non-existent outer lambda (only %d outer lambdas available)",
 			substraitgo.ErrInvalidExpr, lpb.stepsOut, len(lpb.b.lambdaContext))
 	}
-
-	// Get the target lambda parameters
-	targetParams, err := lpb.getLambdaParamType()
-	if err != nil {
-		return nil, err
-	}
-
-	// Resolve type using polymorphic GetType method
-	if refSeg, ok := lpb.ref.(ReferenceSegment); ok {
-		resolvedType, err := refSeg.GetType(targetParams)
-		if err != nil {
-			return nil, fmt.Errorf("%w: cannot resolve lambda parameter reference type: %w",
-				substraitgo.ErrInvalidExpr, err)
-		}
-
-		return &FieldReference{
-			Root:      LambdaParameterReference{StepsOut: lpb.stepsOut},
-			Reference: lpb.ref,
-			knownType: resolvedType,
-		}, nil
-	}
-
-	// This should never happen - all Reference types should implement ReferenceSegment
-	return nil, fmt.Errorf("%w: reference type %T does not implement ReferenceSegment interface",
-		substraitgo.ErrInvalidExpr, lpb.ref)
-}
-
-// getLambdaParamType gets the target lambda parameters struct from the context stack and validates that the parameter exists.
-// Returns an error if the parameter does not exist.
-func (lpb *lambdaParamRefBuilder) getLambdaParamType() (*types.StructType, error) {
 	targetParams := lpb.b.lambdaContext[len(lpb.b.lambdaContext)-1-int(lpb.stepsOut)]
 
 	// Validate that the parameter exists by checking field index for StructFieldRef
@@ -559,7 +545,20 @@ func (lpb *lambdaParamRefBuilder) getLambdaParamType() (*types.StructType, error
 				substraitgo.ErrInvalidExpr, structRef.Field, len(targetParams.Types))
 		}
 	}
-	return targetParams, nil
+
+	// Resolve type using polymorphic GetType method
+	if refSeg, ok := lpb.ref.(ReferenceSegment); ok {
+		resolvedType, err := refSeg.GetType(targetParams)
+		if err != nil {
+			return nil, fmt.Errorf("%w: cannot resolve lambda parameter reference type: %w",
+				substraitgo.ErrInvalidExpr, err)
+		}
+		return resolvedType, nil
+	}
+
+	// This should never happen - all Reference types should implement ReferenceSegment
+	return nil, fmt.Errorf("%w: reference type %T does not implement ReferenceSegment interface",
+		substraitgo.ErrInvalidExpr, lpb.ref)
 }
 
 func (lpb *lambdaParamRefBuilder) BuildExpr() (Expression, error) {
