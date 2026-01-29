@@ -31,7 +31,7 @@ func (l *Lambda) String() string {
 func (l *Lambda) isRootRef() {}
 
 func (l *Lambda) IsScalar() bool {
-	return l.Body.IsScalar()
+	return false
 }
 
 func (l *Lambda) GetType() types.Type {
