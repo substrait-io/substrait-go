@@ -521,7 +521,6 @@ func (lpb *lambdaParamRefBuilder) Build() (*FieldReference, error) {
 			substraitgo.ErrInvalidExpr, lpb.stepsOut, len(lpb.b.lambdaContext))
 	}
 
-	// Get the target lambda parameters
 	targetParams, err := lpb.getLambdaParamType()
 	if err != nil {
 		return nil, err
