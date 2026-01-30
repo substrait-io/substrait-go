@@ -240,7 +240,7 @@ func (lb *lambdaBuilder) Build() (*Lambda, error) {
 	lb.b.popLambdaContext()
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to build lambda body: %w", err)
 	}
 
 	return &Lambda{Parameters: lb.params, Body: bodyExpr}, nil
