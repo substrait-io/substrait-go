@@ -3,7 +3,6 @@
 package expr_test
 
 import (
-	"encoding/json"
 	"os"
 	"strings"
 	"testing"
@@ -91,41 +90,22 @@ func TestLambdaProtoRoundTrip(t *testing.T) {
 			data, err := os.ReadFile("./testdata/lambda/" + file.Name())
 			require.NoError(t, err, "Should read JSON file")
 
-			// Determine if this is a Plan or standalone Expression by unmarshaling to map
-			var jsonData map[string]any
-			err = json.Unmarshal(data, &jsonData)
-			require.NoError(t, err, "Should parse JSON")
+			// Parse plan
+			var plan proto.Plan
+			err = protojson.Unmarshal(data, &plan)
+			require.NoError(t, err, "Should parse Plan JSON")
 
-			// Setup extension collection
+			// Setup extension collection and registry
 			collection := ext.GetDefaultCollectionWithNoError()
+			extSet, err := ext.GetExtensionSet(&plan, collection)
+			require.NoError(t, err, "Should get extension set from plan")
+			reg := expr.NewExtensionRegistry(extSet, collection)
 
-			var originalExprProto *proto.Expression
-			var reg expr.ExtensionRegistry
-
-			if _, hasPlan := jsonData["relations"]; hasPlan {
-				// It's a Plan - extract expression from project
-				var plan proto.Plan
-				err = protojson.Unmarshal(data, &plan)
-				require.NoError(t, err, "Should parse Plan JSON")
-
-				// Build extension registry from plan
-				extSet, err := ext.GetExtensionSet(&plan, collection)
-				require.NoError(t, err, "Should get extension set from plan")
-				reg = expr.NewExtensionRegistry(extSet, collection)
-
-				// Extract expression from plan
-				project := plan.Relations[0].GetRoot().GetInput().GetProject()
-				require.NotNil(t, project, "Should have project relation")
-				require.Len(t, project.Expressions, 1, "Should have 1 expression")
-				originalExprProto = project.Expressions[0]
-			} else {
-				// It's a standalone Expression
-				var exprProto proto.Expression
-				err = protojson.Unmarshal(data, &exprProto)
-				require.NoError(t, err, "Should parse Expression JSON")
-				originalExprProto = &exprProto
-				reg = expr.NewEmptyExtensionRegistry(collection)
-			}
+			// Extract expression from plan
+			project := plan.Relations[0].GetRoot().GetInput().GetProject()
+			require.NotNil(t, project, "Should have project relation")
+			require.Len(t, project.Expressions, 1, "Should have 1 expression")
+			originalExprProto := project.Expressions[0]
 
 			// Roundtrip: proto → Go → proto
 			goExpr, err := expr.ExprFromProto(originalExprProto, nil, reg)

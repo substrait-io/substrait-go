@@ -1,17 +1,44 @@
 {
-  "lambda": {
-    "parameters": {
-      "nullability": "NULLABILITY_REQUIRED",
-      "types": [
-        {"i32": {"nullability": "NULLABILITY_REQUIRED"}}
-      ]
-    },
-    "body": {
-      "selection": {
-        "directReference": {"structField": {"field": 0}},
-        "lambdaParameterReference": {"stepsOut": 0}
-      }
+  "relations": [{
+    "root": {
+      "input": {
+        "project": {
+          "common": {"direct": {}},
+          "input": {
+            "read": {
+              "common": {"direct": {}},
+              "baseSchema": {
+                "names": ["dummy"],
+                "struct": {
+                  "nullability": "NULLABILITY_REQUIRED",
+                  "types": [{"i32": {"nullability": "NULLABILITY_REQUIRED"}}]
+                }
+              },
+              "virtualTable": {
+                "expressions": [{"fields": [{"literal": {"i32": 0}}]}]
+              }
+            }
+          },
+          "expressions": [{
+            "lambda": {
+              "parameters": {
+                "nullability": "NULLABILITY_REQUIRED",
+                "types": [
+                  {"i32": {"nullability": "NULLABILITY_REQUIRED"}}
+                ]
+              },
+              "body": {
+                "selection": {
+                  "directReference": {"structField": {"field": 0}},
+                  "lambdaParameterReference": {"stepsOut": 0}
+                }
+              }
+            }
+          }]
+        }
+      },
+      "names": ["result"]
     }
-  }
+  }]
 }
 
