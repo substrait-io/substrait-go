@@ -543,8 +543,8 @@ func (lpb *lambdaParamRefBuilder) getLambdaParamType() (types.Type, error) {
 
 	// Validate that the parameter field index exists
 	if int(lpb.ref.Field) >= len(targetParams.Types) {
-		return nil, fmt.Errorf("%w: lambda body references parameter %d but lambda only has %d parameters",
-			substraitgo.ErrInvalidExpr, lpb.ref.Field, len(targetParams.Types))
+		return nil, fmt.Errorf("%w: trying to access parameter %d in lambda %d steps out, but it only has %d parameters",
+			substraitgo.ErrInvalidExpr, lpb.ref.Field, lpb.stepsOut, len(targetParams.Types))
 	}
 
 	// Resolve type using GetType method
