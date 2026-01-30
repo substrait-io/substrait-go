@@ -510,7 +510,7 @@ func (rb *fieldRefBuilder) BuildExpr() (Expression, error) {
 
 type lambdaParamRefBuilder struct {
 	b        *ExprBuilder
-	ref      Reference
+	ref      *StructFieldRef
 	stepsOut uint32
 }
 
