@@ -186,7 +186,7 @@ func TestLambdaBuilder_ValidStepsOut0(t *testing.T) {
 	require.Equal(t, lambda, sameLambda)
 
 	// Test Visit - body changed returns new lambda
-	newBody := &expr.PrimitiveLiteral[int32]{Value: 99, Type: &types.Int32Type{Nullability: types.NullabilityRequired}}
+	newBody := literal.NewInt32(99, false)
 	newLambda := lambda.Visit(func(e expr.Expression) expr.Expression { return newBody })
 	require.NotEqual(t, lambda, newLambda)
 	require.Equal(t, newBody, newLambda.(*expr.Lambda).Body)
