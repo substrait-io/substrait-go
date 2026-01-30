@@ -71,7 +71,9 @@ func TestLambdaBuilder_ValidationErrors(t *testing.T) {
 		),
 	).Build()
 	require.ErrorIs(t, err, substraitgo.ErrInvalidExpr)
-	require.Contains(t, err.Error(), "parameter")
+	require.Contains(t, err.Error(), "parameter 5")
+	require.Contains(t, err.Error(), "1 steps out")
+	require.Contains(t, err.Error(), "only has 1 parameters")
 }
 
 // TestLambdaProtoRoundTrip tests that lambda expressions can be round-tripped
