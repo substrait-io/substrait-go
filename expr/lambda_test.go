@@ -131,7 +131,7 @@ func TestLambdaBuilder_ZeroParameters(t *testing.T) {
 		Nullability: types.NullabilityRequired,
 		Types:       []types.Type{}, // No parameters
 	}
-	body := &expr.PrimitiveLiteral[int32]{Value: 42, Type: &types.Int32Type{Nullability: types.NullabilityRequired}}
+	body := literal.NewInt32(42, false)
 
 	lambda, err := b.Lambda(params, b.Expression(body)).Build()
 
