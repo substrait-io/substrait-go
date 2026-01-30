@@ -2,7 +2,7 @@
 
 package grammar
 
-// using substrait v0.69.0
+// using substrait v0.79.0
 
 //go:generate wget -nc https://www.antlr.org/download/antlr-4.13.2-complete.jar
 //go:generate wget https://raw.githubusercontent.com/substrait-io/substrait/1f670654189565565a649ff6249089ae4750ab92/grammar/SubstraitLexer.g4
