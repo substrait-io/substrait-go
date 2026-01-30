@@ -240,7 +240,7 @@ func (lb *lambdaBuilder) Build() (*Lambda, error) {
 	lb.b.popLambdaContext()
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to build lambda body: %w", err)
 	}
 
 	return &Lambda{Parameters: lb.params, Body: bodyExpr}, nil
@@ -534,20 +534,17 @@ func (lpb *lambdaParamRefBuilder) Build() (*FieldReference, error) {
 // getLambdaParamType gets the target lambda parameters struct from the context stack and validates that the parameter exists.
 // Returns an error if the parameter does not exist.
 func (lpb *lambdaParamRefBuilder) getLambdaParamType() (types.Type, error) {
-	// Validate stepsOut - check we have enough outer lambdas
 	if int(lpb.stepsOut) >= len(lpb.b.lambdaContext) {
-		return nil, fmt.Errorf("%w: stepsOut %d references non-existent outer lambda (only %d outer lambdas available)",
+		return nil, fmt.Errorf("%w: lambda parameter reference with stepsOut %d references non-existent outer lambda (only %d outer lambdas available)",
 			substraitgo.ErrInvalidExpr, lpb.stepsOut, len(lpb.b.lambdaContext))
 	}
 	targetParams := lpb.b.lambdaContext[len(lpb.b.lambdaContext)-1-int(lpb.stepsOut)]
 
-	// Validate that the parameter field index exists
 	if int(lpb.ref.Field) >= len(targetParams.Types) {
 		return nil, fmt.Errorf("%w: trying to access parameter %d in lambda %d steps out, but it only has %d parameters",
 			substraitgo.ErrInvalidExpr, lpb.ref.Field, lpb.stepsOut, len(targetParams.Types))
 	}
 
-	// Resolve type using GetType method
 	resolvedType, err := lpb.ref.GetType(targetParams)
 	if err != nil {
 		return nil, fmt.Errorf("%w: cannot resolve lambda parameter reference type: %w",
