@@ -238,6 +238,7 @@ func TestLambdaBuilder_InvalidFieldIndex(t *testing.T) {
 // TestLambdaBuilder_ValidFieldIndex tests that LambdaParamRef() passes for valid field indices.
 func TestLambdaBuilder_ValidFieldIndex(t *testing.T) {
 // building: ($0: i32, $1: i64, $2: string) -> $2 : string
+// building: ($0: i32, $1: i64, $2: string) -> $2 : string
 	b := &expr.ExprBuilder{}
 	// Lambda has 3 parameters, body references field 2 (valid)
 	params := &types.StructType{
