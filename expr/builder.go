@@ -156,15 +156,18 @@ func (e *ExprBuilder) RootRef(ref Reference) *fieldRefBuilder {
 
 // LambdaParamRef constructs a field reference to a lambda parameter.
 //
+// Lambda parameters are always a StructType, so this method takes a StructFieldRef
+// to specify which parameter (field) to reference.
+//
 // The stepsOut parameter specifies how many lambda scopes to traverse outward from
-// the current lambda to find the target parameter.
+// the current lambda to find the target parameter (0 = current lambda, 1 = outer lambda, etc.).
 //
 // The Build method validates the stepsOut value and field index against the
 // available lambda context, and resolves the reference type automatically.
-func (e *ExprBuilder) LambdaParamRef(ref Reference, stepsOut uint32) *lambdaParamRefBuilder {
+func (e *ExprBuilder) LambdaParamRef(ref StructFieldRef, stepsOut uint32) *lambdaParamRefBuilder {
 	return &lambdaParamRefBuilder{
 		b:        e,
-		ref:      ref,
+		ref:      &ref,
 		stepsOut: stepsOut,
 	}
 }
@@ -515,7 +518,7 @@ type lambdaParamRefBuilder struct {
 }
 
 func (lpb *lambdaParamRefBuilder) Build() (*FieldReference, error) {
-	// Get the target lambda parameters
+	// Validate and get the resolved type for the lambda parameter
 	resolvedType, err := lpb.getLambdaParamType()
 	if err != nil {
 		return nil, err
@@ -531,13 +534,6 @@ func (lpb *lambdaParamRefBuilder) Build() (*FieldReference, error) {
 // getLambdaParamType gets the target lambda parameters struct from the context stack and validates that the parameter exists.
 // Returns an error if the parameter does not exist.
 func (lpb *lambdaParamRefBuilder) getLambdaParamType() (types.Type, error) {
-	// Lambda parameter references must always be StructFieldRef because lambda parameters are always a StructType
-	structRef, ok := lpb.ref.(*StructFieldRef)
-	if !ok {
-		return nil, fmt.Errorf("%w: lambda parameter reference must be StructFieldRef, got %T",
-			substraitgo.ErrInvalidExpr, lpb.ref)
-	}
-
 	// Validate stepsOut - check we have enough outer lambdas
 	if int(lpb.stepsOut) >= len(lpb.b.lambdaContext) {
 		return nil, fmt.Errorf("%w: stepsOut %d references non-existent outer lambda (only %d outer lambdas available)",
@@ -546,13 +542,13 @@ func (lpb *lambdaParamRefBuilder) getLambdaParamType() (types.Type, error) {
 	targetParams := lpb.b.lambdaContext[len(lpb.b.lambdaContext)-1-int(lpb.stepsOut)]
 
 	// Validate that the parameter field index exists
-	if int(structRef.Field) >= len(targetParams.Types) {
+	if int(lpb.ref.Field) >= len(targetParams.Types) {
 		return nil, fmt.Errorf("%w: lambda body references parameter %d but lambda only has %d parameters",
-			substraitgo.ErrInvalidExpr, structRef.Field, len(targetParams.Types))
+			substraitgo.ErrInvalidExpr, lpb.ref.Field, len(targetParams.Types))
 	}
 
 	// Resolve type using GetType method
-	resolvedType, err := structRef.GetType(targetParams)
+	resolvedType, err := lpb.ref.GetType(targetParams)
 	if err != nil {
 		return nil, fmt.Errorf("%w: cannot resolve lambda parameter reference type: %w",
 			substraitgo.ErrInvalidExpr, err)

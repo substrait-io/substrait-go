@@ -66,7 +66,7 @@ func TestLambdaBuilder_ValidationErrors(t *testing.T) {
 	// Inner body references outer.field(5) but outer only has 1 param
 	_, err = b.Lambda(outerParams,
 		b.Lambda(innerParams,
-			b.LambdaParamRef(&expr.StructFieldRef{Field: 5}, 1), // Out of bounds!
+			b.LambdaParamRef(expr.StructFieldRef{Field: 5}, 1), // Out of bounds!
 		),
 	).Build()
 	require.ErrorIs(t, err, substraitgo.ErrInvalidExpr)
@@ -156,7 +156,7 @@ func TestLambdaBuilder_ValidStepsOut0(t *testing.T) {
 
 	// Build should succeed - valid stepsOut=0 reference
 	lambda, err := b.Lambda(params,
-		b.LambdaParamRef(&expr.StructFieldRef{Field: 0}, 0),
+		b.LambdaParamRef(expr.StructFieldRef{Field: 0}, 0),
 	).Build()
 
 	require.NoError(t, err, "Build should pass for valid stepsOut=0 reference")
@@ -167,7 +167,7 @@ func TestLambdaBuilder_ValidStepsOut0(t *testing.T) {
 
 	// Test Equals - same lambda
 	lambda2, _ := b.Lambda(params,
-		b.LambdaParamRef(&expr.StructFieldRef{Field: 0}, 0),
+		b.LambdaParamRef(expr.StructFieldRef{Field: 0}, 0),
 	).Build()
 	require.True(t, lambda.Equals(lambda2))
 
@@ -177,7 +177,7 @@ func TestLambdaBuilder_ValidStepsOut0(t *testing.T) {
 		Types:       []types.Type{&types.Int64Type{Nullability: types.NullabilityRequired}},
 	}
 	lambda3, _ := b.Lambda(differentParams,
-		b.LambdaParamRef(&expr.StructFieldRef{Field: 0}, 0),
+		b.LambdaParamRef(expr.StructFieldRef{Field: 0}, 0),
 	).Build()
 	require.False(t, lambda.Equals(lambda3))
 
@@ -203,7 +203,7 @@ func TestLambdaBuilder_InvalidOuterRef(t *testing.T) {
 
 	// Using the builder API - should fail during LambdaParamRef.Build()
 	lambda, err := b.Lambda(params,
-		b.LambdaParamRef(&expr.StructFieldRef{Field: 0}, 1), // stepsOut=1 but no outer lambda
+		b.LambdaParamRef(expr.StructFieldRef{Field: 0}, 1), // stepsOut=1 but no outer lambda
 	).Build()
 
 	require.Error(t, err, "Build should fail for invalid outer reference")
@@ -225,7 +225,7 @@ func TestLambdaBuilder_InvalidFieldIndex(t *testing.T) {
 
 	// Using the builder API - should fail during LambdaParamRef.Build()
 	lambda, err := b.Lambda(params,
-		b.LambdaParamRef(&expr.StructFieldRef{Field: 5}, 0), // invalid - only 1 param (index 0)
+		b.LambdaParamRef(expr.StructFieldRef{Field: 5}, 0), // invalid - only 1 param (index 0)
 	).Build()
 
 	require.Error(t, err, "Build should fail for out-of-bounds field index")
@@ -250,7 +250,7 @@ func TestLambdaBuilder_ValidFieldIndex(t *testing.T) {
 
 	// Using the builder API - should succeed
 	lambda, err := b.Lambda(params,
-		b.LambdaParamRef(&expr.StructFieldRef{Field: 2}, 0), // valid - references 3rd param (string)
+		b.LambdaParamRef(expr.StructFieldRef{Field: 2}, 0), // valid - references 3rd param (string)
 	).Build()
 
 	require.NoError(t, err, "Build should pass for valid field index")
@@ -284,7 +284,7 @@ func TestLambdaBuilder_NestedLambda(t *testing.T) {
 	// Build outer lambda - inner uses LambdaParamRef with stepsOut=1 to reference outer
 	outerLambda, err := b.Lambda(outerParams,
 		b.Lambda(innerParams,
-			b.LambdaParamRef(&expr.StructFieldRef{Field: 0}, 1), // stepsOut=1 references outer
+			b.LambdaParamRef(expr.StructFieldRef{Field: 0}, 1), // stepsOut=1 references outer
 		),
 	).Build()
 
@@ -299,7 +299,7 @@ func TestLambdaBuilder_NestedLambda(t *testing.T) {
 	// Test Equals - same nested lambda
 	outerLambda2, _ := b.Lambda(outerParams,
 		b.Lambda(innerParams,
-			b.LambdaParamRef(&expr.StructFieldRef{Field: 0}, 1),
+			b.LambdaParamRef(expr.StructFieldRef{Field: 0}, 1),
 		),
 	).Build()
 	require.True(t, outerLambda.Equals(outerLambda2))
@@ -307,7 +307,7 @@ func TestLambdaBuilder_NestedLambda(t *testing.T) {
 	// Test Equals - different stepsOut in inner body
 	outerLambda3, _ := b.Lambda(outerParams,
 		b.Lambda(innerParams,
-			b.LambdaParamRef(&expr.StructFieldRef{Field: 0}, 0), // stepsOut=0 (different)
+			b.LambdaParamRef(expr.StructFieldRef{Field: 0}, 0), // stepsOut=0 (different)
 		),
 	).Build()
 	require.False(t, outerLambda.Equals(outerLambda3))
@@ -333,7 +333,7 @@ func TestLambdaBuilder_NestedInvalidOuterRef(t *testing.T) {
 	// Build should fail - inner references stepsOut=2 but only 1 outer lambda exists
 	outerLambda, err := b.Lambda(outerParams,
 		b.Lambda(innerParams,
-			b.LambdaParamRef(&expr.StructFieldRef{Field: 0}, 2), // invalid - no grandparent
+			b.LambdaParamRef(expr.StructFieldRef{Field: 0}, 2), // invalid - no grandparent
 		),
 	).Build()
 
@@ -398,7 +398,7 @@ func TestLambdaBuilder_TypeResolution(t *testing.T) {
 			}
 
 			lambda, err := b.Lambda(params,
-				b.LambdaParamRef(&expr.StructFieldRef{Field: tc.fieldIndex}, 0),
+				b.LambdaParamRef(expr.StructFieldRef{Field: tc.fieldIndex}, 0),
 			).Build()
 
 			require.NoError(t, err, "Build should succeed")
@@ -446,7 +446,7 @@ func TestLambdaBuilder_OuterRefTypeResolution(t *testing.T) {
 	// Use LambdaParamRef to reference outer.c (stepsOut=1, field=2)
 	outerLambda, err := b.Lambda(outerParams,
 		b.Lambda(innerParams,
-			b.LambdaParamRef(&expr.StructFieldRef{Field: 2}, 1), // stepsOut=1, field=2
+			b.LambdaParamRef(expr.StructFieldRef{Field: 2}, 1), // stepsOut=1, field=2
 		),
 	).Build()
 
@@ -489,7 +489,7 @@ func TestLambdaBuilder_DeeplyNestedFieldRef(t *testing.T) {
 	// Build lambda with Cast(LambdaParamRef) as body using builder API
 	lambda, err := b.Lambda(params,
 		b.Cast(
-			b.LambdaParamRef(&expr.StructFieldRef{Field: 0}, 0),
+			b.LambdaParamRef(expr.StructFieldRef{Field: 0}, 0),
 			&types.Int64Type{Nullability: types.NullabilityRequired},
 		),
 	).Build()
@@ -523,7 +523,7 @@ func TestLambdaBuilder_DeeplyNestedInvalidFieldRef(t *testing.T) {
 	// Build should fail because LambdaParamRef validates during its Build()
 	_, err := b.Lambda(params,
 		b.Cast(
-			b.LambdaParamRef(&expr.StructFieldRef{Field: 5}, 0), // Invalid - only 1 param!
+			b.LambdaParamRef(expr.StructFieldRef{Field: 5}, 0), // Invalid - only 1 param!
 			&types.Int64Type{Nullability: types.NullabilityRequired},
 		),
 	).Build()
@@ -549,7 +549,7 @@ func TestLambdaBuilder_DoublyNestedFieldRef(t *testing.T) {
 	lambda, err := b.Lambda(params,
 		b.Cast(
 			b.Cast(
-				b.LambdaParamRef(&expr.StructFieldRef{Field: 0}, 0),
+				b.LambdaParamRef(expr.StructFieldRef{Field: 0}, 0),
 				&types.Int64Type{Nullability: types.NullabilityRequired},
 			),
 			&types.StringType{Nullability: types.NullabilityRequired},
