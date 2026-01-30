@@ -536,7 +536,7 @@ func (lpb *lambdaParamRefBuilder) Build() (*FieldReference, error) {
 func (lpb *lambdaParamRefBuilder) getLambdaParamType() (types.Type, error) {
 	// Validate stepsOut - check we have enough outer lambdas
 	if int(lpb.stepsOut) >= len(lpb.b.lambdaContext) {
-		return nil, fmt.Errorf("%w: stepsOut %d references non-existent outer lambda (only %d outer lambdas available)",
+		return nil, fmt.Errorf("%w: lambda parameter reference with stepsOut %d references non-existent outer lambda (only %d outer lambdas available)",
 			substraitgo.ErrInvalidExpr, lpb.stepsOut, len(lpb.b.lambdaContext))
 	}
 	targetParams := lpb.b.lambdaContext[len(lpb.b.lambdaContext)-1-int(lpb.stepsOut)]
