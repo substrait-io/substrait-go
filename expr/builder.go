@@ -547,7 +547,6 @@ func (lpb *lambdaParamRefBuilder) getLambdaParamType() (types.Type, error) {
 			substraitgo.ErrInvalidExpr, lpb.ref.Field, lpb.stepsOut, len(targetParams.Types))
 	}
 
-	// Resolve type using GetType method
 	resolvedType, err := lpb.ref.GetType(targetParams)
 	if err != nil {
 		return nil, fmt.Errorf("%w: cannot resolve lambda parameter reference type: %w",
