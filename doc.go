@@ -3,5 +3,4 @@
 // Package substraitgo contains the experimental go bindings for substrait
 // (https://substrait.io).
 //
-// Current generated proto substrait version: v0.64.0
 package substraitgo
