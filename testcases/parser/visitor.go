@@ -787,8 +787,8 @@ func (v *TestCaseVisitor) VisitSubstraitError(ctx *baseparser.SubstraitErrorCont
 	}
 }
 
-func (v *TestCaseVisitor) VisitBoolean(*baseparser.BooleanContext) interface{} {
-	return &types.BooleanType{Nullability: types.NullabilityRequired}
+func (v *TestCaseVisitor) VisitBoolean(ctx *baseparser.BooleanContext) interface{} {
+	return &types.BooleanType{Nullability: getNullability(ctx.BooleanType())}
 }
 
 func (v *TestCaseVisitor) VisitInt(ctx *baseparser.IntContext) interface{} {
@@ -828,46 +828,46 @@ func (v *TestCaseVisitor) VisitFloatType(ctx *baseparser.FloatTypeContext) inter
 	return nil
 }
 
-func (v *TestCaseVisitor) VisitString(*baseparser.StringContext) interface{} {
-	return &types.StringType{Nullability: types.NullabilityRequired}
+func (v *TestCaseVisitor) VisitString(ctx *baseparser.StringContext) interface{} {
+	return &types.StringType{Nullability: getNullability(ctx.StringType())}
 }
 
-func (v *TestCaseVisitor) VisitBinary(*baseparser.BinaryContext) interface{} {
-	return &types.BinaryType{Nullability: types.NullabilityRequired}
+func (v *TestCaseVisitor) VisitBinary(ctx *baseparser.BinaryContext) interface{} {
+	return &types.BinaryType{Nullability: getNullability(ctx.BinaryType())}
 }
 
-func (v *TestCaseVisitor) VisitTimestamp(*baseparser.TimestampContext) interface{} {
-	return &types.TimestampType{Nullability: types.NullabilityRequired}
+func (v *TestCaseVisitor) VisitTimestamp(ctx *baseparser.TimestampContext) interface{} {
+	return &types.TimestampType{Nullability: getNullability(ctx.TimestampType())}
 }
 
-func (v *TestCaseVisitor) VisitTimestampTz(*baseparser.TimestampTzContext) interface{} {
-	return &types.TimestampTzType{Nullability: types.NullabilityRequired}
+func (v *TestCaseVisitor) VisitTimestampTz(ctx *baseparser.TimestampTzContext) interface{} {
+	return &types.TimestampTzType{Nullability: getNullability(ctx.TimestampTZType())}
 }
 
-func (v *TestCaseVisitor) VisitDate(*baseparser.DateContext) interface{} {
-	return &types.DateType{Nullability: types.NullabilityRequired}
+func (v *TestCaseVisitor) VisitDate(ctx *baseparser.DateContext) interface{} {
+	return &types.DateType{Nullability: getNullability(ctx.DateType())}
 }
 
-func (v *TestCaseVisitor) VisitTime(*baseparser.TimeContext) interface{} {
-	return &types.TimeType{Nullability: types.NullabilityRequired}
+func (v *TestCaseVisitor) VisitTime(ctx *baseparser.TimeContext) interface{} {
+	return &types.TimeType{Nullability: getNullability(ctx.TimeType())}
 }
 
-func (v *TestCaseVisitor) VisitIntervalYear(*baseparser.IntervalYearContext) interface{} {
-	return &types.IntervalYearType{Nullability: types.NullabilityRequired}
+func (v *TestCaseVisitor) VisitIntervalYear(ctx *baseparser.IntervalYearContext) interface{} {
+	return &types.IntervalYearType{Nullability: getNullability(ctx.IntervalYearType())}
 }
 
-func (v *TestCaseVisitor) VisitUuid(*baseparser.UuidContext) interface{} {
-	return &types.UUIDType{Nullability: types.NullabilityRequired}
+func (v *TestCaseVisitor) VisitUuid(ctx *baseparser.UuidContext) interface{} {
+	return &types.UUIDType{Nullability: getNullability(ctx)}
 }
 
 func (v *TestCaseVisitor) VisitList(ctx *baseparser.ListContext) interface{} {
 	elementType := v.Visit(ctx.GetElemType()).(types.Type)
-	return &types.ListType{Type: elementType, Nullability: types.NullabilityRequired}
+	return &types.ListType{Type: elementType, Nullability: getNullability(ctx)}
 }
 
 func (v *TestCaseVisitor) VisitDataType(ctx *baseparser.DataTypeContext) interface{} {
 	if ctx.ScalarType() != nil {
-		return v.Visit(ctx.ScalarType()).(types.Type).WithNullability(getNullability(ctx))
+		return v.Visit(ctx.ScalarType())
 	}
 	return v.Visit(ctx.ParameterizedType())
 }
