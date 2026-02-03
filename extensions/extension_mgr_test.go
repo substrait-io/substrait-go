@@ -1119,24 +1119,37 @@ func TestResolveRefToURNAllConditions(t *testing.T) {
 	})
 }
 
-// TestPolymorphicReturnTypes tests that polymorphic types (any, any1, any2, etc.)
-// are correctly resolved in return types for struct, map, and user-defined types.
-// Covers issues #182 and #184.
-func TestPolymorphicReturnTypes(t *testing.T) {
+// TestPolymorphicStructReturn tests that any1 in struct<any1> resolves correctly (#182)
+func TestPolymorphicStructReturn(t *testing.T) {
 	const yaml = `---
-urn: extension:test:polymorphic
-types:
-  - name: Wrapper
-    structure:
-      value: T
+urn: extension:x:test
 scalar_functions:
-  - name: "wrap_struct"
+  - name: "f"
     impls:
       - args:
           - name: x
             value: any1
         return: struct<any1>
-  - name: "make_map"
+`
+	var c extensions.Collection
+	require.NoError(t, c.Load("http://test", strings.NewReader(yaml)))
+
+	fn, _ := c.GetScalarFunc(extensions.ID{URN: "extension:x:test", Name: "f:any"})
+	i64 := &types.Int64Type{Nullability: types.NullabilityRequired}
+
+	result, err := fn.ResolveType([]types.Type{i64}, extensions.NewSet())
+
+	require.NoError(t, err)
+	expected := &types.StructType{Nullability: types.NullabilityRequired, Types: []types.Type{i64}}
+	assert.Equal(t, expected, result)
+}
+
+// TestPolymorphicMapReturn tests that any1/any2 in map<any1, any2> resolve correctly (#182)
+func TestPolymorphicMapReturn(t *testing.T) {
+	const yaml = `---
+urn: extension:x:test
+scalar_functions:
+  - name: "f"
     impls:
       - args:
           - name: k
@@ -1144,52 +1157,46 @@ scalar_functions:
           - name: v
             value: any2
         return: map<any1, any2>
-  - name: "wrap_udt"
+`
+	var c extensions.Collection
+	require.NoError(t, c.Load("http://test", strings.NewReader(yaml)))
+
+	fn, _ := c.GetScalarFunc(extensions.ID{URN: "extension:x:test", Name: "f:any_any"})
+	str := &types.StringType{Nullability: types.NullabilityRequired}
+	i64 := &types.Int64Type{Nullability: types.NullabilityRequired}
+
+	result, err := fn.ResolveType([]types.Type{str, i64}, extensions.NewSet())
+
+	require.NoError(t, err)
+	expected := &types.MapType{Nullability: types.NullabilityRequired, Key: str, Value: i64}
+	assert.Equal(t, expected, result)
+}
+
+// TestPolymorphicUDTReturn tests that any1 in u!Wrapper<any1> resolves correctly (#184)
+func TestPolymorphicUDTReturn(t *testing.T) {
+	const yaml = `---
+urn: extension:x:test
+types:
+  - name: Wrapper
+    structure:
+      value: T
+scalar_functions:
+  - name: "f"
     impls:
       - args:
           - name: x
             value: any1
         return: u!Wrapper<any1>
 `
-	const urn = "extension:test:polymorphic"
-
 	var c extensions.Collection
-	require.NoError(t, c.Load("http://localhost/test.yaml", strings.NewReader(yaml)))
+	require.NoError(t, c.Load("http://test", strings.NewReader(yaml)))
 
+	fn, _ := c.GetScalarFunc(extensions.ID{URN: "extension:x:test", Name: "f:any"})
 	i64 := &types.Int64Type{Nullability: types.NullabilityRequired}
-	str := &types.StringType{Nullability: types.NullabilityRequired}
 
-	tests := []struct {
-		name      string
-		funcName  string
-		args      []types.Type
-		wantTypes []types.Type // expected types in result (struct fields, map key/value, or UDT param)
-	}{
-		{"struct", "wrap_struct:any", []types.Type{i64}, []types.Type{i64}},
-		{"map", "make_map:any_any", []types.Type{str, i64}, []types.Type{str, i64}},
-		{"user-defined type", "wrap_udt:any", []types.Type{i64}, []types.Type{i64}},
-	}
+	result, err := fn.ResolveType([]types.Type{i64}, extensions.NewSet())
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fn, ok := c.GetScalarFunc(extensions.ID{URN: urn, Name: tt.funcName})
-			require.True(t, ok)
-
-			result, err := fn.ResolveType(tt.args, extensions.NewSet())
-			require.NoError(t, err)
-
-			var gotTypes []types.Type
-			switch r := result.(type) {
-			case *types.StructType:
-				gotTypes = r.Types
-			case *types.MapType:
-				gotTypes = []types.Type{r.Key, r.Value}
-			case *types.UserDefinedType:
-				for _, p := range r.TypeParameters {
-					gotTypes = append(gotTypes, p.(*types.DataTypeParameter).Type)
-				}
-			}
-			assert.Equal(t, tt.wantTypes, gotTypes)
-		})
-	}
+	require.NoError(t, err)
+	expected := &types.UserDefinedType{Nullability: types.NullabilityRequired, TypeReference: 1, TypeParameters: []types.TypeParam{&types.DataTypeParameter{Type: i64}}}
+	assert.Equal(t, expected, result)
 }
