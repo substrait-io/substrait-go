@@ -63,3 +63,5 @@ This is work in progress still, things still to do:
 As this is built out, you can expect refactors and other changes to the
 structure of the package for the time being. **The API should not yet be
 considered stable.**
+
+Protobuf bindings come from [`substrait-protobuf`](https://github.com/substrait-io/substrait-protobuf). 
