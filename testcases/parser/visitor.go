@@ -869,7 +869,11 @@ func (v *TestCaseVisitor) VisitDataType(ctx *baseparser.DataTypeContext) interfa
 	if ctx.ScalarType() != nil {
 		return v.Visit(ctx.ScalarType())
 	}
-	return v.Visit(ctx.ParameterizedType())
+	if ctx.ParameterizedType() != nil {
+		return v.Visit(ctx.ParameterizedType())
+	}
+	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid data type %v", ctx.GetText()))
+	return nil
 }
 
 func (v *TestCaseVisitor) VisitParameterizedType(ctx *baseparser.ParameterizedTypeContext) interface{} {
