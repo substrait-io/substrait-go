@@ -65,3 +65,5 @@ structure of the package for the time being. **The API should not yet be
 considered stable.**
 
 Protobuf bindings come from [`substrait-protobuf`](https://github.com/substrait-io/substrait-protobuf). 
+
+Protobuf bindings come from [`substrait-protobuf`](https://github.com/substrait-io/substrait-protobuf). 
