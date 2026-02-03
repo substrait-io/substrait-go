@@ -806,30 +806,6 @@ func (v *TestCaseVisitor) VisitBoolean(*baseparser.BooleanContext) interface{} {
 	return &types.BooleanType{Nullability: types.NullabilityRequired}
 }
 
-func (v *TestCaseVisitor) VisitI8(*baseparser.I8Context) interface{} {
-	return &types.Int8Type{Nullability: types.NullabilityRequired}
-}
-
-func (v *TestCaseVisitor) VisitI16(*baseparser.I16Context) interface{} {
-	return &types.Int16Type{Nullability: types.NullabilityRequired}
-}
-
-func (v *TestCaseVisitor) VisitI32(*baseparser.I32Context) interface{} {
-	return &types.Int32Type{Nullability: types.NullabilityRequired}
-}
-
-func (v *TestCaseVisitor) VisitI64(*baseparser.I64Context) interface{} {
-	return &types.Int64Type{Nullability: types.NullabilityRequired}
-}
-
-func (v *TestCaseVisitor) VisitFp32(*baseparser.Fp32Context) interface{} {
-	return &types.Float32Type{Nullability: types.NullabilityRequired}
-}
-
-func (v *TestCaseVisitor) VisitFp64(*baseparser.Fp64Context) interface{} {
-	return &types.Float64Type{Nullability: types.NullabilityRequired}
-}
-
 func (v *TestCaseVisitor) VisitString(*baseparser.StringContext) interface{} {
 	return &types.StringType{Nullability: types.NullabilityRequired}
 }
