@@ -194,11 +194,29 @@ func (s *BaseSubstraitTypeListener) EnterMap(ctx *MapContext) {}
 // ExitMap is called when production map is exited.
 func (s *BaseSubstraitTypeListener) ExitMap(ctx *MapContext) {}
 
+// EnterFunc is called when production func is entered.
+func (s *BaseSubstraitTypeListener) EnterFunc(ctx *FuncContext) {}
+
+// ExitFunc is called when production func is exited.
+func (s *BaseSubstraitTypeListener) ExitFunc(ctx *FuncContext) {}
+
 // EnterUserDefined is called when production userDefined is entered.
 func (s *BaseSubstraitTypeListener) EnterUserDefined(ctx *UserDefinedContext) {}
 
 // ExitUserDefined is called when production userDefined is exited.
 func (s *BaseSubstraitTypeListener) ExitUserDefined(ctx *UserDefinedContext) {}
+
+// EnterSingleFuncParam is called when production singleFuncParam is entered.
+func (s *BaseSubstraitTypeListener) EnterSingleFuncParam(ctx *SingleFuncParamContext) {}
+
+// ExitSingleFuncParam is called when production singleFuncParam is exited.
+func (s *BaseSubstraitTypeListener) ExitSingleFuncParam(ctx *SingleFuncParamContext) {}
+
+// EnterFuncParamsWithParens is called when production funcParamsWithParens is entered.
+func (s *BaseSubstraitTypeListener) EnterFuncParamsWithParens(ctx *FuncParamsWithParensContext) {}
+
+// ExitFuncParamsWithParens is called when production funcParamsWithParens is exited.
+func (s *BaseSubstraitTypeListener) ExitFuncParamsWithParens(ctx *FuncParamsWithParensContext) {}
 
 // EnterNumericLiteral is called when production numericLiteral is entered.
 func (s *BaseSubstraitTypeListener) EnterNumericLiteral(ctx *NumericLiteralContext) {}
