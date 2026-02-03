@@ -26,8 +26,11 @@ func (d *DataTypeUDTParam) String() string {
 }
 
 func (d *DataTypeUDTParam) toTypeParam() (TypeParam, error) {
-	// TODO(#184): Pass funcParams and argTypes to support polymorphic types (any, any1, etc.)
-	typ, err := d.Type.ReturnType(nil, nil)
+	return d.toTypeParamWithArgs(nil, nil)
+}
+
+func (d *DataTypeUDTParam) toTypeParamWithArgs(funcParams []FuncDefArgType, argTypes []Type) (TypeParam, error) {
+	typ, err := d.Type.ReturnType(funcParams, argTypes)
 	if err != nil {
 		return nil, err
 	}
@@ -192,10 +195,16 @@ func (m *ParameterizedUserDefinedType) ShortString() string {
 	return fmt.Sprintf("u!%s", m.Name)
 }
 
-func (m *ParameterizedUserDefinedType) ReturnType([]FuncDefArgType, []Type) (Type, error) {
+func (m *ParameterizedUserDefinedType) ReturnType(funcParams []FuncDefArgType, argTypes []Type) (Type, error) {
 	var types []TypeParam
 	for _, udtParam := range m.TypeParameters {
-		param, err := udtParam.toTypeParam()
+		var param TypeParam
+		var err error
+		if dataParam, ok := udtParam.(*DataTypeUDTParam); ok {
+			param, err = dataParam.toTypeParamWithArgs(funcParams, argTypes)
+		} else {
+			param, err = udtParam.toTypeParam()
+		}
 		if err != nil {
 			return nil, err
 		}

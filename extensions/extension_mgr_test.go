@@ -1191,3 +1191,58 @@ scalar_functions:
 		assert.Equal(t, i64Type, mapType.Value)
 	})
 }
+
+func TestUserDefinedTypeReturnWithAny(t *testing.T) {
+	// Test for #184: user-defined type return types with polymorphic (any) parameters
+	const udtAnyYAML = `---
+urn: extension:test:udt_any
+types:
+  - name: Wrapper
+    structure:
+      value: T
+scalar_functions:
+  - name: "wrap"
+    description: "Wraps a value in a user-defined type"
+    impls:
+      - args:
+          - name: value
+            value: any1
+        return: u!Wrapper<any1>
+`
+
+	const uri = "http://localhost/udt_any.yaml"
+	const urn = "extension:test:udt_any"
+
+	var c extensions.Collection
+	require.NoError(t, c.Load(uri, strings.NewReader(udtAnyYAML)))
+
+	fn, ok := c.GetScalarFunc(extensions.ID{URN: urn, Name: "wrap:any"})
+	require.True(t, ok)
+	require.NotNil(t, fn)
+
+	// Test with i64
+	i64Type := &types.Int64Type{Nullability: types.NullabilityRequired}
+	result, err := fn.ResolveType([]types.Type{i64Type}, extensions.NewSet())
+	require.NoError(t, err)
+
+	udtType, ok := result.(*types.UserDefinedType)
+	require.True(t, ok)
+	require.Len(t, udtType.TypeParameters, 1)
+
+	dataParam, ok := udtType.TypeParameters[0].(*types.DataTypeParameter)
+	require.True(t, ok)
+	assert.Equal(t, i64Type, dataParam.Type)
+
+	// Test with string
+	stringType := &types.StringType{Nullability: types.NullabilityRequired}
+	result, err = fn.ResolveType([]types.Type{stringType}, extensions.NewSet())
+	require.NoError(t, err)
+
+	udtType, ok = result.(*types.UserDefinedType)
+	require.True(t, ok)
+	require.Len(t, udtType.TypeParameters, 1)
+
+	dataParam, ok = udtType.TypeParameters[0].(*types.DataTypeParameter)
+	require.True(t, ok)
+	assert.Equal(t, stringType, dataParam.Type)
+}
