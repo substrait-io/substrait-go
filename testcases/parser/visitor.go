@@ -506,16 +506,7 @@ func getIntLiteral(integerStr string, intType types.Type) (expr.Literal, error) 
 }
 
 func (v *TestCaseVisitor) VisitIntArg(ctx *baseparser.IntArgContext) interface{} {
-	var typ types.Type
-	nullability := getNullability(ctx)
-	typ = &types.Int8Type{Nullability: nullability}
-	if ctx.I16() != nil {
-		typ = &types.Int16Type{Nullability: nullability}
-	} else if ctx.I32() != nil {
-		typ = &types.Int32Type{Nullability: nullability}
-	} else if ctx.I64() != nil {
-		typ = &types.Int64Type{Nullability: nullability}
-	}
+	typ := ctx.IntType().Accept(v).(types.Type)
 	intLiteral, err := getIntLiteral(ctx.IntegerLiteral().GetText(), typ)
 	if err != nil {
 		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid int arg %v", err))
@@ -524,14 +515,8 @@ func (v *TestCaseVisitor) VisitIntArg(ctx *baseparser.IntArgContext) interface{}
 }
 
 func (v *TestCaseVisitor) VisitFloatArg(ctx *baseparser.FloatArgContext) interface{} {
-	var floatLiteral expr.Literal
-	var err error
-	nullability := getNullability(ctx)
-	if ctx.FP32() != nil {
-		floatLiteral, err = getFloatLiteral(ctx.NumericLiteral().GetText(), &types.Float32Type{Nullability: nullability})
-	} else {
-		floatLiteral, err = getFloatLiteral(ctx.NumericLiteral().GetText(), &types.Float64Type{Nullability: nullability})
-	}
+	typ := ctx.FloatType().Accept(v).(types.Type)
+	floatLiteral, err := getFloatLiteral(ctx.NumericLiteral().GetText(), typ)
 	if err != nil {
 		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid float arg %v", err))
 	}
@@ -804,6 +789,43 @@ func (v *TestCaseVisitor) VisitSubstraitError(ctx *baseparser.SubstraitErrorCont
 
 func (v *TestCaseVisitor) VisitBoolean(*baseparser.BooleanContext) interface{} {
 	return &types.BooleanType{Nullability: types.NullabilityRequired}
+}
+
+func (v *TestCaseVisitor) VisitInt(ctx *baseparser.IntContext) interface{} {
+	return ctx.IntType().Accept(v)
+}
+
+func (v *TestCaseVisitor) VisitIntType(ctx *baseparser.IntTypeContext) interface{} {
+	nullability := getNullability(ctx)
+	if ctx.I8() != nil {
+		return &types.Int8Type{Nullability: nullability}
+	}
+	if ctx.I16() != nil {
+		return &types.Int16Type{Nullability: nullability}
+	}
+	if ctx.I32() != nil {
+		return &types.Int32Type{Nullability: nullability}
+	}
+	if ctx.I64() != nil {
+		return &types.Int64Type{Nullability: nullability}
+	}
+	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid integer type %v", ctx.GetText()))
+	return nil
+}
+
+func (v *TestCaseVisitor) VisitFloat(ctx *baseparser.FloatContext) interface{} {
+	return ctx.FloatType().Accept(v)
+}
+
+func (v *TestCaseVisitor) VisitFloatType(ctx *baseparser.FloatTypeContext) interface{} {
+	nullability := getNullability(ctx)
+	if ctx.FP32() != nil {
+		return &types.Float32Type{Nullability: nullability}
+	} else if ctx.FP64() != nil {
+		return &types.Float64Type{Nullability: nullability}
+	}
+	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid float type %v", ctx.GetText()))
+	return nil
 }
 
 func (v *TestCaseVisitor) VisitString(*baseparser.StringContext) interface{} {
