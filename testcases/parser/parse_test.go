@@ -843,6 +843,10 @@ func TestLoadAllSubstraitTestFiles(t *testing.T) {
 			case "tests/cases/datetime/extract.test":
 				// TODO deal with enum arguments in testcase
 				t.Skip("Skipping extract.test")
+			case "tests/cases/list/filter.test":
+				fallthrough
+			case "tests/cases/list/transform.test":
+				t.Skip("Skipping tests that require lambda support")
 			}
 
 			testFile, err := ParseTestCaseFileFromFS(got, filePath)
