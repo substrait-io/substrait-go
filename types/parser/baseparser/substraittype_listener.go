@@ -94,8 +94,17 @@ type SubstraitTypeListener interface {
 	// EnterMap is called when entering the map production.
 	EnterMap(c *MapContext)
 
+	// EnterFunc is called when entering the func production.
+	EnterFunc(c *FuncContext)
+
 	// EnterUserDefined is called when entering the userDefined production.
 	EnterUserDefined(c *UserDefinedContext)
+
+	// EnterSingleFuncParam is called when entering the singleFuncParam production.
+	EnterSingleFuncParam(c *SingleFuncParamContext)
+
+	// EnterFuncParamsWithParens is called when entering the funcParamsWithParens production.
+	EnterFuncParamsWithParens(c *FuncParamsWithParensContext)
 
 	// EnterNumericLiteral is called when entering the numericLiteral production.
 	EnterNumericLiteral(c *NumericLiteralContext)
@@ -229,8 +238,17 @@ type SubstraitTypeListener interface {
 	// ExitMap is called when exiting the map production.
 	ExitMap(c *MapContext)
 
+	// ExitFunc is called when exiting the func production.
+	ExitFunc(c *FuncContext)
+
 	// ExitUserDefined is called when exiting the userDefined production.
 	ExitUserDefined(c *UserDefinedContext)
+
+	// ExitSingleFuncParam is called when exiting the singleFuncParam production.
+	ExitSingleFuncParam(c *SingleFuncParamContext)
+
+	// ExitFuncParamsWithParens is called when exiting the funcParamsWithParens production.
+	ExitFuncParamsWithParens(c *FuncParamsWithParensContext)
 
 	// ExitNumericLiteral is called when exiting the numericLiteral production.
 	ExitNumericLiteral(c *NumericLiteralContext)

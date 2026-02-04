@@ -28,6 +28,8 @@ var (
 	getDefaultCollectionOnce = sync.OnceValues[*Collection, error](loadDefaultCollection)
 	unsupportedExtensions    = map[string]bool{
 		"unknown.yaml": true,
+		// Missing support for func/lambda types
+		"functions_list.yaml": true,
 	}
 )
 

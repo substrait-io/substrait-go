@@ -123,7 +123,19 @@ func (v *BaseSubstraitTypeVisitor) VisitMap(ctx *MapContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSubstraitTypeVisitor) VisitFunc(ctx *FuncContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSubstraitTypeVisitor) VisitUserDefined(ctx *UserDefinedContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSubstraitTypeVisitor) VisitSingleFuncParam(ctx *SingleFuncParamContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSubstraitTypeVisitor) VisitFuncParamsWithParens(ctx *FuncParamsWithParensContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
