@@ -19,6 +19,9 @@ type FuncTestCaseParserVisitor interface {
 	// Visit a parse tree produced by FuncTestCaseParser#include.
 	VisitInclude(ctx *IncludeContext) interface{}
 
+	// Visit a parse tree produced by FuncTestCaseParser#dependency.
+	VisitDependency(ctx *DependencyContext) interface{}
+
 	// Visit a parse tree produced by FuncTestCaseParser#testGroupDescription.
 	VisitTestGroupDescription(ctx *TestGroupDescriptionContext) interface{}
 
@@ -142,8 +145,23 @@ type FuncTestCaseParserVisitor interface {
 	// Visit a parse tree produced by FuncTestCaseParser#listArg.
 	VisitListArg(ctx *ListArgContext) interface{}
 
+	// Visit a parse tree produced by FuncTestCaseParser#lambdaArg.
+	VisitLambdaArg(ctx *LambdaArgContext) interface{}
+
 	// Visit a parse tree produced by FuncTestCaseParser#literalList.
 	VisitLiteralList(ctx *LiteralListContext) interface{}
+
+	// Visit a parse tree produced by FuncTestCaseParser#literalLambda.
+	VisitLiteralLambda(ctx *LiteralLambdaContext) interface{}
+
+	// Visit a parse tree produced by FuncTestCaseParser#singleParam.
+	VisitSingleParam(ctx *SingleParamContext) interface{}
+
+	// Visit a parse tree produced by FuncTestCaseParser#tupleParams.
+	VisitTupleParams(ctx *TupleParamsContext) interface{}
+
+	// Visit a parse tree produced by FuncTestCaseParser#lambdaBody.
+	VisitLambdaBody(ctx *LambdaBodyContext) interface{}
 
 	// Visit a parse tree produced by FuncTestCaseParser#dataType.
 	VisitDataType(ctx *DataTypeContext) interface{}
@@ -151,23 +169,11 @@ type FuncTestCaseParserVisitor interface {
 	// Visit a parse tree produced by FuncTestCaseParser#boolean.
 	VisitBoolean(ctx *BooleanContext) interface{}
 
-	// Visit a parse tree produced by FuncTestCaseParser#i8.
-	VisitI8(ctx *I8Context) interface{}
+	// Visit a parse tree produced by FuncTestCaseParser#int.
+	VisitInt(ctx *IntContext) interface{}
 
-	// Visit a parse tree produced by FuncTestCaseParser#i16.
-	VisitI16(ctx *I16Context) interface{}
-
-	// Visit a parse tree produced by FuncTestCaseParser#i32.
-	VisitI32(ctx *I32Context) interface{}
-
-	// Visit a parse tree produced by FuncTestCaseParser#i64.
-	VisitI64(ctx *I64Context) interface{}
-
-	// Visit a parse tree produced by FuncTestCaseParser#fp32.
-	VisitFp32(ctx *Fp32Context) interface{}
-
-	// Visit a parse tree produced by FuncTestCaseParser#fp64.
-	VisitFp64(ctx *Fp64Context) interface{}
+	// Visit a parse tree produced by FuncTestCaseParser#float.
+	VisitFloat(ctx *FloatContext) interface{}
 
 	// Visit a parse tree produced by FuncTestCaseParser#string.
 	VisitString(ctx *StringContext) interface{}
@@ -205,6 +211,18 @@ type FuncTestCaseParserVisitor interface {
 	// Visit a parse tree produced by FuncTestCaseParser#binaryType.
 	VisitBinaryType(ctx *BinaryTypeContext) interface{}
 
+	// Visit a parse tree produced by FuncTestCaseParser#intType.
+	VisitIntType(ctx *IntTypeContext) interface{}
+
+	// Visit a parse tree produced by FuncTestCaseParser#floatType.
+	VisitFloatType(ctx *FloatTypeContext) interface{}
+
+	// Visit a parse tree produced by FuncTestCaseParser#dateType.
+	VisitDateType(ctx *DateTypeContext) interface{}
+
+	// Visit a parse tree produced by FuncTestCaseParser#timeType.
+	VisitTimeType(ctx *TimeTypeContext) interface{}
+
 	// Visit a parse tree produced by FuncTestCaseParser#timestampType.
 	VisitTimestampType(ctx *TimestampTypeContext) interface{}
 
@@ -240,6 +258,15 @@ type FuncTestCaseParserVisitor interface {
 
 	// Visit a parse tree produced by FuncTestCaseParser#list.
 	VisitList(ctx *ListContext) interface{}
+
+	// Visit a parse tree produced by FuncTestCaseParser#funcType.
+	VisitFuncType(ctx *FuncTypeContext) interface{}
+
+	// Visit a parse tree produced by FuncTestCaseParser#singleFuncParam.
+	VisitSingleFuncParam(ctx *SingleFuncParamContext) interface{}
+
+	// Visit a parse tree produced by FuncTestCaseParser#funcParamsWithParens.
+	VisitFuncParamsWithParens(ctx *FuncParamsWithParensContext) interface{}
 
 	// Visit a parse tree produced by FuncTestCaseParser#parameterizedType.
 	VisitParameterizedType(ctx *ParameterizedTypeContext) interface{}

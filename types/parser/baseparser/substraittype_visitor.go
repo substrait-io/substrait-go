@@ -94,8 +94,17 @@ type SubstraitTypeVisitor interface {
 	// Visit a parse tree produced by SubstraitTypeParser#map.
 	VisitMap(ctx *MapContext) interface{}
 
+	// Visit a parse tree produced by SubstraitTypeParser#func.
+	VisitFunc(ctx *FuncContext) interface{}
+
 	// Visit a parse tree produced by SubstraitTypeParser#userDefined.
 	VisitUserDefined(ctx *UserDefinedContext) interface{}
+
+	// Visit a parse tree produced by SubstraitTypeParser#singleFuncParam.
+	VisitSingleFuncParam(ctx *SingleFuncParamContext) interface{}
+
+	// Visit a parse tree produced by SubstraitTypeParser#funcParamsWithParens.
+	VisitFuncParamsWithParens(ctx *FuncParamsWithParensContext) interface{}
 
 	// Visit a parse tree produced by SubstraitTypeParser#numericLiteral.
 	VisitNumericLiteral(ctx *NumericLiteralContext) interface{}

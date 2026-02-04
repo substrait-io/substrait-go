@@ -32,169 +32,180 @@ var SubstraitTypeParserStaticData struct {
 func substraittypeParserInit() {
 	staticData := &SubstraitTypeParserStaticData
 	staticData.LiteralNames = []string{
-		"", "", "", "", "'IF'", "'THEN'", "'ELSE'", "'BOOLEAN'", "'I8'", "'I16'",
-		"'I32'", "'I64'", "'FP32'", "'FP64'", "'STRING'", "'BINARY'", "'TIMESTAMP'",
-		"'TIMESTAMP_TZ'", "'DATE'", "'TIME'", "'INTERVAL_YEAR'", "'INTERVAL_DAY'",
-		"'UUID'", "'DECIMAL'", "'PRECISION_TIME'", "'PRECISION_TIMESTAMP'",
+		"", "", "", "", "'IF'", "'THEN'", "'ELSE'", "'FUNC'", "'BOOLEAN'", "'I8'",
+		"'I16'", "'I32'", "'I64'", "'FP32'", "'FP64'", "'STRING'", "'BINARY'",
+		"'TIMESTAMP'", "'TIMESTAMP_TZ'", "'DATE'", "'TIME'", "'INTERVAL_YEAR'",
+		"'INTERVAL_DAY'", "'UUID'", "'DECIMAL'", "'PRECISION_TIME'", "'PRECISION_TIMESTAMP'",
 		"'PRECISION_TIMESTAMP_TZ'", "'FIXEDCHAR'", "'VARCHAR'", "'FIXEDBINARY'",
 		"'STRUCT'", "'NSTRUCT'", "'LIST'", "'MAP'", "'U!'", "'BOOL'", "'STR'",
 		"'VBIN'", "'TS'", "'TSTZ'", "'IYEAR'", "'IDAY'", "'DEC'", "'PT'", "'PTS'",
 		"'PTSTZ'", "'FCHAR'", "'VCHAR'", "'FBIN'", "'ANY'", "", "'::'", "'+'",
 		"'-'", "'*'", "'/'", "'%'", "'='", "'!='", "'>='", "'<='", "'>'", "'<'",
 		"'!'", "", "", "'('", "')'", "'['", "']'", "','", "':'", "'?'", "'#'",
-		"'.'", "'AND'", "'OR'", "':='",
+		"'.'", "'AND'", "'OR'", "':='", "'->'",
 	}
 	staticData.SymbolicNames = []string{
 		"", "LineComment", "BlockComment", "Whitespace", "If", "Then", "Else",
-		"Boolean", "I8", "I16", "I32", "I64", "FP32", "FP64", "String", "Binary",
-		"Timestamp", "Timestamp_TZ", "Date", "Time", "Interval_Year", "Interval_Day",
-		"UUID", "Decimal", "Precision_Time", "Precision_Timestamp", "Precision_Timestamp_TZ",
-		"FixedChar", "VarChar", "FixedBinary", "Struct", "NStruct", "List",
-		"Map", "UserDefined", "Bool", "Str", "VBin", "Ts", "TsTZ", "IYear",
-		"IDay", "Dec", "PT", "PTs", "PTsTZ", "FChar", "VChar", "FBin", "Any",
-		"AnyVar", "DoubleColon", "Plus", "Minus", "Asterisk", "ForwardSlash",
-		"Percent", "Eq", "Ne", "Gte", "Lte", "Gt", "Lt", "Bang", "OAngleBracket",
-		"CAngleBracket", "OParen", "CParen", "OBracket", "CBracket", "Comma",
-		"Colon", "QMark", "Hash", "Dot", "And", "Or", "Assign", "Number", "Identifier",
-		"Newline",
+		"Func", "Boolean", "I8", "I16", "I32", "I64", "FP32", "FP64", "String",
+		"Binary", "Timestamp", "Timestamp_TZ", "Date", "Time", "Interval_Year",
+		"Interval_Day", "UUID", "Decimal", "Precision_Time", "Precision_Timestamp",
+		"Precision_Timestamp_TZ", "FixedChar", "VarChar", "FixedBinary", "Struct",
+		"NStruct", "List", "Map", "UserDefined", "Bool", "Str", "VBin", "Ts",
+		"TsTZ", "IYear", "IDay", "Dec", "PT", "PTs", "PTsTZ", "FChar", "VChar",
+		"FBin", "Any", "AnyVar", "DoubleColon", "Plus", "Minus", "Asterisk",
+		"ForwardSlash", "Percent", "Eq", "Ne", "Gte", "Lte", "Gt", "Lt", "Bang",
+		"OAngleBracket", "CAngleBracket", "OParen", "CParen", "OBracket", "CBracket",
+		"Comma", "Colon", "QMark", "Hash", "Dot", "And", "Or", "Assign", "Arrow",
+		"Number", "Identifier", "Newline",
 	}
 	staticData.RuleNames = []string{
-		"startRule", "typeStatement", "scalarType", "parameterizedType", "numericParameter",
-		"anyType", "typeDef", "expr",
+		"startRule", "typeStatement", "scalarType", "parameterizedType", "funcParams",
+		"numericParameter", "anyType", "typeDef", "expr",
 	}
 	staticData.PredictionContextCache = antlr.NewPredictionContextCache()
 	staticData.serializedATN = []int32{
-		4, 1, 80, 276, 2, 0, 7, 0, 2, 1, 7, 1, 2, 2, 7, 2, 2, 3, 7, 3, 2, 4, 7,
-		4, 2, 5, 7, 5, 2, 6, 7, 6, 2, 7, 7, 7, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1,
-		1, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1,
-		2, 1, 2, 1, 2, 1, 2, 3, 2, 38, 8, 2, 1, 3, 1, 3, 3, 3, 42, 8, 3, 1, 3,
-		1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 3, 3, 50, 8, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1,
-		3, 1, 3, 3, 3, 58, 8, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 3, 3, 66,
-		8, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 3, 3, 76, 8, 3, 1,
-		3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 3, 3, 84, 8, 3, 1, 3, 1, 3, 1, 3, 1, 3,
-		1, 3, 1, 3, 3, 3, 92, 8, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 3, 3, 100,
-		8, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 3, 3, 108, 8, 3, 1, 3, 1, 3,
-		1, 3, 1, 3, 5, 3, 114, 8, 3, 10, 3, 12, 3, 117, 9, 3, 1, 3, 1, 3, 1, 3,
-		1, 3, 3, 3, 123, 8, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 5, 3, 131, 8,
-		3, 10, 3, 12, 3, 134, 9, 3, 1, 3, 1, 3, 1, 3, 1, 3, 3, 3, 140, 8, 3, 1,
-		3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 3, 3, 148, 8, 3, 1, 3, 1, 3, 1, 3, 1,
-		3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 3, 3, 159, 8, 3, 1, 3, 1, 3, 1, 3, 1,
-		3, 5, 3, 165, 8, 3, 10, 3, 12, 3, 168, 9, 3, 1, 3, 1, 3, 3, 3, 172, 8,
-		3, 3, 3, 174, 8, 3, 1, 4, 1, 4, 1, 4, 3, 4, 179, 8, 4, 1, 5, 1, 5, 3, 5,
-		183, 8, 5, 1, 5, 1, 5, 3, 5, 187, 8, 5, 3, 5, 189, 8, 5, 1, 6, 1, 6, 3,
-		6, 193, 8, 6, 1, 6, 1, 6, 3, 6, 197, 8, 6, 1, 7, 1, 7, 1, 7, 1, 7, 1, 7,
-		1, 7, 1, 7, 1, 7, 1, 7, 4, 7, 208, 8, 7, 11, 7, 12, 7, 209, 1, 7, 1, 7,
-		1, 7, 1, 7, 4, 7, 216, 8, 7, 11, 7, 12, 7, 217, 5, 7, 220, 8, 7, 10, 7,
-		12, 7, 223, 9, 7, 1, 7, 1, 7, 5, 7, 227, 8, 7, 10, 7, 12, 7, 230, 9, 7,
-		1, 7, 1, 7, 1, 7, 1, 7, 3, 7, 236, 8, 7, 1, 7, 1, 7, 1, 7, 1, 7, 1, 7,
-		5, 7, 243, 8, 7, 10, 7, 12, 7, 246, 9, 7, 3, 7, 248, 8, 7, 1, 7, 1, 7,
-		1, 7, 1, 7, 1, 7, 1, 7, 1, 7, 1, 7, 1, 7, 1, 7, 3, 7, 260, 8, 7, 1, 7,
-		1, 7, 1, 7, 1, 7, 1, 7, 1, 7, 1, 7, 1, 7, 1, 7, 5, 7, 271, 8, 7, 10, 7,
-		12, 7, 274, 9, 7, 1, 7, 0, 1, 14, 8, 0, 2, 4, 6, 8, 10, 12, 14, 0, 1, 3,
-		0, 52, 55, 57, 62, 75, 76, 334, 0, 16, 1, 0, 0, 0, 2, 19, 1, 0, 0, 0, 4,
-		37, 1, 0, 0, 0, 6, 173, 1, 0, 0, 0, 8, 178, 1, 0, 0, 0, 10, 188, 1, 0,
-		0, 0, 12, 196, 1, 0, 0, 0, 14, 259, 1, 0, 0, 0, 16, 17, 3, 14, 7, 0, 17,
-		18, 5, 0, 0, 1, 18, 1, 1, 0, 0, 0, 19, 20, 3, 12, 6, 0, 20, 21, 5, 0, 0,
-		1, 21, 3, 1, 0, 0, 0, 22, 38, 5, 7, 0, 0, 23, 38, 5, 8, 0, 0, 24, 38, 5,
-		9, 0, 0, 25, 38, 5, 10, 0, 0, 26, 38, 5, 11, 0, 0, 27, 38, 5, 12, 0, 0,
-		28, 38, 5, 13, 0, 0, 29, 38, 5, 14, 0, 0, 30, 38, 5, 15, 0, 0, 31, 38,
-		5, 16, 0, 0, 32, 38, 5, 17, 0, 0, 33, 38, 5, 18, 0, 0, 34, 38, 5, 19, 0,
-		0, 35, 38, 5, 20, 0, 0, 36, 38, 5, 22, 0, 0, 37, 22, 1, 0, 0, 0, 37, 23,
-		1, 0, 0, 0, 37, 24, 1, 0, 0, 0, 37, 25, 1, 0, 0, 0, 37, 26, 1, 0, 0, 0,
-		37, 27, 1, 0, 0, 0, 37, 28, 1, 0, 0, 0, 37, 29, 1, 0, 0, 0, 37, 30, 1,
-		0, 0, 0, 37, 31, 1, 0, 0, 0, 37, 32, 1, 0, 0, 0, 37, 33, 1, 0, 0, 0, 37,
-		34, 1, 0, 0, 0, 37, 35, 1, 0, 0, 0, 37, 36, 1, 0, 0, 0, 38, 5, 1, 0, 0,
-		0, 39, 41, 5, 27, 0, 0, 40, 42, 5, 72, 0, 0, 41, 40, 1, 0, 0, 0, 41, 42,
-		1, 0, 0, 0, 42, 43, 1, 0, 0, 0, 43, 44, 5, 62, 0, 0, 44, 45, 3, 8, 4, 0,
-		45, 46, 5, 61, 0, 0, 46, 174, 1, 0, 0, 0, 47, 49, 5, 28, 0, 0, 48, 50,
-		5, 72, 0, 0, 49, 48, 1, 0, 0, 0, 49, 50, 1, 0, 0, 0, 50, 51, 1, 0, 0, 0,
-		51, 52, 5, 62, 0, 0, 52, 53, 3, 8, 4, 0, 53, 54, 5, 61, 0, 0, 54, 174,
-		1, 0, 0, 0, 55, 57, 5, 29, 0, 0, 56, 58, 5, 72, 0, 0, 57, 56, 1, 0, 0,
-		0, 57, 58, 1, 0, 0, 0, 58, 59, 1, 0, 0, 0, 59, 60, 5, 62, 0, 0, 60, 61,
-		3, 8, 4, 0, 61, 62, 5, 61, 0, 0, 62, 174, 1, 0, 0, 0, 63, 65, 5, 23, 0,
-		0, 64, 66, 5, 72, 0, 0, 65, 64, 1, 0, 0, 0, 65, 66, 1, 0, 0, 0, 66, 67,
-		1, 0, 0, 0, 67, 68, 5, 62, 0, 0, 68, 69, 3, 8, 4, 0, 69, 70, 5, 70, 0,
-		0, 70, 71, 3, 8, 4, 0, 71, 72, 5, 61, 0, 0, 72, 174, 1, 0, 0, 0, 73, 75,
-		5, 21, 0, 0, 74, 76, 5, 72, 0, 0, 75, 74, 1, 0, 0, 0, 75, 76, 1, 0, 0,
-		0, 76, 77, 1, 0, 0, 0, 77, 78, 5, 62, 0, 0, 78, 79, 3, 8, 4, 0, 79, 80,
-		5, 61, 0, 0, 80, 174, 1, 0, 0, 0, 81, 83, 5, 24, 0, 0, 82, 84, 5, 72, 0,
-		0, 83, 82, 1, 0, 0, 0, 83, 84, 1, 0, 0, 0, 84, 85, 1, 0, 0, 0, 85, 86,
-		5, 62, 0, 0, 86, 87, 3, 8, 4, 0, 87, 88, 5, 61, 0, 0, 88, 174, 1, 0, 0,
-		0, 89, 91, 5, 25, 0, 0, 90, 92, 5, 72, 0, 0, 91, 90, 1, 0, 0, 0, 91, 92,
-		1, 0, 0, 0, 92, 93, 1, 0, 0, 0, 93, 94, 5, 62, 0, 0, 94, 95, 3, 8, 4, 0,
-		95, 96, 5, 61, 0, 0, 96, 174, 1, 0, 0, 0, 97, 99, 5, 26, 0, 0, 98, 100,
-		5, 72, 0, 0, 99, 98, 1, 0, 0, 0, 99, 100, 1, 0, 0, 0, 100, 101, 1, 0, 0,
-		0, 101, 102, 5, 62, 0, 0, 102, 103, 3, 8, 4, 0, 103, 104, 5, 61, 0, 0,
-		104, 174, 1, 0, 0, 0, 105, 107, 5, 30, 0, 0, 106, 108, 5, 72, 0, 0, 107,
-		106, 1, 0, 0, 0, 107, 108, 1, 0, 0, 0, 108, 109, 1, 0, 0, 0, 109, 110,
-		5, 62, 0, 0, 110, 115, 3, 14, 7, 0, 111, 112, 5, 70, 0, 0, 112, 114, 3,
-		14, 7, 0, 113, 111, 1, 0, 0, 0, 114, 117, 1, 0, 0, 0, 115, 113, 1, 0, 0,
-		0, 115, 116, 1, 0, 0, 0, 116, 118, 1, 0, 0, 0, 117, 115, 1, 0, 0, 0, 118,
-		119, 5, 61, 0, 0, 119, 174, 1, 0, 0, 0, 120, 122, 5, 31, 0, 0, 121, 123,
-		5, 72, 0, 0, 122, 121, 1, 0, 0, 0, 122, 123, 1, 0, 0, 0, 123, 124, 1, 0,
-		0, 0, 124, 125, 5, 62, 0, 0, 125, 126, 5, 79, 0, 0, 126, 132, 3, 14, 7,
-		0, 127, 128, 5, 70, 0, 0, 128, 129, 5, 79, 0, 0, 129, 131, 3, 14, 7, 0,
-		130, 127, 1, 0, 0, 0, 131, 134, 1, 0, 0, 0, 132, 130, 1, 0, 0, 0, 132,
-		133, 1, 0, 0, 0, 133, 135, 1, 0, 0, 0, 134, 132, 1, 0, 0, 0, 135, 136,
-		5, 61, 0, 0, 136, 174, 1, 0, 0, 0, 137, 139, 5, 32, 0, 0, 138, 140, 5,
-		72, 0, 0, 139, 138, 1, 0, 0, 0, 139, 140, 1, 0, 0, 0, 140, 141, 1, 0, 0,
-		0, 141, 142, 5, 62, 0, 0, 142, 143, 3, 14, 7, 0, 143, 144, 5, 61, 0, 0,
-		144, 174, 1, 0, 0, 0, 145, 147, 5, 33, 0, 0, 146, 148, 5, 72, 0, 0, 147,
-		146, 1, 0, 0, 0, 147, 148, 1, 0, 0, 0, 148, 149, 1, 0, 0, 0, 149, 150,
-		5, 62, 0, 0, 150, 151, 3, 14, 7, 0, 151, 152, 5, 70, 0, 0, 152, 153, 3,
-		14, 7, 0, 153, 154, 5, 61, 0, 0, 154, 174, 1, 0, 0, 0, 155, 156, 5, 34,
-		0, 0, 156, 158, 5, 79, 0, 0, 157, 159, 5, 72, 0, 0, 158, 157, 1, 0, 0,
-		0, 158, 159, 1, 0, 0, 0, 159, 171, 1, 0, 0, 0, 160, 161, 5, 62, 0, 0, 161,
-		166, 3, 14, 7, 0, 162, 163, 5, 70, 0, 0, 163, 165, 3, 14, 7, 0, 164, 162,
-		1, 0, 0, 0, 165, 168, 1, 0, 0, 0, 166, 164, 1, 0, 0, 0, 166, 167, 1, 0,
-		0, 0, 167, 169, 1, 0, 0, 0, 168, 166, 1, 0, 0, 0, 169, 170, 5, 61, 0, 0,
-		170, 172, 1, 0, 0, 0, 171, 160, 1, 0, 0, 0, 171, 172, 1, 0, 0, 0, 172,
-		174, 1, 0, 0, 0, 173, 39, 1, 0, 0, 0, 173, 47, 1, 0, 0, 0, 173, 55, 1,
-		0, 0, 0, 173, 63, 1, 0, 0, 0, 173, 73, 1, 0, 0, 0, 173, 81, 1, 0, 0, 0,
-		173, 89, 1, 0, 0, 0, 173, 97, 1, 0, 0, 0, 173, 105, 1, 0, 0, 0, 173, 120,
-		1, 0, 0, 0, 173, 137, 1, 0, 0, 0, 173, 145, 1, 0, 0, 0, 173, 155, 1, 0,
-		0, 0, 174, 7, 1, 0, 0, 0, 175, 179, 5, 78, 0, 0, 176, 179, 5, 79, 0, 0,
-		177, 179, 3, 14, 7, 0, 178, 175, 1, 0, 0, 0, 178, 176, 1, 0, 0, 0, 178,
-		177, 1, 0, 0, 0, 179, 9, 1, 0, 0, 0, 180, 182, 5, 49, 0, 0, 181, 183, 5,
-		72, 0, 0, 182, 181, 1, 0, 0, 0, 182, 183, 1, 0, 0, 0, 183, 189, 1, 0, 0,
-		0, 184, 186, 5, 50, 0, 0, 185, 187, 5, 72, 0, 0, 186, 185, 1, 0, 0, 0,
-		186, 187, 1, 0, 0, 0, 187, 189, 1, 0, 0, 0, 188, 180, 1, 0, 0, 0, 188,
-		184, 1, 0, 0, 0, 189, 11, 1, 0, 0, 0, 190, 192, 3, 4, 2, 0, 191, 193, 5,
-		72, 0, 0, 192, 191, 1, 0, 0, 0, 192, 193, 1, 0, 0, 0, 193, 197, 1, 0, 0,
-		0, 194, 197, 3, 6, 3, 0, 195, 197, 3, 10, 5, 0, 196, 190, 1, 0, 0, 0, 196,
-		194, 1, 0, 0, 0, 196, 195, 1, 0, 0, 0, 197, 13, 1, 0, 0, 0, 198, 199, 6,
-		7, -1, 0, 199, 200, 5, 66, 0, 0, 200, 201, 3, 14, 7, 0, 201, 202, 5, 67,
-		0, 0, 202, 260, 1, 0, 0, 0, 203, 204, 5, 79, 0, 0, 204, 205, 5, 57, 0,
-		0, 205, 207, 3, 14, 7, 0, 206, 208, 5, 80, 0, 0, 207, 206, 1, 0, 0, 0,
-		208, 209, 1, 0, 0, 0, 209, 207, 1, 0, 0, 0, 209, 210, 1, 0, 0, 0, 210,
-		221, 1, 0, 0, 0, 211, 212, 5, 79, 0, 0, 212, 213, 5, 57, 0, 0, 213, 215,
-		3, 14, 7, 0, 214, 216, 5, 80, 0, 0, 215, 214, 1, 0, 0, 0, 216, 217, 1,
-		0, 0, 0, 217, 215, 1, 0, 0, 0, 217, 218, 1, 0, 0, 0, 218, 220, 1, 0, 0,
-		0, 219, 211, 1, 0, 0, 0, 220, 223, 1, 0, 0, 0, 221, 219, 1, 0, 0, 0, 221,
-		222, 1, 0, 0, 0, 222, 224, 1, 0, 0, 0, 223, 221, 1, 0, 0, 0, 224, 228,
-		3, 12, 6, 0, 225, 227, 5, 80, 0, 0, 226, 225, 1, 0, 0, 0, 227, 230, 1,
-		0, 0, 0, 228, 226, 1, 0, 0, 0, 228, 229, 1, 0, 0, 0, 229, 260, 1, 0, 0,
-		0, 230, 228, 1, 0, 0, 0, 231, 260, 3, 12, 6, 0, 232, 260, 5, 78, 0, 0,
-		233, 235, 5, 79, 0, 0, 234, 236, 5, 72, 0, 0, 235, 234, 1, 0, 0, 0, 235,
-		236, 1, 0, 0, 0, 236, 260, 1, 0, 0, 0, 237, 238, 5, 79, 0, 0, 238, 247,
-		5, 66, 0, 0, 239, 244, 3, 14, 7, 0, 240, 241, 5, 70, 0, 0, 241, 243, 3,
-		14, 7, 0, 242, 240, 1, 0, 0, 0, 243, 246, 1, 0, 0, 0, 244, 242, 1, 0, 0,
-		0, 244, 245, 1, 0, 0, 0, 245, 248, 1, 0, 0, 0, 246, 244, 1, 0, 0, 0, 247,
-		239, 1, 0, 0, 0, 247, 248, 1, 0, 0, 0, 248, 249, 1, 0, 0, 0, 249, 260,
-		5, 67, 0, 0, 250, 251, 5, 4, 0, 0, 251, 252, 3, 14, 7, 0, 252, 253, 5,
-		5, 0, 0, 253, 254, 3, 14, 7, 0, 254, 255, 5, 6, 0, 0, 255, 256, 3, 14,
-		7, 3, 256, 260, 1, 0, 0, 0, 257, 258, 5, 63, 0, 0, 258, 260, 3, 14, 7,
-		2, 259, 198, 1, 0, 0, 0, 259, 203, 1, 0, 0, 0, 259, 231, 1, 0, 0, 0, 259,
-		232, 1, 0, 0, 0, 259, 233, 1, 0, 0, 0, 259, 237, 1, 0, 0, 0, 259, 250,
-		1, 0, 0, 0, 259, 257, 1, 0, 0, 0, 260, 272, 1, 0, 0, 0, 261, 262, 10, 4,
-		0, 0, 262, 263, 7, 0, 0, 0, 263, 271, 3, 14, 7, 5, 264, 265, 10, 1, 0,
-		0, 265, 266, 5, 72, 0, 0, 266, 267, 3, 14, 7, 0, 267, 268, 5, 71, 0, 0,
-		268, 269, 3, 14, 7, 2, 269, 271, 1, 0, 0, 0, 270, 261, 1, 0, 0, 0, 270,
-		264, 1, 0, 0, 0, 271, 274, 1, 0, 0, 0, 272, 270, 1, 0, 0, 0, 272, 273,
-		1, 0, 0, 0, 273, 15, 1, 0, 0, 0, 274, 272, 1, 0, 0, 0, 35, 37, 41, 49,
-		57, 65, 75, 83, 91, 99, 107, 115, 122, 132, 139, 147, 158, 166, 171, 173,
-		178, 182, 186, 188, 192, 196, 209, 217, 221, 228, 235, 244, 247, 259, 270,
-		272,
+		4, 1, 82, 302, 2, 0, 7, 0, 2, 1, 7, 1, 2, 2, 7, 2, 2, 3, 7, 3, 2, 4, 7,
+		4, 2, 5, 7, 5, 2, 6, 7, 6, 2, 7, 7, 7, 2, 8, 7, 8, 1, 0, 1, 0, 1, 0, 1,
+		1, 1, 1, 1, 1, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1,
+		2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 3, 2, 40, 8, 2, 1, 3, 1, 3, 3, 3, 44,
+		8, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 3, 3, 52, 8, 3, 1, 3, 1, 3, 1,
+		3, 1, 3, 1, 3, 1, 3, 3, 3, 60, 8, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3,
+		3, 3, 68, 8, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 3, 3, 78,
+		8, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 3, 3, 86, 8, 3, 1, 3, 1, 3, 1,
+		3, 1, 3, 1, 3, 1, 3, 3, 3, 94, 8, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3,
+		3, 3, 102, 8, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 3, 3, 110, 8, 3, 1,
+		3, 1, 3, 1, 3, 1, 3, 5, 3, 116, 8, 3, 10, 3, 12, 3, 119, 9, 3, 1, 3, 1,
+		3, 1, 3, 1, 3, 3, 3, 125, 8, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 5,
+		3, 133, 8, 3, 10, 3, 12, 3, 136, 9, 3, 1, 3, 1, 3, 1, 3, 1, 3, 3, 3, 142,
+		8, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 3, 3, 150, 8, 3, 1, 3, 1, 3,
+		1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 3, 3, 160, 8, 3, 1, 3, 1, 3, 1, 3,
+		1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 3, 3, 171, 8, 3, 1, 3, 1, 3, 1, 3,
+		1, 3, 5, 3, 177, 8, 3, 10, 3, 12, 3, 180, 9, 3, 1, 3, 1, 3, 3, 3, 184,
+		8, 3, 3, 3, 186, 8, 3, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 5, 4, 193, 8, 4, 10,
+		4, 12, 4, 196, 9, 4, 1, 4, 1, 4, 3, 4, 200, 8, 4, 1, 5, 1, 5, 1, 5, 3,
+		5, 205, 8, 5, 1, 6, 1, 6, 3, 6, 209, 8, 6, 1, 6, 1, 6, 3, 6, 213, 8, 6,
+		3, 6, 215, 8, 6, 1, 7, 1, 7, 3, 7, 219, 8, 7, 1, 7, 1, 7, 3, 7, 223, 8,
+		7, 1, 8, 1, 8, 1, 8, 1, 8, 1, 8, 1, 8, 1, 8, 1, 8, 1, 8, 4, 8, 234, 8,
+		8, 11, 8, 12, 8, 235, 1, 8, 1, 8, 1, 8, 1, 8, 4, 8, 242, 8, 8, 11, 8, 12,
+		8, 243, 5, 8, 246, 8, 8, 10, 8, 12, 8, 249, 9, 8, 1, 8, 1, 8, 5, 8, 253,
+		8, 8, 10, 8, 12, 8, 256, 9, 8, 1, 8, 1, 8, 1, 8, 1, 8, 3, 8, 262, 8, 8,
+		1, 8, 1, 8, 1, 8, 1, 8, 1, 8, 5, 8, 269, 8, 8, 10, 8, 12, 8, 272, 9, 8,
+		3, 8, 274, 8, 8, 1, 8, 1, 8, 1, 8, 1, 8, 1, 8, 1, 8, 1, 8, 1, 8, 1, 8,
+		1, 8, 3, 8, 286, 8, 8, 1, 8, 1, 8, 1, 8, 1, 8, 1, 8, 1, 8, 1, 8, 1, 8,
+		1, 8, 5, 8, 297, 8, 8, 10, 8, 12, 8, 300, 9, 8, 1, 8, 0, 1, 16, 9, 0, 2,
+		4, 6, 8, 10, 12, 14, 16, 0, 1, 3, 0, 53, 56, 58, 63, 76, 77, 363, 0, 18,
+		1, 0, 0, 0, 2, 21, 1, 0, 0, 0, 4, 39, 1, 0, 0, 0, 6, 185, 1, 0, 0, 0, 8,
+		199, 1, 0, 0, 0, 10, 204, 1, 0, 0, 0, 12, 214, 1, 0, 0, 0, 14, 222, 1,
+		0, 0, 0, 16, 285, 1, 0, 0, 0, 18, 19, 3, 16, 8, 0, 19, 20, 5, 0, 0, 1,
+		20, 1, 1, 0, 0, 0, 21, 22, 3, 14, 7, 0, 22, 23, 5, 0, 0, 1, 23, 3, 1, 0,
+		0, 0, 24, 40, 5, 8, 0, 0, 25, 40, 5, 9, 0, 0, 26, 40, 5, 10, 0, 0, 27,
+		40, 5, 11, 0, 0, 28, 40, 5, 12, 0, 0, 29, 40, 5, 13, 0, 0, 30, 40, 5, 14,
+		0, 0, 31, 40, 5, 15, 0, 0, 32, 40, 5, 16, 0, 0, 33, 40, 5, 17, 0, 0, 34,
+		40, 5, 18, 0, 0, 35, 40, 5, 19, 0, 0, 36, 40, 5, 20, 0, 0, 37, 40, 5, 21,
+		0, 0, 38, 40, 5, 23, 0, 0, 39, 24, 1, 0, 0, 0, 39, 25, 1, 0, 0, 0, 39,
+		26, 1, 0, 0, 0, 39, 27, 1, 0, 0, 0, 39, 28, 1, 0, 0, 0, 39, 29, 1, 0, 0,
+		0, 39, 30, 1, 0, 0, 0, 39, 31, 1, 0, 0, 0, 39, 32, 1, 0, 0, 0, 39, 33,
+		1, 0, 0, 0, 39, 34, 1, 0, 0, 0, 39, 35, 1, 0, 0, 0, 39, 36, 1, 0, 0, 0,
+		39, 37, 1, 0, 0, 0, 39, 38, 1, 0, 0, 0, 40, 5, 1, 0, 0, 0, 41, 43, 5, 28,
+		0, 0, 42, 44, 5, 73, 0, 0, 43, 42, 1, 0, 0, 0, 43, 44, 1, 0, 0, 0, 44,
+		45, 1, 0, 0, 0, 45, 46, 5, 63, 0, 0, 46, 47, 3, 10, 5, 0, 47, 48, 5, 62,
+		0, 0, 48, 186, 1, 0, 0, 0, 49, 51, 5, 29, 0, 0, 50, 52, 5, 73, 0, 0, 51,
+		50, 1, 0, 0, 0, 51, 52, 1, 0, 0, 0, 52, 53, 1, 0, 0, 0, 53, 54, 5, 63,
+		0, 0, 54, 55, 3, 10, 5, 0, 55, 56, 5, 62, 0, 0, 56, 186, 1, 0, 0, 0, 57,
+		59, 5, 30, 0, 0, 58, 60, 5, 73, 0, 0, 59, 58, 1, 0, 0, 0, 59, 60, 1, 0,
+		0, 0, 60, 61, 1, 0, 0, 0, 61, 62, 5, 63, 0, 0, 62, 63, 3, 10, 5, 0, 63,
+		64, 5, 62, 0, 0, 64, 186, 1, 0, 0, 0, 65, 67, 5, 24, 0, 0, 66, 68, 5, 73,
+		0, 0, 67, 66, 1, 0, 0, 0, 67, 68, 1, 0, 0, 0, 68, 69, 1, 0, 0, 0, 69, 70,
+		5, 63, 0, 0, 70, 71, 3, 10, 5, 0, 71, 72, 5, 71, 0, 0, 72, 73, 3, 10, 5,
+		0, 73, 74, 5, 62, 0, 0, 74, 186, 1, 0, 0, 0, 75, 77, 5, 22, 0, 0, 76, 78,
+		5, 73, 0, 0, 77, 76, 1, 0, 0, 0, 77, 78, 1, 0, 0, 0, 78, 79, 1, 0, 0, 0,
+		79, 80, 5, 63, 0, 0, 80, 81, 3, 10, 5, 0, 81, 82, 5, 62, 0, 0, 82, 186,
+		1, 0, 0, 0, 83, 85, 5, 25, 0, 0, 84, 86, 5, 73, 0, 0, 85, 84, 1, 0, 0,
+		0, 85, 86, 1, 0, 0, 0, 86, 87, 1, 0, 0, 0, 87, 88, 5, 63, 0, 0, 88, 89,
+		3, 10, 5, 0, 89, 90, 5, 62, 0, 0, 90, 186, 1, 0, 0, 0, 91, 93, 5, 26, 0,
+		0, 92, 94, 5, 73, 0, 0, 93, 92, 1, 0, 0, 0, 93, 94, 1, 0, 0, 0, 94, 95,
+		1, 0, 0, 0, 95, 96, 5, 63, 0, 0, 96, 97, 3, 10, 5, 0, 97, 98, 5, 62, 0,
+		0, 98, 186, 1, 0, 0, 0, 99, 101, 5, 27, 0, 0, 100, 102, 5, 73, 0, 0, 101,
+		100, 1, 0, 0, 0, 101, 102, 1, 0, 0, 0, 102, 103, 1, 0, 0, 0, 103, 104,
+		5, 63, 0, 0, 104, 105, 3, 10, 5, 0, 105, 106, 5, 62, 0, 0, 106, 186, 1,
+		0, 0, 0, 107, 109, 5, 31, 0, 0, 108, 110, 5, 73, 0, 0, 109, 108, 1, 0,
+		0, 0, 109, 110, 1, 0, 0, 0, 110, 111, 1, 0, 0, 0, 111, 112, 5, 63, 0, 0,
+		112, 117, 3, 16, 8, 0, 113, 114, 5, 71, 0, 0, 114, 116, 3, 16, 8, 0, 115,
+		113, 1, 0, 0, 0, 116, 119, 1, 0, 0, 0, 117, 115, 1, 0, 0, 0, 117, 118,
+		1, 0, 0, 0, 118, 120, 1, 0, 0, 0, 119, 117, 1, 0, 0, 0, 120, 121, 5, 62,
+		0, 0, 121, 186, 1, 0, 0, 0, 122, 124, 5, 32, 0, 0, 123, 125, 5, 73, 0,
+		0, 124, 123, 1, 0, 0, 0, 124, 125, 1, 0, 0, 0, 125, 126, 1, 0, 0, 0, 126,
+		127, 5, 63, 0, 0, 127, 128, 5, 81, 0, 0, 128, 134, 3, 16, 8, 0, 129, 130,
+		5, 71, 0, 0, 130, 131, 5, 81, 0, 0, 131, 133, 3, 16, 8, 0, 132, 129, 1,
+		0, 0, 0, 133, 136, 1, 0, 0, 0, 134, 132, 1, 0, 0, 0, 134, 135, 1, 0, 0,
+		0, 135, 137, 1, 0, 0, 0, 136, 134, 1, 0, 0, 0, 137, 138, 5, 62, 0, 0, 138,
+		186, 1, 0, 0, 0, 139, 141, 5, 33, 0, 0, 140, 142, 5, 73, 0, 0, 141, 140,
+		1, 0, 0, 0, 141, 142, 1, 0, 0, 0, 142, 143, 1, 0, 0, 0, 143, 144, 5, 63,
+		0, 0, 144, 145, 3, 16, 8, 0, 145, 146, 5, 62, 0, 0, 146, 186, 1, 0, 0,
+		0, 147, 149, 5, 34, 0, 0, 148, 150, 5, 73, 0, 0, 149, 148, 1, 0, 0, 0,
+		149, 150, 1, 0, 0, 0, 150, 151, 1, 0, 0, 0, 151, 152, 5, 63, 0, 0, 152,
+		153, 3, 16, 8, 0, 153, 154, 5, 71, 0, 0, 154, 155, 3, 16, 8, 0, 155, 156,
+		5, 62, 0, 0, 156, 186, 1, 0, 0, 0, 157, 159, 5, 7, 0, 0, 158, 160, 5, 73,
+		0, 0, 159, 158, 1, 0, 0, 0, 159, 160, 1, 0, 0, 0, 160, 161, 1, 0, 0, 0,
+		161, 162, 5, 63, 0, 0, 162, 163, 3, 8, 4, 0, 163, 164, 5, 79, 0, 0, 164,
+		165, 3, 16, 8, 0, 165, 166, 5, 62, 0, 0, 166, 186, 1, 0, 0, 0, 167, 168,
+		5, 35, 0, 0, 168, 170, 5, 81, 0, 0, 169, 171, 5, 73, 0, 0, 170, 169, 1,
+		0, 0, 0, 170, 171, 1, 0, 0, 0, 171, 183, 1, 0, 0, 0, 172, 173, 5, 63, 0,
+		0, 173, 178, 3, 16, 8, 0, 174, 175, 5, 71, 0, 0, 175, 177, 3, 16, 8, 0,
+		176, 174, 1, 0, 0, 0, 177, 180, 1, 0, 0, 0, 178, 176, 1, 0, 0, 0, 178,
+		179, 1, 0, 0, 0, 179, 181, 1, 0, 0, 0, 180, 178, 1, 0, 0, 0, 181, 182,
+		5, 62, 0, 0, 182, 184, 1, 0, 0, 0, 183, 172, 1, 0, 0, 0, 183, 184, 1, 0,
+		0, 0, 184, 186, 1, 0, 0, 0, 185, 41, 1, 0, 0, 0, 185, 49, 1, 0, 0, 0, 185,
+		57, 1, 0, 0, 0, 185, 65, 1, 0, 0, 0, 185, 75, 1, 0, 0, 0, 185, 83, 1, 0,
+		0, 0, 185, 91, 1, 0, 0, 0, 185, 99, 1, 0, 0, 0, 185, 107, 1, 0, 0, 0, 185,
+		122, 1, 0, 0, 0, 185, 139, 1, 0, 0, 0, 185, 147, 1, 0, 0, 0, 185, 157,
+		1, 0, 0, 0, 185, 167, 1, 0, 0, 0, 186, 7, 1, 0, 0, 0, 187, 200, 3, 16,
+		8, 0, 188, 189, 5, 67, 0, 0, 189, 194, 3, 16, 8, 0, 190, 191, 5, 71, 0,
+		0, 191, 193, 3, 16, 8, 0, 192, 190, 1, 0, 0, 0, 193, 196, 1, 0, 0, 0, 194,
+		192, 1, 0, 0, 0, 194, 195, 1, 0, 0, 0, 195, 197, 1, 0, 0, 0, 196, 194,
+		1, 0, 0, 0, 197, 198, 5, 68, 0, 0, 198, 200, 1, 0, 0, 0, 199, 187, 1, 0,
+		0, 0, 199, 188, 1, 0, 0, 0, 200, 9, 1, 0, 0, 0, 201, 205, 5, 80, 0, 0,
+		202, 205, 5, 81, 0, 0, 203, 205, 3, 16, 8, 0, 204, 201, 1, 0, 0, 0, 204,
+		202, 1, 0, 0, 0, 204, 203, 1, 0, 0, 0, 205, 11, 1, 0, 0, 0, 206, 208, 5,
+		50, 0, 0, 207, 209, 5, 73, 0, 0, 208, 207, 1, 0, 0, 0, 208, 209, 1, 0,
+		0, 0, 209, 215, 1, 0, 0, 0, 210, 212, 5, 51, 0, 0, 211, 213, 5, 73, 0,
+		0, 212, 211, 1, 0, 0, 0, 212, 213, 1, 0, 0, 0, 213, 215, 1, 0, 0, 0, 214,
+		206, 1, 0, 0, 0, 214, 210, 1, 0, 0, 0, 215, 13, 1, 0, 0, 0, 216, 218, 3,
+		4, 2, 0, 217, 219, 5, 73, 0, 0, 218, 217, 1, 0, 0, 0, 218, 219, 1, 0, 0,
+		0, 219, 223, 1, 0, 0, 0, 220, 223, 3, 6, 3, 0, 221, 223, 3, 12, 6, 0, 222,
+		216, 1, 0, 0, 0, 222, 220, 1, 0, 0, 0, 222, 221, 1, 0, 0, 0, 223, 15, 1,
+		0, 0, 0, 224, 225, 6, 8, -1, 0, 225, 226, 5, 67, 0, 0, 226, 227, 3, 16,
+		8, 0, 227, 228, 5, 68, 0, 0, 228, 286, 1, 0, 0, 0, 229, 230, 5, 81, 0,
+		0, 230, 231, 5, 58, 0, 0, 231, 233, 3, 16, 8, 0, 232, 234, 5, 82, 0, 0,
+		233, 232, 1, 0, 0, 0, 234, 235, 1, 0, 0, 0, 235, 233, 1, 0, 0, 0, 235,
+		236, 1, 0, 0, 0, 236, 247, 1, 0, 0, 0, 237, 238, 5, 81, 0, 0, 238, 239,
+		5, 58, 0, 0, 239, 241, 3, 16, 8, 0, 240, 242, 5, 82, 0, 0, 241, 240, 1,
+		0, 0, 0, 242, 243, 1, 0, 0, 0, 243, 241, 1, 0, 0, 0, 243, 244, 1, 0, 0,
+		0, 244, 246, 1, 0, 0, 0, 245, 237, 1, 0, 0, 0, 246, 249, 1, 0, 0, 0, 247,
+		245, 1, 0, 0, 0, 247, 248, 1, 0, 0, 0, 248, 250, 1, 0, 0, 0, 249, 247,
+		1, 0, 0, 0, 250, 254, 3, 14, 7, 0, 251, 253, 5, 82, 0, 0, 252, 251, 1,
+		0, 0, 0, 253, 256, 1, 0, 0, 0, 254, 252, 1, 0, 0, 0, 254, 255, 1, 0, 0,
+		0, 255, 286, 1, 0, 0, 0, 256, 254, 1, 0, 0, 0, 257, 286, 3, 14, 7, 0, 258,
+		286, 5, 80, 0, 0, 259, 261, 5, 81, 0, 0, 260, 262, 5, 73, 0, 0, 261, 260,
+		1, 0, 0, 0, 261, 262, 1, 0, 0, 0, 262, 286, 1, 0, 0, 0, 263, 264, 5, 81,
+		0, 0, 264, 273, 5, 67, 0, 0, 265, 270, 3, 16, 8, 0, 266, 267, 5, 71, 0,
+		0, 267, 269, 3, 16, 8, 0, 268, 266, 1, 0, 0, 0, 269, 272, 1, 0, 0, 0, 270,
+		268, 1, 0, 0, 0, 270, 271, 1, 0, 0, 0, 271, 274, 1, 0, 0, 0, 272, 270,
+		1, 0, 0, 0, 273, 265, 1, 0, 0, 0, 273, 274, 1, 0, 0, 0, 274, 275, 1, 0,
+		0, 0, 275, 286, 5, 68, 0, 0, 276, 277, 5, 4, 0, 0, 277, 278, 3, 16, 8,
+		0, 278, 279, 5, 5, 0, 0, 279, 280, 3, 16, 8, 0, 280, 281, 5, 6, 0, 0, 281,
+		282, 3, 16, 8, 3, 282, 286, 1, 0, 0, 0, 283, 284, 5, 64, 0, 0, 284, 286,
+		3, 16, 8, 2, 285, 224, 1, 0, 0, 0, 285, 229, 1, 0, 0, 0, 285, 257, 1, 0,
+		0, 0, 285, 258, 1, 0, 0, 0, 285, 259, 1, 0, 0, 0, 285, 263, 1, 0, 0, 0,
+		285, 276, 1, 0, 0, 0, 285, 283, 1, 0, 0, 0, 286, 298, 1, 0, 0, 0, 287,
+		288, 10, 4, 0, 0, 288, 289, 7, 0, 0, 0, 289, 297, 3, 16, 8, 5, 290, 291,
+		10, 1, 0, 0, 291, 292, 5, 73, 0, 0, 292, 293, 3, 16, 8, 0, 293, 294, 5,
+		72, 0, 0, 294, 295, 3, 16, 8, 2, 295, 297, 1, 0, 0, 0, 296, 287, 1, 0,
+		0, 0, 296, 290, 1, 0, 0, 0, 297, 300, 1, 0, 0, 0, 298, 296, 1, 0, 0, 0,
+		298, 299, 1, 0, 0, 0, 299, 17, 1, 0, 0, 0, 300, 298, 1, 0, 0, 0, 38, 39,
+		43, 51, 59, 67, 77, 85, 93, 101, 109, 117, 124, 134, 141, 149, 159, 170,
+		178, 183, 185, 194, 199, 204, 208, 212, 214, 218, 222, 235, 243, 247, 254,
+		261, 270, 273, 285, 296, 298,
 	}
 	deserializer := antlr.NewATNDeserializer(nil)
 	staticData.atn = deserializer.Deserialize(staticData.serializedATN)
@@ -239,80 +250,82 @@ const (
 	SubstraitTypeParserIf                     = 4
 	SubstraitTypeParserThen                   = 5
 	SubstraitTypeParserElse                   = 6
-	SubstraitTypeParserBoolean                = 7
-	SubstraitTypeParserI8                     = 8
-	SubstraitTypeParserI16                    = 9
-	SubstraitTypeParserI32                    = 10
-	SubstraitTypeParserI64                    = 11
-	SubstraitTypeParserFP32                   = 12
-	SubstraitTypeParserFP64                   = 13
-	SubstraitTypeParserString_                = 14
-	SubstraitTypeParserBinary                 = 15
-	SubstraitTypeParserTimestamp              = 16
-	SubstraitTypeParserTimestamp_TZ           = 17
-	SubstraitTypeParserDate                   = 18
-	SubstraitTypeParserTime                   = 19
-	SubstraitTypeParserInterval_Year          = 20
-	SubstraitTypeParserInterval_Day           = 21
-	SubstraitTypeParserUUID                   = 22
-	SubstraitTypeParserDecimal                = 23
-	SubstraitTypeParserPrecision_Time         = 24
-	SubstraitTypeParserPrecision_Timestamp    = 25
-	SubstraitTypeParserPrecision_Timestamp_TZ = 26
-	SubstraitTypeParserFixedChar              = 27
-	SubstraitTypeParserVarChar                = 28
-	SubstraitTypeParserFixedBinary            = 29
-	SubstraitTypeParserStruct                 = 30
-	SubstraitTypeParserNStruct                = 31
-	SubstraitTypeParserList                   = 32
-	SubstraitTypeParserMap                    = 33
-	SubstraitTypeParserUserDefined            = 34
-	SubstraitTypeParserBool                   = 35
-	SubstraitTypeParserStr                    = 36
-	SubstraitTypeParserVBin                   = 37
-	SubstraitTypeParserTs                     = 38
-	SubstraitTypeParserTsTZ                   = 39
-	SubstraitTypeParserIYear                  = 40
-	SubstraitTypeParserIDay                   = 41
-	SubstraitTypeParserDec                    = 42
-	SubstraitTypeParserPT                     = 43
-	SubstraitTypeParserPTs                    = 44
-	SubstraitTypeParserPTsTZ                  = 45
-	SubstraitTypeParserFChar                  = 46
-	SubstraitTypeParserVChar                  = 47
-	SubstraitTypeParserFBin                   = 48
-	SubstraitTypeParserAny                    = 49
-	SubstraitTypeParserAnyVar                 = 50
-	SubstraitTypeParserDoubleColon            = 51
-	SubstraitTypeParserPlus                   = 52
-	SubstraitTypeParserMinus                  = 53
-	SubstraitTypeParserAsterisk               = 54
-	SubstraitTypeParserForwardSlash           = 55
-	SubstraitTypeParserPercent                = 56
-	SubstraitTypeParserEq                     = 57
-	SubstraitTypeParserNe                     = 58
-	SubstraitTypeParserGte                    = 59
-	SubstraitTypeParserLte                    = 60
-	SubstraitTypeParserGt                     = 61
-	SubstraitTypeParserLt                     = 62
-	SubstraitTypeParserBang                   = 63
-	SubstraitTypeParserOAngleBracket          = 64
-	SubstraitTypeParserCAngleBracket          = 65
-	SubstraitTypeParserOParen                 = 66
-	SubstraitTypeParserCParen                 = 67
-	SubstraitTypeParserOBracket               = 68
-	SubstraitTypeParserCBracket               = 69
-	SubstraitTypeParserComma                  = 70
-	SubstraitTypeParserColon                  = 71
-	SubstraitTypeParserQMark                  = 72
-	SubstraitTypeParserHash                   = 73
-	SubstraitTypeParserDot                    = 74
-	SubstraitTypeParserAnd                    = 75
-	SubstraitTypeParserOr                     = 76
-	SubstraitTypeParserAssign                 = 77
-	SubstraitTypeParserNumber                 = 78
-	SubstraitTypeParserIdentifier             = 79
-	SubstraitTypeParserNewline                = 80
+	SubstraitTypeParserFunc                   = 7
+	SubstraitTypeParserBoolean                = 8
+	SubstraitTypeParserI8                     = 9
+	SubstraitTypeParserI16                    = 10
+	SubstraitTypeParserI32                    = 11
+	SubstraitTypeParserI64                    = 12
+	SubstraitTypeParserFP32                   = 13
+	SubstraitTypeParserFP64                   = 14
+	SubstraitTypeParserString_                = 15
+	SubstraitTypeParserBinary                 = 16
+	SubstraitTypeParserTimestamp              = 17
+	SubstraitTypeParserTimestamp_TZ           = 18
+	SubstraitTypeParserDate                   = 19
+	SubstraitTypeParserTime                   = 20
+	SubstraitTypeParserInterval_Year          = 21
+	SubstraitTypeParserInterval_Day           = 22
+	SubstraitTypeParserUUID                   = 23
+	SubstraitTypeParserDecimal                = 24
+	SubstraitTypeParserPrecision_Time         = 25
+	SubstraitTypeParserPrecision_Timestamp    = 26
+	SubstraitTypeParserPrecision_Timestamp_TZ = 27
+	SubstraitTypeParserFixedChar              = 28
+	SubstraitTypeParserVarChar                = 29
+	SubstraitTypeParserFixedBinary            = 30
+	SubstraitTypeParserStruct                 = 31
+	SubstraitTypeParserNStruct                = 32
+	SubstraitTypeParserList                   = 33
+	SubstraitTypeParserMap                    = 34
+	SubstraitTypeParserUserDefined            = 35
+	SubstraitTypeParserBool                   = 36
+	SubstraitTypeParserStr                    = 37
+	SubstraitTypeParserVBin                   = 38
+	SubstraitTypeParserTs                     = 39
+	SubstraitTypeParserTsTZ                   = 40
+	SubstraitTypeParserIYear                  = 41
+	SubstraitTypeParserIDay                   = 42
+	SubstraitTypeParserDec                    = 43
+	SubstraitTypeParserPT                     = 44
+	SubstraitTypeParserPTs                    = 45
+	SubstraitTypeParserPTsTZ                  = 46
+	SubstraitTypeParserFChar                  = 47
+	SubstraitTypeParserVChar                  = 48
+	SubstraitTypeParserFBin                   = 49
+	SubstraitTypeParserAny                    = 50
+	SubstraitTypeParserAnyVar                 = 51
+	SubstraitTypeParserDoubleColon            = 52
+	SubstraitTypeParserPlus                   = 53
+	SubstraitTypeParserMinus                  = 54
+	SubstraitTypeParserAsterisk               = 55
+	SubstraitTypeParserForwardSlash           = 56
+	SubstraitTypeParserPercent                = 57
+	SubstraitTypeParserEq                     = 58
+	SubstraitTypeParserNe                     = 59
+	SubstraitTypeParserGte                    = 60
+	SubstraitTypeParserLte                    = 61
+	SubstraitTypeParserGt                     = 62
+	SubstraitTypeParserLt                     = 63
+	SubstraitTypeParserBang                   = 64
+	SubstraitTypeParserOAngleBracket          = 65
+	SubstraitTypeParserCAngleBracket          = 66
+	SubstraitTypeParserOParen                 = 67
+	SubstraitTypeParserCParen                 = 68
+	SubstraitTypeParserOBracket               = 69
+	SubstraitTypeParserCBracket               = 70
+	SubstraitTypeParserComma                  = 71
+	SubstraitTypeParserColon                  = 72
+	SubstraitTypeParserQMark                  = 73
+	SubstraitTypeParserHash                   = 74
+	SubstraitTypeParserDot                    = 75
+	SubstraitTypeParserAnd                    = 76
+	SubstraitTypeParserOr                     = 77
+	SubstraitTypeParserAssign                 = 78
+	SubstraitTypeParserArrow                  = 79
+	SubstraitTypeParserNumber                 = 80
+	SubstraitTypeParserIdentifier             = 81
+	SubstraitTypeParserNewline                = 82
 )
 
 // SubstraitTypeParser rules.
@@ -321,10 +334,11 @@ const (
 	SubstraitTypeParserRULE_typeStatement     = 1
 	SubstraitTypeParserRULE_scalarType        = 2
 	SubstraitTypeParserRULE_parameterizedType = 3
-	SubstraitTypeParserRULE_numericParameter  = 4
-	SubstraitTypeParserRULE_anyType           = 5
-	SubstraitTypeParserRULE_typeDef           = 6
-	SubstraitTypeParserRULE_expr              = 7
+	SubstraitTypeParserRULE_funcParams        = 4
+	SubstraitTypeParserRULE_numericParameter  = 5
+	SubstraitTypeParserRULE_anyType           = 6
+	SubstraitTypeParserRULE_typeDef           = 7
+	SubstraitTypeParserRULE_expr              = 8
 )
 
 // IStartRuleContext is an interface to support dynamic dispatch.
@@ -429,11 +443,11 @@ func (p *SubstraitTypeParser) StartRule() (localctx IStartRuleContext) {
 	p.EnterRule(localctx, 0, SubstraitTypeParserRULE_startRule)
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(16)
+		p.SetState(18)
 		p.expr(0)
 	}
 	{
-		p.SetState(17)
+		p.SetState(19)
 		p.Match(SubstraitTypeParserEOF)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -556,11 +570,11 @@ func (p *SubstraitTypeParser) TypeStatement() (localctx ITypeStatementContext) {
 	p.EnterRule(localctx, 2, SubstraitTypeParserRULE_typeStatement)
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(19)
+		p.SetState(21)
 		p.TypeDef()
 	}
 	{
-		p.SetState(20)
+		p.SetState(22)
 		p.Match(SubstraitTypeParserEOF)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -1298,7 +1312,7 @@ func (s *TimestampTzContext) Accept(visitor antlr.ParseTreeVisitor) interface{} 
 func (p *SubstraitTypeParser) ScalarType() (localctx IScalarTypeContext) {
 	localctx = NewScalarTypeContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 4, SubstraitTypeParserRULE_scalarType)
-	p.SetState(37)
+	p.SetState(39)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -1309,7 +1323,7 @@ func (p *SubstraitTypeParser) ScalarType() (localctx IScalarTypeContext) {
 		localctx = NewBooleanContext(p, localctx)
 		p.EnterOuterAlt(localctx, 1)
 		{
-			p.SetState(22)
+			p.SetState(24)
 			p.Match(SubstraitTypeParserBoolean)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -1321,7 +1335,7 @@ func (p *SubstraitTypeParser) ScalarType() (localctx IScalarTypeContext) {
 		localctx = NewI8Context(p, localctx)
 		p.EnterOuterAlt(localctx, 2)
 		{
-			p.SetState(23)
+			p.SetState(25)
 			p.Match(SubstraitTypeParserI8)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -1333,7 +1347,7 @@ func (p *SubstraitTypeParser) ScalarType() (localctx IScalarTypeContext) {
 		localctx = NewI16Context(p, localctx)
 		p.EnterOuterAlt(localctx, 3)
 		{
-			p.SetState(24)
+			p.SetState(26)
 			p.Match(SubstraitTypeParserI16)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -1345,7 +1359,7 @@ func (p *SubstraitTypeParser) ScalarType() (localctx IScalarTypeContext) {
 		localctx = NewI32Context(p, localctx)
 		p.EnterOuterAlt(localctx, 4)
 		{
-			p.SetState(25)
+			p.SetState(27)
 			p.Match(SubstraitTypeParserI32)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -1357,7 +1371,7 @@ func (p *SubstraitTypeParser) ScalarType() (localctx IScalarTypeContext) {
 		localctx = NewI64Context(p, localctx)
 		p.EnterOuterAlt(localctx, 5)
 		{
-			p.SetState(26)
+			p.SetState(28)
 			p.Match(SubstraitTypeParserI64)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -1369,7 +1383,7 @@ func (p *SubstraitTypeParser) ScalarType() (localctx IScalarTypeContext) {
 		localctx = NewFp32Context(p, localctx)
 		p.EnterOuterAlt(localctx, 6)
 		{
-			p.SetState(27)
+			p.SetState(29)
 			p.Match(SubstraitTypeParserFP32)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -1381,7 +1395,7 @@ func (p *SubstraitTypeParser) ScalarType() (localctx IScalarTypeContext) {
 		localctx = NewFp64Context(p, localctx)
 		p.EnterOuterAlt(localctx, 7)
 		{
-			p.SetState(28)
+			p.SetState(30)
 			p.Match(SubstraitTypeParserFP64)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -1393,7 +1407,7 @@ func (p *SubstraitTypeParser) ScalarType() (localctx IScalarTypeContext) {
 		localctx = NewStringContext(p, localctx)
 		p.EnterOuterAlt(localctx, 8)
 		{
-			p.SetState(29)
+			p.SetState(31)
 			p.Match(SubstraitTypeParserString_)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -1405,7 +1419,7 @@ func (p *SubstraitTypeParser) ScalarType() (localctx IScalarTypeContext) {
 		localctx = NewBinaryContext(p, localctx)
 		p.EnterOuterAlt(localctx, 9)
 		{
-			p.SetState(30)
+			p.SetState(32)
 			p.Match(SubstraitTypeParserBinary)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -1417,7 +1431,7 @@ func (p *SubstraitTypeParser) ScalarType() (localctx IScalarTypeContext) {
 		localctx = NewTimestampContext(p, localctx)
 		p.EnterOuterAlt(localctx, 10)
 		{
-			p.SetState(31)
+			p.SetState(33)
 			p.Match(SubstraitTypeParserTimestamp)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -1429,7 +1443,7 @@ func (p *SubstraitTypeParser) ScalarType() (localctx IScalarTypeContext) {
 		localctx = NewTimestampTzContext(p, localctx)
 		p.EnterOuterAlt(localctx, 11)
 		{
-			p.SetState(32)
+			p.SetState(34)
 			p.Match(SubstraitTypeParserTimestamp_TZ)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -1441,7 +1455,7 @@ func (p *SubstraitTypeParser) ScalarType() (localctx IScalarTypeContext) {
 		localctx = NewDateContext(p, localctx)
 		p.EnterOuterAlt(localctx, 12)
 		{
-			p.SetState(33)
+			p.SetState(35)
 			p.Match(SubstraitTypeParserDate)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -1453,7 +1467,7 @@ func (p *SubstraitTypeParser) ScalarType() (localctx IScalarTypeContext) {
 		localctx = NewTimeContext(p, localctx)
 		p.EnterOuterAlt(localctx, 13)
 		{
-			p.SetState(34)
+			p.SetState(36)
 			p.Match(SubstraitTypeParserTime)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -1465,7 +1479,7 @@ func (p *SubstraitTypeParser) ScalarType() (localctx IScalarTypeContext) {
 		localctx = NewIntervalYearContext(p, localctx)
 		p.EnterOuterAlt(localctx, 14)
 		{
-			p.SetState(35)
+			p.SetState(37)
 			p.Match(SubstraitTypeParserInterval_Year)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -1477,7 +1491,7 @@ func (p *SubstraitTypeParser) ScalarType() (localctx IScalarTypeContext) {
 		localctx = NewUuidContext(p, localctx)
 		p.EnterOuterAlt(localctx, 15)
 		{
-			p.SetState(36)
+			p.SetState(38)
 			p.Match(SubstraitTypeParserUUID)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2304,6 +2318,113 @@ func (s *PrecisionIntervalDayContext) Accept(visitor antlr.ParseTreeVisitor) int
 	}
 }
 
+type FuncContext struct {
+	ParameterizedTypeContext
+	isnull     antlr.Token
+	params     IFuncParamsContext
+	returnType IExprContext
+}
+
+func NewFuncContext(parser antlr.Parser, ctx antlr.ParserRuleContext) *FuncContext {
+	var p = new(FuncContext)
+
+	InitEmptyParameterizedTypeContext(&p.ParameterizedTypeContext)
+	p.parser = parser
+	p.CopyAll(ctx.(*ParameterizedTypeContext))
+
+	return p
+}
+
+func (s *FuncContext) GetIsnull() antlr.Token { return s.isnull }
+
+func (s *FuncContext) SetIsnull(v antlr.Token) { s.isnull = v }
+
+func (s *FuncContext) GetParams() IFuncParamsContext { return s.params }
+
+func (s *FuncContext) GetReturnType() IExprContext { return s.returnType }
+
+func (s *FuncContext) SetParams(v IFuncParamsContext) { s.params = v }
+
+func (s *FuncContext) SetReturnType(v IExprContext) { s.returnType = v }
+
+func (s *FuncContext) GetRuleContext() antlr.RuleContext {
+	return s
+}
+
+func (s *FuncContext) Func() antlr.TerminalNode {
+	return s.GetToken(SubstraitTypeParserFunc, 0)
+}
+
+func (s *FuncContext) Lt() antlr.TerminalNode {
+	return s.GetToken(SubstraitTypeParserLt, 0)
+}
+
+func (s *FuncContext) Arrow() antlr.TerminalNode {
+	return s.GetToken(SubstraitTypeParserArrow, 0)
+}
+
+func (s *FuncContext) Gt() antlr.TerminalNode {
+	return s.GetToken(SubstraitTypeParserGt, 0)
+}
+
+func (s *FuncContext) FuncParams() IFuncParamsContext {
+	var t antlr.RuleContext
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(IFuncParamsContext); ok {
+			t = ctx.(antlr.RuleContext)
+			break
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(IFuncParamsContext)
+}
+
+func (s *FuncContext) Expr() IExprContext {
+	var t antlr.RuleContext
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(IExprContext); ok {
+			t = ctx.(antlr.RuleContext)
+			break
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(IExprContext)
+}
+
+func (s *FuncContext) QMark() antlr.TerminalNode {
+	return s.GetToken(SubstraitTypeParserQMark, 0)
+}
+
+func (s *FuncContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SubstraitTypeListener); ok {
+		listenerT.EnterFunc(s)
+	}
+}
+
+func (s *FuncContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SubstraitTypeListener); ok {
+		listenerT.ExitFunc(s)
+	}
+}
+
+func (s *FuncContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+	switch t := visitor.(type) {
+	case SubstraitTypeVisitor:
+		return t.VisitFunc(s)
+
+	default:
+		return t.VisitChildren(s)
+	}
+}
+
 type VarCharContext struct {
 	ParameterizedTypeContext
 	isnull antlr.Token
@@ -2787,7 +2908,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 	p.EnterRule(localctx, 6, SubstraitTypeParserRULE_parameterizedType)
 	var _la int
 
-	p.SetState(173)
+	p.SetState(185)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -2798,14 +2919,14 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 		localctx = NewFixedCharContext(p, localctx)
 		p.EnterOuterAlt(localctx, 1)
 		{
-			p.SetState(39)
+			p.SetState(41)
 			p.Match(SubstraitTypeParserFixedChar)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(41)
+		p.SetState(43)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -2814,7 +2935,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		if _la == SubstraitTypeParserQMark {
 			{
-				p.SetState(40)
+				p.SetState(42)
 
 				var _m = p.Match(SubstraitTypeParserQMark)
 
@@ -2827,7 +2948,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		}
 		{
-			p.SetState(43)
+			p.SetState(45)
 			p.Match(SubstraitTypeParserLt)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2835,14 +2956,14 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 			}
 		}
 		{
-			p.SetState(44)
+			p.SetState(46)
 
 			var _x = p.NumericParameter()
 
 			localctx.(*FixedCharContext).length = _x
 		}
 		{
-			p.SetState(45)
+			p.SetState(47)
 			p.Match(SubstraitTypeParserGt)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2854,14 +2975,14 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 		localctx = NewVarCharContext(p, localctx)
 		p.EnterOuterAlt(localctx, 2)
 		{
-			p.SetState(47)
+			p.SetState(49)
 			p.Match(SubstraitTypeParserVarChar)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(49)
+		p.SetState(51)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -2870,7 +2991,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		if _la == SubstraitTypeParserQMark {
 			{
-				p.SetState(48)
+				p.SetState(50)
 
 				var _m = p.Match(SubstraitTypeParserQMark)
 
@@ -2883,7 +3004,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		}
 		{
-			p.SetState(51)
+			p.SetState(53)
 			p.Match(SubstraitTypeParserLt)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2891,14 +3012,14 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 			}
 		}
 		{
-			p.SetState(52)
+			p.SetState(54)
 
 			var _x = p.NumericParameter()
 
 			localctx.(*VarCharContext).length = _x
 		}
 		{
-			p.SetState(53)
+			p.SetState(55)
 			p.Match(SubstraitTypeParserGt)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2910,14 +3031,14 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 		localctx = NewFixedBinaryContext(p, localctx)
 		p.EnterOuterAlt(localctx, 3)
 		{
-			p.SetState(55)
+			p.SetState(57)
 			p.Match(SubstraitTypeParserFixedBinary)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(57)
+		p.SetState(59)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -2926,7 +3047,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		if _la == SubstraitTypeParserQMark {
 			{
-				p.SetState(56)
+				p.SetState(58)
 
 				var _m = p.Match(SubstraitTypeParserQMark)
 
@@ -2939,7 +3060,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		}
 		{
-			p.SetState(59)
+			p.SetState(61)
 			p.Match(SubstraitTypeParserLt)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2947,14 +3068,14 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 			}
 		}
 		{
-			p.SetState(60)
+			p.SetState(62)
 
 			var _x = p.NumericParameter()
 
 			localctx.(*FixedBinaryContext).length = _x
 		}
 		{
-			p.SetState(61)
+			p.SetState(63)
 			p.Match(SubstraitTypeParserGt)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2966,14 +3087,14 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 		localctx = NewDecimalContext(p, localctx)
 		p.EnterOuterAlt(localctx, 4)
 		{
-			p.SetState(63)
+			p.SetState(65)
 			p.Match(SubstraitTypeParserDecimal)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(65)
+		p.SetState(67)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -2982,7 +3103,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		if _la == SubstraitTypeParserQMark {
 			{
-				p.SetState(64)
+				p.SetState(66)
 
 				var _m = p.Match(SubstraitTypeParserQMark)
 
@@ -2995,23 +3116,8 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		}
 		{
-			p.SetState(67)
-			p.Match(SubstraitTypeParserLt)
-			if p.HasError() {
-				// Recognition error - abort rule
-				goto errorExit
-			}
-		}
-		{
-			p.SetState(68)
-
-			var _x = p.NumericParameter()
-
-			localctx.(*DecimalContext).precision = _x
-		}
-		{
 			p.SetState(69)
-			p.Match(SubstraitTypeParserComma)
+			p.Match(SubstraitTypeParserLt)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -3022,10 +3128,25 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 			var _x = p.NumericParameter()
 
-			localctx.(*DecimalContext).scale = _x
+			localctx.(*DecimalContext).precision = _x
 		}
 		{
 			p.SetState(71)
+			p.Match(SubstraitTypeParserComma)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+		{
+			p.SetState(72)
+
+			var _x = p.NumericParameter()
+
+			localctx.(*DecimalContext).scale = _x
+		}
+		{
+			p.SetState(73)
 			p.Match(SubstraitTypeParserGt)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3037,14 +3158,14 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 		localctx = NewPrecisionIntervalDayContext(p, localctx)
 		p.EnterOuterAlt(localctx, 5)
 		{
-			p.SetState(73)
+			p.SetState(75)
 			p.Match(SubstraitTypeParserInterval_Day)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(75)
+		p.SetState(77)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -3053,7 +3174,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		if _la == SubstraitTypeParserQMark {
 			{
-				p.SetState(74)
+				p.SetState(76)
 
 				var _m = p.Match(SubstraitTypeParserQMark)
 
@@ -3066,7 +3187,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		}
 		{
-			p.SetState(77)
+			p.SetState(79)
 			p.Match(SubstraitTypeParserLt)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3074,14 +3195,14 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 			}
 		}
 		{
-			p.SetState(78)
+			p.SetState(80)
 
 			var _x = p.NumericParameter()
 
 			localctx.(*PrecisionIntervalDayContext).precision = _x
 		}
 		{
-			p.SetState(79)
+			p.SetState(81)
 			p.Match(SubstraitTypeParserGt)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3093,14 +3214,14 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 		localctx = NewPrecisionTimeContext(p, localctx)
 		p.EnterOuterAlt(localctx, 6)
 		{
-			p.SetState(81)
+			p.SetState(83)
 			p.Match(SubstraitTypeParserPrecision_Time)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(83)
+		p.SetState(85)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -3109,7 +3230,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		if _la == SubstraitTypeParserQMark {
 			{
-				p.SetState(82)
+				p.SetState(84)
 
 				var _m = p.Match(SubstraitTypeParserQMark)
 
@@ -3122,7 +3243,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		}
 		{
-			p.SetState(85)
+			p.SetState(87)
 			p.Match(SubstraitTypeParserLt)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3130,14 +3251,14 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 			}
 		}
 		{
-			p.SetState(86)
+			p.SetState(88)
 
 			var _x = p.NumericParameter()
 
 			localctx.(*PrecisionTimeContext).precision = _x
 		}
 		{
-			p.SetState(87)
+			p.SetState(89)
 			p.Match(SubstraitTypeParserGt)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3149,14 +3270,14 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 		localctx = NewPrecisionTimestampContext(p, localctx)
 		p.EnterOuterAlt(localctx, 7)
 		{
-			p.SetState(89)
+			p.SetState(91)
 			p.Match(SubstraitTypeParserPrecision_Timestamp)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(91)
+		p.SetState(93)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -3165,7 +3286,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		if _la == SubstraitTypeParserQMark {
 			{
-				p.SetState(90)
+				p.SetState(92)
 
 				var _m = p.Match(SubstraitTypeParserQMark)
 
@@ -3178,7 +3299,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		}
 		{
-			p.SetState(93)
+			p.SetState(95)
 			p.Match(SubstraitTypeParserLt)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3186,14 +3307,14 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 			}
 		}
 		{
-			p.SetState(94)
+			p.SetState(96)
 
 			var _x = p.NumericParameter()
 
 			localctx.(*PrecisionTimestampContext).precision = _x
 		}
 		{
-			p.SetState(95)
+			p.SetState(97)
 			p.Match(SubstraitTypeParserGt)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3205,14 +3326,14 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 		localctx = NewPrecisionTimestampTZContext(p, localctx)
 		p.EnterOuterAlt(localctx, 8)
 		{
-			p.SetState(97)
+			p.SetState(99)
 			p.Match(SubstraitTypeParserPrecision_Timestamp_TZ)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(99)
+		p.SetState(101)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -3221,7 +3342,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		if _la == SubstraitTypeParserQMark {
 			{
-				p.SetState(98)
+				p.SetState(100)
 
 				var _m = p.Match(SubstraitTypeParserQMark)
 
@@ -3234,7 +3355,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		}
 		{
-			p.SetState(101)
+			p.SetState(103)
 			p.Match(SubstraitTypeParserLt)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3242,14 +3363,14 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 			}
 		}
 		{
-			p.SetState(102)
+			p.SetState(104)
 
 			var _x = p.NumericParameter()
 
 			localctx.(*PrecisionTimestampTZContext).precision = _x
 		}
 		{
-			p.SetState(103)
+			p.SetState(105)
 			p.Match(SubstraitTypeParserGt)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3261,14 +3382,14 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 		localctx = NewStructContext(p, localctx)
 		p.EnterOuterAlt(localctx, 9)
 		{
-			p.SetState(105)
+			p.SetState(107)
 			p.Match(SubstraitTypeParserStruct)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(107)
+		p.SetState(109)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -3277,7 +3398,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		if _la == SubstraitTypeParserQMark {
 			{
-				p.SetState(106)
+				p.SetState(108)
 
 				var _m = p.Match(SubstraitTypeParserQMark)
 
@@ -3290,7 +3411,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		}
 		{
-			p.SetState(109)
+			p.SetState(111)
 			p.Match(SubstraitTypeParserLt)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3298,10 +3419,10 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 			}
 		}
 		{
-			p.SetState(110)
+			p.SetState(112)
 			p.expr(0)
 		}
-		p.SetState(115)
+		p.SetState(117)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -3310,7 +3431,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		for _la == SubstraitTypeParserComma {
 			{
-				p.SetState(111)
+				p.SetState(113)
 				p.Match(SubstraitTypeParserComma)
 				if p.HasError() {
 					// Recognition error - abort rule
@@ -3318,11 +3439,11 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 				}
 			}
 			{
-				p.SetState(112)
+				p.SetState(114)
 				p.expr(0)
 			}
 
-			p.SetState(117)
+			p.SetState(119)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
@@ -3330,7 +3451,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 			_la = p.GetTokenStream().LA(1)
 		}
 		{
-			p.SetState(118)
+			p.SetState(120)
 			p.Match(SubstraitTypeParserGt)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3342,14 +3463,14 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 		localctx = NewNStructContext(p, localctx)
 		p.EnterOuterAlt(localctx, 10)
 		{
-			p.SetState(120)
+			p.SetState(122)
 			p.Match(SubstraitTypeParserNStruct)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(122)
+		p.SetState(124)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -3358,7 +3479,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		if _la == SubstraitTypeParserQMark {
 			{
-				p.SetState(121)
+				p.SetState(123)
 
 				var _m = p.Match(SubstraitTypeParserQMark)
 
@@ -3371,7 +3492,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		}
 		{
-			p.SetState(124)
+			p.SetState(126)
 			p.Match(SubstraitTypeParserLt)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3379,7 +3500,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 			}
 		}
 		{
-			p.SetState(125)
+			p.SetState(127)
 			p.Match(SubstraitTypeParserIdentifier)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3387,10 +3508,10 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 			}
 		}
 		{
-			p.SetState(126)
+			p.SetState(128)
 			p.expr(0)
 		}
-		p.SetState(132)
+		p.SetState(134)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -3399,7 +3520,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		for _la == SubstraitTypeParserComma {
 			{
-				p.SetState(127)
+				p.SetState(129)
 				p.Match(SubstraitTypeParserComma)
 				if p.HasError() {
 					// Recognition error - abort rule
@@ -3407,7 +3528,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 				}
 			}
 			{
-				p.SetState(128)
+				p.SetState(130)
 				p.Match(SubstraitTypeParserIdentifier)
 				if p.HasError() {
 					// Recognition error - abort rule
@@ -3415,11 +3536,11 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 				}
 			}
 			{
-				p.SetState(129)
+				p.SetState(131)
 				p.expr(0)
 			}
 
-			p.SetState(134)
+			p.SetState(136)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
@@ -3427,7 +3548,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 			_la = p.GetTokenStream().LA(1)
 		}
 		{
-			p.SetState(135)
+			p.SetState(137)
 			p.Match(SubstraitTypeParserGt)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3439,14 +3560,14 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 		localctx = NewListContext(p, localctx)
 		p.EnterOuterAlt(localctx, 11)
 		{
-			p.SetState(137)
+			p.SetState(139)
 			p.Match(SubstraitTypeParserList)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(139)
+		p.SetState(141)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -3455,7 +3576,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		if _la == SubstraitTypeParserQMark {
 			{
-				p.SetState(138)
+				p.SetState(140)
 
 				var _m = p.Match(SubstraitTypeParserQMark)
 
@@ -3468,7 +3589,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		}
 		{
-			p.SetState(141)
+			p.SetState(143)
 			p.Match(SubstraitTypeParserLt)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3476,11 +3597,11 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 			}
 		}
 		{
-			p.SetState(142)
+			p.SetState(144)
 			p.expr(0)
 		}
 		{
-			p.SetState(143)
+			p.SetState(145)
 			p.Match(SubstraitTypeParserGt)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3492,14 +3613,14 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 		localctx = NewMapContext(p, localctx)
 		p.EnterOuterAlt(localctx, 12)
 		{
-			p.SetState(145)
+			p.SetState(147)
 			p.Match(SubstraitTypeParserMap)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(147)
+		p.SetState(149)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -3508,7 +3629,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		if _la == SubstraitTypeParserQMark {
 			{
-				p.SetState(146)
+				p.SetState(148)
 
 				var _m = p.Match(SubstraitTypeParserQMark)
 
@@ -3521,23 +3642,8 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 		}
 		{
-			p.SetState(149)
-			p.Match(SubstraitTypeParserLt)
-			if p.HasError() {
-				// Recognition error - abort rule
-				goto errorExit
-			}
-		}
-		{
-			p.SetState(150)
-
-			var _x = p.expr(0)
-
-			localctx.(*MapContext).key = _x
-		}
-		{
 			p.SetState(151)
-			p.Match(SubstraitTypeParserComma)
+			p.Match(SubstraitTypeParserLt)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -3548,10 +3654,96 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 			var _x = p.expr(0)
 
-			localctx.(*MapContext).value = _x
+			localctx.(*MapContext).key = _x
 		}
 		{
 			p.SetState(153)
+			p.Match(SubstraitTypeParserComma)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+		{
+			p.SetState(154)
+
+			var _x = p.expr(0)
+
+			localctx.(*MapContext).value = _x
+		}
+		{
+			p.SetState(155)
+			p.Match(SubstraitTypeParserGt)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+
+	case SubstraitTypeParserFunc:
+		localctx = NewFuncContext(p, localctx)
+		p.EnterOuterAlt(localctx, 13)
+		{
+			p.SetState(157)
+			p.Match(SubstraitTypeParserFunc)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+		p.SetState(159)
+		p.GetErrorHandler().Sync(p)
+		if p.HasError() {
+			goto errorExit
+		}
+		_la = p.GetTokenStream().LA(1)
+
+		if _la == SubstraitTypeParserQMark {
+			{
+				p.SetState(158)
+
+				var _m = p.Match(SubstraitTypeParserQMark)
+
+				localctx.(*FuncContext).isnull = _m
+				if p.HasError() {
+					// Recognition error - abort rule
+					goto errorExit
+				}
+			}
+
+		}
+		{
+			p.SetState(161)
+			p.Match(SubstraitTypeParserLt)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+		{
+			p.SetState(162)
+
+			var _x = p.FuncParams()
+
+			localctx.(*FuncContext).params = _x
+		}
+		{
+			p.SetState(163)
+			p.Match(SubstraitTypeParserArrow)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+		{
+			p.SetState(164)
+
+			var _x = p.expr(0)
+
+			localctx.(*FuncContext).returnType = _x
+		}
+		{
+			p.SetState(165)
 			p.Match(SubstraitTypeParserGt)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3561,9 +3753,9 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 	case SubstraitTypeParserUserDefined:
 		localctx = NewUserDefinedContext(p, localctx)
-		p.EnterOuterAlt(localctx, 13)
+		p.EnterOuterAlt(localctx, 14)
 		{
-			p.SetState(155)
+			p.SetState(167)
 			p.Match(SubstraitTypeParserUserDefined)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3571,19 +3763,19 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 			}
 		}
 		{
-			p.SetState(156)
+			p.SetState(168)
 			p.Match(SubstraitTypeParserIdentifier)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(158)
+		p.SetState(170)
 		p.GetErrorHandler().Sync(p)
 
-		if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 15, p.GetParserRuleContext()) == 1 {
+		if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 16, p.GetParserRuleContext()) == 1 {
 			{
-				p.SetState(157)
+				p.SetState(169)
 
 				var _m = p.Match(SubstraitTypeParserQMark)
 
@@ -3597,12 +3789,12 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 		} else if p.HasError() { // JIM
 			goto errorExit
 		}
-		p.SetState(171)
+		p.SetState(183)
 		p.GetErrorHandler().Sync(p)
 
-		if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 17, p.GetParserRuleContext()) == 1 {
+		if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 18, p.GetParserRuleContext()) == 1 {
 			{
-				p.SetState(160)
+				p.SetState(172)
 				p.Match(SubstraitTypeParserLt)
 				if p.HasError() {
 					// Recognition error - abort rule
@@ -3610,10 +3802,10 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 				}
 			}
 			{
-				p.SetState(161)
+				p.SetState(173)
 				p.expr(0)
 			}
-			p.SetState(166)
+			p.SetState(178)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
@@ -3622,7 +3814,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 			for _la == SubstraitTypeParserComma {
 				{
-					p.SetState(162)
+					p.SetState(174)
 					p.Match(SubstraitTypeParserComma)
 					if p.HasError() {
 						// Recognition error - abort rule
@@ -3630,11 +3822,11 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 					}
 				}
 				{
-					p.SetState(163)
+					p.SetState(175)
 					p.expr(0)
 				}
 
-				p.SetState(168)
+				p.SetState(180)
 				p.GetErrorHandler().Sync(p)
 				if p.HasError() {
 					goto errorExit
@@ -3642,7 +3834,7 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 				_la = p.GetTokenStream().LA(1)
 			}
 			{
-				p.SetState(169)
+				p.SetState(181)
 				p.Match(SubstraitTypeParserGt)
 				if p.HasError() {
 					// Recognition error - abort rule
@@ -3656,6 +3848,302 @@ func (p *SubstraitTypeParser) ParameterizedType() (localctx IParameterizedTypeCo
 
 	default:
 		p.SetError(antlr.NewNoViableAltException(p, nil, nil, nil, nil, nil))
+		goto errorExit
+	}
+
+errorExit:
+	if p.HasError() {
+		v := p.GetError()
+		localctx.SetException(v)
+		p.GetErrorHandler().ReportError(p, v)
+		p.GetErrorHandler().Recover(p, v)
+		p.SetError(nil)
+	}
+	p.ExitRule()
+	return localctx
+	goto errorExit // Trick to prevent compiler error if the label is not used
+}
+
+// IFuncParamsContext is an interface to support dynamic dispatch.
+type IFuncParamsContext interface {
+	antlr.ParserRuleContext
+
+	// GetParser returns the parser.
+	GetParser() antlr.Parser
+	// IsFuncParamsContext differentiates from other interfaces.
+	IsFuncParamsContext()
+}
+
+type FuncParamsContext struct {
+	antlr.BaseParserRuleContext
+	parser antlr.Parser
+}
+
+func NewEmptyFuncParamsContext() *FuncParamsContext {
+	var p = new(FuncParamsContext)
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = SubstraitTypeParserRULE_funcParams
+	return p
+}
+
+func InitEmptyFuncParamsContext(p *FuncParamsContext) {
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = SubstraitTypeParserRULE_funcParams
+}
+
+func (*FuncParamsContext) IsFuncParamsContext() {}
+
+func NewFuncParamsContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *FuncParamsContext {
+	var p = new(FuncParamsContext)
+
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
+
+	p.parser = parser
+	p.RuleIndex = SubstraitTypeParserRULE_funcParams
+
+	return p
+}
+
+func (s *FuncParamsContext) GetParser() antlr.Parser { return s.parser }
+
+func (s *FuncParamsContext) CopyAll(ctx *FuncParamsContext) {
+	s.CopyFrom(&ctx.BaseParserRuleContext)
+}
+
+func (s *FuncParamsContext) GetRuleContext() antlr.RuleContext {
+	return s
+}
+
+func (s *FuncParamsContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+	return antlr.TreesStringTree(s, ruleNames, recog)
+}
+
+type SingleFuncParamContext struct {
+	FuncParamsContext
+}
+
+func NewSingleFuncParamContext(parser antlr.Parser, ctx antlr.ParserRuleContext) *SingleFuncParamContext {
+	var p = new(SingleFuncParamContext)
+
+	InitEmptyFuncParamsContext(&p.FuncParamsContext)
+	p.parser = parser
+	p.CopyAll(ctx.(*FuncParamsContext))
+
+	return p
+}
+
+func (s *SingleFuncParamContext) GetRuleContext() antlr.RuleContext {
+	return s
+}
+
+func (s *SingleFuncParamContext) Expr() IExprContext {
+	var t antlr.RuleContext
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(IExprContext); ok {
+			t = ctx.(antlr.RuleContext)
+			break
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(IExprContext)
+}
+
+func (s *SingleFuncParamContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SubstraitTypeListener); ok {
+		listenerT.EnterSingleFuncParam(s)
+	}
+}
+
+func (s *SingleFuncParamContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SubstraitTypeListener); ok {
+		listenerT.ExitSingleFuncParam(s)
+	}
+}
+
+func (s *SingleFuncParamContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+	switch t := visitor.(type) {
+	case SubstraitTypeVisitor:
+		return t.VisitSingleFuncParam(s)
+
+	default:
+		return t.VisitChildren(s)
+	}
+}
+
+type FuncParamsWithParensContext struct {
+	FuncParamsContext
+}
+
+func NewFuncParamsWithParensContext(parser antlr.Parser, ctx antlr.ParserRuleContext) *FuncParamsWithParensContext {
+	var p = new(FuncParamsWithParensContext)
+
+	InitEmptyFuncParamsContext(&p.FuncParamsContext)
+	p.parser = parser
+	p.CopyAll(ctx.(*FuncParamsContext))
+
+	return p
+}
+
+func (s *FuncParamsWithParensContext) GetRuleContext() antlr.RuleContext {
+	return s
+}
+
+func (s *FuncParamsWithParensContext) OParen() antlr.TerminalNode {
+	return s.GetToken(SubstraitTypeParserOParen, 0)
+}
+
+func (s *FuncParamsWithParensContext) AllExpr() []IExprContext {
+	children := s.GetChildren()
+	len := 0
+	for _, ctx := range children {
+		if _, ok := ctx.(IExprContext); ok {
+			len++
+		}
+	}
+
+	tst := make([]IExprContext, len)
+	i := 0
+	for _, ctx := range children {
+		if t, ok := ctx.(IExprContext); ok {
+			tst[i] = t.(IExprContext)
+			i++
+		}
+	}
+
+	return tst
+}
+
+func (s *FuncParamsWithParensContext) Expr(i int) IExprContext {
+	var t antlr.RuleContext
+	j := 0
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(IExprContext); ok {
+			if j == i {
+				t = ctx.(antlr.RuleContext)
+				break
+			}
+			j++
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(IExprContext)
+}
+
+func (s *FuncParamsWithParensContext) CParen() antlr.TerminalNode {
+	return s.GetToken(SubstraitTypeParserCParen, 0)
+}
+
+func (s *FuncParamsWithParensContext) AllComma() []antlr.TerminalNode {
+	return s.GetTokens(SubstraitTypeParserComma)
+}
+
+func (s *FuncParamsWithParensContext) Comma(i int) antlr.TerminalNode {
+	return s.GetToken(SubstraitTypeParserComma, i)
+}
+
+func (s *FuncParamsWithParensContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SubstraitTypeListener); ok {
+		listenerT.EnterFuncParamsWithParens(s)
+	}
+}
+
+func (s *FuncParamsWithParensContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SubstraitTypeListener); ok {
+		listenerT.ExitFuncParamsWithParens(s)
+	}
+}
+
+func (s *FuncParamsWithParensContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+	switch t := visitor.(type) {
+	case SubstraitTypeVisitor:
+		return t.VisitFuncParamsWithParens(s)
+
+	default:
+		return t.VisitChildren(s)
+	}
+}
+
+func (p *SubstraitTypeParser) FuncParams() (localctx IFuncParamsContext) {
+	localctx = NewFuncParamsContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 8, SubstraitTypeParserRULE_funcParams)
+	var _la int
+
+	p.SetState(199)
+	p.GetErrorHandler().Sync(p)
+	if p.HasError() {
+		goto errorExit
+	}
+
+	switch p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 21, p.GetParserRuleContext()) {
+	case 1:
+		localctx = NewSingleFuncParamContext(p, localctx)
+		p.EnterOuterAlt(localctx, 1)
+		{
+			p.SetState(187)
+			p.expr(0)
+		}
+
+	case 2:
+		localctx = NewFuncParamsWithParensContext(p, localctx)
+		p.EnterOuterAlt(localctx, 2)
+		{
+			p.SetState(188)
+			p.Match(SubstraitTypeParserOParen)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+		{
+			p.SetState(189)
+			p.expr(0)
+		}
+		p.SetState(194)
+		p.GetErrorHandler().Sync(p)
+		if p.HasError() {
+			goto errorExit
+		}
+		_la = p.GetTokenStream().LA(1)
+
+		for _la == SubstraitTypeParserComma {
+			{
+				p.SetState(190)
+				p.Match(SubstraitTypeParserComma)
+				if p.HasError() {
+					// Recognition error - abort rule
+					goto errorExit
+				}
+			}
+			{
+				p.SetState(191)
+				p.expr(0)
+			}
+
+			p.SetState(196)
+			p.GetErrorHandler().Sync(p)
+			if p.HasError() {
+				goto errorExit
+			}
+			_la = p.GetTokenStream().LA(1)
+		}
+		{
+			p.SetState(197)
+			p.Match(SubstraitTypeParserCParen)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+
+	case antlr.ATNInvalidAltNumber:
 		goto errorExit
 	}
 
@@ -3872,19 +4360,19 @@ func (s *NumericExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interf
 
 func (p *SubstraitTypeParser) NumericParameter() (localctx INumericParameterContext) {
 	localctx = NewNumericParameterContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 8, SubstraitTypeParserRULE_numericParameter)
-	p.SetState(178)
+	p.EnterRule(localctx, 10, SubstraitTypeParserRULE_numericParameter)
+	p.SetState(204)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
 	}
 
-	switch p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 19, p.GetParserRuleContext()) {
+	switch p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 22, p.GetParserRuleContext()) {
 	case 1:
 		localctx = NewNumericLiteralContext(p, localctx)
 		p.EnterOuterAlt(localctx, 1)
 		{
-			p.SetState(175)
+			p.SetState(201)
 			p.Match(SubstraitTypeParserNumber)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3896,7 +4384,7 @@ func (p *SubstraitTypeParser) NumericParameter() (localctx INumericParameterCont
 		localctx = NewNumericParameterNameContext(p, localctx)
 		p.EnterOuterAlt(localctx, 2)
 		{
-			p.SetState(176)
+			p.SetState(202)
 			p.Match(SubstraitTypeParserIdentifier)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3908,7 +4396,7 @@ func (p *SubstraitTypeParser) NumericParameter() (localctx INumericParameterCont
 		localctx = NewNumericExpressionContext(p, localctx)
 		p.EnterOuterAlt(localctx, 3)
 		{
-			p.SetState(177)
+			p.SetState(203)
 			p.expr(0)
 		}
 
@@ -4032,8 +4520,8 @@ func (s *AnyTypeContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
 
 func (p *SubstraitTypeParser) AnyType() (localctx IAnyTypeContext) {
 	localctx = NewAnyTypeContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 10, SubstraitTypeParserRULE_anyType)
-	p.SetState(188)
+	p.EnterRule(localctx, 12, SubstraitTypeParserRULE_anyType)
+	p.SetState(214)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -4043,19 +4531,19 @@ func (p *SubstraitTypeParser) AnyType() (localctx IAnyTypeContext) {
 	case SubstraitTypeParserAny:
 		p.EnterOuterAlt(localctx, 1)
 		{
-			p.SetState(180)
+			p.SetState(206)
 			p.Match(SubstraitTypeParserAny)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(182)
+		p.SetState(208)
 		p.GetErrorHandler().Sync(p)
 
-		if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 20, p.GetParserRuleContext()) == 1 {
+		if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 23, p.GetParserRuleContext()) == 1 {
 			{
-				p.SetState(181)
+				p.SetState(207)
 
 				var _m = p.Match(SubstraitTypeParserQMark)
 
@@ -4073,19 +4561,19 @@ func (p *SubstraitTypeParser) AnyType() (localctx IAnyTypeContext) {
 	case SubstraitTypeParserAnyVar:
 		p.EnterOuterAlt(localctx, 2)
 		{
-			p.SetState(184)
+			p.SetState(210)
 			p.Match(SubstraitTypeParserAnyVar)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(186)
+		p.SetState(212)
 		p.GetErrorHandler().Sync(p)
 
-		if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 21, p.GetParserRuleContext()) == 1 {
+		if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 24, p.GetParserRuleContext()) == 1 {
 			{
-				p.SetState(185)
+				p.SetState(211)
 
 				var _m = p.Match(SubstraitTypeParserQMark)
 
@@ -4262,8 +4750,8 @@ func (s *TypeDefContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
 
 func (p *SubstraitTypeParser) TypeDef() (localctx ITypeDefContext) {
 	localctx = NewTypeDefContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 12, SubstraitTypeParserRULE_typeDef)
-	p.SetState(196)
+	p.EnterRule(localctx, 14, SubstraitTypeParserRULE_typeDef)
+	p.SetState(222)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -4273,15 +4761,15 @@ func (p *SubstraitTypeParser) TypeDef() (localctx ITypeDefContext) {
 	case SubstraitTypeParserBoolean, SubstraitTypeParserI8, SubstraitTypeParserI16, SubstraitTypeParserI32, SubstraitTypeParserI64, SubstraitTypeParserFP32, SubstraitTypeParserFP64, SubstraitTypeParserString_, SubstraitTypeParserBinary, SubstraitTypeParserTimestamp, SubstraitTypeParserTimestamp_TZ, SubstraitTypeParserDate, SubstraitTypeParserTime, SubstraitTypeParserInterval_Year, SubstraitTypeParserUUID:
 		p.EnterOuterAlt(localctx, 1)
 		{
-			p.SetState(190)
+			p.SetState(216)
 			p.ScalarType()
 		}
-		p.SetState(192)
+		p.SetState(218)
 		p.GetErrorHandler().Sync(p)
 
-		if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 23, p.GetParserRuleContext()) == 1 {
+		if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 26, p.GetParserRuleContext()) == 1 {
 			{
-				p.SetState(191)
+				p.SetState(217)
 
 				var _m = p.Match(SubstraitTypeParserQMark)
 
@@ -4296,17 +4784,17 @@ func (p *SubstraitTypeParser) TypeDef() (localctx ITypeDefContext) {
 			goto errorExit
 		}
 
-	case SubstraitTypeParserInterval_Day, SubstraitTypeParserDecimal, SubstraitTypeParserPrecision_Time, SubstraitTypeParserPrecision_Timestamp, SubstraitTypeParserPrecision_Timestamp_TZ, SubstraitTypeParserFixedChar, SubstraitTypeParserVarChar, SubstraitTypeParserFixedBinary, SubstraitTypeParserStruct, SubstraitTypeParserNStruct, SubstraitTypeParserList, SubstraitTypeParserMap, SubstraitTypeParserUserDefined:
+	case SubstraitTypeParserFunc, SubstraitTypeParserInterval_Day, SubstraitTypeParserDecimal, SubstraitTypeParserPrecision_Time, SubstraitTypeParserPrecision_Timestamp, SubstraitTypeParserPrecision_Timestamp_TZ, SubstraitTypeParserFixedChar, SubstraitTypeParserVarChar, SubstraitTypeParserFixedBinary, SubstraitTypeParserStruct, SubstraitTypeParserNStruct, SubstraitTypeParserList, SubstraitTypeParserMap, SubstraitTypeParserUserDefined:
 		p.EnterOuterAlt(localctx, 2)
 		{
-			p.SetState(194)
+			p.SetState(220)
 			p.ParameterizedType()
 		}
 
 	case SubstraitTypeParserAny, SubstraitTypeParserAnyVar:
 		p.EnterOuterAlt(localctx, 3)
 		{
-			p.SetState(195)
+			p.SetState(221)
 			p.AnyType()
 		}
 
@@ -5253,27 +5741,27 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 	localctx = NewExprContext(p, p.GetParserRuleContext(), _parentState)
 	var _prevctx IExprContext = localctx
 	var _ antlr.ParserRuleContext = _prevctx // TODO: To prevent unused variable warning.
-	_startState := 14
-	p.EnterRecursionRule(localctx, 14, SubstraitTypeParserRULE_expr, _p)
+	_startState := 16
+	p.EnterRecursionRule(localctx, 16, SubstraitTypeParserRULE_expr, _p)
 	var _la int
 
 	var _alt int
 
 	p.EnterOuterAlt(localctx, 1)
-	p.SetState(259)
+	p.SetState(285)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
 	}
 
-	switch p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 32, p.GetParserRuleContext()) {
+	switch p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 35, p.GetParserRuleContext()) {
 	case 1:
 		localctx = NewParenExpressionContext(p, localctx)
 		p.SetParserRuleContext(localctx)
 		_prevctx = localctx
 
 		{
-			p.SetState(199)
+			p.SetState(225)
 			p.Match(SubstraitTypeParserOParen)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -5281,11 +5769,11 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 			}
 		}
 		{
-			p.SetState(200)
+			p.SetState(226)
 			p.expr(0)
 		}
 		{
-			p.SetState(201)
+			p.SetState(227)
 			p.Match(SubstraitTypeParserCParen)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -5298,7 +5786,7 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 		p.SetParserRuleContext(localctx)
 		_prevctx = localctx
 		{
-			p.SetState(203)
+			p.SetState(229)
 			p.Match(SubstraitTypeParserIdentifier)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -5306,7 +5794,7 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 			}
 		}
 		{
-			p.SetState(204)
+			p.SetState(230)
 			p.Match(SubstraitTypeParserEq)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -5314,10 +5802,10 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 			}
 		}
 		{
-			p.SetState(205)
+			p.SetState(231)
 			p.expr(0)
 		}
-		p.SetState(207)
+		p.SetState(233)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -5326,7 +5814,7 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 
 		for ok := true; ok; ok = _la == SubstraitTypeParserNewline {
 			{
-				p.SetState(206)
+				p.SetState(232)
 				p.Match(SubstraitTypeParserNewline)
 				if p.HasError() {
 					// Recognition error - abort rule
@@ -5334,14 +5822,14 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 				}
 			}
 
-			p.SetState(209)
+			p.SetState(235)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
 			}
 			_la = p.GetTokenStream().LA(1)
 		}
-		p.SetState(221)
+		p.SetState(247)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -5350,7 +5838,7 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 
 		for _la == SubstraitTypeParserIdentifier {
 			{
-				p.SetState(211)
+				p.SetState(237)
 				p.Match(SubstraitTypeParserIdentifier)
 				if p.HasError() {
 					// Recognition error - abort rule
@@ -5358,7 +5846,7 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 				}
 			}
 			{
-				p.SetState(212)
+				p.SetState(238)
 				p.Match(SubstraitTypeParserEq)
 				if p.HasError() {
 					// Recognition error - abort rule
@@ -5366,10 +5854,10 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 				}
 			}
 			{
-				p.SetState(213)
+				p.SetState(239)
 				p.expr(0)
 			}
-			p.SetState(215)
+			p.SetState(241)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
@@ -5378,7 +5866,7 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 
 			for ok := true; ok; ok = _la == SubstraitTypeParserNewline {
 				{
-					p.SetState(214)
+					p.SetState(240)
 					p.Match(SubstraitTypeParserNewline)
 					if p.HasError() {
 						// Recognition error - abort rule
@@ -5386,7 +5874,7 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 					}
 				}
 
-				p.SetState(217)
+				p.SetState(243)
 				p.GetErrorHandler().Sync(p)
 				if p.HasError() {
 					goto errorExit
@@ -5394,7 +5882,7 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 				_la = p.GetTokenStream().LA(1)
 			}
 
-			p.SetState(223)
+			p.SetState(249)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
@@ -5402,25 +5890,25 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 			_la = p.GetTokenStream().LA(1)
 		}
 		{
-			p.SetState(224)
+			p.SetState(250)
 
 			var _x = p.TypeDef()
 
 			localctx.(*MultilineDefinitionContext).finalType = _x
 		}
-		p.SetState(228)
+		p.SetState(254)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
 		}
-		_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 28, p.GetParserRuleContext())
+		_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 31, p.GetParserRuleContext())
 		if p.HasError() {
 			goto errorExit
 		}
 		for _alt != 2 && _alt != antlr.ATNInvalidAltNumber {
 			if _alt == 1 {
 				{
-					p.SetState(225)
+					p.SetState(251)
 					p.Match(SubstraitTypeParserNewline)
 					if p.HasError() {
 						// Recognition error - abort rule
@@ -5429,12 +5917,12 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 				}
 
 			}
-			p.SetState(230)
+			p.SetState(256)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
 			}
-			_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 28, p.GetParserRuleContext())
+			_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 31, p.GetParserRuleContext())
 			if p.HasError() {
 				goto errorExit
 			}
@@ -5445,7 +5933,7 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 		p.SetParserRuleContext(localctx)
 		_prevctx = localctx
 		{
-			p.SetState(231)
+			p.SetState(257)
 			p.TypeDef()
 		}
 
@@ -5454,7 +5942,7 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 		p.SetParserRuleContext(localctx)
 		_prevctx = localctx
 		{
-			p.SetState(232)
+			p.SetState(258)
 			p.Match(SubstraitTypeParserNumber)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -5467,19 +5955,19 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 		p.SetParserRuleContext(localctx)
 		_prevctx = localctx
 		{
-			p.SetState(233)
+			p.SetState(259)
 			p.Match(SubstraitTypeParserIdentifier)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(235)
+		p.SetState(261)
 		p.GetErrorHandler().Sync(p)
 
-		if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 29, p.GetParserRuleContext()) == 1 {
+		if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 32, p.GetParserRuleContext()) == 1 {
 			{
-				p.SetState(234)
+				p.SetState(260)
 
 				var _m = p.Match(SubstraitTypeParserQMark)
 
@@ -5499,7 +5987,7 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 		p.SetParserRuleContext(localctx)
 		_prevctx = localctx
 		{
-			p.SetState(237)
+			p.SetState(263)
 			p.Match(SubstraitTypeParserIdentifier)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -5507,26 +5995,26 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 			}
 		}
 		{
-			p.SetState(238)
+			p.SetState(264)
 			p.Match(SubstraitTypeParserOParen)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(247)
+		p.SetState(273)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
 		}
 		_la = p.GetTokenStream().LA(1)
 
-		if ((int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&-9221683152634773616) != 0) || ((int64((_la-66)) & ^0x3f) == 0 && ((int64(1)<<(_la-66))&12289) != 0) {
+		if ((int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&3377768440004496) != 0) || ((int64((_la-64)) & ^0x3f) == 0 && ((int64(1)<<(_la-64))&196617) != 0) {
 			{
-				p.SetState(239)
+				p.SetState(265)
 				p.expr(0)
 			}
-			p.SetState(244)
+			p.SetState(270)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
@@ -5535,7 +6023,7 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 
 			for _la == SubstraitTypeParserComma {
 				{
-					p.SetState(240)
+					p.SetState(266)
 					p.Match(SubstraitTypeParserComma)
 					if p.HasError() {
 						// Recognition error - abort rule
@@ -5543,11 +6031,11 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 					}
 				}
 				{
-					p.SetState(241)
+					p.SetState(267)
 					p.expr(0)
 				}
 
-				p.SetState(246)
+				p.SetState(272)
 				p.GetErrorHandler().Sync(p)
 				if p.HasError() {
 					goto errorExit
@@ -5557,7 +6045,7 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 
 		}
 		{
-			p.SetState(249)
+			p.SetState(275)
 			p.Match(SubstraitTypeParserCParen)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -5570,7 +6058,7 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 		p.SetParserRuleContext(localctx)
 		_prevctx = localctx
 		{
-			p.SetState(250)
+			p.SetState(276)
 			p.Match(SubstraitTypeParserIf)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -5578,14 +6066,14 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 			}
 		}
 		{
-			p.SetState(251)
+			p.SetState(277)
 
 			var _x = p.expr(0)
 
 			localctx.(*IfExprContext).ifExpr = _x
 		}
 		{
-			p.SetState(252)
+			p.SetState(278)
 			p.Match(SubstraitTypeParserThen)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -5593,14 +6081,14 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 			}
 		}
 		{
-			p.SetState(253)
+			p.SetState(279)
 
 			var _x = p.expr(0)
 
 			localctx.(*IfExprContext).thenExpr = _x
 		}
 		{
-			p.SetState(254)
+			p.SetState(280)
 			p.Match(SubstraitTypeParserElse)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -5608,7 +6096,7 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 			}
 		}
 		{
-			p.SetState(255)
+			p.SetState(281)
 
 			var _x = p.expr(3)
 
@@ -5621,7 +6109,7 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 		_prevctx = localctx
 
 		{
-			p.SetState(257)
+			p.SetState(283)
 			p.Match(SubstraitTypeParserBang)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -5630,7 +6118,7 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 		}
 
 		{
-			p.SetState(258)
+			p.SetState(284)
 			p.expr(2)
 		}
 
@@ -5638,12 +6126,12 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 		goto errorExit
 	}
 	p.GetParserRuleContext().SetStop(p.GetTokenStream().LT(-1))
-	p.SetState(272)
+	p.SetState(298)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
 	}
-	_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 34, p.GetParserRuleContext())
+	_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 37, p.GetParserRuleContext())
 	if p.HasError() {
 		goto errorExit
 	}
@@ -5653,26 +6141,26 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 				p.TriggerExitRuleEvent()
 			}
 			_prevctx = localctx
-			p.SetState(270)
+			p.SetState(296)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
 			}
 
-			switch p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 33, p.GetParserRuleContext()) {
+			switch p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 36, p.GetParserRuleContext()) {
 			case 1:
 				localctx = NewBinaryExprContext(p, NewExprContext(p, _parentctx, _parentState))
 				localctx.(*BinaryExprContext).left = _prevctx
 
 				p.PushNewRecursionContext(localctx, _startState, SubstraitTypeParserRULE_expr)
-				p.SetState(261)
+				p.SetState(287)
 
 				if !(p.Precpred(p.GetParserRuleContext(), 4)) {
 					p.SetError(antlr.NewFailedPredicateException(p, "p.Precpred(p.GetParserRuleContext(), 4)", ""))
 					goto errorExit
 				}
 				{
-					p.SetState(262)
+					p.SetState(288)
 
 					var _lt = p.GetTokenStream().LT(1)
 
@@ -5680,7 +6168,7 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 
 					_la = p.GetTokenStream().LA(1)
 
-					if !((int64((_la-52)) & ^0x3f) == 0 && ((int64(1)<<(_la-52))&25167855) != 0) {
+					if !((int64((_la-53)) & ^0x3f) == 0 && ((int64(1)<<(_la-53))&25167855) != 0) {
 						var _ri = p.GetErrorHandler().RecoverInline(p)
 
 						localctx.(*BinaryExprContext).op = _ri
@@ -5690,7 +6178,7 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 					}
 				}
 				{
-					p.SetState(263)
+					p.SetState(289)
 
 					var _x = p.expr(5)
 
@@ -5702,14 +6190,14 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 				localctx.(*TernaryContext).ifExpr = _prevctx
 
 				p.PushNewRecursionContext(localctx, _startState, SubstraitTypeParserRULE_expr)
-				p.SetState(264)
+				p.SetState(290)
 
 				if !(p.Precpred(p.GetParserRuleContext(), 1)) {
 					p.SetError(antlr.NewFailedPredicateException(p, "p.Precpred(p.GetParserRuleContext(), 1)", ""))
 					goto errorExit
 				}
 				{
-					p.SetState(265)
+					p.SetState(291)
 					p.Match(SubstraitTypeParserQMark)
 					if p.HasError() {
 						// Recognition error - abort rule
@@ -5717,14 +6205,14 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 					}
 				}
 				{
-					p.SetState(266)
+					p.SetState(292)
 
 					var _x = p.expr(0)
 
 					localctx.(*TernaryContext).thenExpr = _x
 				}
 				{
-					p.SetState(267)
+					p.SetState(293)
 					p.Match(SubstraitTypeParserColon)
 					if p.HasError() {
 						// Recognition error - abort rule
@@ -5732,7 +6220,7 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 					}
 				}
 				{
-					p.SetState(268)
+					p.SetState(294)
 
 					var _x = p.expr(2)
 
@@ -5744,12 +6232,12 @@ func (p *SubstraitTypeParser) expr(_p int) (localctx IExprContext) {
 			}
 
 		}
-		p.SetState(274)
+		p.SetState(300)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
 		}
-		_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 34, p.GetParserRuleContext())
+		_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 37, p.GetParserRuleContext())
 		if p.HasError() {
 			goto errorExit
 		}
@@ -5770,7 +6258,7 @@ errorExit:
 
 func (p *SubstraitTypeParser) Sempred(localctx antlr.RuleContext, ruleIndex, predIndex int) bool {
 	switch ruleIndex {
-	case 7:
+	case 8:
 		var t *ExprContext = nil
 		if localctx != nil {
 			t = localctx.(*ExprContext)

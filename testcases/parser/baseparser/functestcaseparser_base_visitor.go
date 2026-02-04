@@ -23,6 +23,10 @@ func (v *BaseFuncTestCaseParserVisitor) VisitInclude(ctx *IncludeContext) interf
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseFuncTestCaseParserVisitor) VisitDependency(ctx *DependencyContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseFuncTestCaseParserVisitor) VisitTestGroupDescription(ctx *TestGroupDescriptionContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -187,7 +191,27 @@ func (v *BaseFuncTestCaseParserVisitor) VisitListArg(ctx *ListArgContext) interf
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseFuncTestCaseParserVisitor) VisitLambdaArg(ctx *LambdaArgContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseFuncTestCaseParserVisitor) VisitLiteralList(ctx *LiteralListContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseFuncTestCaseParserVisitor) VisitLiteralLambda(ctx *LiteralLambdaContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseFuncTestCaseParserVisitor) VisitSingleParam(ctx *SingleParamContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseFuncTestCaseParserVisitor) VisitTupleParams(ctx *TupleParamsContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseFuncTestCaseParserVisitor) VisitLambdaBody(ctx *LambdaBodyContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -199,27 +223,11 @@ func (v *BaseFuncTestCaseParserVisitor) VisitBoolean(ctx *BooleanContext) interf
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseFuncTestCaseParserVisitor) VisitI8(ctx *I8Context) interface{} {
+func (v *BaseFuncTestCaseParserVisitor) VisitInt(ctx *IntContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseFuncTestCaseParserVisitor) VisitI16(ctx *I16Context) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseFuncTestCaseParserVisitor) VisitI32(ctx *I32Context) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseFuncTestCaseParserVisitor) VisitI64(ctx *I64Context) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseFuncTestCaseParserVisitor) VisitFp32(ctx *Fp32Context) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseFuncTestCaseParserVisitor) VisitFp64(ctx *Fp64Context) interface{} {
+func (v *BaseFuncTestCaseParserVisitor) VisitFloat(ctx *FloatContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -271,6 +279,22 @@ func (v *BaseFuncTestCaseParserVisitor) VisitBinaryType(ctx *BinaryTypeContext) 
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseFuncTestCaseParserVisitor) VisitIntType(ctx *IntTypeContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseFuncTestCaseParserVisitor) VisitFloatType(ctx *FloatTypeContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseFuncTestCaseParserVisitor) VisitDateType(ctx *DateTypeContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseFuncTestCaseParserVisitor) VisitTimeType(ctx *TimeTypeContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseFuncTestCaseParserVisitor) VisitTimestampType(ctx *TimestampTypeContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -316,6 +340,18 @@ func (v *BaseFuncTestCaseParserVisitor) VisitPrecisionTimestampTZType(ctx *Preci
 }
 
 func (v *BaseFuncTestCaseParserVisitor) VisitList(ctx *ListContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseFuncTestCaseParserVisitor) VisitFuncType(ctx *FuncTypeContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseFuncTestCaseParserVisitor) VisitSingleFuncParam(ctx *SingleFuncParamContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseFuncTestCaseParserVisitor) VisitFuncParamsWithParens(ctx *FuncParamsWithParensContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
