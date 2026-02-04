@@ -721,8 +721,8 @@ func TestParseTestWithBadAggregateTests(t *testing.T) {
 corr(t1.col0, t2.col1) = 1::fp64`,
 			"table name in argument t2, does not match the table name in the function call t1",
 		},
-		{"((20, 20), (-3, -3), (1, 1), (10,10), (5,5)) corr(my_col::fp32, col0::fp32) = 1::fp64", "mismatched input 'my_col'"},
-		{"((20, 20), (-3, -3), (1, 1), (10,10), (5,5)) corr(col0::fp32, column1::fp32) = 1::fp64", "mismatched input 'column1'"},
+		{"((20, 20), (-3, -3), (1, 1), (10,10), (5,5)) corr(my_col::fp32, col0::fp32) = 1::fp64", "mismatched input '::' expecting ')"},
+		{"((20, 20), (-3, -3), (1, 1), (10,10), (5,5)) corr(col0::fp32, column1::fp32) = 1::fp64", "mismatched input '::' expecting ')"},
 		{"f8('13:01:01.234'::time) = 123::i32", "expected aggregate testcase based on test file header, but got scalar function testcase"},
 	}
 	for _, test := range tests {
