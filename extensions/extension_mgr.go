@@ -25,11 +25,9 @@ const SubstraitDefaultURIPrefix = "https://github.com/substrait-io/substrait/blo
 const SubstraitDefaultURNPrefix = "extension:io.substrait:"
 
 var (
-	getDefaultCollectionOnce = sync.OnceValues[*Collection, error](loadDefaultCollection)
+	getDefaultCollectionOnce = sync.OnceValues(loadDefaultCollection)
 	unsupportedExtensions    = map[string]bool{
 		"unknown.yaml": true,
-		// Missing support for func/lambda types
-		"functions_list.yaml": true,
 	}
 )
 
