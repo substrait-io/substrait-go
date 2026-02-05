@@ -29,6 +29,15 @@ type OuterReference uint32
 
 func (OuterReference) isRootRef() {}
 
+// LambdaParameterReference is a root reference type for accessing lambda parameters
+// within a lambda body expression. StepsOut indicates how many lambda boundaries
+// to traverse up (0 = current lambda, 1 = outer lambda, etc.)
+type LambdaParameterReference struct {
+	StepsOut uint32
+}
+
+func (LambdaParameterReference) isRootRef() {}
+
 type ReferenceSegment interface {
 	Reference
 	fmt.Stringer
@@ -619,6 +628,8 @@ func (f *FieldReference) String() string {
 		b.WriteString(")]")
 	} else if outerRef, ok := f.Root.(OuterReference); ok {
 		fmt.Fprintf(&b, "[outerRef:%d]", outerRef)
+	} else if lambdaRef, ok := f.Root.(LambdaParameterReference); ok {
+		fmt.Fprintf(&b, "[lambdaParamRef:%d]", lambdaRef.StepsOut)
 	}
 
 	var typ string
@@ -655,6 +666,12 @@ func (f *FieldReference) ToProtoFieldRef() *proto.Expression_FieldReference {
 			ret.RootType = &proto.Expression_FieldReference_OuterReference_{
 				OuterReference: &proto.Expression_FieldReference_OuterReference{
 					StepsOut: uint32(r),
+				},
+			}
+		case LambdaParameterReference:
+			ret.RootType = &proto.Expression_FieldReference_LambdaParameterReference_{
+				LambdaParameterReference: &proto.Expression_FieldReference_LambdaParameterReference{
+					StepsOut: r.StepsOut,
 				},
 			}
 		}
@@ -694,6 +711,14 @@ func (f *FieldReference) Equals(rhs Expression) bool {
 			}
 
 			if !root.Equals(rhsExpr) {
+				return false
+			}
+		case LambdaParameterReference:
+			rhsRoot, ok := rhs.Root.(LambdaParameterReference)
+			if !ok {
+				return false
+			}
+			if rhsRoot.StepsOut != root.StepsOut {
 				return false
 			}
 		default:
@@ -750,6 +775,8 @@ func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema *typ
 		root = OuterReference(rt.OuterReference.StepsOut)
 	case *proto.Expression_FieldReference_RootReference_:
 		root = RootReference
+	case *proto.Expression_FieldReference_LambdaParameterReference_:
+		root = LambdaParameterReference{StepsOut: rt.LambdaParameterReference.StepsOut}
 	}
 
 	switch rt := p.ReferenceType.(type) {

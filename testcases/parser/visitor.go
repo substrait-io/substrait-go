@@ -7,6 +7,8 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/substrait-io/substrait-go/v7/expr"
+	"github.com/substrait-io/substrait-go/v7/extensions"
+	"github.com/substrait-io/substrait-go/v7/functions"
 	"github.com/substrait-io/substrait-go/v7/literal"
 	"github.com/substrait-io/substrait-go/v7/testcases/parser/baseparser"
 	"github.com/substrait-io/substrait-go/v7/types"
@@ -29,6 +31,13 @@ type TestCaseVisitor struct {
 	ErrorListener        util.VisitErrorListener
 	literalTypeInContext types.Type
 	testFuncType         TestFuncType
+	lambdaParams         []lambdaParamInfo
+}
+
+type lambdaParamInfo struct {
+	name string
+	typ  types.Type
+	idx  int32 // index in the parameters struct
 }
 
 func (v *TestCaseVisitor) getLiteralTypeInContext() types.Type {
@@ -71,7 +80,16 @@ func (v *TestCaseVisitor) VisitDoc(ctx *baseparser.DocContext) interface{} {
 func (v *TestCaseVisitor) VisitHeader(ctx *baseparser.HeaderContext) interface{} {
 	header := v.Visit(ctx.Version()).(*TestFileHeader)
 	header.IncludedURI = v.Visit(ctx.Include()).(string)
+	// Dependencies are optional and not currently used
+	for _, dep := range ctx.AllDependency() {
+		_ = v.Visit(dep) // Visit but ignore for now
+	}
 	return header
+}
+
+func (v *TestCaseVisitor) VisitDependency(ctx *baseparser.DependencyContext) interface{} {
+	// Dependencies are not currently used, just return empty string
+	return ""
 }
 
 func (v *TestCaseVisitor) VisitVersion(ctx *baseparser.VersionContext) interface{} {
@@ -348,7 +366,18 @@ func (v *TestCaseVisitor) VisitTestCase(ctx *baseparser.TestCaseContext) interfa
 func (v *TestCaseVisitor) VisitArguments(ctx *baseparser.ArgumentsContext) interface{} {
 	args := make([]*CaseLiteral, 0, len(ctx.AllArgument()))
 	for _, argument := range ctx.AllArgument() {
-		testArg := v.Visit(argument).(*CaseLiteral)
+		result := v.Visit(argument)
+		if result == nil {
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("argument visit returned nil"))
+			args = append(args, &CaseLiteral{})
+			continue
+		}
+		testArg, ok := result.(*CaseLiteral)
+		if !ok {
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("argument visit returned unexpected type %T", result))
+			args = append(args, &CaseLiteral{})
+			continue
+		}
 		if err := testArg.updateLiteralType(); err != nil {
 			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid argument %v", err))
 		}
@@ -414,6 +443,16 @@ func (v *TestCaseVisitor) VisitArgument(ctx *baseparser.ArgumentContext) interfa
 	}
 	if ctx.ListArg() != nil {
 		return v.Visit(ctx.ListArg())
+	}
+	if ctx.LambdaArg() != nil {
+		return v.Visit(ctx.LambdaArg())
+	}
+	if ctx.Identifier() != nil {
+		if len(v.lambdaParams) > 0 {
+			return v.handleLambdaParameterRef(ctx, ctx.Identifier().GetText())
+		}
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("bare identifier %s found outside lambda context", ctx.Identifier().GetText()))
+		return &CaseLiteral{ValueText: ctx.Identifier().GetText()}
 	}
 
 	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("argument type not implemented, arg %s", ctx.GetText()))
@@ -663,9 +702,15 @@ func (v *TestCaseVisitor) VisitListArg(ctx *baseparser.ListArgContext) interface
 
 	values := v.Visit(ctx.LiteralList()).([]expr.Literal)
 
-	value, err := literal.NewList(values, false)
-	if err != nil {
-		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid list arg %v", err))
+	var value expr.Literal
+	var err error
+	if len(values) == 0 {
+		value = expr.NewEmptyListLiteral(listType.Type, false)
+	} else {
+		value, err = literal.NewList(values, false)
+		if err != nil {
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid list arg %v", err))
+		}
 	}
 	return &CaseLiteral{Value: value, Type: listType}
 }
@@ -964,4 +1009,393 @@ func (v *TestCaseVisitor) VisitVarCharType(ctx *baseparser.VarCharTypeContext) i
 func (v *TestCaseVisitor) VisitFixedBinaryType(ctx *baseparser.FixedBinaryTypeContext) interface{} {
 	length := v.Visit(ctx.GetLen_()).(int32)
 	return &types.FixedBinaryType{Length: length, Nullability: getNullability(ctx)}
+}
+
+func (v *TestCaseVisitor) VisitFuncType(ctx *baseparser.FuncTypeContext) interface{} {
+	nullability := types.NullabilityRequired
+	if ctx.GetIsnull() != nil {
+		nullability = types.NullabilityNullable
+	}
+
+	var paramTypes []types.Type
+	if ctx.GetParams() != nil {
+		paramsResult := v.Visit(ctx.GetParams())
+		if singleParam, ok := paramsResult.(types.Type); ok {
+			paramTypes = []types.Type{singleParam}
+		} else if paramSlice, ok := paramsResult.([]types.Type); ok {
+			paramTypes = paramSlice
+		} else {
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("unexpected func parameters type: %T", paramsResult))
+			paramTypes = []types.Type{&types.Int32Type{}}
+		}
+	}
+
+	// Parse return type
+	if ctx.GetReturnType() == nil {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("func type missing return type"))
+		return &types.FuncType{
+			Nullability:    nullability,
+			ParameterTypes: paramTypes,
+			ReturnType:     &types.Int32Type{},
+		}
+	}
+
+	returnTypeResult := v.Visit(ctx.GetReturnType())
+	if returnTypeResult == nil {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("failed to parse func return type"))
+		return &types.FuncType{
+			Nullability:    nullability,
+			ParameterTypes: paramTypes,
+			ReturnType:     &types.Int32Type{},
+		}
+	}
+
+	returnType, ok := returnTypeResult.(types.Type)
+	if !ok {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("func return type is not a Type, got %T", returnTypeResult))
+		return &types.FuncType{
+			Nullability:    nullability,
+			ParameterTypes: paramTypes,
+			ReturnType:     &types.Int32Type{},
+		}
+	}
+
+	return &types.FuncType{
+		Nullability:    nullability,
+		ParameterTypes: paramTypes,
+		ReturnType:     returnType,
+	}
+}
+
+// Lambda Expression Support
+
+func (v *TestCaseVisitor) VisitLambdaArg(ctx *baseparser.LambdaArgContext) interface{} {
+	if ctx.FuncType() == nil {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("lambda arg missing func type annotation"))
+		return &CaseLiteral{ValueText: ctx.GetText()}
+	}
+	funcTypeResult := v.Visit(ctx.FuncType())
+	if funcTypeResult == nil {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("failed to parse func type"))
+		return &CaseLiteral{ValueText: ctx.GetText()}
+	}
+	funcType, ok := funcTypeResult.(types.Type)
+	if !ok {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("func type is not a Type, got %T", funcTypeResult))
+		return &CaseLiteral{ValueText: ctx.GetText()}
+	}
+
+	var paramTypes []types.Type
+	if ft, ok := funcType.(*types.FuncType); ok {
+		paramTypes = ft.ParameterTypes
+	} else {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("lambda arg requires concrete FuncType, got %T", funcType))
+		return &CaseLiteral{Type: funcType}
+	}
+
+	if ctx.LiteralLambda() == nil {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("lambda arg missing lambda expression"))
+		return &CaseLiteral{Type: funcType, ValueText: ctx.GetText()}
+	}
+
+	lambdaCtx := ctx.LiteralLambda()
+	if lambdaCtx.LambdaParameters() == nil {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("lambda missing parameters"))
+		return &CaseLiteral{Type: funcType, ValueText: ctx.GetText()}
+	}
+
+	// Get parameter names
+	paramInfoResult := v.Visit(lambdaCtx.LambdaParameters())
+	if paramInfoResult == nil {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("failed to parse lambda parameters"))
+		return &CaseLiteral{Type: funcType, ValueText: ctx.GetText()}
+	}
+	paramInfo, ok := paramInfoResult.([]lambdaParamInfo)
+	if !ok {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("lambda parameters is not []lambdaParamInfo, got %T", paramInfoResult))
+		return &CaseLiteral{Type: funcType, ValueText: ctx.GetText()}
+	}
+
+	// Check parameter count matches
+	if len(paramInfo) != len(paramTypes) {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("lambda has %d parameters but type annotation expects %d",
+			len(paramInfo), len(paramTypes)))
+		return &CaseLiteral{Type: funcType, ValueText: ctx.GetText()}
+	}
+
+	// Set up parameter info with correct types BEFORE visiting the body
+	for i := range paramInfo {
+		paramInfo[i].typ = paramTypes[i]
+	}
+
+	// Save old params and set new ones
+	oldParams := v.lambdaParams
+	v.lambdaParams = paramInfo
+
+	// Now visit the body with parameter types available
+	if lambdaCtx.LambdaBody() == nil {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("lambda missing body"))
+		v.lambdaParams = oldParams
+		return &CaseLiteral{Type: funcType, ValueText: ctx.GetText()}
+	}
+
+	bodyResult := v.Visit(lambdaCtx.LambdaBody())
+	if bodyResult == nil {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("failed to parse lambda body"))
+		v.lambdaParams = oldParams
+		return &CaseLiteral{Type: funcType, ValueText: ctx.GetText()}
+	}
+
+	body, ok := bodyResult.(expr.Expression)
+	if !ok {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("lambda body is not an Expression, got %T", bodyResult))
+		v.lambdaParams = oldParams
+		return &CaseLiteral{Type: funcType, ValueText: ctx.GetText()}
+	}
+
+	// Restore old params
+	v.lambdaParams = oldParams
+
+	// Construct the lambda manually
+	parameters := &types.StructType{
+		Types:       paramTypes,
+		Nullability: types.NullabilityRequired,
+	}
+
+	lambda := &expr.Lambda{
+		Parameters: parameters,
+		Body:       body,
+	}
+
+	return &CaseLiteral{
+		Type:      funcType,
+		Expr:      lambda,
+		ValueText: ctx.GetText(),
+	}
+}
+
+func (v *TestCaseVisitor) VisitLiteralLambda(ctx *baseparser.LiteralLambdaContext) interface{} {
+	if ctx.LambdaParameters() == nil {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("lambda missing parameters"))
+		return &expr.Lambda{
+			Parameters: &types.StructType{Types: []types.Type{}, Nullability: types.NullabilityRequired},
+			Body:       expr.NewNullLiteral(&types.Int32Type{Nullability: types.NullabilityNullable}),
+		}
+	}
+
+	paramInfoResult := v.Visit(ctx.LambdaParameters())
+	if paramInfoResult == nil {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("failed to parse lambda parameters"))
+		return &expr.Lambda{
+			Parameters: &types.StructType{Types: []types.Type{}, Nullability: types.NullabilityRequired},
+			Body:       expr.NewNullLiteral(&types.Int32Type{Nullability: types.NullabilityNullable}),
+		}
+	}
+
+	paramInfo, ok := paramInfoResult.([]lambdaParamInfo)
+	if !ok {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("lambda parameters is not []lambdaParamInfo, got %T", paramInfoResult))
+		return &expr.Lambda{
+			Parameters: &types.StructType{Types: []types.Type{}, Nullability: types.NullabilityRequired},
+			Body:       expr.NewNullLiteral(&types.Int32Type{Nullability: types.NullabilityNullable}),
+		}
+	}
+
+	paramTypes := make([]types.Type, len(paramInfo))
+	for i, info := range paramInfo {
+		if info.typ != nil {
+			paramTypes[i] = info.typ
+		} else {
+			paramTypes[i] = &types.Int32Type{Nullability: types.NullabilityRequired}
+		}
+	}
+
+	parameters := &types.StructType{
+		Types:       paramTypes,
+		Nullability: types.NullabilityRequired,
+	}
+
+	oldParams := v.lambdaParams
+	v.lambdaParams = paramInfo
+
+	if ctx.LambdaBody() == nil {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("lambda missing body"))
+		v.lambdaParams = oldParams
+		return &expr.Lambda{
+			Parameters: parameters,
+			Body:       expr.NewNullLiteral(&types.Int32Type{Nullability: types.NullabilityNullable}),
+		}
+	}
+
+	bodyResult := v.Visit(ctx.LambdaBody())
+	if bodyResult == nil {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("failed to parse lambda body"))
+		v.lambdaParams = oldParams
+		return &expr.Lambda{
+			Parameters: parameters,
+			Body:       expr.NewNullLiteral(&types.Int32Type{Nullability: types.NullabilityNullable}),
+		}
+	}
+
+	body, ok := bodyResult.(expr.Expression)
+	if !ok {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("lambda body is not an Expression, got %T", bodyResult))
+		v.lambdaParams = oldParams
+		return &expr.Lambda{
+			Parameters: parameters,
+			Body:       expr.NewNullLiteral(&types.Int32Type{Nullability: types.NullabilityNullable}),
+		}
+	}
+
+	v.lambdaParams = oldParams
+
+	return &expr.Lambda{
+		Parameters: parameters,
+		Body:       body,
+	}
+}
+
+// VisitSingleParam handles single lambda parameter: x
+// Decision: Returns a slice with one element for consistency with VisitTupleParams
+func (v *TestCaseVisitor) VisitSingleParam(ctx *baseparser.SingleParamContext) interface{} {
+	if ctx.Identifier() == nil {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("single param missing identifier"))
+		return []lambdaParamInfo{}
+	}
+	paramName := ctx.Identifier().GetText()
+	// Note: We don't know the type yet - it will come from the func type annotation
+	// We'll set it later in VisitLambdaArg
+	return []lambdaParamInfo{
+		{name: paramName, idx: 0},
+	}
+}
+
+// VisitTupleParams handles multiple lambda parameters: (x, y)
+// Decision: Returns a slice of parameter info, maintaining order
+func (v *TestCaseVisitor) VisitTupleParams(ctx *baseparser.TupleParamsContext) interface{} {
+	params := make([]lambdaParamInfo, 0, len(ctx.AllIdentifier()))
+	for i, id := range ctx.AllIdentifier() {
+		if id == nil {
+			continue
+		}
+		params = append(params, lambdaParamInfo{
+			name: id.GetText(),
+			idx:  int32(i),
+		})
+	}
+	return params
+}
+
+func (v *TestCaseVisitor) VisitSingleFuncParam(ctx *baseparser.SingleFuncParamContext) interface{} {
+	if ctx.DataType() == nil {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("single func param missing data type"))
+		return &types.Int32Type{}
+	}
+	return v.Visit(ctx.DataType())
+}
+
+func (v *TestCaseVisitor) VisitFuncParamsWithParens(ctx *baseparser.FuncParamsWithParensContext) interface{} {
+	paramTypes := make([]types.Type, 0, len(ctx.AllDataType()))
+	for _, dt := range ctx.AllDataType() {
+		if dt == nil {
+			continue
+		}
+		typeResult := v.Visit(dt)
+		if typeResult == nil {
+			continue
+		}
+		if t, ok := typeResult.(types.Type); ok {
+			paramTypes = append(paramTypes, t)
+		}
+	}
+	return paramTypes
+}
+
+func (v *TestCaseVisitor) VisitLambdaBody(ctx *baseparser.LambdaBodyContext) interface{} {
+	if ctx.Identifier() == nil {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("lambda body missing function name"))
+		return expr.NewNullLiteral(&types.Int32Type{Nullability: types.NullabilityNullable})
+	}
+	funcName := ctx.Identifier().GetText()
+
+	var funcArgs []types.FuncArg
+	if ctx.Arguments() != nil {
+		argsResult := v.Visit(ctx.Arguments()).([]*CaseLiteral)
+		funcArgs = make([]types.FuncArg, len(argsResult))
+		for i, arg := range argsResult {
+			if arg.Expr != nil {
+				funcArgs[i] = arg.Expr
+			} else if arg.Value != nil {
+				funcArgs[i] = arg.Value
+			} else {
+				v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("lambda body argument %d has neither Expr nor Value", i))
+				funcArgs[i] = expr.NewNullLiteral(&types.Int32Type{Nullability: types.NullabilityNullable})
+			}
+		}
+	}
+
+	collection := extensions.GetDefaultCollectionWithNoError()
+	if collection == nil {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("failed to get default extension collection"))
+		return expr.NewNullLiteral(&types.Int32Type{Nullability: types.NullabilityNullable})
+	}
+	extSet := extensions.NewSet()
+	if extSet == nil {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("failed to create extension set"))
+		return expr.NewNullLiteral(&types.Int32Type{Nullability: types.NullabilityNullable})
+	}
+	reg := expr.NewExtensionRegistry(extSet, collection)
+
+	// Create a function registry to look up the function
+	_, funcRegistry := functions.NewExtensionAndFunctionRegistries(collection)
+
+	// Look up scalar functions with this name
+	scalarFuncs := funcRegistry.GetScalarFunctions(funcName, len(funcArgs))
+	if len(scalarFuncs) == 0 {
+		// Function not found - return a null literal as a fallback
+		return expr.NewNullLiteral(&types.Int32Type{Nullability: types.NullabilityNullable})
+	}
+
+	// Try each function variant to find one that matches
+	for _, fn := range scalarFuncs {
+		scalarFunc, err := expr.NewScalarFunc(reg, fn.ID(), nil, funcArgs...)
+		if err == nil {
+			return scalarFunc
+		}
+	}
+
+	// None of the variants matched - return a null literal as a fallback
+	return expr.NewNullLiteral(&types.Int32Type{Nullability: types.NullabilityNullable})
+}
+
+func (v *TestCaseVisitor) handleLambdaParameterRef(ctx antlr.ParserRuleContext, paramName string) *CaseLiteral {
+	if len(v.lambdaParams) == 0 {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("identifier %s found but not in lambda context", paramName))
+		return &CaseLiteral{ValueText: paramName}
+	}
+	for i := len(v.lambdaParams) - 1; i >= 0; i-- {
+		if v.lambdaParams[i].name == paramName {
+			if v.lambdaParams[i].typ == nil {
+				v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("lambda parameter %s has nil type", paramName))
+				return &CaseLiteral{ValueText: paramName}
+			}
+			fieldRef, err := expr.NewRootFieldRef(
+				expr.NewStructFieldRef(v.lambdaParams[i].idx),
+				types.NewRecordTypeFromTypes([]types.Type{v.lambdaParams[i].typ}),
+			)
+			if err != nil {
+				v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("error creating field ref for lambda param %s: %w", paramName, err))
+				return &CaseLiteral{ValueText: paramName}
+			}
+
+			return &CaseLiteral{
+				Expr:      fieldRef,
+				ValueText: paramName,
+				Type:      v.lambdaParams[i].typ,
+			}
+		}
+	}
+
+	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("unknown identifier in lambda context: %s", paramName))
+	return &CaseLiteral{ValueText: paramName}
 }

@@ -20,7 +20,11 @@ type SimpleErrorListener struct {
 
 func (l *SimpleErrorListener) ReportVisitError(ctx antlr.ParserRuleContext, err error) {
 	l.errorCount++
-	l.errors = append(l.errors, fmt.Sprintf("Visit error at line %d: %s", ctx.GetStart().GetLine(), err))
+	if ctx != nil && ctx.GetStart() != nil {
+		l.errors = append(l.errors, fmt.Sprintf("Visit error at line %d: %s", ctx.GetStart().GetLine(), err))
+	} else {
+		l.errors = append(l.errors, fmt.Sprintf("Visit error: %s", err))
+	}
 }
 
 func (l *SimpleErrorListener) ReportPanicError(err error) {

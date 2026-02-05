@@ -373,6 +373,16 @@ func TypeFromProto(t *proto.Type) Type {
 			TypeVariationRef: t.Struct.TypeVariationReference,
 			Types:            fields,
 		}
+	case *proto.Type_Func_:
+		params := make([]Type, len(t.Func.ParameterTypes))
+		for i, p := range t.Func.ParameterTypes {
+			params[i] = TypeFromProto(p)
+		}
+		return &FuncType{
+			Nullability:    t.Func.Nullability,
+			ParameterTypes: params,
+			ReturnType:     TypeFromProto(t.Func.ReturnType),
+		}
 	case *proto.Type_List_:
 		return &ListType{
 			Nullability:      t.List.Nullability,
@@ -762,6 +772,8 @@ func TypeToProto(t Type) *proto.Type {
 				Nullability:            t.Nullability,
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *StructType:
+		return t.ToProto()
+	case *FuncType:
 		return t.ToProto()
 	case *ListType:
 		return t.ToProto()
@@ -1186,6 +1198,102 @@ func (t *StructType) ParameterString() string {
 
 func (*StructType) BaseString() string {
 	return "struct"
+}
+
+// FuncType represents a function type for higher-order functions.
+// It describes a function that takes parameters of specified types and
+// returns a value of a specified type.
+//
+// Note: FuncType does not support type variations (always returns 0 for
+// GetTypeVariationReference) because function types are abstract and have
+// no physical representation.
+type FuncType struct {
+	Nullability    Nullability
+	ParameterTypes []Type
+	ReturnType     Type
+}
+
+func (*FuncType) isRootRef() {}
+
+func (f *FuncType) WithNullability(n Nullability) Type {
+	out := *f
+	out.Nullability = n
+	return &out
+}
+
+func (f *FuncType) GetParameters() []interface{} {
+	// Return all type components: parameter types + return type
+	// This is needed for type derivation with parameterized function types like func<T1, T2 -> T3>
+	params := make([]interface{}, len(f.ParameterTypes)+1)
+	for i, p := range f.ParameterTypes {
+		params[i] = p
+	}
+	params[len(f.ParameterTypes)] = f.ReturnType
+	return params
+}
+
+func (f *FuncType) GetType() Type                     { return f }
+func (f *FuncType) GetNullability() Nullability       { return f.Nullability }
+func (f *FuncType) GetTypeVariationReference() uint32 { return 0 } // FuncType doesn't support variations
+
+func (f *FuncType) Equals(rhs Type) bool {
+	if b, ok := rhs.(*FuncType); ok {
+		switch {
+		case f.Nullability != b.Nullability:
+			return false
+		case len(f.ParameterTypes) != len(b.ParameterTypes):
+			return false
+		case !f.ReturnType.Equals(b.ReturnType):
+			return false
+		}
+
+		for i := range f.ParameterTypes {
+			if !f.ParameterTypes[i].Equals(b.ParameterTypes[i]) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func (f *FuncType) ToProto() *proto.Type {
+	params := make([]*proto.Type, len(f.ParameterTypes))
+	for i, p := range f.ParameterTypes {
+		params[i] = TypeToProto(p)
+	}
+
+	return &proto.Type{Kind: &proto.Type_Func_{
+		Func: &proto.Type_Func{
+			ParameterTypes: params,
+			ReturnType:     TypeToProto(f.ReturnType),
+			Nullability:    f.Nullability,
+		}}}
+}
+
+func (f *FuncType) ToProtoFuncArg() *proto.FunctionArgument {
+	return &proto.FunctionArgument{
+		ArgType: &proto.FunctionArgument_Type{Type: f.ToProto()},
+	}
+}
+
+func (*FuncType) ShortString() string { return "func" }
+
+func (f *FuncType) String() string {
+	var b strings.Builder
+	b.WriteString("func")
+	b.WriteString(strNullable(f))
+	b.WriteByte('<')
+	for i, p := range f.ParameterTypes {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(p.String())
+	}
+	b.WriteString(" -> ")
+	b.WriteString(f.ReturnType.String())
+	b.WriteByte('>')
+	return b.String()
 }
 
 type ListType struct {

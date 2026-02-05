@@ -843,10 +843,6 @@ func TestLoadAllSubstraitTestFiles(t *testing.T) {
 			case "tests/cases/datetime/extract.test":
 				// TODO deal with enum arguments in testcase
 				t.Skip("Skipping extract.test")
-			case "tests/cases/list/filter.test":
-				fallthrough
-			case "tests/cases/list/transform.test":
-				t.Skip("Skipping tests that require lambda support")
 			}
 
 			testFile, err := ParseTestCaseFileFromFS(got, filePath)
@@ -866,6 +862,7 @@ func testGetFunctionInvocation(t *testing.T, tc *TestCase, reg *expr.ExtensionRe
 		invocation, err := tc.GetScalarFunctionInvocation(reg, registry)
 		require.NoError(t, err, "GetScalarFunctionInvocation failed with error in test case: %s", tc.CompoundFunctionName())
 		require.Equal(t, tc.ID().URN, invocation.ID().URN)
+
 		argTypes := invocation.GetArgTypes()
 		require.Equal(t, tc.GetArgTypes(), argTypes, "unexpected arg types in test case: %s", tc.CompoundFunctionName())
 	case AggregateFuncType:

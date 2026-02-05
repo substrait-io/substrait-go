@@ -24,12 +24,16 @@ type CaseLiteral struct {
 	Type           types.Type
 	ValueText      string
 	Value          expr.Literal
+	Expr           expr.Expression // For non-literal expressions (lambdas, field refs)
 	SubstraitError *SubstraitError
 }
 
 func (c *CaseLiteral) String() string {
 	if c.SubstraitError != nil {
 		return c.SubstraitError.String()
+	}
+	if c.Expr != nil {
+		return c.Expr.String() + "::" + c.Type.String()
 	}
 	if c.Value == nil {
 		return "NULL"
@@ -84,7 +88,13 @@ func (c *CaseLiteral) AsAggregateArgumentString() string {
 // For ParameterizedTypes utils functions use minimum required values for the parameters.
 // This function changes the type to use requested type, so that the function invocation object is created correctly.
 func (c *CaseLiteral) updateLiteralType() error {
+	if c.Type == nil {
+		return nil
+	}
 	if len(c.Type.GetParameters()) == 0 {
+		return nil
+	}
+	if c.Expr != nil {
 		return nil
 	}
 	switch proLit := c.Value.(type) {
@@ -340,7 +350,11 @@ func (tc *TestCase) GetScalarFunctionInvocation(reg *expr.ExtensionRegistry, fun
 	id := tc.ID()
 	args := make([]types.FuncArg, len(tc.Args))
 	for i, arg := range tc.Args {
-		args[i] = arg.Value
+		if arg.Expr != nil {
+			args[i] = arg.Expr
+		} else {
+			args[i] = arg.Value
+		}
 	}
 
 	invocation, err := expr.NewScalarFunc(*reg, id, tc.GetFunctionOptions(), args...)
@@ -351,7 +365,8 @@ func (tc *TestCase) GetScalarFunctionInvocation(reg *expr.ExtensionRegistry, fun
 	// exact match not found, try to find a function that matches with function parameter type "any"
 	funcVariants := funcRegistry.GetScalarFunctions(tc.FuncName, len(args))
 	for _, function := range funcVariants {
-		isMatch, err1 := function.Match(tc.GetArgTypes())
+		argTypes := tc.GetArgTypes()
+		isMatch, err1 := function.Match(argTypes)
 		if err1 == nil && isMatch && function.ID().URN == id.URN {
 			return expr.NewScalarFunc(*reg, function.ID(), tc.GetFunctionOptions(), args...)
 		}
@@ -368,7 +383,11 @@ func (tc *TestCase) GetAggregateFunctionInvocation(reg *expr.ExtensionRegistry, 
 	baseSchema := types.NewRecordTypeFromTypes(tc.getAggregateFuncTableSchema())
 	for i, arg := range tc.AggregateArgs {
 		if arg.IsScalar {
-			args[i] = arg.Argument.Value
+			if arg.Argument.Expr != nil {
+				args[i] = arg.Argument.Expr
+			} else {
+				args[i] = arg.Argument.Value
+			}
 			continue
 		}
 

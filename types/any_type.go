@@ -96,6 +96,27 @@ func unwrapAnyTypeWithName(name string, p FuncDefArgType, argType Type) (Type, e
 				return pt, nil
 			}
 		}
+	case *ParameterizedFuncType:
+		funcType, ok := argType.(*FuncType)
+		if !ok {
+			return nil, fmt.Errorf("expected FuncType for ParameterizedFuncType, found %T", argType)
+		}
+		if len(funcType.ParameterTypes) != len(arg.Parameters) {
+			return nil, fmt.Errorf("expected FuncType to have %d parameters, found %d",
+				len(arg.Parameters), len(funcType.ParameterTypes))
+		}
+		// Check function parameters
+		for i, param := range arg.Parameters {
+			pt, err := unwrapAnyTypeWithName(name, param, funcType.ParameterTypes[i])
+			if err != nil {
+				return nil, err
+			}
+			if pt != nil {
+				return pt, nil
+			}
+		}
+		// Check return type
+		return unwrapAnyTypeWithName(name, arg.Return, funcType.ReturnType)
 	}
 	// Didn't find matching AnyType.
 	return nil, nil
