@@ -25,6 +25,7 @@ type RootRefType interface {
 
 var RootReference RootRefType
 
+// TODO: represent this as a struct to better match format of LambdaParamterReference
 type OuterReference uint32
 
 func (OuterReference) isRootRef() {}
