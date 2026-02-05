@@ -512,6 +512,12 @@ type (
 		MatchWithoutNullability(ot Type) bool
 		ShortString() string
 		GetNullability() Nullability
+
+		// ReturnType resolves this unresolved type to a concrete Type.
+		// Called when this type is used as a function return type (or nested within one).
+		//
+		// funcParameters are the abstract parameter types from the function definition.
+		// argumentTypes are the concrete types passed to the function.
 		ReturnType(funcParameters []FuncDefArgType, argumentTypes []Type) (Type, error)
 
 		// WithParameters returns a new instance of this type with the given parameters.
