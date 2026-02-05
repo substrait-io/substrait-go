@@ -33,18 +33,30 @@
             "input": {
               "read": {
                 "baseSchema": {
-                  "names": ["values"],
+                  "names": [
+                    "values"
+                  ],
                   "struct": {
-                    "types": [{
-                      "list": {
-                        "type": {"i32": {"nullability": "NULLABILITY_REQUIRED"}},
-                        "nullability": "NULLABILITY_REQUIRED"
+                    "types": [
+                      {
+                        "list": {
+                          "type": {
+                            "i32": {
+                              "nullability": "NULLABILITY_REQUIRED"
+                            }
+                          },
+                          "nullability": "NULLABILITY_REQUIRED"
+                        }
                       }
-                    }],
+                    ],
                     "nullability": "NULLABILITY_REQUIRED"
                   }
                 },
-                "namedTable": {"names": ["test_table"]}
+                "namedTable": {
+                  "names": [
+                    "test_table"
+                  ]
+                }
               }
             },
             "expressions": [
@@ -53,7 +65,11 @@
                   "functionReference": 2,
                   "outputType": {
                     "list": {
-                      "type": {"i32": {"nullability": "NULLABILITY_REQUIRED"}},
+                      "type": {
+                        "i32": {
+                          "nullability": "NULLABILITY_REQUIRED"
+                        }
+                      },
                       "nullability": "NULLABILITY_REQUIRED"
                     }
                   },
@@ -61,7 +77,11 @@
                     {
                       "value": {
                         "selection": {
-                          "directReference": {"structField": {"field": 0}},
+                          "directReference": {
+                            "structField": {
+                              "field": 0
+                            }
+                          },
                           "rootReference": {}
                         }
                       }
@@ -72,27 +92,47 @@
                           "parameters": {
                             "nullability": "NULLABILITY_REQUIRED",
                             "types": [
-                              {"i32": {"nullability": "NULLABILITY_REQUIRED"}}
+                              {
+                                "i32": {
+                                  "nullability": "NULLABILITY_REQUIRED"
+                                }
+                              }
                             ]
                           },
                           "body": {
                             "scalarFunction": {
                               "functionReference": 1,
-                              "outputType": {"i32": {"nullability": "NULLABILITY_REQUIRED"}},
+                              "outputType": {
+                                "i32": {
+                                  "nullability": "NULLABILITY_REQUIRED"
+                                }
+                              },
                               "arguments": [
                                 {
                                   "value": {
                                     "selection": {
-                                      "directReference": {"structField": {"field": 0}},
-                                      "lambdaParameterReference": {"stepsOut": 1}
+                                      "directReference": {
+                                        "structField": {
+                                          "field": 0
+                                        }
+                                      },
+                                      "lambdaParameterReference": {
+                                        "stepsOut": 1
+                                      }
                                     }
                                   }
                                 },
                                 {
                                   "value": {
                                     "selection": {
-                                      "directReference": {"structField": {"field": 0}},
-                                      "lambdaParameterReference": {"stepsOut": 0}
+                                      "directReference": {
+                                        "structField": {
+                                          "field": 0
+                                        }
+                                      },
+                                      "lambdaParameterReference": {
+                                        "stepsOut": 0
+                                      }
                                     }
                                   }
                                 }

@@ -705,6 +705,14 @@ func (f *FieldReference) Equals(rhs Expression) bool {
 			if rhsRoot != root {
 				return false
 			}
+		case LambdaParameterReference:
+			rhsRoot, ok := rhs.Root.(LambdaParameterReference)
+			if !ok {
+				return false
+			}
+			if rhsRoot.StepsOut != root.StepsOut {
+				return false
+			}
 		case Expression:
 			rhsExpr, ok := rhs.Root.(Expression)
 			if !ok {
@@ -712,14 +720,6 @@ func (f *FieldReference) Equals(rhs Expression) bool {
 			}
 
 			if !root.Equals(rhsExpr) {
-				return false
-			}
-		case LambdaParameterReference:
-			rhsRoot, ok := rhs.Root.(LambdaParameterReference)
-			if !ok {
-				return false
-			}
-			if rhsRoot.StepsOut != root.StepsOut {
 				return false
 			}
 		default:
