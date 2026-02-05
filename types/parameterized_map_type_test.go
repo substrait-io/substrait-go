@@ -62,3 +62,24 @@ func TestParameterizedMapType(t *testing.T) {
 		})
 	}
 }
+
+// TestParameterizedMapTypeWithAny tests that any1/any2 in map<any1, any2> resolve correctly (#182)
+func TestParameterizedMapTypeWithAny(t *testing.T) {
+	any1 := &types.AnyType{Name: "any1", Nullability: types.NullabilityRequired}
+	any2 := &types.AnyType{Name: "any2", Nullability: types.NullabilityRequired}
+
+	parameterizedMap := &types.ParameterizedMapType{
+		Nullability: types.NullabilityRequired,
+		Key:         any1,
+		Value:       any2,
+	}
+
+	str := &types.StringType{Nullability: types.NullabilityRequired}
+	i64 := &types.Int64Type{Nullability: types.NullabilityRequired}
+
+	result, err := parameterizedMap.ReturnType([]types.FuncDefArgType{any1, any2}, []types.Type{str, i64})
+
+	require.NoError(t, err)
+	expected := &types.MapType{Nullability: types.NullabilityRequired, Key: str, Value: i64}
+	require.Equal(t, expected, result)
+}

@@ -1118,3 +1118,85 @@ func TestResolveRefToURNAllConditions(t *testing.T) {
 		assert.Contains(t, err.Error(), "unable to resolve extension reference: neither URN reference 0 nor URI reference 0 could be resolved")
 	})
 }
+
+// TestPolymorphicStructReturn tests that any1 in struct<any1> resolves correctly (#182)
+func TestPolymorphicStructReturn(t *testing.T) {
+	const yaml = `---
+urn: extension:x:test
+scalar_functions:
+  - name: "f"
+    impls:
+      - args:
+          - name: x
+            value: any1
+        return: struct<any1>
+`
+	var c extensions.Collection
+	require.NoError(t, c.Load("http://test", strings.NewReader(yaml)))
+
+	fn, _ := c.GetScalarFunc(extensions.ID{URN: "extension:x:test", Name: "f:any"})
+	i64 := &types.Int64Type{Nullability: types.NullabilityRequired}
+
+	result, err := fn.ResolveType([]types.Type{i64}, extensions.NewSet())
+
+	require.NoError(t, err)
+	expected := &types.StructType{Nullability: types.NullabilityRequired, Types: []types.Type{i64}}
+	assert.Equal(t, expected, result)
+}
+
+// TestPolymorphicMapReturn tests that any1/any2 in map<any1, any2> resolve correctly (#182)
+func TestPolymorphicMapReturn(t *testing.T) {
+	const yaml = `---
+urn: extension:x:test
+scalar_functions:
+  - name: "f"
+    impls:
+      - args:
+          - name: k
+            value: any1
+          - name: v
+            value: any2
+        return: map<any1, any2>
+`
+	var c extensions.Collection
+	require.NoError(t, c.Load("http://test", strings.NewReader(yaml)))
+
+	fn, _ := c.GetScalarFunc(extensions.ID{URN: "extension:x:test", Name: "f:any_any"})
+	str := &types.StringType{Nullability: types.NullabilityRequired}
+	i64 := &types.Int64Type{Nullability: types.NullabilityRequired}
+
+	result, err := fn.ResolveType([]types.Type{str, i64}, extensions.NewSet())
+
+	require.NoError(t, err)
+	expected := &types.MapType{Nullability: types.NullabilityRequired, Key: str, Value: i64}
+	assert.Equal(t, expected, result)
+}
+
+// TestPolymorphicUDTReturn tests that any1 in u!Wrapper<any1> resolves correctly (#184)
+func TestPolymorphicUDTReturn(t *testing.T) {
+	const yaml = `---
+urn: extension:x:test
+types:
+  - name: Wrapper
+    structure:
+      value: T
+scalar_functions:
+  - name: "f"
+    impls:
+      - args:
+          - name: x
+            value: any1
+        return: u!Wrapper<any1>
+`
+	var c extensions.Collection
+	require.NoError(t, c.Load("http://test", strings.NewReader(yaml)))
+
+	fn, _ := c.GetScalarFunc(extensions.ID{URN: "extension:x:test", Name: "f:any"})
+	i64 := &types.Int64Type{Nullability: types.NullabilityRequired}
+
+	result, err := fn.ResolveType([]types.Type{i64}, extensions.NewSet())
+
+	require.NoError(t, err)
+	expected := &types.UserDefinedType{Nullability: types.NullabilityRequired, TypeReference: 1, TypeParameters: []types.TypeParam{&types.DataTypeParameter{Type: i64}}}
+	assert.Equal(t, expected, result)
+}
