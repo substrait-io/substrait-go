@@ -235,7 +235,7 @@ func TestLambdaBuilder_InvalidFieldIndex(t *testing.T) {
 
 	require.Error(t, err, "Build should fail for out-of-bounds field index")
 	require.Nil(t, lambda)
-	require.Contains(t, err.Error(), "references parameter 5")
+	require.Contains(t, err.Error(), "trying to access parameter 5")
 	require.Contains(t, err.Error(), "only has 1 parameters")
 	t.Logf("Expected error: %v", err)
 }
