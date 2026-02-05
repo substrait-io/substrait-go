@@ -330,6 +330,46 @@ func (v *TypeVisitor) VisitMap(ctx *baseparser2.MapContext) interface{} {
 	return &types.ParameterizedMapType{Key: keyType, Value: valueType, Nullability: nullability}
 }
 
+func (v *TypeVisitor) VisitFunc(ctx *baseparser2.FuncContext) interface{} {
+	nullability := types.NullabilityRequired
+	if ctx.GetIsnull() != nil {
+		nullability = types.NullabilityNullable
+	}
+
+	// Parse function parameters
+	var paramTypes []types.FuncDefArgType
+	if ctx.GetParams() != nil {
+		paramsResult := v.Visit(ctx.GetParams())
+		switch p := paramsResult.(type) {
+		case []types.FuncDefArgType:
+			paramTypes = p
+		case types.FuncDefArgType:
+			paramTypes = []types.FuncDefArgType{p}
+		}
+	}
+
+	// Parse return type
+	returnType := v.Visit(ctx.GetReturnType()).(types.FuncDefArgType)
+
+	return &types.ParameterizedFuncType{
+		Nullability: nullability,
+		Parameters:  paramTypes,
+		Return:      returnType,
+	}
+}
+
+func (v *TypeVisitor) VisitSingleFuncParam(ctx *baseparser2.SingleFuncParamContext) interface{} {
+	return v.Visit(ctx.Expr())
+}
+
+func (v *TypeVisitor) VisitFuncParamsWithParens(ctx *baseparser2.FuncParamsWithParensContext) interface{} {
+	params := make([]types.FuncDefArgType, 0, len(ctx.AllExpr()))
+	for _, expr := range ctx.AllExpr() {
+		params = append(params, v.Visit(expr).(types.FuncDefArgType))
+	}
+	return params
+}
+
 func (v *TypeVisitor) VisitParameterName(ctx *baseparser2.ParameterNameContext) interface{} {
 	return types.StringParameter(ctx.Identifier().GetText())
 }
