@@ -4,7 +4,7 @@ package expr_test
 
 import (
 	"os"
-	"strings"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,6 +12,7 @@ import (
 	"github.com/substrait-io/substrait-go/v7/expr"
 	ext "github.com/substrait-io/substrait-go/v7/extensions"
 	"github.com/substrait-io/substrait-go/v7/literal"
+	"github.com/substrait-io/substrait-go/v7/plan"
 	"github.com/substrait-io/substrait-go/v7/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -76,7 +77,6 @@ func TestLambdaBuilder_ValidationErrors(t *testing.T) {
 	require.Contains(t, err.Error(), "only has 1 parameters")
 }
 
-// TestLambdaProtoRoundTrip tests that lambda expressions can be round-tripped
 // TestLambdaProtoRoundTrip tests that lambda expressions can be round-tripped
 // through protobuf serialization without losing information.
 func TestLambdaProtoRoundTrip(t *testing.T) {
