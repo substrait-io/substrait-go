@@ -77,50 +77,29 @@ func TestLambdaBuilder_ValidationErrors(t *testing.T) {
 }
 
 // TestLambdaProtoRoundTrip tests that lambda expressions can be round-tripped
+// TestLambdaProtoRoundTrip tests that lambda expressions can be round-tripped
 // through protobuf serialization without losing information.
 func TestLambdaProtoRoundTrip(t *testing.T) {
-	// Load all JSON files from testdata/lambda/
-	files, err := os.ReadDir("./testdata/lambda")
-	require.NoError(t, err, "Should be able to read testdata/lambda directory")
+	files, err := filepath.Glob("./testdata/lambda/*.json")
+	require.NoError(t, err)
+
+	collection := ext.GetDefaultCollectionWithNoError()
 
 	for _, file := range files {
-		if !strings.HasSuffix(file.Name(), ".json") {
-			continue
-		}
+		t.Run(filepath.Base(file), func(t *testing.T) {
+			data, err := os.ReadFile(file)
+			require.NoError(t, err)
 
-		t.Run(file.Name(), func(t *testing.T) {
-			// Read JSON file
-			data, err := os.ReadFile("./testdata/lambda/" + file.Name())
-			require.NoError(t, err, "Should read JSON file")
+			var originalPlan proto.Plan
+			require.NoError(t, protojson.Unmarshal(data, &originalPlan))
 
-			// Parse plan
-			var plan proto.Plan
-			err = protojson.Unmarshal(data, &plan)
-			require.NoError(t, err, "Should parse Plan JSON")
+			goPlan, err := plan.FromProto(&originalPlan, collection)
+			require.NoError(t, err)
 
-			// Setup extension collection and registry
-			collection := ext.GetDefaultCollectionWithNoError()
-			extSet, err := ext.GetExtensionSet(&plan, collection)
-			require.NoError(t, err, "Should get extension set from plan")
-			reg := expr.NewExtensionRegistry(extSet, collection)
+			resultPlan, err := goPlan.ToProto()
+			require.NoError(t, err)
 
-			// Extract expression from plan
-			project := plan.Relations[0].GetRoot().GetInput().GetProject()
-			require.NotNil(t, project, "Should have project relation")
-			require.Len(t, project.Expressions, 1, "Should have 1 expression")
-			originalExprProto := project.Expressions[0]
-
-			// Roundtrip: proto → Go → proto
-			goExpr, err := expr.ExprFromProto(originalExprProto, nil, reg)
-			require.NoError(t, err, "Should convert proto to Go expression")
-
-			resultProto := goExpr.ToProto()
-
-			// Verify round-trip: original proto should equal result proto
-			require.True(t, pb.Equal(originalExprProto, resultProto),
-				"Round-trip failed for %s!\nOriginal: %v\nResult: %v",
-				file.Name(), originalExprProto, resultProto)
-
+			require.True(t, pb.Equal(&originalPlan, resultPlan))
 		})
 	}
 }
