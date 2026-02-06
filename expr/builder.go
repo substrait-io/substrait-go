@@ -518,7 +518,6 @@ type lambdaParamRefBuilder struct {
 }
 
 func (lpb *lambdaParamRefBuilder) Build() (*FieldReference, error) {
-	// Validate and get the resolved type for the lambda parameter
 	resolvedType, err := lpb.getLambdaParamType()
 	if err != nil {
 		return nil, err
