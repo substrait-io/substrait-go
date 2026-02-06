@@ -215,7 +215,6 @@ func TestLambdaBuilder_InvalidOuterRef(t *testing.T) {
 	require.Nil(t, lambda)
 	require.Contains(t, err.Error(), "stepsOut 1")
 	require.Contains(t, err.Error(), "non-existent outer lambda")
-	t.Logf("Expected error: %v", err)
 }
 
 // TestLambdaBuilder_InvalidFieldIndex tests that LambdaParamRef() fails when referencing
