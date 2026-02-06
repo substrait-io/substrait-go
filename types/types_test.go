@@ -49,6 +49,7 @@ func TestTypeToString(t *testing.T) {
 		{&MapType{Key: &StringType{}, Value: &DecimalType{Precision: 10, Scale: 2}},
 			"map<string, decimal<10,2>>", "map"},
 		{&FuncType{ParameterTypes: []Type{&Int8Type{}}, ReturnType: &Int16Type{}}, "func<i8 -> i16>", "func"},
+		{&FuncType{ParameterTypes: []Type{&Int8Type{}, &Int8Type{}}, ReturnType: &Int16Type{}}, "func<i8, i8 -> i16>", "func"},
 	}
 
 	for _, tt := range tests {
