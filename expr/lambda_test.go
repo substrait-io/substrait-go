@@ -353,7 +353,6 @@ func TestLambdaBuilder_TypeResolution(t *testing.T) {
 			require.Equal(t, tc.expectedType, bodyType.ShortString(),
 				"Body type should match referenced parameter type")
 
-			t.Logf("Lambda: %s → func type: %s", lambda.String(), lambdaType.String())
 		})
 	}
 }
@@ -404,8 +403,6 @@ func TestLambdaBuilder_OuterRefTypeResolution(t *testing.T) {
 	require.Equal(t, "str", bodyType.ShortString(),
 		"Body type should be string (outer param at field 2)")
 
-	t.Logf("Outer lambda: %s", outerLambda.String())
-	t.Logf("Inner lambda type (from outer.c): %s", funcType.ReturnType.ShortString())
 }
 
 // TestLambdaBuilder_DeeplyNestedFieldRef tests that type resolution
@@ -440,7 +437,6 @@ func TestLambdaBuilder_DeeplyNestedFieldRef(t *testing.T) {
 	require.NotNil(t, resultFieldRef.GetType(), "Nested FieldRef should have type resolved")
 	require.Equal(t, "i32", resultFieldRef.GetType().ShortString(), "Should resolve to i32")
 
-	t.Logf("Lambda with deeply nested FieldRef: %s", lambda.String())
 }
 
 // TestLambdaBuilder_DeeplyNestedInvalidFieldRef tests that LambdaParamRef validation catches
@@ -464,7 +460,6 @@ func TestLambdaBuilder_DeeplyNestedInvalidFieldRef(t *testing.T) {
 	require.ErrorIs(t, err, substraitgo.ErrInvalidExpr)
 	require.Contains(t, err.Error(), "parameter 5")
 
-	t.Logf("Correctly caught deeply nested invalid ref: %v", err)
 }
 
 // TestNestedLambdaFromProto_OuterRefTypeResolution verifies that when parsing
