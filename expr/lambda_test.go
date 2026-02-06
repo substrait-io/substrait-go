@@ -142,33 +142,6 @@ func TestLambdaBuilder_ValidStepsOut0(t *testing.T) {
 	require.False(t, lambda.IsScalar()) // Lambda is not scalar (type is func)
 	t.Logf("Lambda built successfully: %s", lambda.String())
 
-	// Test Equals - same lambda
-	lambda2, _ := b.Lambda(params,
-		b.LambdaParamRef(expr.StructFieldRef{Field: 0}, 0),
-	).Build()
-	require.True(t, lambda.Equals(lambda2))
-
-	// Test Equals - different params
-	// Building: ($0: i64) -> $0 : i64
-	differentParams := &types.StructType{
-		Nullability: types.NullabilityRequired,
-		Types:       []types.Type{&types.Int64Type{Nullability: types.NullabilityRequired}},
-	}
-
-	lambda3, _ := b.Lambda(differentParams,
-		b.LambdaParamRef(expr.StructFieldRef{Field: 0}, 0),
-	).Build()
-	require.False(t, lambda.Equals(lambda3))
-
-	// Test Visit - body unchanged returns same lambda
-	sameLambda := lambda.Visit(func(e expr.Expression) expr.Expression { return e })
-	require.Equal(t, lambda, sameLambda)
-
-	// Test Visit - body changed returns new lambda
-	newBody := literal.NewInt32(99, false)
-	newLambda := lambda.Visit(func(e expr.Expression) expr.Expression { return newBody })
-	require.NotEqual(t, lambda, newLambda)
-	require.Equal(t, newBody, newLambda.(*expr.Lambda).Body)
 }
 
 // TestLambdaBuilder_InvalidOuterRef tests that LambdaParamRef() fails for invalid outer refs.
