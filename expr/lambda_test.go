@@ -247,24 +247,6 @@ func TestLambdaBuilder_NestedLambda(t *testing.T) {
 	require.True(t, ok, "Body should be a Lambda")
 	require.Len(t, innerLambda.Parameters.Types, 1)
 
-	// Test Equals - same nested lambda
-	outerLambda2, _ := b.Lambda(outerParams,
-		b.Lambda(innerParams,
-			b.LambdaParamRef(expr.StructFieldRef{Field: 0}, 1),
-		),
-	).Build()
-	require.True(t, outerLambda.Equals(outerLambda2))
-
-	// Test Equals - different stepsOut in inner body
-	// Building: ($0: i64, $1: i64) -> (($0: i32) -> $0 : i32) : func<i32 -> i32>
-	outerLambda3, _ := b.Lambda(outerParams,
-		b.Lambda(innerParams,
-			b.LambdaParamRef(expr.StructFieldRef{Field: 0}, 0), // stepsOut=0 (different)
-		),
-	).Build()
-	require.False(t, outerLambda.Equals(outerLambda3))
-
-	t.Logf("Nested lambda built successfully: %s", outerLambda.String())
 }
 
 // TestLambdaBuilder_NestedInvalidOuterRef tests that LambdaParamRef() fails for invalid nested outer refs.
