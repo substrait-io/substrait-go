@@ -145,9 +145,9 @@ func ExampleExpression_scalarFunction() {
 
 func sampleNestedExpr(reg expr.ExtensionRegistry, substraitExtURN string) expr.Expression {
 	var (
-		add = ext.NewScalarFuncVariant(ext.ID{URN: substraitExtURN, Name: "add"})
-		sub = ext.NewScalarFuncVariant(ext.ID{URN: substraitExtURN, Name: "subtract"})
-		mul = ext.NewScalarFuncVariant(ext.ID{URN: substraitExtURN, Name: "multiply"})
+		add = ext.NewScalarFuncVariant(ext.ID{URN: substraitExtURN, Name: "add:fp64_fp64"})
+		sub = ext.NewScalarFuncVariant(ext.ID{URN: substraitExtURN, Name: "subtract:fp64_fp64"})
+		mul = ext.NewScalarFuncVariant(ext.ID{URN: substraitExtURN, Name: "multiply:fp64_fp64"})
 	)
 
 	baseSchema := types.NewRecordTypeFromTypes(
@@ -155,21 +155,17 @@ func sampleNestedExpr(reg expr.ExtensionRegistry, substraitExtURN string) expr.E
 			&types.BooleanType{},
 			&types.Int32Type{},
 			&types.Int64Type{},
-			&types.Float32Type{},
+			&types.Float64Type{},
 		})
 
-	// add(literal, sub(ref, mul(literal, ref)))
+	// add(literal, sub(ref, mul(literal, literal)))
 	exp := expr.MustExpr(expr.NewCustomScalarFunc(reg, add, &types.Float64Type{}, nil,
 		expr.NewPrimitiveLiteral(float64(1.0), false),
-		expr.MustExpr(expr.NewCustomScalarFunc(reg, sub, &types.Float32Type{}, nil,
+		expr.MustExpr(expr.NewCustomScalarFunc(reg, sub, &types.Float64Type{}, nil,
 			expr.MustExpr(expr.NewRootFieldRef(expr.NewStructFieldRef(3), baseSchema)),
-			expr.MustExpr(expr.NewCustomScalarFunc(reg, mul, &types.Int64Type{}, nil,
-				expr.NewPrimitiveLiteral(int64(2), false),
-				expr.MustExpr(expr.NewFieldRef(expr.NewNestedLiteral(expr.StructLiteralValue{
-					expr.NewByteSliceLiteral([]byte("baz"), true),
-					expr.NewPrimitiveLiteral("foobar", false),
-					expr.NewPrimitiveLiteral(int32(5), false),
-				}, false), expr.NewStructFieldRef(2), nil)),
+			expr.MustExpr(expr.NewCustomScalarFunc(reg, mul, &types.Float64Type{}, nil,
+				expr.NewPrimitiveLiteral(float64(2.0), false),
+				expr.NewPrimitiveLiteral(float64(3.0), false),
 			)),
 		)),
 	))
@@ -199,21 +195,14 @@ func TestExpressionsRoundtrip(t *testing.T) {
 				"extensionFunction": {
 					"extensionUrnReference": 1,
 					"functionAnchor": 3,
-					"name": "subtract:fp32_fp32"
+					"name": "subtract:fp64_fp64"
 				}
 			},
 			{
 				"extensionFunction": {
 					"extensionUrnReference": 1,
 					"functionAnchor": 4,
-					"name": "multiply:i64_i64"
-				}
-			},
-			{
-				"extensionFunction": {
-					"extensionUrnReference": 1,
-					"functionAnchor": 5,
-					"name": "ntile:"
+					"name": "multiply:fp64_fp64"
 				}
 			}
 		],
@@ -232,7 +221,7 @@ func TestExpressionsRoundtrip(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	reg := expr.NewExtensionRegistry(extSet, collection)
+	reg := expr.NewExtensionRegistry(extSet, collection).WithStrictFunctionLookup()
 	tests := []expr.Expression{
 		sampleNestedExpr(reg, substraitExtURN),
 	}
@@ -270,21 +259,21 @@ func ExampleExpression_Visit() {
 	// Output:
 	// PreOrder:
 	// fp64(1)
-	// subtract(.field(3) => fp32, multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64) => fp32
-	// .field(3) => fp32
-	// multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64
-	// i64(2)
-	// [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32
-	// add(fp64(1), subtract(.field(3) => fp32, multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64) => fp32) => fp64
+	// subtract(.field(3) => fp64, multiply(fp64(2), fp64(3)) => fp64) => fp64
+	// .field(3) => fp64
+	// multiply(fp64(2), fp64(3)) => fp64
+	// fp64(2)
+	// fp64(3)
+	// add(fp64(1), subtract(.field(3) => fp64, multiply(fp64(2), fp64(3)) => fp64) => fp64) => fp64
 	//
 	// PostOrder:
 	// fp64(1)
-	// .field(3) => fp32
-	// i64(2)
-	// [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32
-	// multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64
-	// subtract(.field(3) => fp32, multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64) => fp32
-	// add(fp64(1), subtract(.field(3) => fp32, multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64) => fp32) => fp64
+	// .field(3) => fp64
+	// fp64(2)
+	// fp64(3)
+	// multiply(fp64(2), fp64(3)) => fp64
+	// subtract(.field(3) => fp64, multiply(fp64(2), fp64(3)) => fp64) => fp64
+	// add(fp64(1), subtract(.field(3) => fp64, multiply(fp64(2), fp64(3)) => fp64) => fp64) => fp64
 }
 
 func TestRoundTripUsingTestData(t *testing.T) {
