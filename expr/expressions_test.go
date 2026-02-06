@@ -359,7 +359,7 @@ func TestRoundTripUsingTestData(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, protojson.Unmarshal(raw, &protoSchema))
 	baseSchema := types.NewNamedStructFromProto(&protoSchema)
-	reg := expr.NewExtensionRegistry(extSet, collection)
+	reg := expr.NewExtensionRegistry(extSet, collection).WithStrictFunctionLookup()
 	for _, tc := range tmp["cases"].([]any) {
 		tt := tc.(map[string]any)
 		t.Run(tt["name"].(string), func(t *testing.T) {

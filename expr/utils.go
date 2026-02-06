@@ -15,6 +15,11 @@ type ExtensionRegistry struct {
 	extensions.Set
 	c *extensions.Collection
 
+	// strictFunctionLookup controls whether parsing fails for unregistered functions.
+	// When true, parsing a plan with functions not found in the Collection will return an error.
+	// When false (default), unregistered functions create "custom" variants on-the-fly.
+	strictFunctionLookup bool
+
 	// subqueryConverter is injected by the plan package to handle subquery expressions
 	// TODO: We may want to consider refactoring to make a cleaner interface here
 	subqueryConverter
@@ -52,6 +57,19 @@ func NewExtensionRegistry(extSet extensions.Set, c *extensions.Collection) Exten
 // NewEmptyExtensionRegistry creates an empty registry useful starting from scratch.
 func NewEmptyExtensionRegistry(c *extensions.Collection) ExtensionRegistry {
 	return NewExtensionRegistry(extensions.NewSet(), c)
+}
+
+// WithStrictFunctionLookup returns a copy of the registry with strict function lookup enabled.
+// When enabled, parsing a plan with functions not found in the Collection will return an error
+// instead of creating "custom" function variants on-the-fly.
+func (e ExtensionRegistry) WithStrictFunctionLookup() ExtensionRegistry {
+	e.strictFunctionLookup = true
+	return e
+}
+
+// StrictFunctionLookup returns whether strict function lookup is enabled.
+func (e *ExtensionRegistry) StrictFunctionLookup() bool {
+	return e.strictFunctionLookup
 }
 
 func (e *ExtensionRegistry) LookupTypeVariation(anchor uint32) (extensions.TypeVariation, bool) {

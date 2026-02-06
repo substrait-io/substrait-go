@@ -17,4 +17,5 @@ var (
 	ErrInvalidSimpleExtention    = errors.New("invalid simple extension")
 	ErrInvalidPlan               = errors.New("invalid plan")
 	ErrExtensionURINotResolvable = errors.New("extension URI not resolvable")
+	ErrUnregisteredFunction      = errors.New("unregistered function")
 )

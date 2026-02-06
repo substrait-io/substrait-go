@@ -851,6 +851,9 @@ func NewAggregateFunctionFromProto(
 	}
 	decl, ok := reg.LookupAggregateFunction(agg.FunctionReference)
 	if !ok {
+		if reg.StrictFunctionLookup() {
+			return nil, fmt.Errorf("%w: aggregate function %s", substraitgo.ErrUnregisteredFunction, id)
+		}
 		return NewCustomAggregateFunc(reg, extensions.NewAggFuncVariant(id), types.TypeFromProto(agg.OutputType), agg.Options, agg.Invocation, agg.Phase, sorts, args...)
 	}
 

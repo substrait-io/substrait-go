@@ -14,7 +14,7 @@ import (
 
 func TestWindowFunctionBoundsType(t *testing.T) {
 	col := extensions.GetDefaultCollectionWithNoError()
-	reg := expr.NewEmptyExtensionRegistry(col)
+	reg := expr.NewEmptyExtensionRegistry(col).WithStrictFunctionLookup()
 
 	sumID := extensions.ID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Name: "sum"}
 

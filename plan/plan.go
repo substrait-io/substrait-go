@@ -209,7 +209,28 @@ func (p *Plan) GetNonRootRelations() (rels []Rel) {
 	return rels
 }
 
-func FromProto(plan *proto.Plan, c *extensions.Collection) (*Plan, error) {
+// FromProtoOption is a functional option for FromProto.
+type FromProtoOption func(*fromProtoOptions)
+
+type fromProtoOptions struct {
+	strictFunctionLookup bool
+}
+
+// WithStrictFunctionLookup enables strict function lookup when parsing a plan.
+// When enabled, parsing will fail if any function references are not found in
+// the extension collection, rather than creating custom function variants.
+func WithStrictFunctionLookup() FromProtoOption {
+	return func(o *fromProtoOptions) {
+		o.strictFunctionLookup = true
+	}
+}
+
+func FromProto(plan *proto.Plan, c *extensions.Collection, opts ...FromProtoOption) (*Plan, error) {
+	var options fromProtoOptions
+	for _, opt := range opts {
+		opt(&options)
+	}
+
 	extSet, err := extensions.GetExtensionSet(plan, c)
 	if err != nil {
 		return nil, err
@@ -223,6 +244,9 @@ func FromProto(plan *proto.Plan, c *extensions.Collection) (*Plan, error) {
 	}
 
 	ret.reg = expr.NewExtensionRegistry(ret.extensions, c)
+	if options.strictFunctionLookup {
+		ret.reg = ret.reg.WithStrictFunctionLookup()
+	}
 	for i, r := range plan.Relations {
 		if err := ret.relations[i].FromProto(r, ret.reg); err != nil {
 			return nil, err

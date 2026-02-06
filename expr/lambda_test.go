@@ -93,7 +93,7 @@ func TestLambdaProtoRoundTrip(t *testing.T) {
 			var originalPlan proto.Plan
 			require.NoError(t, protojson.Unmarshal(data, &originalPlan))
 
-			goPlan, err := plan.FromProto(&originalPlan, collection)
+			goPlan, err := plan.FromProto(&originalPlan, collection, plan.WithStrictFunctionLookup())
 			require.NoError(t, err)
 
 			resultPlan, err := goPlan.ToProto()
