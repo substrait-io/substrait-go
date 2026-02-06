@@ -48,6 +48,8 @@ func TestTypeToString(t *testing.T) {
 		{&ListType{Type: &Int8Type{}}, "list<i8>", "list"},
 		{&MapType{Key: &StringType{}, Value: &DecimalType{Precision: 10, Scale: 2}},
 			"map<string, decimal<10,2>>", "map"},
+		{&FuncType{ParameterTypes: []Type{&Int8Type{}}, ReturnType: &Int16Type{}}, "func<i8 -> i16>", "func"},
+		{&FuncType{ParameterTypes: []Type{&Int8Type{}, &Int8Type{}}, ReturnType: &Int16Type{}}, "func<i8, i8 -> i16>", "func"},
 	}
 
 	for _, tt := range tests {
@@ -99,6 +101,9 @@ func TestTypeRoundtrip(t *testing.T) {
 					&TimeType{Nullability: n}, &TimestampType{Nullability: n},
 					&TimestampTzType{Nullability: n}}},
 				&UserDefinedType{TypeParameters: []TypeParam{&DataTypeParameter{Type: &Int32Type{}}}, Nullability: n},
+				&FuncType{Nullability: n, ParameterTypes: []Type{&Int8Type{}}, ReturnType: &Int16Type{Nullability: n}},
+				&FuncType{Nullability: n, ParameterTypes: []Type{&Int32Type{Nullability: n}, &Float64Type{Nullability: n}}, ReturnType: &BooleanType{Nullability: NullabilityNullable}},
+				&FuncType{Nullability: n, ParameterTypes: []Type{}, ReturnType: &Int32Type{Nullability: n}},
 			}
 
 			for _, tt := range tests {

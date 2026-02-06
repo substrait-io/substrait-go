@@ -1,8 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
+// Package expr provides types and builders for constructing Substrait expressions.
+//
+// IMPORTANT: Only ExprBuilder methods guarantee construction of valid expressions. Manual
+// construction using struct literals bypasses validation and may create invalid expressions. It is highly recommended to only construct expressions via the builders
 package expr
 
 import (
+	"fmt"
+
+	substraitgo "github.com/substrait-io/substrait-go/v7"
 	"github.com/substrait-io/substrait-go/v7/extensions"
 	"github.com/substrait-io/substrait-go/v7/types"
 )
@@ -18,9 +25,9 @@ type Builder interface {
 
 // ExprBuilder is the parent context for all the expression builders.
 // It maintains a pointer to an extension registry and, optionally,
-// a pointer to a base input schema. This allows less verbose expression
-// building as it isn't necessary to pass these to every `New*` function
-// to construct the expressions.
+// a pointer to a base input schema.
+// This allows less verbose expression building as it isn't necessary
+// to pass these to every `New*` function to construct the expressions.
 //
 // This is intended to be used like:
 //
@@ -36,8 +43,9 @@ type Builder interface {
 //
 // See the unit tests for additional examples / constructs.
 type ExprBuilder struct {
-	Reg        ExtensionRegistry
-	BaseSchema *types.RecordType
+	Reg           ExtensionRegistry
+	BaseSchema    *types.RecordType
+	lambdaContext []*types.StructType // keeps track of the lambda context for nested lambdas
 }
 
 // Literal returns a wrapped literal that can be passed as an argument
@@ -146,12 +154,107 @@ func (e *ExprBuilder) RootRef(ref Reference) *fieldRefBuilder {
 	return e.Ref(RootReference, ref)
 }
 
+// LambdaParamRef constructs a field reference to a lambda parameter.
+//
+// Lambda parameters are always a StructType, so this method takes a StructFieldRef
+// to specify which parameter (field) to reference.
+//
+// The stepsOut parameter specifies how many lambda scopes to traverse outward from
+// the current lambda to find the target parameter (0 = current lambda, 1 = outer lambda, etc.).
+//
+// The Build method validates the stepsOut value and field index against the
+// available lambda context, and resolves the reference type automatically.
+func (e *ExprBuilder) LambdaParamRef(ref StructFieldRef, stepsOut uint32) *lambdaParamRefBuilder {
+	return &lambdaParamRefBuilder{
+		b:        e,
+		ref:      &ref,
+		stepsOut: stepsOut,
+	}
+}
+
 // Cast returns a builder for constructing a Cast expression. The failure
 // behavior can be specified by calling FailBehavior before calling Build.
 func (e *ExprBuilder) Cast(from Builder, to types.Type) *castBuilder {
 	return &castBuilder{
 		toType: to, input: from,
 	}
+}
+
+// Lambda returns a builder for constructing a Lambda expression with the
+// given parameters.
+//
+// When building nested lambdas (e.g., a function that takes a lambda argument
+// which itself references outer lambda parameters), the ExprBuilder maintains
+// a context stack that allows inner lambdas to validate stepsOut references
+// against outer lambda parameters.
+func (e *ExprBuilder) Lambda(params *types.StructType, body Builder) *lambdaBuilder {
+	return &lambdaBuilder{
+		b:      e,
+		params: params,
+		body:   body,
+	}
+}
+
+// pushLambdaContext pushes a lambda parameters struct onto the expression builder's context stack.
+func (e *ExprBuilder) pushLambdaContext(params *types.StructType) {
+	e.lambdaContext = append(e.lambdaContext, params)
+}
+
+// popLambdaContext pops a lambda parameters struct off the expression builder's context stack.
+func (e *ExprBuilder) popLambdaContext() {
+	e.lambdaContext = e.lambdaContext[:len(e.lambdaContext)-1]
+}
+
+type lambdaBuilder struct {
+	b      *ExprBuilder
+	params *types.StructType
+	body   Builder
+}
+
+// Build constructs and validates the Lambda expression.
+func (lb *lambdaBuilder) Build() (*Lambda, error) {
+	if lb.params == nil {
+		return nil, fmt.Errorf("%w: lambda must have parameters struct", substraitgo.ErrInvalidExpr)
+	}
+	if lb.params.Nullability != types.NullabilityRequired {
+		return nil, fmt.Errorf("%w: lambda parameters struct must have NULLABILITY_REQUIRED", substraitgo.ErrInvalidExpr)
+	}
+	for i, paramType := range lb.params.Types {
+		if paramType == nil {
+			return nil, fmt.Errorf("%w: lambda parameter %d has nil type", substraitgo.ErrInvalidExpr, i)
+		}
+	}
+
+	if lb.body == nil {
+		return nil, fmt.Errorf("%w: lambda must have a body", substraitgo.ErrInvalidExpr)
+	}
+
+	// Push this lambda's params onto context stack before building body.
+	// This allows nested lambdas to validate stepsOut references against
+	// outer lambda parameters.
+	lb.b.pushLambdaContext(lb.params)
+
+	bodyExpr, err := lb.body.BuildExpr()
+
+	// Pop our params from context stack (always, even on error)
+	lb.b.popLambdaContext()
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to build lambda body: %w", err)
+	}
+
+	return &Lambda{Parameters: lb.params, Body: bodyExpr}, nil
+}
+
+// BuildExpr implements the Builder interface.
+func (lb *lambdaBuilder) BuildExpr() (Expression, error) {
+	return lb.Build()
+}
+
+// BuildFuncArg implements the FuncArgBuilder interface, allowing lambdas
+// to be passed directly as arguments to function builders.
+func (lb *lambdaBuilder) BuildFuncArg() (types.FuncArg, error) {
+	return lb.Build()
 }
 
 type exprWrapper struct {
@@ -406,4 +509,53 @@ func (rb *fieldRefBuilder) BuildFuncArg() (types.FuncArg, error) {
 
 func (rb *fieldRefBuilder) BuildExpr() (Expression, error) {
 	return rb.Build()
+}
+
+type lambdaParamRefBuilder struct {
+	b        *ExprBuilder
+	ref      *StructFieldRef
+	stepsOut uint32
+}
+
+func (lpb *lambdaParamRefBuilder) Build() (*FieldReference, error) {
+	resolvedType, err := lpb.getLambdaParamType()
+	if err != nil {
+		return nil, err
+	}
+
+	return &FieldReference{
+		Root:      LambdaParameterReference{StepsOut: lpb.stepsOut},
+		Reference: lpb.ref,
+		knownType: resolvedType,
+	}, nil
+}
+
+// getLambdaParamType gets the target lambda parameters struct from the context stack and validates that the parameter exists.
+// Returns an error if the parameter does not exist.
+func (lpb *lambdaParamRefBuilder) getLambdaParamType() (types.Type, error) {
+	if int(lpb.stepsOut) >= len(lpb.b.lambdaContext) {
+		return nil, fmt.Errorf("%w: lambda parameter reference with stepsOut %d references non-existent outer lambda (only %d outer lambdas available)",
+			substraitgo.ErrInvalidExpr, lpb.stepsOut, len(lpb.b.lambdaContext))
+	}
+	targetParams := lpb.b.lambdaContext[len(lpb.b.lambdaContext)-1-int(lpb.stepsOut)]
+
+	if int(lpb.ref.Field) >= len(targetParams.Types) {
+		return nil, fmt.Errorf("%w: trying to access parameter %d in lambda %d steps out, but it only has %d parameters",
+			substraitgo.ErrInvalidExpr, lpb.ref.Field, lpb.stepsOut, len(targetParams.Types))
+	}
+
+	resolvedType, err := lpb.ref.GetType(targetParams)
+	if err != nil {
+		return nil, fmt.Errorf("%w: cannot resolve lambda parameter reference type: %w",
+			substraitgo.ErrInvalidExpr, err)
+	}
+	return resolvedType, nil
+}
+
+func (lpb *lambdaParamRefBuilder) BuildExpr() (Expression, error) {
+	return lpb.Build()
+}
+
+func (lpb *lambdaParamRefBuilder) BuildFuncArg() (types.FuncArg, error) {
+	return lpb.Build()
 }
