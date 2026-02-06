@@ -121,7 +121,6 @@ func TestLambdaProtoRoundTrip(t *testing.T) {
 				"Round-trip failed for %s!\nOriginal: %v\nResult: %v",
 				file.Name(), originalExprProto, resultProto)
 
-			t.Logf("Round-trip successful for %s", file.Name())
 		})
 	}
 }
