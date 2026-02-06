@@ -21,7 +21,7 @@ import (
 // TestLambdaBuilder_ValidationErrors tests error cases in the builder.
 func TestLambdaBuilder_ValidationErrors(t *testing.T) {
 	b := &expr.ExprBuilder{}
-	body := &expr.PrimitiveLiteral[int32]{Value: 42, Type: &types.Int32Type{Nullability: types.NullabilityRequired}}
+	body := literal.NewInt32(42, false)
 
 	// Error: nil parameters
 	_, err := b.Lambda(nil, b.Expression(body)).Build()
