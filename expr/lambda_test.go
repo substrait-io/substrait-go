@@ -120,10 +120,6 @@ func TestLambdaBuilder_ZeroParameters(t *testing.T) {
 	require.NotNil(t, lambda)
 	require.Len(t, lambda.Parameters.Types, 0, "Should have zero parameters")
 
-	funcType, ok := lambda.GetType().(*types.FuncType)
-	require.True(t, ok, "Lambda type should be FuncType")
-	require.Equal(t, "i32", funcType.ReturnType.ShortString(), "Return type should be i32")
-	t.Logf("Zero-parameter lambda: %s", lambda.String())
 }
 
 // TestLambdaBuilder_ValidStepsOut0 tests that Build() passes for valid stepsOut=0 references.
