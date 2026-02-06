@@ -237,7 +237,6 @@ func TestLambdaBuilder_InvalidFieldIndex(t *testing.T) {
 	require.Nil(t, lambda)
 	require.Contains(t, err.Error(), "trying to access parameter 5")
 	require.Contains(t, err.Error(), "only has 1 parameters")
-	t.Logf("Expected error: %v", err)
 }
 
 // TestLambdaBuilder_ValidFieldIndex tests that LambdaParamRef() passes for valid field indices.
