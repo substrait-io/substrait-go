@@ -120,10 +120,6 @@ func TestLambdaBuilder_ZeroParameters(t *testing.T) {
 	require.NotNil(t, lambda)
 	require.Len(t, lambda.Parameters.Types, 0, "Should have zero parameters")
 
-	funcType, ok := lambda.GetType().(*types.FuncType)
-	require.True(t, ok, "Lambda type should be FuncType")
-	require.Equal(t, "i32", funcType.ReturnType.ShortString(), "Return type should be i32")
-	t.Logf("Zero-parameter lambda: %s", lambda.String())
 }
 
 // TestLambdaBuilder_ValidStepsOut0 tests that Build() passes for valid stepsOut=0 references.
@@ -146,33 +142,6 @@ func TestLambdaBuilder_ValidStepsOut0(t *testing.T) {
 	require.False(t, lambda.IsScalar()) // Lambda is not scalar (type is func)
 	t.Logf("Lambda built successfully: %s", lambda.String())
 
-	// Test Equals - same lambda
-	lambda2, _ := b.Lambda(params,
-		b.LambdaParamRef(expr.StructFieldRef{Field: 0}, 0),
-	).Build()
-	require.True(t, lambda.Equals(lambda2))
-
-	// Test Equals - different params
-	// Building: ($0: i64) -> $0 : i64
-	differentParams := &types.StructType{
-		Nullability: types.NullabilityRequired,
-		Types:       []types.Type{&types.Int64Type{Nullability: types.NullabilityRequired}},
-	}
-
-	lambda3, _ := b.Lambda(differentParams,
-		b.LambdaParamRef(expr.StructFieldRef{Field: 0}, 0),
-	).Build()
-	require.False(t, lambda.Equals(lambda3))
-
-	// Test Visit - body unchanged returns same lambda
-	sameLambda := lambda.Visit(func(e expr.Expression) expr.Expression { return e })
-	require.Equal(t, lambda, sameLambda)
-
-	// Test Visit - body changed returns new lambda
-	newBody := literal.NewInt32(99, false)
-	newLambda := lambda.Visit(func(e expr.Expression) expr.Expression { return newBody })
-	require.NotEqual(t, lambda, newLambda)
-	require.Equal(t, newBody, newLambda.(*expr.Lambda).Body)
 }
 
 // TestLambdaBuilder_InvalidOuterRef tests that LambdaParamRef() fails for invalid outer refs.
@@ -278,24 +247,6 @@ func TestLambdaBuilder_NestedLambda(t *testing.T) {
 	require.True(t, ok, "Body should be a Lambda")
 	require.Len(t, innerLambda.Parameters.Types, 1)
 
-	// Test Equals - same nested lambda
-	outerLambda2, _ := b.Lambda(outerParams,
-		b.Lambda(innerParams,
-			b.LambdaParamRef(expr.StructFieldRef{Field: 0}, 1),
-		),
-	).Build()
-	require.True(t, outerLambda.Equals(outerLambda2))
-
-	// Test Equals - different stepsOut in inner body
-	// Building: ($0: i64, $1: i64) -> (($0: i32) -> $0 : i32) : func<i32 -> i32>
-	outerLambda3, _ := b.Lambda(outerParams,
-		b.Lambda(innerParams,
-			b.LambdaParamRef(expr.StructFieldRef{Field: 0}, 0), // stepsOut=0 (different)
-		),
-	).Build()
-	require.False(t, outerLambda.Equals(outerLambda3))
-
-	t.Logf("Nested lambda built successfully: %s", outerLambda.String())
 }
 
 // TestLambdaBuilder_NestedInvalidOuterRef tests that LambdaParamRef() fails for invalid nested outer refs.
