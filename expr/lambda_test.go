@@ -284,7 +284,7 @@ func TestLambdaBuilder_TypeResolution(t *testing.T) {
 		name         string
 		paramTypes   []types.Type
 		fieldIndex   int32
-		expectedType string
+		expectedType types.Type
 	}{
 		{
 			name: "reference first param (i32)",
@@ -292,7 +292,7 @@ func TestLambdaBuilder_TypeResolution(t *testing.T) {
 				&types.Int32Type{Nullability: types.NullabilityRequired},
 			},
 			fieldIndex:   0,
-			expectedType: "i32",
+			expectedType: &types.Int32Type{Nullability: types.NullabilityRequired},
 		},
 		{
 			name: "reference second param (i64)",
@@ -301,7 +301,7 @@ func TestLambdaBuilder_TypeResolution(t *testing.T) {
 				&types.Int64Type{Nullability: types.NullabilityRequired},
 			},
 			fieldIndex:   1,
-			expectedType: "i64",
+			expectedType: &types.Int64Type{Nullability: types.NullabilityRequired},
 		},
 		{
 			name: "reference third param (string)",
@@ -311,7 +311,7 @@ func TestLambdaBuilder_TypeResolution(t *testing.T) {
 				&types.StringType{Nullability: types.NullabilityRequired},
 			},
 			fieldIndex:   2,
-			expectedType: "str",
+			expectedType: &types.StringType{Nullability: types.NullabilityRequired},
 		},
 		{
 			name: "reference float64 param",
@@ -319,7 +319,7 @@ func TestLambdaBuilder_TypeResolution(t *testing.T) {
 				&types.Float64Type{Nullability: types.NullabilityRequired},
 			},
 			fieldIndex:   0,
-			expectedType: "fp64",
+			expectedType: &types.Float64Type{Nullability: types.NullabilityRequired},
 		},
 	}
 
@@ -344,14 +344,16 @@ func TestLambdaBuilder_TypeResolution(t *testing.T) {
 			require.NotNil(t, lambdaType, "Lambda should have a resolved type")
 			funcType, ok := lambdaType.(*types.FuncType)
 			require.True(t, ok, "Lambda type should be FuncType")
-			require.Equal(t, tc.expectedType, funcType.ReturnType.ShortString(),
-				"Lambda return type should match referenced parameter type")
+			require.True(t, tc.expectedType.Equals(funcType.ReturnType),
+				"Lambda return type should match referenced parameter type: expected %s, got %s",
+				tc.expectedType.String(), funcType.ReturnType.String())
 
 			// Also verify body's type matches
 			bodyType := lambda.Body.GetType()
 			require.NotNil(t, bodyType, "Body should have a resolved type")
-			require.Equal(t, tc.expectedType, bodyType.ShortString(),
-				"Body type should match referenced parameter type")
+			require.True(t, tc.expectedType.Equals(bodyType),
+				"Body type should match referenced parameter type: expected %s, got %s",
+				tc.expectedType.String(), bodyType.String())
 
 		})
 	}
