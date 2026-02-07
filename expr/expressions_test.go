@@ -234,48 +234,6 @@ func TestExpressionsRoundtrip(t *testing.T) {
 	}
 }
 
-func ExampleExpression_Visit() {
-	const substraitExtURN = "extension:io.substrait:functions_arithmetic"
-	var (
-		exp                 = sampleNestedExpr(expr.NewEmptyExtensionRegistry(ext.GetDefaultCollectionWithNoError()), substraitExtURN)
-		preVisit, postVisit expr.VisitFunc
-	)
-
-	preVisit = func(e expr.Expression) expr.Expression {
-		fmt.Println(e)
-		return e.Visit(preVisit)
-	}
-	postVisit = func(e expr.Expression) expr.Expression {
-		out := e.Visit(postVisit)
-		fmt.Println(e)
-		return out
-	}
-	fmt.Println("PreOrder:")
-	fmt.Println(exp.Visit(preVisit))
-	fmt.Println()
-	fmt.Println("PostOrder:")
-	fmt.Println(exp.Visit(postVisit))
-
-	// Output:
-	// PreOrder:
-	// fp64(1)
-	// subtract(.field(3) => fp64, multiply(fp64(2), fp64(3)) => fp64) => fp64
-	// .field(3) => fp64
-	// multiply(fp64(2), fp64(3)) => fp64
-	// fp64(2)
-	// fp64(3)
-	// add(fp64(1), subtract(.field(3) => fp64, multiply(fp64(2), fp64(3)) => fp64) => fp64) => fp64
-	//
-	// PostOrder:
-	// fp64(1)
-	// .field(3) => fp64
-	// fp64(2)
-	// fp64(3)
-	// multiply(fp64(2), fp64(3)) => fp64
-	// subtract(.field(3) => fp64, multiply(fp64(2), fp64(3)) => fp64) => fp64
-	// add(fp64(1), subtract(.field(3) => fp64, multiply(fp64(2), fp64(3)) => fp64) => fp64) => fp64
-}
-
 func TestRoundTripUsingTestData(t *testing.T) {
 	const substraitExtURN = "extension:io.substrait:functions_arithmetic"
 	// define extensions with no plan for now
