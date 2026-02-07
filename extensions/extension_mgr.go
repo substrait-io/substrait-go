@@ -143,6 +143,25 @@ type Collection struct {
 	windowMap        map[ID]*WindowFunctionVariant
 	typeMap          map[ID]Type
 	typeVariationMap map[ID]TypeVariation
+
+	// strictFunctionLookup controls whether parsing fails for unregistered functions.
+	// When true, parsing a plan with functions not found in this Collection will return an error.
+	// When false (default), unregistered functions create "custom" variants on-the-fly.
+	strictFunctionLookup bool
+}
+
+// WithStrictFunctionLookup returns a copy of the Collection with strict function lookup enabled.
+// When enabled, parsing a plan with functions not found in this Collection will return an error
+// instead of creating "custom" function variants on-the-fly.
+func (c *Collection) WithStrictFunctionLookup() *Collection {
+	newC := *c
+	newC.strictFunctionLookup = true
+	return &newC
+}
+
+// StrictFunctionLookup returns whether strict function lookup is enabled.
+func (c *Collection) StrictFunctionLookup() bool {
+	return c.strictFunctionLookup
 }
 
 func (c *Collection) GetType(id ID) (t Type, ok bool) {

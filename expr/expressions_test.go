@@ -216,12 +216,12 @@ func TestExpressionsRoundtrip(t *testing.T) {
 		panic(err)
 	}
 	// get the extension set
-	collection := ext.GetDefaultCollectionWithNoError()
+	collection := ext.GetDefaultCollectionWithNoError().WithStrictFunctionLookup()
 	extSet, err := ext.GetExtensionSet(&plan, collection)
 	if err != nil {
 		panic(err)
 	}
-	reg := expr.NewExtensionRegistry(extSet, collection).WithStrictFunctionLookup()
+	reg := expr.NewExtensionRegistry(extSet, collection)
 	tests := []expr.Expression{
 		sampleNestedExpr(reg, substraitExtURN),
 	}
@@ -284,7 +284,7 @@ func TestRoundTripUsingTestData(t *testing.T) {
 		panic(err)
 	}
 	// get the extension set
-	collection := ext.GetDefaultCollectionWithNoError()
+	collection := ext.GetDefaultCollectionWithNoError().WithStrictFunctionLookup()
 	extSet, err := ext.GetExtensionSet(&plan, collection)
 	if err != nil {
 		panic(err)
@@ -306,7 +306,7 @@ func TestRoundTripUsingTestData(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, protojson.Unmarshal(raw, &protoSchema))
 	baseSchema := types.NewNamedStructFromProto(&protoSchema)
-	reg := expr.NewExtensionRegistry(extSet, collection).WithStrictFunctionLookup()
+	reg := expr.NewExtensionRegistry(extSet, collection)
 	for _, tc := range tmp["cases"].([]any) {
 		tt := tc.(map[string]any)
 		t.Run(tt["name"].(string), func(t *testing.T) {

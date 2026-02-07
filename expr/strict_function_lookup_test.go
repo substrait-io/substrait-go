@@ -53,7 +53,7 @@ func newTestCollection(t *testing.T) *extensions.Collection {
 }
 
 func TestStrictFunctionLookup_ScalarFunction_Registered(t *testing.T) {
-	c := newTestCollection(t)
+	c := newTestCollection(t).WithStrictFunctionLookup()
 
 	// Plan with a registered function (add:i32_i32)
 	const planJSON = `{
@@ -71,7 +71,7 @@ func TestStrictFunctionLookup_ScalarFunction_Registered(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test with strict mode enabled - should succeed for registered function
-	reg := expr.NewExtensionRegistry(extSet, c).WithStrictFunctionLookup()
+	reg := expr.NewExtensionRegistry(extSet, c)
 	assert.True(t, reg.StrictFunctionLookup())
 
 	const scalarFuncJSON = `{
@@ -126,9 +126,12 @@ func TestStrictFunctionLookup_ScalarFunction_Unregistered(t *testing.T) {
 	require.NoError(t, protojson.Unmarshal([]byte(scalarFuncJSON), &exprProto))
 
 	t.Run("strict mode returns error", func(t *testing.T) {
-		reg := expr.NewExtensionRegistry(extSet, c).WithStrictFunctionLookup()
+		strictC := c.WithStrictFunctionLookup()
+		extSetStrict, err := extensions.GetExtensionSet(&plan, strictC)
+		require.NoError(t, err)
+		reg := expr.NewExtensionRegistry(extSetStrict, strictC)
 
-		_, err := expr.ExprFromProto(&exprProto, nil, reg)
+		_, err = expr.ExprFromProto(&exprProto, nil, reg)
 		require.Error(t, err)
 		assert.True(t, errors.Is(err, substraitgo.ErrUnregisteredFunction))
 		assert.Contains(t, err.Error(), "add:i32_string")
@@ -175,9 +178,12 @@ func TestStrictFunctionLookup_AggregateFunction_Unregistered(t *testing.T) {
 	}
 
 	t.Run("strict mode returns error", func(t *testing.T) {
-		reg := expr.NewExtensionRegistry(extSet, c).WithStrictFunctionLookup()
+		strictC := c.WithStrictFunctionLookup()
+		extSetStrict, err := extensions.GetExtensionSet(&plan, strictC)
+		require.NoError(t, err)
+		reg := expr.NewExtensionRegistry(extSetStrict, strictC)
 
-		_, err := expr.NewAggregateFunctionFromProto(aggFunc, nil, reg)
+		_, err = expr.NewAggregateFunctionFromProto(aggFunc, nil, reg)
 		require.Error(t, err)
 		assert.True(t, errors.Is(err, substraitgo.ErrUnregisteredFunction))
 		assert.Contains(t, err.Error(), "sum:string")
@@ -227,7 +233,7 @@ func TestStrictFunctionLookup_WindowFunction_Unregistered(t *testing.T) {
 	require.NoError(t, protojson.Unmarshal([]byte(windowFuncJSON), &exprProto))
 
 	t.Run("strict mode returns error", func(t *testing.T) {
-		reg := expr.NewExtensionRegistry(extSet, c).WithStrictFunctionLookup()
+		reg := expr.NewExtensionRegistry(extSet, c.WithStrictFunctionLookup())
 
 		_, err := expr.ExprFromProto(&exprProto, nil, reg)
 		require.Error(t, err)
@@ -261,18 +267,18 @@ func TestWithStrictFunctionLookup_PreservesOtherFields(t *testing.T) {
 	extSet, err := extensions.GetExtensionSet(&plan, c)
 	require.NoError(t, err)
 
-	original := expr.NewExtensionRegistry(extSet, c)
-	strict := original.WithStrictFunctionLookup()
+	strictCollection := c.WithStrictFunctionLookup()
+	reg := expr.NewExtensionRegistry(extSet, strictCollection)
 
 	// Verify the extension set is preserved
-	id, ok := strict.DecodeFunc(1)
+	id, ok := reg.DecodeFunc(1)
 	require.True(t, ok)
 	assert.Equal(t, "add:i32_i32", id.Name)
 	assert.Equal(t, "extension:test:strict_functions", id.URN)
 
-	// Verify strict mode is enabled on the copy
-	assert.True(t, strict.StrictFunctionLookup())
+	// Verify strict mode is enabled
+	assert.True(t, reg.StrictFunctionLookup())
 
-	// Verify original is unchanged
-	assert.False(t, original.StrictFunctionLookup())
+	// Verify original collection is unchanged
+	assert.False(t, c.StrictFunctionLookup())
 }
