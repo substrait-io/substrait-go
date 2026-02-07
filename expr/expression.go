@@ -78,6 +78,9 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 
 		decl, ok := reg.LookupScalarFunction(et.ScalarFunction.FunctionReference)
 		if !ok {
+			if reg.StrictFunctionLookup() {
+				return nil, fmt.Errorf("%w: scalar function %s", substraitgo.ErrUnregisteredFunction, id)
+			}
 			return NewCustomScalarFunc(reg, extensions.NewScalarFuncVariant(id), types.TypeFromProto(et.ScalarFunction.OutputType), et.ScalarFunction.Options, args...)
 		}
 
@@ -117,6 +120,9 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 		}
 		decl, ok := reg.LookupWindowFunction(et.WindowFunction.FunctionReference)
 		if !ok {
+			if reg.StrictFunctionLookup() {
+				return nil, fmt.Errorf("%w: window function %s", substraitgo.ErrUnregisteredFunction, id)
+			}
 			fn, err := NewCustomWindowFunc(reg, extensions.NewWindowFuncVariant(id), types.TypeFromProto(et.WindowFunction.OutputType),
 				et.WindowFunction.Options, et.WindowFunction.Invocation, et.WindowFunction.Phase, args...)
 			if err != nil {

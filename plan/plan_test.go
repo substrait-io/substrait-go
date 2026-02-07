@@ -125,10 +125,10 @@ func TestPlanRoundTripURIAndURNEquivalence(t *testing.T) {
 		Relations: []*proto.PlanRel{},
 	}
 
-	planFromURI, err := FromProto(uriOnlyPlan, c)
+	planFromURI, err := FromProto(uriOnlyPlan, c.WithStrictFunctionLookup())
 	require.NoError(t, err)
 
-	planFromURN, err := FromProto(urnOnlyPlan, c)
+	planFromURN, err := FromProto(urnOnlyPlan, c.WithStrictFunctionLookup())
 	require.NoError(t, err)
 
 	protoFromURI, err := planFromURI.ToProto()

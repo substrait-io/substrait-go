@@ -54,6 +54,12 @@ func NewEmptyExtensionRegistry(c *extensions.Collection) ExtensionRegistry {
 	return NewExtensionRegistry(extensions.NewSet(), c)
 }
 
+// StrictFunctionLookup returns whether strict function lookup is enabled.
+// This delegates to the underlying Collection's setting.
+func (e *ExtensionRegistry) StrictFunctionLookup() bool {
+	return e.c.StrictFunctionLookup()
+}
+
 func (e *ExtensionRegistry) LookupTypeVariation(anchor uint32) (extensions.TypeVariation, bool) {
 	return e.Set.LookupTypeVariation(anchor, e.c)
 }

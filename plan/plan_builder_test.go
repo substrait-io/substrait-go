@@ -175,7 +175,7 @@ func checkRoundTrip(t *testing.T, expectedJSON string, p *plan.Plan) {
 	assert.Truef(t, proto.Equal(&expectedProto, protoPlan), "JSON expected: %s\ngot: %s",
 		protojson.Format(&expectedProto), protojson.Format(protoPlan))
 
-	roundTrip, err := plan.FromProto(&expectedProto, extensions.GetDefaultCollectionWithNoError())
+	roundTrip, err := plan.FromProto(&expectedProto, extensions.GetDefaultCollectionWithNoError().WithStrictFunctionLookup())
 	require.NoError(t, err)
 
 	roundTripProto, err := roundTrip.ToProto()

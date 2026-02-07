@@ -13,7 +13,7 @@ import (
 )
 
 func TestWindowFunctionBoundsType(t *testing.T) {
-	col := extensions.GetDefaultCollectionWithNoError()
+	col := extensions.GetDefaultCollectionWithNoError().WithStrictFunctionLookup()
 	reg := expr.NewEmptyExtensionRegistry(col)
 
 	sumID := extensions.ID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Name: "sum"}
