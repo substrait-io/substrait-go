@@ -19,6 +19,9 @@ type FunctionVariant interface {
 	Args() FuncParameterList
 	Options() map[string]Option
 	URN() string
+	// Metadata returns the arbitrary metadata from the extension YAML for this function.
+	// Returns nil if no metadata was provided. Callers must not modify the returned map.
+	Metadata() map[string]any
 	// ResolveType computes the return type of a function variant, given the input argument types
 	ResolveType(argTypes []types.Type, registry Set) (types.Type, error)
 	Variadic() *VariadicBehavior
@@ -336,6 +339,7 @@ type ScalarFunctionVariant struct {
 	description string
 	urn         string
 	impl        ScalarFunctionImpl
+	metadata    map[string]any
 }
 
 func (s *ScalarFunctionVariant) Name() string                     { return s.name }
@@ -347,6 +351,7 @@ func (s *ScalarFunctionVariant) Deterministic() bool              { return s.imp
 func (s *ScalarFunctionVariant) SessionDependent() bool           { return s.impl.SessionDependent }
 func (s *ScalarFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
 func (s *ScalarFunctionVariant) URN() string                      { return s.urn }
+func (s *ScalarFunctionVariant) Metadata() map[string]any         { return s.metadata }
 func (s *ScalarFunctionVariant) ResolveType(argumentTypes []types.Type, registry Set) (types.Type, error) {
 	return EvaluateTypeExpression(s.urn, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
 }
@@ -448,6 +453,7 @@ type AggregateFunctionVariant struct {
 	description string
 	urn         string
 	impl        AggregateFunctionImpl
+	metadata    map[string]any
 }
 
 func (s *AggregateFunctionVariant) Name() string                     { return s.name }
@@ -459,6 +465,7 @@ func (s *AggregateFunctionVariant) Deterministic() bool              { return s.
 func (s *AggregateFunctionVariant) SessionDependent() bool           { return s.impl.SessionDependent }
 func (s *AggregateFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
 func (s *AggregateFunctionVariant) URN() string                      { return s.urn }
+func (s *AggregateFunctionVariant) Metadata() map[string]any         { return s.metadata }
 func (s *AggregateFunctionVariant) ResolveType(argumentTypes []types.Type, registry Set) (types.Type, error) {
 	return EvaluateTypeExpression(s.urn, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
 }
@@ -496,6 +503,7 @@ type WindowFunctionVariant struct {
 	description string
 	urn         string
 	impl        WindowFunctionImpl
+	metadata    map[string]any
 }
 
 func NewWindowFuncVariant(id ID) *WindowFunctionVariant {
@@ -579,6 +587,7 @@ func (s *WindowFunctionVariant) Deterministic() bool              { return s.imp
 func (s *WindowFunctionVariant) SessionDependent() bool           { return s.impl.SessionDependent }
 func (s *WindowFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
 func (s *WindowFunctionVariant) URN() string                      { return s.urn }
+func (s *WindowFunctionVariant) Metadata() map[string]any         { return s.metadata }
 func (s *WindowFunctionVariant) ResolveType(argumentTypes []types.Type, registry Set) (types.Type, error) {
 	return EvaluateTypeExpression(s.urn, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
 }

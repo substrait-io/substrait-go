@@ -1200,3 +1200,84 @@ scalar_functions:
 	expected := &types.UserDefinedType{Nullability: types.NullabilityRequired, TypeReference: 1, TypeParameters: []types.TypeParam{&types.DataTypeParameter{Type: i64}}}
 	assert.Equal(t, expected, result)
 }
+
+func TestCollectionMetadataAccessibility(t *testing.T) {
+	const yamlWithMetadata = `
+urn: extension:test:metadata_test
+metadata:
+  version: 2.0
+  maintainer: example-team
+types:
+  - name: "point"
+    structure:
+      latitude: i32
+      longitude: i32
+    metadata:
+      coordinate_system: "WGS84"
+scalar_functions:
+  - name: "distance"
+    impls:
+      - args:
+          - name: a
+            value: i32
+          - name: b
+            value: i32
+        return: i64
+    metadata:
+      performance_hint: "vectorized"
+aggregate_functions:
+  - name: "custom_sum"
+    impls:
+      - args:
+          - name: x
+            value: i32
+        return: i64
+        decomposable: NONE
+    metadata:
+      stability: "experimental"
+window_functions:
+  - name: "custom_rank"
+    impls:
+      - args:
+          - name: x
+            value: i32
+        return: i64
+        decomposable: NONE
+        window_type: PARTITION
+    metadata:
+      author: "test-team"
+`
+
+	var c extensions.Collection
+	require.NoError(t, c.Load("http://test-metadata", strings.NewReader(yamlWithMetadata)))
+
+	urn := "extension:test:metadata_test"
+
+	fileMeta := c.GetFileMetadata(urn)
+	assert.Equal(t, 2.0, fileMeta["version"])
+	assert.Equal(t, "example-team", fileMeta["maintainer"])
+	assert.Nil(t, c.GetFileMetadata("extension:test:nonexistent"))
+
+	typ, _ := c.GetType(extensions.ID{URN: urn, Name: "point"})
+	assert.Equal(t, "WGS84", typ.Metadata["coordinate_system"])
+
+	sf, _ := c.GetScalarFunc(extensions.ID{URN: urn, Name: "distance:i32_i32"})
+	assert.Equal(t, "vectorized", sf.Metadata()["performance_hint"])
+
+	af, _ := c.GetAggregateFunc(extensions.ID{URN: urn, Name: "custom_sum:i32"})
+	assert.Equal(t, "experimental", af.Metadata()["stability"])
+
+	wf, _ := c.GetWindowFunc(extensions.ID{URN: urn, Name: "custom_rank:i32"})
+	assert.Equal(t, "test-team", wf.Metadata()["author"])
+
+	wfFromAgg, _ := c.GetWindowFunc(extensions.ID{URN: urn, Name: "custom_sum:i32"})
+	assert.Equal(t, "experimental", wfFromAgg.Metadata()["stability"])
+}
+
+func TestDefaultCollectionHasNoMetadata(t *testing.T) {
+	c, err := extensions.GetDefaultCollection()
+	require.NoError(t, err)
+
+	addFunc, _ := c.GetScalarFunc(extensions.ID{URN: "extension:io.substrait:functions_arithmetic", Name: "add:i32_i32"})
+	assert.Nil(t, addFunc.Metadata())
+}
