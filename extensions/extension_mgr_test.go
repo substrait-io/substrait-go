@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/goccy/go-yaml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/v7/extensions"
@@ -1298,4 +1299,20 @@ window_functions:
 	addFunc, ok := defaultCollection.GetScalarFunc(extensions.ID{URN: "extension:io.substrait:functions_arithmetic", Name: "add:i32_i32"})
 	require.True(t, ok)
 	assert.Nil(t, addFunc.Metadata())
+
+	// ResolveURN also preserves metadata
+	var file extensions.SimpleExtensionFile
+	require.NoError(t, yaml.Unmarshal([]byte(yamlWithMetadata), &file))
+
+	scalarVariants := file.ScalarFunctions[0].ResolveURN(urn)
+	require.Len(t, scalarVariants, 1)
+	assert.Equal(t, "vectorized", scalarVariants[0].Metadata()["performance_hint"])
+
+	aggVariants := file.AggregateFunctions[0].ResolveURN(urn)
+	require.Len(t, aggVariants, 1)
+	assert.Equal(t, "experimental", aggVariants[0].Metadata()["stability"])
+
+	winVariants := file.WindowFunctions[0].ResolveURN(urn)
+	require.Len(t, winVariants, 1)
+	assert.Equal(t, "test-team", winVariants[0].Metadata()["author"])
 }
