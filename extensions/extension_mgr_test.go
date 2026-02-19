@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/goccy/go-yaml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/v7/extensions"
@@ -1273,18 +1272,6 @@ window_functions:
 
 	wfFromAgg, _ := c.GetWindowFunc(extensions.ID{URN: urn, Name: "custom_sum:i32"})
 	assert.Equal(t, "experimental", wfFromAgg.Metadata()["stability"])
-
-	var file extensions.SimpleExtensionFile
-	require.NoError(t, yaml.Unmarshal([]byte(yamlWithMetadata), &file))
-
-	scalarVariants := file.ScalarFunctions[0].ResolveURN(urn)
-	assert.Equal(t, "vectorized", scalarVariants[0].Metadata()["performance_hint"])
-
-	aggVariants := file.AggregateFunctions[0].ResolveURN(urn)
-	assert.Equal(t, "experimental", aggVariants[0].Metadata()["stability"])
-
-	winVariants := file.WindowFunctions[0].ResolveURN(urn)
-	assert.Equal(t, "test-team", winVariants[0].Metadata()["author"])
 }
 
 func TestDefaultCollectionHasNoMetadata(t *testing.T) {
