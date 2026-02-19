@@ -40,6 +40,7 @@ type Type struct {
 	Variadic   bool
 	Structure  TypeDef `yaml:",omitempty"`
 	Parameters []TypeParamDef
+	Metadata   map[string]any `yaml:"metadata,omitempty"`
 }
 
 type TypeVariationFunctions string
@@ -257,6 +258,7 @@ type ScalarFunction struct {
 	Name        string               `yaml:",omitempty"`
 	Description string               `yaml:",omitempty,flow"`
 	Impls       []ScalarFunctionImpl `yaml:",omitempty"`
+	Metadata    map[string]any       `yaml:"metadata,omitempty"`
 }
 
 func (s *ScalarFunction) GetVariants(urn string) []*ScalarFunctionVariant {
@@ -267,6 +269,7 @@ func (s *ScalarFunction) GetVariants(urn string) []*ScalarFunctionVariant {
 			description: s.Description,
 			urn:         urn,
 			impl:        impl,
+			metadata:    s.Metadata,
 		}
 	}
 	return out
@@ -280,6 +283,7 @@ func (s *ScalarFunction) ResolveURN(urn string) []FunctionVariant {
 			description: s.Description,
 			urn:         urn,
 			impl:        impl,
+			metadata:    s.Metadata,
 		}
 	}
 	return out
@@ -305,6 +309,7 @@ type AggregateFunction struct {
 	Name        string
 	Description string
 	Impls       []AggregateFunctionImpl
+	Metadata    map[string]any `yaml:"metadata,omitempty"`
 }
 
 func (s *AggregateFunction) GetVariants(urn string) []*AggregateFunctionVariant {
@@ -318,6 +323,7 @@ func (s *AggregateFunction) GetVariants(urn string) []*AggregateFunctionVariant 
 			description: s.Description,
 			urn:         urn,
 			impl:        impl,
+			metadata:    s.Metadata,
 		}
 	}
 	return out
@@ -331,6 +337,7 @@ func (s *AggregateFunction) ResolveURN(urn string) []FunctionVariant {
 			description: s.Description,
 			urn:         urn,
 			impl:        impl,
+			metadata:    s.Metadata,
 		}
 	}
 	return out
@@ -352,6 +359,7 @@ type WindowFunction struct {
 	Name        string
 	Description string
 	Impls       []WindowFunctionImpl
+	Metadata    map[string]any `yaml:"metadata,omitempty"`
 }
 
 func (s *WindowFunction) GetVariants(urn string) []*WindowFunctionVariant {
@@ -368,6 +376,7 @@ func (s *WindowFunction) GetVariants(urn string) []*WindowFunctionVariant {
 			description: s.Description,
 			urn:         urn,
 			impl:        impl,
+			metadata:    s.Metadata,
 		}
 	}
 	return out
@@ -381,6 +390,7 @@ func (s *WindowFunction) ResolveURN(urn string) []FunctionVariant {
 			description: s.Description,
 			urn:         urn,
 			impl:        impl,
+			metadata:    s.Metadata,
 		}
 	}
 	return out
@@ -388,6 +398,7 @@ func (s *WindowFunction) ResolveURN(urn string) []FunctionVariant {
 
 type SimpleExtensionFile struct {
 	Urn                string              `yaml:"urn"`
+	Metadata           map[string]any      `yaml:"metadata,omitempty"`
 	Types              []Type              `yaml:"types,omitempty"`
 	TypeVariations     []TypeVariation     `yaml:"type_variations,omitempty"`
 	ScalarFunctions    []ScalarFunction    `yaml:"scalar_functions,omitempty"`

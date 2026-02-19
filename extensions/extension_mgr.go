@@ -143,11 +143,18 @@ type Collection struct {
 	windowMap        map[ID]*WindowFunctionVariant
 	typeMap          map[ID]Type
 	typeVariationMap map[ID]TypeVariation
+	fileMetadataMap  map[string]map[string]any // keyed by URN
 }
 
 func (c *Collection) GetType(id ID) (t Type, ok bool) {
 	t, ok = c.typeMap[id]
 	return
+}
+
+// GetFileMetadata returns the top-level metadata from the extension file
+// identified by its URN. Returns nil if no metadata was provided or the URN is not loaded.
+func (c *Collection) GetFileMetadata(urn string) map[string]any {
+	return c.fileMetadataMap[urn]
 }
 
 func (c *Collection) GetTypeVariation(id ID) (tv TypeVariation, ok bool) {
@@ -221,6 +228,7 @@ func (c *Collection) init() {
 		c.windowMap = make(map[ID]*WindowFunctionVariant)
 		c.typeMap = make(map[ID]Type)
 		c.typeVariationMap = make(map[ID]TypeVariation)
+		c.fileMetadataMap = make(map[string]map[string]any)
 	}
 }
 
@@ -251,6 +259,10 @@ func (c *Collection) Load(uri string, r io.Reader) error {
 
 	c.urnSet[urn] = void
 	c.urnUriBiMap.add(uri, urn)
+
+	if file.Metadata != nil {
+		c.fileMetadataMap[urn] = file.Metadata
+	}
 
 	id := ID{URN: urn}
 	for _, t := range file.Types {
@@ -304,6 +316,7 @@ func (c *Collection) Load(uri string, r io.Reader) error {
 			Name:        f.Name,
 			Description: f.Description,
 			Impls:       windowImpls,
+			Metadata:    f.Metadata,
 		}
 		if err := defaults.Set(&wf); err != nil {
 			return fmt.Errorf("failure setting defaults for window functions: %w", err)

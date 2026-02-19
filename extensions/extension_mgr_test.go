@@ -1200,3 +1200,102 @@ scalar_functions:
 	expected := &types.UserDefinedType{Nullability: types.NullabilityRequired, TypeReference: 1, TypeParameters: []types.TypeParam{&types.DataTypeParameter{Type: i64}}}
 	assert.Equal(t, expected, result)
 }
+
+func TestCollectionMetadataAccessibility(t *testing.T) {
+	const yamlWithMetadata = `
+urn: extension:test:metadata_test
+metadata:
+  version: 2.0
+  maintainer: example-team
+types:
+  - name: "point"
+    structure:
+      latitude: i32
+      longitude: i32
+    metadata:
+      coordinate_system: "WGS84"
+scalar_functions:
+  - name: "distance"
+    impls:
+      - args:
+          - name: a
+            value: i32
+          - name: b
+            value: i32
+        return: i64
+    metadata:
+      performance_hint: "vectorized"
+aggregate_functions:
+  - name: "custom_sum"
+    impls:
+      - args:
+          - name: x
+            value: i32
+        return: i64
+        decomposable: NONE
+    metadata:
+      stability: "experimental"
+window_functions:
+  - name: "custom_rank"
+    impls:
+      - args:
+          - name: x
+            value: i32
+        return: i64
+        decomposable: NONE
+        window_type: PARTITION
+    metadata:
+      author: "test-team"
+`
+
+	var c extensions.Collection
+	require.NoError(t, c.Load("http://test-metadata", strings.NewReader(yamlWithMetadata)))
+
+	urn := "extension:test:metadata_test"
+
+	// file-level metadata accessible via GetFileMetadata
+	fileMeta := c.GetFileMetadata(urn)
+	require.NotNil(t, fileMeta)
+	assert.Equal(t, 2.0, fileMeta["version"])
+	assert.Equal(t, "example-team", fileMeta["maintainer"])
+
+	// unknown URN returns nil
+	assert.Nil(t, c.GetFileMetadata("extension:test:nonexistent"))
+
+	// type metadata accessible via GetType
+	typ, ok := c.GetType(extensions.ID{URN: urn, Name: "point"})
+	require.True(t, ok)
+	require.NotNil(t, typ.Metadata)
+	assert.Equal(t, "WGS84", typ.Metadata["coordinate_system"])
+
+	// scalar function metadata accessible via GetScalarFunc
+	sf, ok := c.GetScalarFunc(extensions.ID{URN: urn, Name: "distance:i32_i32"})
+	require.True(t, ok)
+	require.NotNil(t, sf.Metadata())
+	assert.Equal(t, "vectorized", sf.Metadata()["performance_hint"])
+
+	// aggregate function metadata accessible via GetAggregateFunc
+	af, ok := c.GetAggregateFunc(extensions.ID{URN: urn, Name: "custom_sum:i32"})
+	require.True(t, ok)
+	require.NotNil(t, af.Metadata())
+	assert.Equal(t, "experimental", af.Metadata()["stability"])
+
+	// window function metadata accessible via GetWindowFunc
+	wf, ok := c.GetWindowFunc(extensions.ID{URN: urn, Name: "custom_rank:i32"})
+	require.True(t, ok)
+	require.NotNil(t, wf.Metadata())
+	assert.Equal(t, "test-team", wf.Metadata()["author"])
+
+	// aggregate-to-window conversion preserves metadata
+	wfFromAgg, ok := c.GetWindowFunc(extensions.ID{URN: urn, Name: "custom_sum:i32"})
+	require.True(t, ok)
+	require.NotNil(t, wfFromAgg.Metadata())
+	assert.Equal(t, "experimental", wfFromAgg.Metadata()["stability"])
+
+	// functions loaded without metadata return nil
+	defaultCollection, err := extensions.GetDefaultCollection()
+	require.NoError(t, err)
+	addFunc, ok := defaultCollection.GetScalarFunc(extensions.ID{URN: "extension:io.substrait:functions_arithmetic", Name: "add:i32_i32"})
+	require.True(t, ok)
+	assert.Nil(t, addFunc.Metadata())
+}
