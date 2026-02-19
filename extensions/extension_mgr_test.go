@@ -1254,39 +1254,26 @@ window_functions:
 
 	urn := "extension:test:metadata_test"
 
-	// file-level metadata
 	fileMeta := c.GetFileMetadata(urn)
 	assert.Equal(t, 2.0, fileMeta["version"])
 	assert.Equal(t, "example-team", fileMeta["maintainer"])
 	assert.Nil(t, c.GetFileMetadata("extension:test:nonexistent"))
 
-	// type metadata
 	typ, _ := c.GetType(extensions.ID{URN: urn, Name: "point"})
 	assert.Equal(t, "WGS84", typ.Metadata["coordinate_system"])
 
-	// scalar function metadata
 	sf, _ := c.GetScalarFunc(extensions.ID{URN: urn, Name: "distance:i32_i32"})
 	assert.Equal(t, "vectorized", sf.Metadata()["performance_hint"])
 
-	// aggregate function metadata
 	af, _ := c.GetAggregateFunc(extensions.ID{URN: urn, Name: "custom_sum:i32"})
 	assert.Equal(t, "experimental", af.Metadata()["stability"])
 
-	// window function metadata
 	wf, _ := c.GetWindowFunc(extensions.ID{URN: urn, Name: "custom_rank:i32"})
 	assert.Equal(t, "test-team", wf.Metadata()["author"])
 
-	// aggregate-to-window conversion preserves metadata
 	wfFromAgg, _ := c.GetWindowFunc(extensions.ID{URN: urn, Name: "custom_sum:i32"})
 	assert.Equal(t, "experimental", wfFromAgg.Metadata()["stability"])
 
-	// functions loaded without metadata return nil
-	defaultCollection, err := extensions.GetDefaultCollection()
-	require.NoError(t, err)
-	addFunc, _ := defaultCollection.GetScalarFunc(extensions.ID{URN: "extension:io.substrait:functions_arithmetic", Name: "add:i32_i32"})
-	assert.Nil(t, addFunc.Metadata())
-
-	// ResolveURN also preserves metadata
 	var file extensions.SimpleExtensionFile
 	require.NoError(t, yaml.Unmarshal([]byte(yamlWithMetadata), &file))
 
@@ -1298,4 +1285,12 @@ window_functions:
 
 	winVariants := file.WindowFunctions[0].ResolveURN(urn)
 	assert.Equal(t, "test-team", winVariants[0].Metadata()["author"])
+}
+
+func TestDefaultCollectionHasNoMetadata(t *testing.T) {
+	c, err := extensions.GetDefaultCollection()
+	require.NoError(t, err)
+
+	addFunc, _ := c.GetScalarFunc(extensions.ID{URN: "extension:io.substrait:functions_arithmetic", Name: "add:i32_i32"})
+	assert.Nil(t, addFunc.Metadata())
 }
