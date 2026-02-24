@@ -137,6 +137,90 @@ func TestAnyType(t *testing.T) {
 			expectedErr:    "expected StructType to have 3 non-nil parameters, found [string i64 <nil> i64]",
 		},
 		{
+			testName: "func<any1 -> any2> resolve any2 from return",
+			argName:  "any2",
+			parameters: []FuncDefArgType{
+				&ParameterizedListType{Type: &AnyType{Name: "any1"}},
+				&ParameterizedFuncType{
+					Parameters: []FuncDefArgType{&AnyType{Name: "any1"}},
+					Return:     &AnyType{Name: "any2"},
+				},
+			},
+			args: []Type{
+				&ListType{Type: &Int64Type{}},
+				&FuncType{ParameterTypes: []Type{&Int64Type{}}, ReturnType: &StringType{}},
+			},
+			concreteReturnType: &StringType{},
+			nullability:        NullabilityRequired,
+			expectedString:     "any2",
+		},
+		{
+			testName: "func<any1 -> any1> resolve any1 from param",
+			argName:  "any1",
+			parameters: []FuncDefArgType{
+				&ParameterizedFuncType{
+					Parameters: []FuncDefArgType{&AnyType{Name: "any1"}},
+					Return:     &AnyType{Name: "any1"},
+				},
+			},
+			args: []Type{
+				&FuncType{ParameterTypes: []Type{&Int32Type{}}, ReturnType: &Int32Type{}},
+			},
+			concreteReturnType: &Int32Type{},
+			nullability:        NullabilityRequired,
+			expectedString:     "any1",
+		},
+		{
+			testName: "func<any1, any2 -> any1> resolve any2 from second param",
+			argName:  "any2",
+			parameters: []FuncDefArgType{
+				&ParameterizedFuncType{
+					Parameters: []FuncDefArgType{&AnyType{Name: "any1"}, &AnyType{Name: "any2"}},
+					Return:     &AnyType{Name: "any1"},
+				},
+			},
+			args: []Type{
+				&FuncType{ParameterTypes: []Type{&Int64Type{}, &Float64Type{}}, ReturnType: &Int64Type{}},
+			},
+			concreteReturnType: &Float64Type{},
+			nullability:        NullabilityRequired,
+			expectedString:     "any2",
+		},
+		{
+			// Int64Type.GetParameters() returns nil (no type components),
+			// but ParameterizedFuncType expects 2 (1 param + 1 return)
+			testName: "wrong_func_not_func_type",
+			argName:  "any1",
+			parameters: []FuncDefArgType{
+				&ParameterizedFuncType{
+					Parameters: []FuncDefArgType{&AnyType{Name: "any1"}},
+					Return:     &AnyType{Name: "any1"},
+				},
+			},
+			args:           []Type{&Int64Type{}},
+			nullability:    NullabilityRequired,
+			expectedString: "any1",
+			expectedErr:    "expected FuncType to have 2 non-nil parameters, found []",
+		},
+		{
+			// FuncType with 1 param + 1 return = 2 components,
+			// but ParameterizedFuncType has 2 params + 1 return = 3
+			testName: "wrong_func_param_count_mismatch",
+			argName:  "any1",
+			parameters: []FuncDefArgType{
+				&ParameterizedFuncType{
+					Parameters: []FuncDefArgType{&AnyType{Name: "any1"}, &AnyType{Name: "any1"}},
+					Return:     &AnyType{Name: "any1"},
+				},
+			},
+			args: []Type{
+				&FuncType{ParameterTypes: []Type{&Int64Type{}}, ReturnType: &Int64Type{}},
+			},
+			nullability:    NullabilityRequired,
+			expectedString: "any1",
+			expectedErr:    "expected FuncType to have 3 non-nil parameters, found [i64 i64]",
+		},
+		{
 			testName:           "anyOtherName",
 			argName:            "any1",
 			parameters:         []FuncDefArgType{&AnyType{Name: "any1"}, &Int32Type{}},
