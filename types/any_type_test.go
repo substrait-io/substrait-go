@@ -137,6 +137,190 @@ func TestAnyType(t *testing.T) {
 			expectedErr:    "expected StructType to have 3 non-nil parameters, found [string i64 <nil> i64]",
 		},
 		{
+			testName: "func<any1 -> any2> resolve any2 from return",
+			argName:  "any2",
+			parameters: []FuncDefArgType{
+				&ParameterizedListType{Type: &AnyType{Name: "any1"}},
+				&ParameterizedFuncType{
+					Parameters: []FuncDefArgType{&AnyType{Name: "any1"}},
+					Return:     &AnyType{Name: "any2"},
+				},
+			},
+			args: []Type{
+				&ListType{Type: &Int64Type{}},
+				&FuncType{ParameterTypes: []Type{&Int64Type{}}, ReturnType: &StringType{}},
+			},
+			concreteReturnType: &StringType{},
+			nullability:        NullabilityRequired,
+			expectedString:     "any2",
+		},
+		{
+			testName: "func<any1 -> any1> resolve any1 from param",
+			argName:  "any1",
+			parameters: []FuncDefArgType{
+				&ParameterizedFuncType{
+					Parameters: []FuncDefArgType{&AnyType{Name: "any1"}},
+					Return:     &AnyType{Name: "any1"},
+				},
+			},
+			args: []Type{
+				&FuncType{ParameterTypes: []Type{&Int32Type{}}, ReturnType: &Int32Type{}},
+			},
+			concreteReturnType: &Int32Type{},
+			nullability:        NullabilityRequired,
+			expectedString:     "any1",
+		},
+		{
+			testName: "func<any1, any2 -> any1> resolve any2 from second param",
+			argName:  "any2",
+			parameters: []FuncDefArgType{
+				&ParameterizedFuncType{
+					Parameters: []FuncDefArgType{&AnyType{Name: "any1"}, &AnyType{Name: "any2"}},
+					Return:     &AnyType{Name: "any1"},
+				},
+			},
+			args: []Type{
+				&FuncType{ParameterTypes: []Type{&Int64Type{}, &Float64Type{}}, ReturnType: &Int64Type{}},
+			},
+			concreteReturnType: &Float64Type{},
+			nullability:        NullabilityRequired,
+			expectedString:     "any2",
+		},
+		{
+			// Int64Type.GetParameters() returns nil (no type components),
+			// but ParameterizedFuncType expects 2 (1 param + 1 return)
+			testName: "wrong_func_not_func_type",
+			argName:  "any1",
+			parameters: []FuncDefArgType{
+				&ParameterizedFuncType{
+					Parameters: []FuncDefArgType{&AnyType{Name: "any1"}},
+					Return:     &AnyType{Name: "any1"},
+				},
+			},
+			args:           []Type{&Int64Type{}},
+			nullability:    NullabilityRequired,
+			expectedString: "any1",
+			expectedErr:    "expected FuncType to have 2 non-nil parameters, found []",
+		},
+		{
+			// FuncType with 1 param + 1 return = 2 components,
+			// but ParameterizedFuncType has 2 params + 1 return = 3
+			testName: "wrong_func_param_count_mismatch",
+			argName:  "any1",
+			parameters: []FuncDefArgType{
+				&ParameterizedFuncType{
+					Parameters: []FuncDefArgType{&AnyType{Name: "any1"}, &AnyType{Name: "any1"}},
+					Return:     &AnyType{Name: "any1"},
+				},
+			},
+			args: []Type{
+				&FuncType{ParameterTypes: []Type{&Int64Type{}}, ReturnType: &Int64Type{}},
+			},
+			nullability:    NullabilityRequired,
+			expectedString: "any1",
+			expectedErr:    "expected FuncType to have 3 non-nil parameters, found [i64 i64]",
+		},
+		{
+			// Nested parameterized type inside func: func<list<any1> -> any1>
+			// Tests that unwrapAnyTypeWithName recurses into the func's parameter
+			// types when they themselves are parameterized (list<any1>)
+			testName: "func<list<any1> -> any1> resolve any1 from nested list param",
+			argName:  "any1",
+			parameters: []FuncDefArgType{
+				&ParameterizedFuncType{
+					Parameters: []FuncDefArgType{
+						&ParameterizedListType{Type: &AnyType{Name: "any1"}},
+					},
+					Return: &AnyType{Name: "any1"},
+				},
+			},
+			args: []Type{
+				&FuncType{
+					ParameterTypes: []Type{&ListType{Type: &StringType{}}},
+					ReturnType:     &StringType{},
+				},
+			},
+			concreteReturnType: &StringType{},
+			nullability:        NullabilityRequired,
+			expectedString:     "any1",
+		},
+		{
+			// Nested parameterized type in func return: func<any1 -> list<any2>>
+			// The return type wraps any2 in a list, so unwrapAnyTypeWithName must
+			// recurse through the func's return type, then into the list
+			testName: "func<any1 -> list<any2>> resolve any2 from nested list return",
+			argName:  "any2",
+			parameters: []FuncDefArgType{
+				&ParameterizedFuncType{
+					Parameters: []FuncDefArgType{&AnyType{Name: "any1"}},
+					Return:     &ParameterizedListType{Type: &AnyType{Name: "any2"}},
+				},
+			},
+			args: []Type{
+				&FuncType{
+					ParameterTypes: []Type{&Int64Type{}},
+					ReturnType:     &ListType{Type: &Float64Type{}},
+				},
+			},
+			concreteReturnType: &Float64Type{},
+			nullability:        NullabilityRequired,
+			expectedString:     "any2",
+		},
+		{
+			// Deeply nested: func<map<any1, any2> -> any2>
+			// Tests recursion through func param → map value → any2
+			testName: "func<map<any1, any2> -> any2> resolve any2 from nested map param",
+			argName:  "any2",
+			parameters: []FuncDefArgType{
+				&ParameterizedFuncType{
+					Parameters: []FuncDefArgType{
+						&ParameterizedMapType{
+							Key:   &AnyType{Name: "any1"},
+							Value: &AnyType{Name: "any2"},
+						},
+					},
+					Return: &AnyType{Name: "any2"},
+				},
+			},
+			args: []Type{
+				&FuncType{
+					ParameterTypes: []Type{
+						&MapType{Key: &StringType{}, Value: &Int32Type{}},
+					},
+					ReturnType: &Int32Type{},
+				},
+			},
+			concreteReturnType: &Int32Type{},
+			nullability:        NullabilityRequired,
+			expectedString:     "any2",
+		},
+		{
+			// Func with struct param: func<struct<any1, i64> -> any1>
+			testName: "func<struct<any1, i64> -> any1> resolve any1 from nested struct param",
+			argName:  "any1",
+			parameters: []FuncDefArgType{
+				&ParameterizedFuncType{
+					Parameters: []FuncDefArgType{
+						&ParameterizedStructType{
+							Types: []FuncDefArgType{&AnyType{Name: "any1"}, &Int64Type{}},
+						},
+					},
+					Return: &AnyType{Name: "any1"},
+				},
+			},
+			args: []Type{
+				&FuncType{
+					ParameterTypes: []Type{
+						&StructType{Types: []Type{&Float64Type{}, &Int64Type{}}},
+					},
+					ReturnType: &Float64Type{},
+				},
+			},
+			concreteReturnType: &Float64Type{},
+			nullability:        NullabilityRequired,
+			expectedString:     "any1",
+		},
+		{
 			testName:           "anyOtherName",
 			argName:            "any1",
 			parameters:         []FuncDefArgType{&AnyType{Name: "any1"}, &Int32Type{}},
