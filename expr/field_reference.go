@@ -575,6 +575,16 @@ func NewFieldRef(root RootRefType, ref Reference, baseSchema *types.RecordType) 
 			rootType = baseSchema.AsStructType()
 		} else if rootExpr, ok := root.(Expression); ok {
 			rootType = rootExpr.GetType()
+		} else if _, ok := root.(OuterReference); ok {
+			// OuterReference doesn't carry type info; use provided baseSchema or nil
+			if baseSchema != nil {
+				rootType = baseSchema.AsStructType()
+			}
+		} else if _, ok := root.(LambdaParameterReference); ok {
+			// LambdaParameterReference doesn't carry type info; use provided baseSchema or nil
+			if baseSchema != nil {
+				rootType = baseSchema.AsStructType()
+			}
 		} else {
 			return nil, fmt.Errorf("%w: unknown root reference type %v",
 				substraitgo.ErrInvalidExpr, root)
@@ -602,6 +612,10 @@ func NewFieldRefFromType(root RootRefType, ref Reference, t types.Type) (*FieldR
 		if root == RootReference {
 			// Nothing to do.
 		} else if _, ok := root.(Expression); ok {
+			// Nothing to do.
+		} else if _, ok := root.(OuterReference); ok {
+			// Nothing to do.
+		} else if _, ok := root.(LambdaParameterReference); ok {
 			// Nothing to do.
 		} else {
 			return nil, fmt.Errorf("%w: unknown root reference type %v",
