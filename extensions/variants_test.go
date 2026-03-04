@@ -25,6 +25,7 @@ func TestEvaluateTypeExpression(t *testing.T) {
 		strNull, _      = parser.ParseType("string?")
 		strNonNull, _   = parser.ParseType("string")
 		any1NonNull, _  = parser.ParseType("any1")
+		any1Nullable, _ = parser.ParseType("any1?")
 		any1listNonNull = mkFuncArgList(any1NonNull)
 
 		// Few shortcut type definitions.
@@ -88,6 +89,17 @@ func TestEvaluateTypeExpression(t *testing.T) {
 			extArgs:  extensions.FuncParameterList{valArg(any1NonNull), valArg(any1NonNull)},
 			args:     []types.Type{i64TypeReq, i64TypeReq},
 			expected: i64TypeReq,
+		},
+		{
+			// nullif with DECLARED_OUTPUT: return type is any1? (nullable).
+			// Even when both arguments are non-nullable, the result must be
+			// nullable because NULLIF returns NULL when args are equal.
+			name:     "nullif(any1, any1) -> any1? [DECLARED_OUTPUT]",
+			nulls:    extensions.DeclaredOutputNullability,
+			ret:      any1Nullable,
+			extArgs:  extensions.FuncParameterList{valArg(any1NonNull), valArg(any1NonNull)},
+			args:     []types.Type{i64TypeReq, i64TypeReq},
+			expected: &types.Int64Type{Nullability: types.NullabilityNullable},
 		},
 		{
 			name:     "element_at(list<any1>, i64) -> any1",

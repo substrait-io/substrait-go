@@ -128,6 +128,12 @@ func (m *AnyType) ReturnType(funcParameters []FuncDefArgType, argumentTypes []Ty
 			return nil, err
 		}
 		if typ != nil {
+			// Apply the declared nullability from the return type definition.
+			// For example, nullif declares `return: any1?` — the `?` means
+			// the result is always nullable regardless of argument nullability.
+			if m.Nullability == NullabilityNullable {
+				typ = typ.WithNullability(NullabilityNullable)
+			}
 			return typ, nil
 		}
 	}
