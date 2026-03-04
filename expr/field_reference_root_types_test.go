@@ -65,3 +65,30 @@ func TestNewFieldRefFromType_RootTypes(t *testing.T) {
 		})
 	}
 }
+
+// TestNewFieldRef_LambdaParameterReference_ReturnsError verifies that NewFieldRef
+// (not NewFieldRefFromType) returns a clear error when called with LambdaParameterReference,
+// directing callers to use NewFieldRefFromType instead.
+func TestNewFieldRef_LambdaParameterReference_ReturnsError(t *testing.T) {
+	_, err := expr.NewFieldRef(
+		expr.LambdaParameterReference{StepsOut: 0},
+		expr.NewStructFieldRef(0),
+		nil, // no base schema
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "LambdaParameterReference")
+	require.Contains(t, err.Error(), "NewFieldRefFromType")
+}
+
+// TestNewFieldRef_OuterReference_ReturnsError verifies that NewFieldRef
+// returns a clear error when called with OuterReference.
+func TestNewFieldRef_OuterReference_ReturnsError(t *testing.T) {
+	_, err := expr.NewFieldRef(
+		expr.OuterReference(1),
+		expr.NewStructFieldRef(0),
+		nil, // no base schema
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "OuterReference")
+	require.Contains(t, err.Error(), "NewFieldRefFromType")
+}
