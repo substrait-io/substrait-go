@@ -131,6 +131,10 @@ func (m *AnyType) ReturnType(funcParameters []FuncDefArgType, argumentTypes []Ty
 			// Apply the declared nullability from the return type definition.
 			// For example, nullif declares `return: any1?` — the `?` means
 			// the result is always nullable regardless of argument nullability.
+			//
+			// TODO: It is unclear if a declared non-nullable return type (e.g. `any1`)
+			// should override a nullable argument type to produce a non-nullable result.
+			// This is being resolved in https://github.com/substrait-io/substrait/issues/943
 			if m.Nullability == NullabilityNullable {
 				typ = typ.WithNullability(NullabilityNullable)
 			}
