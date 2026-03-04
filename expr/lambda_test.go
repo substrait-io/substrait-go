@@ -464,8 +464,9 @@ func TestLambdaBuilder_DeeplyNestedInvalidFieldRef(t *testing.T) {
 
 }
 
-// TestLambdaBuilder_DoublyNestedFieldRef verifies that type resolution works correctly
-// when a LambdaParamRef is nested multiple levels deep inside other expressions (e.g., Cast(Cast(LambdaParamRef))).
+// TestNestedLambdaFromProto_OuterRefTypeResolution verifies that when parsing
+// a nested lambda from proto, stepsOut > 0 references get their types resolved.
+// This exercises the nested lambda handling in resolveLambdaParamTypes.
 func TestLambdaBuilder_DoublyNestedFieldRef(t *testing.T) {
 	// Building: ($0: i32) -> cast(cast($0 as i64) as string) : string
 	b := &expr.ExprBuilder{}
