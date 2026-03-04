@@ -576,15 +576,14 @@ func NewFieldRef(root RootRefType, ref Reference, baseSchema *types.RecordType) 
 		} else if rootExpr, ok := root.(Expression); ok {
 			rootType = rootExpr.GetType()
 		} else if _, ok := root.(OuterReference); ok {
-			// OuterReference doesn't carry type info; use provided baseSchema or nil
-			if baseSchema != nil {
-				rootType = baseSchema.AsStructType()
-			}
+			return nil, fmt.Errorf("%w: OuterReference cannot resolve types from baseSchema "+
+				"(it refers to a different scope); use NewFieldRefFromType instead",
+				substraitgo.ErrInvalidExpr)
 		} else if _, ok := root.(LambdaParameterReference); ok {
-			// LambdaParameterReference doesn't carry type info; use provided baseSchema or nil
-			if baseSchema != nil {
-				rootType = baseSchema.AsStructType()
-			}
+			return nil, fmt.Errorf("%w: LambdaParameterReference cannot resolve types from baseSchema "+
+				"(it refers to a lambda's parameter struct, not the enclosing relation); "+
+				"use NewFieldRefFromType instead",
+				substraitgo.ErrInvalidExpr)
 		} else {
 			return nil, fmt.Errorf("%w: unknown root reference type %v",
 				substraitgo.ErrInvalidExpr, root)
