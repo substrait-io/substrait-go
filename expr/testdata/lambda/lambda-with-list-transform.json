@@ -33,7 +33,7 @@
         "extensionUrnReference": 2,
         "extensionUriReference": 2,
         "functionAnchor": 2,
-        "name": "transform"
+        "name": "transform:list_func"
       }
     }
   ],
@@ -160,6 +160,7 @@
           }
         },
         "names": [
+          "values",
           "result"
         ]
       }

@@ -102,9 +102,14 @@ func (r *Relation) FromProto(p *proto.PlanRel, reg expr.ExtensionRegistry) error
 			return err
 		}
 
+		names := rel.Root.Names
+		if err := validateRootNames(input, names); err != nil {
+			return err
+		}
+
 		r.root = &Root{
 			input: input,
-			names: rel.Root.Names,
+			names: names,
 		}
 		return nil
 	}
@@ -247,6 +252,36 @@ func (p *Plan) ToProto() (*proto.Plan, error) {
 		ExtensionUrns:      urns,
 		ExtensionUris:      uris,
 	}, nil
+}
+
+// validateRootNames checks that the number of root output names matches
+// the depth-first field count of the input relation's output schema.
+// Validation is skipped when names is empty (names are optional), when
+// the input is an extension relation (whose schema may be lost during
+// deserialization), or when the input relation's RecordType cannot be
+// determined (e.g. write relations with an unspecified output mode).
+func validateRootNames(input Rel, names []string) (retErr error) {
+	if len(names) == 0 {
+		return nil
+	}
+
+	switch input.(type) {
+	case *ExtensionSingleRel, *ExtensionLeafRel, *ExtensionMultiRel:
+		return nil
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			retErr = nil
+		}
+	}()
+
+	expected := input.RecordType().AsStructType().DepthFirstNameCount()
+	if len(names) != expected {
+		return fmt.Errorf("%w: root relation has %d output name(s) but the output schema requires %d",
+			substraitgo.ErrInvalidRel, len(names), expected)
+	}
+	return nil
 }
 
 // Root is a relation with output field names.

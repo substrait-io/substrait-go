@@ -586,3 +586,55 @@ scalar_functions:
 	st := typeRegistry.GetSupportedTypes()
 	assert.Len(t, st, 8)
 }
+
+func TestStructTypeDepthFirstNameCount(t *testing.T) {
+	tests := []struct {
+		name     string
+		st       *StructType
+		expected int
+	}{
+		{
+			name:     "empty struct",
+			st:       &StructType{},
+			expected: 0,
+		},
+		{
+			name: "flat struct",
+			st: &StructType{Types: []Type{
+				&Int32Type{}, &StringType{},
+			}},
+			expected: 2,
+		},
+		{
+			name: "nested struct",
+			st: &StructType{Types: []Type{
+				&Int32Type{},
+				&StructType{Types: []Type{&StringType{}, &BooleanType{}}},
+			}},
+			expected: 4, // i32, struct, string, bool
+		},
+		{
+			name: "list and map don't add names",
+			st: &StructType{Types: []Type{
+				&ListType{Type: &Int32Type{}},
+				&MapType{Key: &StringType{}, Value: &Int32Type{}},
+			}},
+			expected: 2,
+		},
+		{
+			name: "deeply nested structs",
+			st: &StructType{Types: []Type{
+				&StructType{Types: []Type{
+					&StructType{Types: []Type{&Int32Type{}}},
+				}},
+			}},
+			expected: 3, // outer struct field, inner struct field, i32
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, tc.st.DepthFirstNameCount())
+		})
+	}
+}

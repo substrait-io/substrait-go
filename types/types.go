@@ -1200,6 +1200,20 @@ func (*StructType) BaseString() string {
 	return "struct"
 }
 
+// DepthFirstNameCount returns the number of names required to name all
+// fields in the struct in depth-first order. Each field consumes one name,
+// and nested StructType fields recursively consume names for their children.
+func (t *StructType) DepthFirstNameCount() int {
+	count := 0
+	for _, typ := range t.Types {
+		count++
+		if st, ok := typ.(*StructType); ok {
+			count += st.DepthFirstNameCount()
+		}
+	}
+	return count
+}
+
 // FuncType represents a function type for higher-order functions.
 // It describes a function that takes parameters of specified types and
 // returns a value of a specified type.
