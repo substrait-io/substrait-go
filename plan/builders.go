@@ -744,10 +744,10 @@ func (b *builder) PlanWithTypes(root Rel, rootNames []string, expectedTypeURLs [
 			substraitgo.ErrInvalidRel)
 	}
 
-	rec := root.RecordType().FieldCount()
-	if rec != int32(len(rootNames)) {
+	expected := root.RecordType().AsStructType().DepthFirstNameCount()
+	if expected != len(rootNames) {
 		return nil, fmt.Errorf("%w: mismatched number of names and result record columns, got %d expected %d",
-			substraitgo.ErrInvalidRel, len(rootNames), rec)
+			substraitgo.ErrInvalidRel, len(rootNames), expected)
 	}
 
 	relations := make([]Relation, len(others)+1)

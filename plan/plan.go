@@ -258,9 +258,9 @@ func (p *Plan) ToProto() (*proto.Plan, error) {
 // the depth-first field count of the input relation's output schema.
 // Validation is skipped when names is empty (names are optional), when
 // the input is an extension relation (whose schema may be lost during
-// deserialization), or when the input relation's RecordType cannot be
-// determined (e.g. write relations with an unspecified output mode).
-func validateRootNames(input Rel, names []string) (retErr error) {
+// deserialization), or when the input is a write relation (whose output
+// schema depends on runtime output mode).
+func validateRootNames(input Rel, names []string) error {
 	if len(names) == 0 {
 		return nil
 	}
@@ -268,13 +268,9 @@ func validateRootNames(input Rel, names []string) (retErr error) {
 	switch input.(type) {
 	case *ExtensionSingleRel, *ExtensionLeafRel, *ExtensionMultiRel:
 		return nil
+	case *NamedTableWriteRel:
+		return nil
 	}
-
-	defer func() {
-		if r := recover(); r != nil {
-			retErr = nil
-		}
-	}()
 
 	expected := input.RecordType().AsStructType().DepthFirstNameCount()
 	if len(names) != expected {
