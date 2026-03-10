@@ -646,7 +646,7 @@ func TestGetExtensionSetWithUnknownURI(t *testing.T) {
 					ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
 						ExtensionUriReference: 1,
 						FunctionAnchor:        10,
-						Name:                  "unknown_function:i32",
+						Name:                  "unknown_function",
 					},
 				},
 			},
@@ -676,7 +676,7 @@ func TestGetExtensionSetWithMissingAnchor(t *testing.T) {
 					ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
 						ExtensionUriReference: 99, // This anchor doesn't exist!
 						FunctionAnchor:        10,
-						Name:                  "unknown_function:i32",
+						Name:                  "unknown_function",
 					},
 				},
 			},
@@ -707,7 +707,7 @@ func TestGetExtensionSetWithInvalidURN(t *testing.T) {
 					ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
 						ExtensionUrnReference: 1,
 						FunctionAnchor:        10,
-						Name:                  "nonexistent_function:i32",
+						Name:                  "nonexistent_function",
 					},
 				},
 			},
@@ -738,7 +738,7 @@ func TestExtensionValidationEdgeCases(t *testing.T) {
 						ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
 							ExtensionUrnReference: 1,
 							FunctionAnchor:        10,
-							Name:                  "test_function:i32",
+							Name:                  "test_function",
 						},
 					},
 				},
@@ -759,7 +759,7 @@ func TestExtensionValidationEdgeCases(t *testing.T) {
 							ExtensionUrnReference: 0, // Zero reference - should be treated as "no reference"
 							ExtensionUriReference: 0, // Both zero
 							FunctionAnchor:        10,
-							Name:                  "test_function:i32",
+							Name:                  "test_function",
 						},
 					},
 				},
@@ -926,7 +926,7 @@ func TestResolveRefToURNAllConditions(t *testing.T) {
 						ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
 							ExtensionUrnReference: 1, // Non-zero URN reference
 							FunctionAnchor:        1,
-							Name:                  "test_function:i32",
+							Name:                  "test_function",
 						},
 					},
 				},
@@ -954,7 +954,7 @@ func TestResolveRefToURNAllConditions(t *testing.T) {
 						ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
 							ExtensionUrnReference: 1, // Non-zero URN reference to invalid URN
 							FunctionAnchor:        1,
-							Name:                  "test_function:i32",
+							Name:                  "test_function",
 						},
 					},
 				},
@@ -977,7 +977,7 @@ func TestResolveRefToURNAllConditions(t *testing.T) {
 						ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
 							ExtensionUriReference: 1, // Non-zero URI reference
 							FunctionAnchor:        1,
-							Name:                  "test_function:i32",
+							Name:                  "test_function",
 						},
 					},
 				},
@@ -1005,7 +1005,7 @@ func TestResolveRefToURNAllConditions(t *testing.T) {
 						ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
 							ExtensionUriReference: 1, // Non-zero URI reference to unknown URI
 							FunctionAnchor:        1,
-							Name:                  "test_function:i32",
+							Name:                  "test_function",
 						},
 					},
 				},
@@ -1030,7 +1030,7 @@ func TestResolveRefToURNAllConditions(t *testing.T) {
 					MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
 						ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
 							FunctionAnchor: 1,
-							Name:           "test_function:i32",
+							Name:           "test_function",
 						},
 					},
 				},
@@ -1061,7 +1061,7 @@ func TestResolveRefToURNAllConditions(t *testing.T) {
 						ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
 							// Missing URN/URI reference equivalent to 0
 							FunctionAnchor: 1,
-							Name:           "test_function:i32",
+							Name:           "test_function",
 						},
 					},
 				},
@@ -1085,7 +1085,7 @@ func TestResolveRefToURNAllConditions(t *testing.T) {
 							ExtensionUrnReference: 99, // Non-existent URN reference
 							ExtensionUriReference: 99, // Non-existent URI reference
 							FunctionAnchor:        1,
-							Name:                  "test_function:i32",
+							Name:                  "test_function",
 						},
 					},
 				},
@@ -1106,7 +1106,7 @@ func TestResolveRefToURNAllConditions(t *testing.T) {
 							ExtensionUrnReference: 0, // Zero URN reference (no URN at anchor 0)
 							ExtensionUriReference: 0, // Zero URI reference (no URI at anchor 0)
 							FunctionAnchor:        1,
-							Name:                  "test_function:i32",
+							Name:                  "test_function",
 						},
 					},
 				},
@@ -1116,78 +1116,6 @@ func TestResolveRefToURNAllConditions(t *testing.T) {
 		_, err := extensions.GetExtensionSet(plan, c)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unable to resolve extension reference: neither URN reference 0 nor URI reference 0 could be resolved")
-	})
-}
-
-func TestFunctionCompoundNameValidation(t *testing.T) {
-	collection := extensions.GetDefaultCollectionWithNoError()
-
-	t.Run("compound name accepted", func(t *testing.T) {
-		plan := &proto.Plan{
-			ExtensionUrns: []*extensionspb.SimpleExtensionURN{
-				{ExtensionUrnAnchor: 1, Urn: "extension:io.substrait:functions_arithmetic"},
-			},
-			Extensions: []*extensionspb.SimpleExtensionDeclaration{
-				{
-					MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
-						ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
-							ExtensionUrnReference: 1,
-							FunctionAnchor:        1,
-							Name:                  "add:i32_i32",
-						},
-					},
-				},
-			},
-		}
-		extSet, err := extensions.GetExtensionSet(plan, collection)
-		require.NoError(t, err)
-		require.NotNil(t, extSet)
-	})
-
-	t.Run("simple name rejected", func(t *testing.T) {
-		plan := &proto.Plan{
-			ExtensionUrns: []*extensionspb.SimpleExtensionURN{
-				{ExtensionUrnAnchor: 1, Urn: "extension:io.substrait:functions_arithmetic"},
-			},
-			Extensions: []*extensionspb.SimpleExtensionDeclaration{
-				{
-					MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
-						ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
-							ExtensionUrnReference: 1,
-							FunctionAnchor:        1,
-							Name:                  "add",
-						},
-					},
-				},
-			},
-		}
-		extSet, err := extensions.GetExtensionSet(plan, collection)
-		require.Error(t, err)
-		require.Nil(t, extSet)
-		assert.Contains(t, err.Error(), "not a compound name")
-		assert.Contains(t, err.Error(), "add")
-	})
-
-	t.Run("zero-arg compound name accepted", func(t *testing.T) {
-		plan := &proto.Plan{
-			ExtensionUrns: []*extensionspb.SimpleExtensionURN{
-				{ExtensionUrnAnchor: 1, Urn: "extension:io.substrait:functions_arithmetic"},
-			},
-			Extensions: []*extensionspb.SimpleExtensionDeclaration{
-				{
-					MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
-						ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
-							ExtensionUrnReference: 1,
-							FunctionAnchor:        1,
-							Name:                  "random:",
-						},
-					},
-				},
-			},
-		}
-		extSet, err := extensions.GetExtensionSet(plan, collection)
-		require.NoError(t, err)
-		require.NotNil(t, extSet)
 	})
 }
 

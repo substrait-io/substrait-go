@@ -1041,7 +1041,7 @@ func TestSortRelationKeyEqual(t *testing.T) {
 					"extensionUrnReference": 1,
 					"extensionUriReference": 1,
 					"functionAnchor": 1,
-					"name": "equal:any_any"
+					"name": "equal"
 				}
 			}
 		],
@@ -1092,7 +1092,7 @@ func TestSortRelationKeyEqual(t *testing.T) {
 	ref, err := b.RootFieldRef(scan, 0)
 	require.NoError(t, err)
 
-	sort, err := b.Sort(scan, expr.SortField{Expr: ref, Kind: b.GetFunctionRef(extensions.SubstraitDefaultURNPrefix+"functions_comparison", "equal:any_any")})
+	sort, err := b.Sort(scan, expr.SortField{Expr: ref, Kind: b.GetFunctionRef(extensions.SubstraitDefaultURNPrefix+"functions_comparison", "equal")})
 	require.NoError(t, err)
 
 	p, err := b.Plan(sort, []string{"a", "b"})

@@ -614,12 +614,36 @@ func TestStructTypeDepthFirstNameCount(t *testing.T) {
 			expected: 4, // i32, struct, string, bool
 		},
 		{
-			name: "list and map don't add names",
+			name: "list and map with primitives don't add names",
 			st: &StructType{Types: []Type{
 				&ListType{Type: &Int32Type{}},
 				&MapType{Key: &StringType{}, Value: &Int32Type{}},
 			}},
 			expected: 2,
+		},
+		{
+			name: "struct inside list",
+			st: &StructType{Types: []Type{
+				&ListType{Type: &StructType{Types: []Type{&Int32Type{}, &StringType{}}}},
+			}},
+			expected: 3, // list field, then struct's i32 + string
+		},
+		{
+			name: "struct inside map value",
+			st: &StructType{Types: []Type{
+				&MapType{Key: &StringType{}, Value: &StructType{Types: []Type{&Int32Type{}}}},
+			}},
+			expected: 2, // map field, then struct's i32
+		},
+		{
+			name: "struct inside map key and value",
+			st: &StructType{Types: []Type{
+				&MapType{
+					Key:   &StructType{Types: []Type{&Int32Type{}}},
+					Value: &StructType{Types: []Type{&StringType{}, &BooleanType{}}},
+				},
+			}},
+			expected: 4, // map field, key struct's i32, value struct's string + bool
 		},
 		{
 			name: "deeply nested structs",

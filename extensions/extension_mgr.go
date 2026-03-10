@@ -10,7 +10,6 @@ import (
 	"path"
 	"regexp"
 	"sort"
-	"strings"
 	"sync"
 
 	"github.com/creasty/defaults"
@@ -780,10 +779,6 @@ func GetExtensionSet(plan TopLevel, c *Collection) (Set, error) {
 			})
 		case *extensions.SimpleExtensionDeclaration_ExtensionFunction_:
 			ef := e.ExtensionFunction
-			if !strings.Contains(ef.Name, ":") {
-				return nil, fmt.Errorf("%w: extension function name %q is not a compound name (expected format \"name:arg_types\")",
-					substraitgo.ErrInvalidPlan, ef.Name)
-			}
 			urn, err := resolveRefToURN(ef.ExtensionUriReference, ef.ExtensionUrnReference)
 			if err != nil {
 				return nil, err
