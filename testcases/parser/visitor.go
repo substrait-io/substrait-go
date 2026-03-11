@@ -416,7 +416,7 @@ func (v *TestCaseVisitor) VisitArgument(ctx *baseparser.ArgumentContext) interfa
 		return v.Visit(ctx.ListArg())
 	}
 	if ctx.IntervalCompoundArg() != nil {
-		// TODO: implement when substrait test cases use interval compound args
+		// TODO(#209): implement when substrait test cases use interval compound args
 		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("interval compound argument not yet implemented"))
 		return &CaseLiteral{}
 	}
@@ -963,7 +963,7 @@ func (v *TestCaseVisitor) VisitParameterizedType(ctx *baseparser.ParameterizedTy
 		return v.Visit(ctx.FixedBinaryType())
 	}
 	if ctx.IntervalCompoundType() != nil {
-		// TODO: implement when substrait test cases use interval compound types
+		// TODO(#209): implement when substrait test cases use interval compound types
 		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("interval compound type not yet implemented"))
 		return nil
 	}
