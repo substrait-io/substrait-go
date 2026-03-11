@@ -1,4 +1,0 @@
-ignore:
-  - "testcases/parser/baseparser"
-  - "types/parser/baseparser"
-  - "grammar"
