@@ -124,6 +124,9 @@ type FuncTestCaseParserVisitor interface {
 	// Visit a parse tree produced by FuncTestCaseParser#intervalDayArg.
 	VisitIntervalDayArg(ctx *IntervalDayArgContext) interface{}
 
+	// Visit a parse tree produced by FuncTestCaseParser#intervalCompoundArg.
+	VisitIntervalCompoundArg(ctx *IntervalCompoundArgContext) interface{}
+
 	// Visit a parse tree produced by FuncTestCaseParser#fixedCharArg.
 	VisitFixedCharArg(ctx *FixedCharArgContext) interface{}
 
@@ -150,6 +153,9 @@ type FuncTestCaseParserVisitor interface {
 
 	// Visit a parse tree produced by FuncTestCaseParser#literalList.
 	VisitLiteralList(ctx *LiteralListContext) interface{}
+
+	// Visit a parse tree produced by FuncTestCaseParser#listElement.
+	VisitListElement(ctx *ListElementContext) interface{}
 
 	// Visit a parse tree produced by FuncTestCaseParser#literalLambda.
 	VisitLiteralLambda(ctx *LiteralLambdaContext) interface{}
@@ -234,6 +240,9 @@ type FuncTestCaseParserVisitor interface {
 
 	// Visit a parse tree produced by FuncTestCaseParser#intervalDayType.
 	VisitIntervalDayType(ctx *IntervalDayTypeContext) interface{}
+
+	// Visit a parse tree produced by FuncTestCaseParser#intervalCompoundType.
+	VisitIntervalCompoundType(ctx *IntervalCompoundTypeContext) interface{}
 
 	// Visit a parse tree produced by FuncTestCaseParser#fixedCharType.
 	VisitFixedCharType(ctx *FixedCharTypeContext) interface{}

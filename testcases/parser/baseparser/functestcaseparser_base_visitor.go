@@ -163,6 +163,10 @@ func (v *BaseFuncTestCaseParserVisitor) VisitIntervalDayArg(ctx *IntervalDayArgC
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseFuncTestCaseParserVisitor) VisitIntervalCompoundArg(ctx *IntervalCompoundArgContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseFuncTestCaseParserVisitor) VisitFixedCharArg(ctx *FixedCharArgContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -196,6 +200,10 @@ func (v *BaseFuncTestCaseParserVisitor) VisitLambdaArg(ctx *LambdaArgContext) in
 }
 
 func (v *BaseFuncTestCaseParserVisitor) VisitLiteralList(ctx *LiteralListContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseFuncTestCaseParserVisitor) VisitListElement(ctx *ListElementContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -308,6 +316,10 @@ func (v *BaseFuncTestCaseParserVisitor) VisitIntervalYearType(ctx *IntervalYearT
 }
 
 func (v *BaseFuncTestCaseParserVisitor) VisitIntervalDayType(ctx *IntervalDayTypeContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseFuncTestCaseParserVisitor) VisitIntervalCompoundType(ctx *IntervalCompoundTypeContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

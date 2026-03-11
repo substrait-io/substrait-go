@@ -415,6 +415,22 @@ func (v *TestCaseVisitor) VisitArgument(ctx *baseparser.ArgumentContext) interfa
 	if ctx.ListArg() != nil {
 		return v.Visit(ctx.ListArg())
 	}
+	if ctx.IntervalCompoundArg() != nil {
+		// TODO: implement interval compound argument handling
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("interval compound argument not yet implemented"))
+		return &CaseLiteral{}
+	}
+	if ctx.LambdaArg() != nil {
+		// TODO: implement lambda argument handling
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("lambda argument not yet implemented"))
+		return &CaseLiteral{}
+	}
+	if ctx.Identifier() != nil {
+		// Bare identifier (for lambda parameters)
+		// TODO: implement lambda parameter reference handling
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("bare identifier argument not yet implemented"))
+		return &CaseLiteral{}
+	}
 
 	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("argument type not implemented, arg %s", ctx.GetText()))
 	return &CaseLiteral{}
@@ -663,6 +679,11 @@ func (v *TestCaseVisitor) VisitListArg(ctx *baseparser.ListArgContext) interface
 
 	values := v.Visit(ctx.LiteralList()).([]expr.Literal)
 
+	if len(values) == 0 {
+		value := expr.NewEmptyListLiteral(listType.Type, false)
+		return &CaseLiteral{Value: value, Type: listType}
+	}
+
 	value, err := literal.NewList(values, false)
 	if err != nil {
 		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid list arg %v", err))
@@ -671,11 +692,24 @@ func (v *TestCaseVisitor) VisitListArg(ctx *baseparser.ListArgContext) interface
 }
 
 func (v *TestCaseVisitor) VisitLiteralList(ctx *baseparser.LiteralListContext) interface{} {
-	literals := make([]expr.Literal, 0, len(ctx.AllLiteral()))
-	for _, literalCtx := range ctx.AllLiteral() {
-		literals = append(literals, v.Visit(literalCtx).(expr.Literal))
+	elements := ctx.AllListElement()
+	literals := make([]expr.Literal, 0, len(elements))
+	for _, elemCtx := range elements {
+		result := v.Visit(elemCtx)
+		if result != nil {
+			literals = append(literals, result.(expr.Literal))
+		}
 	}
 	return literals
+}
+
+func (v *TestCaseVisitor) VisitListElement(ctx *baseparser.ListElementContext) interface{} {
+	if ctx.Literal() != nil {
+		return v.Visit(ctx.Literal())
+	}
+	// TODO: handle nested list literals (ctx.LiteralList())
+	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("nested list literals not yet supported"))
+	return nil
 }
 
 func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface{} {
@@ -900,6 +934,19 @@ func (v *TestCaseVisitor) VisitParameterizedType(ctx *baseparser.ParameterizedTy
 	}
 	if ctx.FixedBinaryType() != nil {
 		return v.Visit(ctx.FixedBinaryType())
+	}
+	if ctx.IntervalCompoundType() != nil {
+		// TODO: implement interval compound type
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("interval compound type not yet implemented"))
+		return nil
+	}
+	if ctx.ListType() != nil {
+		return v.Visit(ctx.ListType())
+	}
+	if ctx.FuncType() != nil {
+		// TODO: implement func type for lambda support
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("func type not yet implemented"))
+		return nil
 	}
 
 	return nil
