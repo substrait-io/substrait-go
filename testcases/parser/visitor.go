@@ -416,20 +416,18 @@ func (v *TestCaseVisitor) VisitArgument(ctx *baseparser.ArgumentContext) interfa
 		return v.Visit(ctx.ListArg())
 	}
 	if ctx.IntervalCompoundArg() != nil {
-		// TODO: implement interval compound argument handling
-		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("interval compound argument not yet implemented"))
-		return &CaseLiteral{}
+		return v.Visit(ctx.IntervalCompoundArg())
 	}
 	if ctx.LambdaArg() != nil {
-		// TODO: implement lambda argument handling
-		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("lambda argument not yet implemented"))
-		return &CaseLiteral{}
+		return v.Visit(ctx.LambdaArg())
 	}
 	if ctx.Identifier() != nil {
-		// Bare identifier (for lambda parameters)
-		// TODO: implement lambda parameter reference handling
-		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("bare identifier argument not yet implemented"))
-		return &CaseLiteral{}
+		// Bare identifier used as lambda parameter reference inside lambda bodies.
+		// In the test framework we don't need the actual value, just the type.
+		// The type comes from the enclosing lambda's func type annotation.
+		// Return a placeholder CaseLiteral with nil Value — the test framework
+		// only uses the Type for function signature matching.
+		return &CaseLiteral{ValueText: ctx.Identifier().GetText()}
 	}
 
 	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("argument type not implemented, arg %s", ctx.GetText()))
@@ -633,6 +631,27 @@ func (v *TestCaseVisitor) VisitIntervalDayArg(ctx *baseparser.IntervalDayArgCont
 	return &CaseLiteral{Value: value, ValueText: ctx.IntervalDayLiteral().GetText(), Type: idayType}
 }
 
+func (v *TestCaseVisitor) VisitIntervalCompoundArg(ctx *baseparser.IntervalCompoundArgContext) interface{} {
+	icompoundType := v.Visit(ctx.IntervalCompoundType()).(types.Type)
+	interval := getRawStringFromStringLiteral(ctx.IntervalCompoundLiteral().GetText())
+	nullable := icompoundType.GetNullability() == types.NullabilityNullable
+	value, err := newIntervalCompoundFromString(interval, nullable)
+	if err != nil {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid interval compound arg %v", err))
+	}
+	return &CaseLiteral{Value: value, ValueText: ctx.IntervalCompoundLiteral().GetText(), Type: icompoundType}
+}
+
+func (v *TestCaseVisitor) VisitLambdaArg(ctx *baseparser.LambdaArgContext) interface{} {
+	funcType := v.Visit(ctx.FuncType()).(*types.FuncType)
+	// For the test framework, lambda arguments are used for function signature matching.
+	// We store a null literal of the func type as a placeholder — the test framework
+	// uses the Type field for matching and the Value as a FuncArg for invocation lookup.
+	// NewNullLiteral forces the type to nullable, so CaseLiteral.Type must match.
+	nullLit := expr.NewNullLiteral(funcType)
+	return &CaseLiteral{Value: nullLit, Type: nullLit.GetType()}
+}
+
 func (v *TestCaseVisitor) VisitDecimalArg(ctx *baseparser.DecimalArgContext) interface{} {
 	decType := v.Visit(ctx.DecimalType()).(types.Type)
 	decimal, err := literal.NewDecimalFromString(ctx.NumericLiteral().GetText(), decType.GetNullability() == types.NullabilityNullable)
@@ -707,8 +726,34 @@ func (v *TestCaseVisitor) VisitListElement(ctx *baseparser.ListElementContext) i
 	if ctx.Literal() != nil {
 		return v.Visit(ctx.Literal())
 	}
-	// TODO: handle nested list literals (ctx.LiteralList())
-	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("nested list literals not yet supported"))
+	if ctx.LiteralList() != nil {
+		// For nested lists like [[1,2],[3,4]]::list<list<i32>>, the parent context
+		// has the element type set to list<i32>. We need to unwrap one level so
+		// that inner literals resolve against i32 instead of list<i32>.
+		parentType := v.getLiteralTypeInContext()
+		if lt, ok := parentType.(*types.ListType); ok {
+			v.setLiteralTypeInContext(lt.Type)
+			defer v.setLiteralTypeInContext(parentType)
+		}
+
+		values := v.Visit(ctx.LiteralList()).([]expr.Literal)
+		if len(values) == 0 {
+			// For empty nested lists, use the element type from the parent list context
+			if elemType := v.getLiteralTypeInContext(); elemType != nil {
+				if lt, ok := elemType.(*types.ListType); ok {
+					return expr.NewEmptyListLiteral(lt.Type, false)
+				}
+			}
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("cannot determine element type for empty nested list"))
+			return nil
+		}
+		value, err := literal.NewList(values, false)
+		if err != nil {
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid nested list %v", err))
+		}
+		return value
+	}
+	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("unexpected list element type"))
 	return nil
 }
 
@@ -936,17 +981,13 @@ func (v *TestCaseVisitor) VisitParameterizedType(ctx *baseparser.ParameterizedTy
 		return v.Visit(ctx.FixedBinaryType())
 	}
 	if ctx.IntervalCompoundType() != nil {
-		// TODO: implement interval compound type
-		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("interval compound type not yet implemented"))
-		return nil
+		return v.Visit(ctx.IntervalCompoundType())
 	}
 	if ctx.ListType() != nil {
 		return v.Visit(ctx.ListType())
 	}
 	if ctx.FuncType() != nil {
-		// TODO: implement func type for lambda support
-		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("func type not yet implemented"))
-		return nil
+		return v.Visit(ctx.FuncType())
 	}
 
 	return nil
@@ -1011,4 +1052,138 @@ func (v *TestCaseVisitor) VisitVarCharType(ctx *baseparser.VarCharTypeContext) i
 func (v *TestCaseVisitor) VisitFixedBinaryType(ctx *baseparser.FixedBinaryTypeContext) interface{} {
 	length := v.Visit(ctx.GetLen_()).(int32)
 	return &types.FixedBinaryType{Length: length, Nullability: getNullability(ctx)}
+}
+
+func (v *TestCaseVisitor) VisitIntervalCompoundType(ctx *baseparser.IntervalCompoundTypeContext) interface{} {
+	var length int32
+	if ctx.GetLen_() != nil {
+		length = v.Visit(ctx.GetLen_()).(int32)
+	}
+	return types.NewIntervalCompoundType().WithPrecision(types.TimePrecision(length)).WithNullability(getNullability(ctx))
+}
+
+func (v *TestCaseVisitor) VisitFuncType(ctx *baseparser.FuncTypeContext) interface{} {
+	paramTypes := v.Visit(ctx.GetParams()).([]types.Type)
+	returnType := v.Visit(ctx.GetReturnType()).(types.Type)
+	return &types.FuncType{
+		Nullability:    getNullability(ctx),
+		ParameterTypes: paramTypes,
+		ReturnType:     returnType,
+	}
+}
+
+func (v *TestCaseVisitor) VisitSingleFuncParam(ctx *baseparser.SingleFuncParamContext) interface{} {
+	return []types.Type{v.Visit(ctx.DataType()).(types.Type)}
+}
+
+func (v *TestCaseVisitor) VisitFuncParamsWithParens(ctx *baseparser.FuncParamsWithParensContext) interface{} {
+	dataTypes := ctx.AllDataType()
+	paramTypes := make([]types.Type, len(dataTypes))
+	for i, dt := range dataTypes {
+		paramTypes[i] = v.Visit(dt).(types.Type)
+	}
+	return paramTypes
+}
+
+// newIntervalCompoundFromString parses an ISO 8601 duration string of the form
+// P[nY][nM][nD][T[nH][nM][n[.n]S]] into an IntervalCompoundLiteral.
+func newIntervalCompoundFromString(s string, nullable bool) (expr.Literal, error) {
+	if len(s) < 2 || s[0] != 'P' {
+		return nil, fmt.Errorf("invalid interval compound format: %s", s)
+	}
+
+	nullability := types.NullabilityRequired
+	if nullable {
+		nullability = types.NullabilityNullable
+	}
+
+	result := expr.IntervalCompoundLiteral{Nullability: nullability}
+
+	rest := s[1:]
+	// Split on 'T' to separate date and time parts
+	datePart := rest
+	timePart := ""
+	if tIdx := strings.IndexByte(rest, 'T'); tIdx >= 0 {
+		datePart = rest[:tIdx]
+		timePart = rest[tIdx+1:]
+	}
+
+	// Parse date part: [nY][nM][nD]
+	if datePart != "" {
+		var err error
+		datePart, result.Years, err = parseIntervalComponent(datePart, 'Y')
+		if err != nil {
+			return nil, err
+		}
+		datePart, result.Months, err = parseIntervalComponent(datePart, 'M')
+		if err != nil {
+			return nil, err
+		}
+		datePart, result.Days, err = parseIntervalComponent(datePart, 'D')
+		if err != nil {
+			return nil, err
+		}
+		if datePart != "" {
+			return nil, fmt.Errorf("unexpected trailing date characters in interval: %s", datePart)
+		}
+	}
+
+	// Parse time part: [nH][nM][n[.n]S]
+	if timePart != "" {
+		var hours, minutes int32
+		var err error
+		timePart, hours, err = parseIntervalComponent(timePart, 'H')
+		if err != nil {
+			return nil, err
+		}
+		timePart, minutes, err = parseIntervalComponent(timePart, 'M')
+		if err != nil {
+			return nil, err
+		}
+
+		result.Seconds = hours*3600 + minutes*60
+
+		// Parse seconds with optional fractional part
+		if sIdx := strings.IndexByte(timePart, 'S'); sIdx >= 0 {
+			secStr := timePart[:sIdx]
+			timePart = timePart[sIdx+1:]
+			if secStr != "" {
+				secFloat, err := strconv.ParseFloat(secStr, 64)
+				if err != nil {
+					return nil, fmt.Errorf("invalid second value in interval: %v", err)
+				}
+				wholeSeconds := int32(secFloat)
+				result.Seconds += wholeSeconds
+				frac := secFloat - float64(wholeSeconds)
+				nanoSeconds := int64(frac * 1e9)
+				microSeconds := int64(frac * 1e6)
+				if nanoSeconds > microSeconds*1000 {
+					result.SubSeconds = nanoSeconds
+					result.SubSecondPrecision = types.PrecisionNanoSeconds
+				} else {
+					result.SubSeconds = microSeconds
+					result.SubSecondPrecision = types.PrecisionMicroSeconds
+				}
+			}
+		}
+		if timePart != "" {
+			return nil, fmt.Errorf("unexpected trailing time characters in interval: %s", timePart)
+		}
+	}
+
+	return result, nil
+}
+
+// parseIntervalComponent extracts a numeric value before the given suffix character.
+// Returns the remaining string and the parsed value (0 if suffix not found).
+func parseIntervalComponent(s string, suffix byte) (string, int32, error) {
+	idx := strings.IndexByte(s, suffix)
+	if idx < 0 {
+		return s, 0, nil
+	}
+	val, err := strconv.Atoi(s[:idx])
+	if err != nil {
+		return "", 0, fmt.Errorf("invalid %c value in interval: %v", suffix, err)
+	}
+	return s[idx+1:], int32(val), nil
 }
