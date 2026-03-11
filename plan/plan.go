@@ -103,7 +103,7 @@ func (r *Relation) FromProto(p *proto.PlanRel, reg expr.ExtensionRegistry) error
 		}
 
 		names := rel.Root.Names
-		if err := validateRootNames(input, names); err != nil {
+		if err := validateRootNamesFromProto(input, names); err != nil {
 			return err
 		}
 
@@ -254,30 +254,41 @@ func (p *Plan) ToProto() (*proto.Plan, error) {
 	}, nil
 }
 
-// validateRootNames checks that the number of root output names matches
-// the depth-first field count of the input relation's output schema.
-// Validation is skipped when names is empty (names are optional), when
-// the input is an extension relation (whose schema may be lost during
-// deserialization), or when the input is a write relation (whose output
-// schema depends on runtime output mode).
-func validateRootNames(input Rel, names []string) error {
+// validateRootNamesForSchema checks that the number of root output names
+// matches the depth-first field count of the given record type.
+// Empty names are always valid (names are optional per the spec).
+func validateRootNamesForSchema(recordType types.RecordType, names []string) error {
+	if len(names) == 0 {
+		return nil
+	}
+
+	expected := recordType.AsStructType().DepthFirstNameCount()
+	if len(names) != expected {
+		return fmt.Errorf("%w: root relation has %d output name(s) but the output schema requires %d",
+			substraitgo.ErrInvalidRel, len(names), expected)
+	}
+	return nil
+}
+
+// validateRootNamesFromProto checks root output names during deserialization.
+// It skips validation for extension relations whose schema may be lost
+// during deserialization, and for write relations whose output schema
+// depends on runtime output mode.
+func validateRootNamesFromProto(input Rel, names []string) error {
 	if len(names) == 0 {
 		return nil
 	}
 
 	switch input.(type) {
 	case *ExtensionSingleRel, *ExtensionLeafRel, *ExtensionMultiRel:
+		// Schema is unreliable after deserialization (UndecodedExtension guesses).
 		return nil
 	case *NamedTableWriteRel:
+		// RecordType() panics when outputMode is unspecified (proto zero-value).
 		return nil
 	}
 
-	expected := input.RecordType().AsStructType().DepthFirstNameCount()
-	if len(names) != expected {
-		return fmt.Errorf("%w: root relation has %d output name(s) but the output schema requires %d",
-			substraitgo.ErrInvalidRel, len(names), expected)
-	}
-	return nil
+	return validateRootNamesForSchema(input.RecordType(), names)
 }
 
 // Root is a relation with output field names.

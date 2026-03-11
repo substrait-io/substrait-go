@@ -744,7 +744,7 @@ func (b *builder) PlanWithTypes(root Rel, rootNames []string, expectedTypeURLs [
 			substraitgo.ErrInvalidRel)
 	}
 
-	if err := validateRootNames(root, rootNames); err != nil {
+	if err := validateRootNamesForSchema(root.RecordType(), rootNames); err != nil {
 		return nil, err
 	}
 
