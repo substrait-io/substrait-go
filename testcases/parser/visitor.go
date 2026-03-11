@@ -421,15 +421,6 @@ func (v *TestCaseVisitor) VisitArgument(ctx *baseparser.ArgumentContext) interfa
 	if ctx.LambdaArg() != nil {
 		return v.Visit(ctx.LambdaArg())
 	}
-	if ctx.Identifier() != nil {
-		// Bare identifier used as lambda parameter reference inside lambda bodies.
-		// In the test framework we don't need the actual value, just the type.
-		// The type comes from the enclosing lambda's func type annotation.
-		// Return a placeholder CaseLiteral with nil Value — the test framework
-		// only uses the Type for function signature matching.
-		return &CaseLiteral{ValueText: ctx.Identifier().GetText()}
-	}
-
 	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("argument type not implemented, arg %s", ctx.GetText()))
 	return &CaseLiteral{}
 }
