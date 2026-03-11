@@ -296,6 +296,87 @@ some_func('abc'::str, 'def'::str) = [1, 2, 3, 4, 5, 6]::List<i8>`
 	assert.Equal(t, i8List, testFile.TestCases[0].Result.Type)
 }
 
+func TestParseLambdaArg(t *testing.T) {
+	header := makeHeader("v1.0", "/extensions/functions_list.yaml")
+	tests := `# basic
+all_match([1, 2, 3]::list<i32>, (x -> gt(x, 0::i32))::func<i32 -> bool?>) = true::bool
+`
+	testFile, err := ParseTestCasesFromString(header + tests)
+	require.NoError(t, err)
+
+	expectedFuncType := &types.FuncType{
+		Nullability:    types.NullabilityNullable,
+		ParameterTypes: []types.Type{&types.Int32Type{Nullability: types.NullabilityRequired}},
+		ReturnType:     &types.BooleanType{Nullability: types.NullabilityNullable},
+	}
+	assert.Equal(t, expectedFuncType, testFile.TestCases[0].Args[1].Type)
+}
+
+func TestParseFuncTypeMultipleParams(t *testing.T) {
+	header := makeHeader("v1.0", "/extensions/functions_list.yaml")
+	tests := `# basic
+some_func([1]::list<i32>, ((a, b) -> add(a, b))::func<(i32, i64) -> bool>) = true::bool
+`
+	testFile, err := ParseTestCasesFromString(header + tests)
+	require.NoError(t, err)
+
+	expectedFuncType := &types.FuncType{
+		Nullability: types.NullabilityNullable,
+		ParameterTypes: []types.Type{
+			&types.Int32Type{Nullability: types.NullabilityRequired},
+			&types.Int64Type{Nullability: types.NullabilityRequired},
+		},
+		ReturnType: &types.BooleanType{Nullability: types.NullabilityRequired},
+	}
+	assert.Equal(t, expectedFuncType, testFile.TestCases[0].Args[1].Type)
+}
+
+func TestParseNestedListLiteral(t *testing.T) {
+	header := makeHeader("v1.0", "/extensions/functions_list.yaml")
+	tests := `# basic
+some_func([[1, null, 2], [3, 4]]::list<list<i32?>>) = true::bool
+`
+	testFile, err := ParseTestCasesFromString(header + tests)
+	require.NoError(t, err)
+
+	expectedType := &types.ListType{
+		Type: &types.ListType{
+			Type:        &types.Int32Type{Nullability: types.NullabilityNullable},
+			Nullability: types.NullabilityRequired,
+		},
+		Nullability: types.NullabilityRequired,
+	}
+	assert.Equal(t, expectedType, testFile.TestCases[0].Args[0].Type)
+
+	inner1, _ := literal.NewList([]expr.Literal{
+		literal.NewInt32(1, true),
+		expr.NewNullLiteral(&types.Int32Type{Nullability: types.NullabilityNullable}),
+		literal.NewInt32(2, true),
+	}, false)
+	inner2, _ := literal.NewList([]expr.Literal{
+		literal.NewInt32(3, true),
+		literal.NewInt32(4, true),
+	}, false)
+	expected, _ := literal.NewList([]expr.Literal{inner1, inner2}, false)
+	assert.Equal(t, expected, testFile.TestCases[0].Args[0].Value)
+}
+
+func TestParseEmptyListArg(t *testing.T) {
+	header := makeHeader("v1.0", "/extensions/functions_list.yaml")
+	tests := `# basic
+some_func([]::list<i32>) = true::bool
+`
+	testFile, err := ParseTestCasesFromString(header + tests)
+	require.NoError(t, err)
+
+	expectedType := &types.ListType{
+		Type:        &types.Int32Type{Nullability: types.NullabilityRequired},
+		Nullability: types.NullabilityRequired,
+	}
+	assert.Equal(t, expectedType, testFile.TestCases[0].Args[0].Type)
+	assert.Equal(t, expr.NewEmptyListLiteral(&types.Int32Type{Nullability: types.NullabilityRequired}, false), testFile.TestCases[0].Args[0].Value)
+}
+
 func TestScalarOptions(t *testing.T) {
 	header := makeHeader("v1.0", "extensions/functions_string.yaml")
 	tests := `# stuff
