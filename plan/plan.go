@@ -279,13 +279,19 @@ func validateRootNamesFromProto(input Rel, names []string) error {
 		return nil
 	}
 
-	switch input.(type) {
+	switch rel := input.(type) {
 	case *ExtensionSingleRel, *ExtensionLeafRel, *ExtensionMultiRel:
 		// Schema is unreliable after deserialization (UndecodedExtension guesses).
 		return nil
 	case *NamedTableWriteRel:
 		// RecordType() panics when outputMode is unspecified (proto zero-value).
 		return nil
+	case *JoinRel:
+		switch rel.joinType {
+		case JoinTypeRightSemi, JoinTypeRightAnti, JoinTypeRightSingle:
+			// directOutputSchema() panics for these join types (not yet implemented).
+			return nil
+		}
 	}
 
 	return validateRootNamesForSchema(input.RecordType(), names)

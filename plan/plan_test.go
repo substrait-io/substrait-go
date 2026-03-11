@@ -142,3 +142,58 @@ func TestPlanRoundTripURIAndURNEquivalence(t *testing.T) {
 		"Plans should be identical after round-trip conversion.\nURI-only plan: %s\nURN-only plan: %s",
 		protojson.Format(protoFromURI), protojson.Format(protoFromURN))
 }
+
+func TestFromProtoRightSemiJoinRootNames(t *testing.T) {
+	// Regression: validateRootNamesFromProto must not panic on JoinRel
+	// with RIGHT_SEMI (directOutputSchema panics for unsupported join types).
+	planJSON := `{
+		"version": { "majorNumber": 0, "minorNumber": 79 },
+		"relations": [{
+			"root": {
+				"names": ["id"],
+				"input": {
+					"join": {
+						"common": { "direct": {} },
+						"type": "JOIN_TYPE_RIGHT_SEMI",
+						"expression": {
+							"literal": { "boolean": true }
+						},
+						"left": {
+							"read": {
+								"common": { "direct": {} },
+								"baseSchema": {
+									"names": ["id"],
+									"struct": {
+										"nullability": "NULLABILITY_REQUIRED",
+										"types": [{"i64": {"nullability": "NULLABILITY_REQUIRED"}}]
+									}
+								},
+								"namedTable": { "names": ["left_table"] }
+							}
+						},
+						"right": {
+							"read": {
+								"common": { "direct": {} },
+								"baseSchema": {
+									"names": ["id"],
+									"struct": {
+										"nullability": "NULLABILITY_REQUIRED",
+										"types": [{"i64": {"nullability": "NULLABILITY_REQUIRED"}}]
+									}
+								},
+								"namedTable": { "names": ["right_table"] }
+							}
+						}
+					}
+				}
+			}
+		}]
+	}`
+
+	var p proto.Plan
+	require.NoError(t, protojson.Unmarshal([]byte(planJSON), &p))
+
+	c := extensions.GetDefaultCollectionWithNoError()
+	_, err := FromProto(&p, c)
+	require.NoError(t, err)
+}
