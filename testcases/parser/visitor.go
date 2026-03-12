@@ -43,6 +43,18 @@ func (v *TestCaseVisitor) clearLiteralTypeInContext() {
 	v.literalTypeInContext = nil
 }
 
+// withLiteralType temporarily sets the literal type context for the
+// duration of fn, then restores the previous value. This is used when
+// visiting child nodes that need to resolve literals against a
+// different type than the current context (e.g. unwrapping list<list<i32>>
+// to list<i32> when visiting inner list elements).
+func (v *TestCaseVisitor) withLiteralType(t types.Type, fn func()) {
+	prev := v.literalTypeInContext
+	v.literalTypeInContext = t
+	defer func() { v.literalTypeInContext = prev }()
+	fn()
+}
+
 var _ baseparser.FuncTestCaseParserVisitor = &TestCaseVisitor{}
 
 func (v *TestCaseVisitor) Visit(tree antlr.ParseTree) interface{} {
@@ -701,34 +713,40 @@ func (v *TestCaseVisitor) VisitListElement(ctx *baseparser.ListElementContext) i
 		return v.Visit(ctx.Literal())
 	}
 	if ctx.LiteralList() != nil {
-		// For nested lists like [[1,2],[3,4]]::list<list<i32>>, the parent context
-		// has the element type set to list<i32>. We need to unwrap one level so
-		// that inner literals resolve against i32 instead of list<i32>.
-		parentType := v.getLiteralTypeInContext()
-		if lt, ok := parentType.(*types.ListType); ok {
-			v.setLiteralTypeInContext(lt.Type)
-			defer v.setLiteralTypeInContext(parentType)
-		}
-
-		values := v.Visit(ctx.LiteralList()).([]expr.Literal)
-		if len(values) == 0 {
-			// For empty nested lists, use the element type from the parent list context
-			if elemType := v.getLiteralTypeInContext(); elemType != nil {
-				if lt, ok := elemType.(*types.ListType); ok {
-					return expr.NewEmptyListLiteral(lt.Type, false)
-				}
-			}
-			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("cannot determine element type for empty nested list"))
-			return nil
-		}
-		value, err := literal.NewList(values, false)
-		if err != nil {
-			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid nested list %v", err))
-		}
-		return value
+		return v.visitNestedList(ctx)
 	}
 	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("unexpected list element type"))
 	return nil
+}
+
+// visitNestedList handles a list element that is itself a list (e.g. [1,2] in [[1,2],[3,4]]).
+// It unwraps the parent list type so inner literals resolve against the element type.
+func (v *TestCaseVisitor) visitNestedList(ctx *baseparser.ListElementContext) interface{} {
+	var values []expr.Literal
+
+	innerType := v.getLiteralTypeInContext()
+	if lt, ok := innerType.(*types.ListType); ok {
+		innerType = lt.Type
+	}
+	v.withLiteralType(innerType, func() {
+		values = v.Visit(ctx.LiteralList()).([]expr.Literal)
+	})
+
+	// literal.NewList requires at least one element to infer the type,
+	// so empty nested lists must be constructed directly from the known type.
+	if len(values) == 0 {
+		if lt, ok := innerType.(*types.ListType); ok {
+			return expr.NewEmptyListLiteral(lt.Type, false)
+		}
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("cannot determine element type for empty nested list"))
+		return nil
+	}
+
+	value, err := literal.NewList(values, false)
+	if err != nil {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid nested list %v", err))
+	}
+	return value
 }
 
 func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface{} {
