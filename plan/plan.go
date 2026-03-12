@@ -103,7 +103,7 @@ func (r *Relation) FromProto(p *proto.PlanRel, reg expr.ExtensionRegistry) error
 		}
 
 		names := rel.Root.Names
-		if !isRecordTypeSupported(input) {
+		if isRecordTypeSupported(input) {
 			if err := validateRootNamesForSchema(input.RecordType(), names); err != nil {
 				return err
 			}
@@ -258,12 +258,8 @@ func (p *Plan) ToProto() (*proto.Plan, error) {
 
 // validateRootNamesForSchema checks that the number of root output names
 // matches the depth-first field count of the given record type.
-// Empty names are always valid (names are optional per the spec).
+// Per the spec, root relations have field names (https://substrait.io/faq).
 func validateRootNamesForSchema(recordType types.RecordType, names []string) error {
-	if len(names) == 0 {
-		return nil
-	}
-
 	expected := recordType.AsStructType().DepthFirstNameCount()
 	if len(names) != expected {
 		return fmt.Errorf("%w: root relation has %d output name(s) but the output schema requires %d",
