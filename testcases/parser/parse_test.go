@@ -326,6 +326,33 @@ some_func([[1, null, 2], [3, 4]]::list<list<i32?>>) = true::bool
 	assert.Equal(t, expected, testFile.TestCases[0].Args[0].Value)
 }
 
+func TestParseTriplyNestedListLiteral(t *testing.T) {
+	header := makeHeader("v1.0", "/extensions/functions_list.yaml")
+	tests := `# basic
+some_func([[[1, 2], [3]], [[4]]]::list<list<list<i32>>>) = true::bool
+`
+	testFile, err := ParseTestCasesFromString(header + tests)
+	require.NoError(t, err)
+
+	i32Type := &types.Int32Type{Nullability: types.NullabilityRequired}
+	expectedType := &types.ListType{
+		Type: &types.ListType{
+			Type:        &types.ListType{Type: i32Type, Nullability: types.NullabilityRequired},
+			Nullability: types.NullabilityRequired,
+		},
+		Nullability: types.NullabilityRequired,
+	}
+	assert.Equal(t, expectedType, testFile.TestCases[0].Args[0].Type)
+
+	leaf1, _ := literal.NewList([]expr.Literal{literal.NewInt32(1, false), literal.NewInt32(2, false)}, false)
+	leaf2, _ := literal.NewList([]expr.Literal{literal.NewInt32(3, false)}, false)
+	leaf3, _ := literal.NewList([]expr.Literal{literal.NewInt32(4, false)}, false)
+	mid1, _ := literal.NewList([]expr.Literal{leaf1, leaf2}, false)
+	mid2, _ := literal.NewList([]expr.Literal{leaf3}, false)
+	expected, _ := literal.NewList([]expr.Literal{mid1, mid2}, false)
+	assert.Equal(t, expected, testFile.TestCases[0].Args[0].Value)
+}
+
 func TestParseEmptyListArg(t *testing.T) {
 	header := makeHeader("v1.0", "/extensions/functions_list.yaml")
 	tests := `# basic
