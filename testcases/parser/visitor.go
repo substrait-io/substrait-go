@@ -667,10 +667,7 @@ func (v *TestCaseVisitor) VisitPrecisionTimestampTZArg(ctx *baseparser.Precision
 
 func (v *TestCaseVisitor) VisitListArg(ctx *baseparser.ListArgContext) interface{} {
 	listType := v.Visit(ctx.ListType()).(*types.ListType)
-	v.setLiteralTypeInContext(listType.Type)
-	defer v.clearLiteralTypeInContext()
-
-	values := v.Visit(ctx.LiteralList()).([]expr.Literal)
+	values := v.processLiteralList(ctx.LiteralList(), listType.Type)
 
 	if len(values) == 0 {
 		value := expr.NewEmptyListLiteral(listType.Type, false)
@@ -684,56 +681,51 @@ func (v *TestCaseVisitor) VisitListArg(ctx *baseparser.ListArgContext) interface
 	return &CaseLiteral{Value: value, Type: listType}
 }
 
-func (v *TestCaseVisitor) VisitLiteralList(ctx *baseparser.LiteralListContext) interface{} {
-	elements := ctx.AllListElement()
-	literals := make([]expr.Literal, 0, len(elements))
-	for _, elemCtx := range elements {
-		result := v.Visit(elemCtx)
-		if result == nil {
-			// Child visitor already reported the error via ErrorListener.
-			continue
+func (v *TestCaseVisitor) processLiteralList(ctx baseparser.ILiteralListContext, elemType types.Type) []expr.Literal {
+	literals := make([]expr.Literal, 0, len(ctx.AllListElement()))
+	for _, elemCtx := range ctx.AllListElement() {
+		if elemCtx.Literal() != nil {
+			lit := v.processLiteral(elemCtx.Literal(), elemType)
+			if lit != nil {
+				literals = append(literals, lit)
+			}
+		} else if elemCtx.LiteralList() != nil {
+			innerListType, ok := elemType.(*types.ListType)
+			if !ok {
+				v.ErrorListener.ReportVisitError(elemCtx, fmt.Errorf("expected list element type for nested list, got %T", elemType))
+				continue
+			}
+			inner := v.processLiteralList(elemCtx.LiteralList(), innerListType.Type)
+			if len(inner) == 0 {
+				literals = append(literals, expr.NewEmptyListLiteral(innerListType.Type, false))
+			} else {
+				value, err := literal.NewList(inner, false)
+				if err != nil {
+					v.ErrorListener.ReportVisitError(elemCtx, fmt.Errorf("invalid nested list %v", err))
+					continue
+				}
+				literals = append(literals, value)
+			}
+		} else {
+			v.ErrorListener.ReportVisitError(elemCtx, fmt.Errorf("unexpected list element type"))
 		}
-		literals = append(literals, result.(expr.Literal))
 	}
 	return literals
 }
 
-func (v *TestCaseVisitor) VisitListElement(ctx *baseparser.ListElementContext) interface{} {
-	if ctx.Literal() != nil {
-		return v.Visit(ctx.Literal())
-	}
-	if ctx.LiteralList() != nil {
-		// For nested lists like [[1,2],[3,4]]::list<list<i32>>, the parent context
-		// has the element type set to list<i32>. We need to unwrap one level so
-		// that inner literals resolve against i32 instead of list<i32>.
-		parentType := v.getLiteralTypeInContext()
-		if lt, ok := parentType.(*types.ListType); ok {
-			v.setLiteralTypeInContext(lt.Type)
-			defer v.setLiteralTypeInContext(parentType)
-		}
+func (v *TestCaseVisitor) VisitLiteralList(ctx *baseparser.LiteralListContext) interface{} {
+	panic("unreachable: use processLiteralList")
+}
 
-		values := v.Visit(ctx.LiteralList()).([]expr.Literal)
-		if len(values) == 0 {
-			// For empty nested lists, use the element type from the parent list context
-			if elemType := v.getLiteralTypeInContext(); elemType != nil {
-				if lt, ok := elemType.(*types.ListType); ok {
-					return expr.NewEmptyListLiteral(lt.Type, false)
-				}
-			}
-			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("cannot determine element type for empty nested list"))
-			return nil
-		}
-		value, err := literal.NewList(values, false)
-		if err != nil {
-			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid nested list %v", err))
-		}
-		return value
-	}
-	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("unexpected list element type"))
-	return nil
+func (v *TestCaseVisitor) VisitListElement(ctx *baseparser.ListElementContext) interface{} {
+	panic("unreachable: use processLiteralList")
 }
 
 func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface{} {
+	panic("unreachable: use processLiteral")
+}
+
+func (v *TestCaseVisitor) processLiteral(ctx baseparser.ILiteralContext, elemType types.Type) expr.Literal {
 	if ctx.BooleanLiteral() != nil {
 		flag := strings.ToLower(ctx.BooleanLiteral().GetText()) == "true"
 		return literal.NewBool(flag, false)
@@ -788,11 +780,11 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 	}
 
 	if ctx.NumericLiteral() != nil {
-		if v.getLiteralTypeInContext() == nil {
+		if elemType == nil {
 			// in compactAggregateFuncCall context, the type is not set, full schema of table may not be available
 			return literal.NewString(ctx.NumericLiteral().GetText(), false)
 		}
-		value := v.getLiteralFromString(nil, ctx.NumericLiteral().GetText(), v.getLiteralTypeInContext())
+		value := v.getLiteralFromString(ctx, ctx.NumericLiteral().GetText(), elemType)
 		if value == nil {
 			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid numeric arg %v", ctx.GetText()))
 		}
@@ -806,7 +798,7 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 	}
 
 	if ctx.NullLiteral() != nil {
-		nullType := v.getLiteralTypeInContext()
+		nullType := elemType
 		if nullType == nil {
 			// Use a dummy type for null literal. This happens in AggregateFuncCall context, where type is not set
 			nullType = &types.DecimalType{Precision: 38, Scale: 0, Nullability: types.NullabilityNullable}
