@@ -296,6 +296,79 @@ some_func('abc'::str, 'def'::str) = [1, 2, 3, 4, 5, 6]::List<i8>`
 	assert.Equal(t, i8List, testFile.TestCases[0].Result.Type)
 }
 
+func TestParseNestedListLiteral(t *testing.T) {
+	header := makeHeader("v1.0", "/extensions/functions_list.yaml")
+	tests := `# basic
+some_func([[1, null, 2], [3, 4]]::list<list<i32?>>) = true::bool
+`
+	testFile, err := ParseTestCasesFromString(header + tests)
+	require.NoError(t, err)
+
+	expectedType := &types.ListType{
+		Type: &types.ListType{
+			Type:        &types.Int32Type{Nullability: types.NullabilityNullable},
+			Nullability: types.NullabilityRequired,
+		},
+		Nullability: types.NullabilityRequired,
+	}
+	assert.Equal(t, expectedType, testFile.TestCases[0].Args[0].Type)
+
+	inner1, _ := literal.NewList([]expr.Literal{
+		literal.NewInt32(1, true),
+		expr.NewNullLiteral(&types.Int32Type{Nullability: types.NullabilityNullable}),
+		literal.NewInt32(2, true),
+	}, false)
+	inner2, _ := literal.NewList([]expr.Literal{
+		literal.NewInt32(3, true),
+		literal.NewInt32(4, true),
+	}, false)
+	expected, _ := literal.NewList([]expr.Literal{inner1, inner2}, false)
+	assert.Equal(t, expected, testFile.TestCases[0].Args[0].Value)
+}
+
+func TestParseTriplyNestedListLiteral(t *testing.T) {
+	header := makeHeader("v1.0", "/extensions/functions_list.yaml")
+	tests := `# basic
+some_func([[[1, 2], [3]], [[4]]]::list<list<list<i32>>>) = true::bool
+`
+	testFile, err := ParseTestCasesFromString(header + tests)
+	require.NoError(t, err)
+
+	i32Type := &types.Int32Type{Nullability: types.NullabilityRequired}
+	expectedType := &types.ListType{
+		Type: &types.ListType{
+			Type:        &types.ListType{Type: i32Type, Nullability: types.NullabilityRequired},
+			Nullability: types.NullabilityRequired,
+		},
+		Nullability: types.NullabilityRequired,
+	}
+	assert.Equal(t, expectedType, testFile.TestCases[0].Args[0].Type)
+
+	leaf1, _ := literal.NewList([]expr.Literal{literal.NewInt32(1, false), literal.NewInt32(2, false)}, false)
+	leaf2, _ := literal.NewList([]expr.Literal{literal.NewInt32(3, false)}, false)
+	leaf3, _ := literal.NewList([]expr.Literal{literal.NewInt32(4, false)}, false)
+	mid1, _ := literal.NewList([]expr.Literal{leaf1, leaf2}, false)
+	mid2, _ := literal.NewList([]expr.Literal{leaf3}, false)
+	expected, _ := literal.NewList([]expr.Literal{mid1, mid2}, false)
+	assert.Equal(t, expected, testFile.TestCases[0].Args[0].Value)
+}
+
+func TestParseEmptyListArg(t *testing.T) {
+	header := makeHeader("v1.0", "/extensions/functions_list.yaml")
+	tests := `# basic
+some_func([]::list<i32>) = true::bool
+`
+	testFile, err := ParseTestCasesFromString(header + tests)
+	require.NoError(t, err)
+
+	expectedType := &types.ListType{
+		Type:        &types.Int32Type{Nullability: types.NullabilityRequired},
+		Nullability: types.NullabilityRequired,
+	}
+	assert.Equal(t, expectedType, testFile.TestCases[0].Args[0].Type)
+	assert.Equal(t, expr.NewEmptyListLiteral(&types.Int32Type{Nullability: types.NullabilityRequired}, false), testFile.TestCases[0].Args[0].Value)
+}
+
 func TestScalarOptions(t *testing.T) {
 	header := makeHeader("v1.0", "extensions/functions_string.yaml")
 	tests := `# stuff
@@ -843,9 +916,11 @@ func TestLoadAllSubstraitTestFiles(t *testing.T) {
 			case "tests/cases/datetime/extract.test":
 				// TODO deal with enum arguments in testcase
 				t.Skip("Skipping extract.test")
-			case "tests/cases/list/filter.test":
-				fallthrough
-			case "tests/cases/list/transform.test":
+			case "tests/cases/list/all_match.test",
+				"tests/cases/list/any_match.test",
+				"tests/cases/list/filter.test",
+				"tests/cases/list/transform.test":
+				// TODO(#211): implement lambda argument parsing
 				t.Skip("Skipping tests that require lambda support")
 			}
 

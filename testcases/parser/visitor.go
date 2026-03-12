@@ -415,7 +415,16 @@ func (v *TestCaseVisitor) VisitArgument(ctx *baseparser.ArgumentContext) interfa
 	if ctx.ListArg() != nil {
 		return v.Visit(ctx.ListArg())
 	}
-
+	if ctx.IntervalCompoundArg() != nil {
+		// TODO(#209): implement when substrait test cases use interval compound args
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("interval compound argument not yet implemented"))
+		return &CaseLiteral{}
+	}
+	if ctx.LambdaArg() != nil {
+		// TODO(#211): implement lambda argument parsing
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("lambda argument not yet implemented"))
+		return &CaseLiteral{}
+	}
 	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("argument type not implemented, arg %s", ctx.GetText()))
 	return &CaseLiteral{}
 }
@@ -663,6 +672,11 @@ func (v *TestCaseVisitor) VisitListArg(ctx *baseparser.ListArgContext) interface
 
 	values := v.Visit(ctx.LiteralList()).([]expr.Literal)
 
+	if len(values) == 0 {
+		value := expr.NewEmptyListLiteral(listType.Type, false)
+		return &CaseLiteral{Value: value, Type: listType}
+	}
+
 	value, err := literal.NewList(values, false)
 	if err != nil {
 		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid list arg %v", err))
@@ -671,11 +685,52 @@ func (v *TestCaseVisitor) VisitListArg(ctx *baseparser.ListArgContext) interface
 }
 
 func (v *TestCaseVisitor) VisitLiteralList(ctx *baseparser.LiteralListContext) interface{} {
-	literals := make([]expr.Literal, 0, len(ctx.AllLiteral()))
-	for _, literalCtx := range ctx.AllLiteral() {
-		literals = append(literals, v.Visit(literalCtx).(expr.Literal))
+	elements := ctx.AllListElement()
+	literals := make([]expr.Literal, 0, len(elements))
+	for _, elemCtx := range elements {
+		result := v.Visit(elemCtx)
+		if result == nil {
+			// Child visitor already reported the error via ErrorListener.
+			continue
+		}
+		literals = append(literals, result.(expr.Literal))
 	}
 	return literals
+}
+
+func (v *TestCaseVisitor) VisitListElement(ctx *baseparser.ListElementContext) interface{} {
+	if ctx.Literal() != nil {
+		return v.Visit(ctx.Literal())
+	}
+	if ctx.LiteralList() != nil {
+		// For nested lists like [[1,2],[3,4]]::list<list<i32>>, the parent context
+		// has the element type set to list<i32>. We need to unwrap one level so
+		// that inner literals resolve against i32 instead of list<i32>.
+		parentType := v.getLiteralTypeInContext()
+		if lt, ok := parentType.(*types.ListType); ok {
+			v.setLiteralTypeInContext(lt.Type)
+			defer v.setLiteralTypeInContext(parentType)
+		}
+
+		values := v.Visit(ctx.LiteralList()).([]expr.Literal)
+		if len(values) == 0 {
+			// For empty nested lists, use the element type from the parent list context
+			if elemType := v.getLiteralTypeInContext(); elemType != nil {
+				if lt, ok := elemType.(*types.ListType); ok {
+					return expr.NewEmptyListLiteral(lt.Type, false)
+				}
+			}
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("cannot determine element type for empty nested list"))
+			return nil
+		}
+		value, err := literal.NewList(values, false)
+		if err != nil {
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid nested list %v", err))
+		}
+		return value
+	}
+	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("unexpected list element type"))
+	return nil
 }
 
 func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface{} {
@@ -900,6 +955,19 @@ func (v *TestCaseVisitor) VisitParameterizedType(ctx *baseparser.ParameterizedTy
 	}
 	if ctx.FixedBinaryType() != nil {
 		return v.Visit(ctx.FixedBinaryType())
+	}
+	if ctx.IntervalCompoundType() != nil {
+		// TODO(#209): implement when substrait test cases use interval compound types
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("interval compound type not yet implemented"))
+		return nil
+	}
+	if ctx.ListType() != nil {
+		return v.Visit(ctx.ListType())
+	}
+	if ctx.FuncType() != nil {
+		// TODO(#211): implement func type parsing for lambda support
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("func type not yet implemented"))
+		return nil
 	}
 
 	return nil
