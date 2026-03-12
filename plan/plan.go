@@ -103,8 +103,10 @@ func (r *Relation) FromProto(p *proto.PlanRel, reg expr.ExtensionRegistry) error
 		}
 
 		names := rel.Root.Names
-		if err := validateRootNamesFromProto(input, names); err != nil {
-			return err
+		if !isRecordTypeSupported(input) {
+			if err := validateRootNamesForSchema(input.RecordType(), names); err != nil {
+				return err
+			}
 		}
 
 		r.root = &Root{
@@ -270,31 +272,23 @@ func validateRootNamesForSchema(recordType types.RecordType, names []string) err
 	return nil
 }
 
-// validateRootNamesFromProto checks root output names during deserialization.
-// It skips validation for extension relations whose schema may be lost
-// during deserialization, and for write relations whose output schema
-// depends on runtime output mode.
-func validateRootNamesFromProto(input Rel, names []string) error {
-	if len(names) == 0 {
-		return nil
-	}
-
-	switch rel := input.(type) {
+// canSafelyCallRecordType reports whether the relation's RecordType() can be
+// called without panicking or returning incorrect results. Some relation types
+// have incomplete implementations that panic or guess.
+// TODO(#210): remove this once RecordType() is fixed for all relation types.
+func isRecordTypeSupported(rel Rel) bool {
+	switch r := rel.(type) {
 	case *ExtensionSingleRel, *ExtensionLeafRel, *ExtensionMultiRel:
-		// Schema is unreliable after deserialization (UndecodedExtension guesses).
-		return nil
+		return false // TODO(#210): UndecodedExtension.Schema() guesses or returns empty
 	case *NamedTableWriteRel:
-		// RecordType() panics when outputMode is unspecified (proto zero-value).
-		return nil
+		return false // TODO(#210): panics when outputMode is unspecified
 	case *JoinRel:
-		switch rel.joinType {
+		switch r.joinType {
 		case JoinTypeRightSemi, JoinTypeRightAnti, JoinTypeRightSingle:
-			// directOutputSchema() panics for these join types (not yet implemented).
-			return nil
+			return false // TODO(#210) panics: not yet implemented
 		}
 	}
-
-	return validateRootNamesForSchema(input.RecordType(), names)
+	return true
 }
 
 // Root is a relation with output field names.
