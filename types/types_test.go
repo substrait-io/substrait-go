@@ -654,6 +654,44 @@ func TestStructTypeDepthFirstNameCount(t *testing.T) {
 			}},
 			expected: 3, // outer struct field, inner struct field, i32
 		},
+		// Spec examples from https://substrait.io/relations/basics
+		{
+			// struct<i64, list<i64>, map<i64, i64>, i64>
+			// names: [a, b, c, d]
+			name: "spec: simple named struct",
+			st: &StructType{Types: []Type{
+				&Int64Type{}, &ListType{Type: &Int64Type{}},
+				&MapType{Key: &Int64Type{}, Value: &Int64Type{}}, &Int64Type{},
+			}},
+			expected: 4,
+		},
+		{
+			// struct<i64, list<struct<i64, i64>>, map<i64, struct<i64, i64>>, i64>
+			// names: [a, b, c, d, e, f, g, h]
+			name: "spec: structs in compound types",
+			st: &StructType{Types: []Type{
+				&Int64Type{},
+				&ListType{Type: &StructType{Types: []Type{&Int64Type{}, &Int64Type{}}}},
+				&MapType{Key: &Int64Type{}, Value: &StructType{Types: []Type{&Int64Type{}, &Int64Type{}}}},
+				&Int64Type{},
+			}},
+			expected: 8,
+		},
+		{
+			// struct<i64, struct<i64, struct<i64, i64>, i64, struct<i64, i64>>>
+			// names: [a, b, c, d, e, f, g, h, i, j]
+			name: "spec: structs in structs",
+			st: &StructType{Types: []Type{
+				&Int64Type{},
+				&StructType{Types: []Type{
+					&Int64Type{},
+					&StructType{Types: []Type{&Int64Type{}, &Int64Type{}}},
+					&Int64Type{},
+					&StructType{Types: []Type{&Int64Type{}, &Int64Type{}}},
+				}},
+			}},
+			expected: 10,
+		},
 	}
 
 	for _, tc := range tests {
