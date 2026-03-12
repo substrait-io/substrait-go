@@ -557,257 +557,9 @@ scalar_functions:
 	assert.Contains(t, err.Error(), "already loaded")
 }
 
-func TestGetExtensionSetWithURIAndURN(t *testing.T) {
-	// Create a plan with 3 extension functions demonstrating different reference patterns:
-	// 1. Only extensionUrnReference (URN anchor 1)
-	// 2. Only extensionUriReference (URI anchor 1)
-	// 3. Both extensionUrnReference and extensionUriReference (should validate consistency)
-	plan := &proto.Plan{
-		ExtensionUris: []*extensionspb.SimpleExtensionURI{
-			{
-				ExtensionUriAnchor: 1,
-				Uri:                "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml",
-			},
-		},
-		ExtensionUrns: []*extensionspb.SimpleExtensionURN{
-			{
-				ExtensionUrnAnchor: 11,
-				Urn:                "extension:io.substrait:functions_arithmetic",
-			},
-		},
-		Extensions: []*extensionspb.SimpleExtensionDeclaration{
-			{
-				MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
-					ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
-						ExtensionUrnReference: 11,
-						FunctionAnchor:        10,
-						Name:                  "add:i32_i32",
-					},
-				},
-			},
-			{
-				MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
-					ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
-						ExtensionUriReference: 1,
-						FunctionAnchor:        20,
-						Name:                  "multiply:i32_i32",
-					},
-				},
-			},
-			{
-				MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
-					ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
-						ExtensionUrnReference: 11,
-						ExtensionUriReference: 1,
-						FunctionAnchor:        30,
-						Name:                  "divide:i32_i32",
-					},
-				},
-			},
-		},
-		Relations: []*proto.PlanRel{},
-	}
-
-	collection := extensions.GetDefaultCollectionWithNoError()
-	extSet, err := extensions.GetExtensionSet(plan, collection)
-	require.NoError(t, err)
-
-	// Extension 1: extensionUrnReference pointing to URN anchor
-	id1, ok := extSet.DecodeFunc(10)
-	require.True(t, ok)
-	assert.Equal(t, "extension:io.substrait:functions_arithmetic", id1.URN)
-	assert.Equal(t, "add:i32_i32", id1.Name)
-
-	// Extension 2: extensionUriReference pointing to URI anchor
-	id2, ok := extSet.DecodeFunc(20)
-	require.True(t, ok)
-	assert.Equal(t, "extension:io.substrait:functions_arithmetic", id2.URN)
-	assert.Equal(t, "multiply:i32_i32", id2.Name)
-
-	// Extension 3: Both extensionUrnReference and extensionUriReference  - should validate consistency
-	id3, ok := extSet.DecodeFunc(30)
-	require.True(t, ok)
-	assert.Equal(t, "extension:io.substrait:functions_arithmetic", id3.URN)
-	assert.Equal(t, "divide:i32_i32", id3.Name)
-}
-
-func TestGetExtensionSetWithUnknownURI(t *testing.T) {
-	// Create a plan with a URI that doesn't have a URN mapping in the collection
-	plan := &proto.Plan{
-		ExtensionUris: []*extensionspb.SimpleExtensionURI{
-			{
-				ExtensionUriAnchor: 1,
-				Uri:                "https://example.com/unknown_extension.yaml",
-			},
-		},
-		Extensions: []*extensionspb.SimpleExtensionDeclaration{
-			{
-				MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
-					ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
-						ExtensionUriReference: 1,
-						FunctionAnchor:        10,
-						Name:                  "unknown_function",
-					},
-				},
-			},
-		},
-		Relations: []*proto.PlanRel{},
-	}
-
-	collection := extensions.GetDefaultCollectionWithNoError()
-	extSet, err := extensions.GetExtensionSet(plan, collection)
-	require.Error(t, err)
-	require.Nil(t, extSet)
-	assert.Contains(t, err.Error(), "extension URI not resolvable")
-}
-
-func TestGetExtensionSetWithMissingAnchor(t *testing.T) {
-	// Create a plan with a reference to an anchor that doesn't exist
-	plan := &proto.Plan{
-		ExtensionUris: []*extensionspb.SimpleExtensionURI{
-			{
-				ExtensionUriAnchor: 1,
-				Uri:                "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml",
-			},
-		},
-		Extensions: []*extensionspb.SimpleExtensionDeclaration{
-			{
-				MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
-					ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
-						ExtensionUriReference: 99, // This anchor doesn't exist!
-						FunctionAnchor:        10,
-						Name:                  "unknown_function",
-					},
-				},
-			},
-		},
-		Relations: []*proto.PlanRel{},
-	}
-
-	collection := extensions.GetDefaultCollectionWithNoError()
-	extSet, err := extensions.GetExtensionSet(plan, collection)
-	require.Error(t, err)
-	require.Nil(t, extSet)
-	assert.Contains(t, err.Error(), "unable to resolve extension reference")
-}
-
-// TestGetExtensionSetWithInvalidURN tests that URN references to non-existent URNs are rejected
-func TestGetExtensionSetWithInvalidURN(t *testing.T) {
-	// Create a plan with a URN that doesn't exist in the collection
-	plan := &proto.Plan{
-		ExtensionUrns: []*extensionspb.SimpleExtensionURN{
-			{
-				ExtensionUrnAnchor: 1,
-				Urn:                "extension:nonexistent:extension",
-			},
-		},
-		Extensions: []*extensionspb.SimpleExtensionDeclaration{
-			{
-				MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
-					ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
-						ExtensionUrnReference: 1,
-						FunctionAnchor:        10,
-						Name:                  "nonexistent_function",
-					},
-				},
-			},
-		},
-		Relations: []*proto.PlanRel{},
-	}
-
-	collection := extensions.GetDefaultCollectionWithNoError()
-	extSet, err := extensions.GetExtensionSet(plan, collection)
-	require.Error(t, err)
-	require.Nil(t, extSet)
-	assert.Contains(t, err.Error(), "not found")
-	assert.Contains(t, err.Error(), "extension:nonexistent:extension")
-}
-
-// TestExtensionValidationEdgeCases tests various edge cases in extension validation
-func TestExtensionValidationEdgeCases(t *testing.T) {
-	collection := extensions.GetDefaultCollectionWithNoError()
-
-	t.Run("empty URN string", func(t *testing.T) {
-		plan := &proto.Plan{
-			ExtensionUrns: []*extensionspb.SimpleExtensionURN{
-				{ExtensionUrnAnchor: 1, Urn: ""}, // Empty URN
-			},
-			Extensions: []*extensionspb.SimpleExtensionDeclaration{
-				{
-					MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
-						ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
-							ExtensionUrnReference: 1,
-							FunctionAnchor:        10,
-							Name:                  "test_function",
-						},
-					},
-				},
-			},
-		}
-
-		_, err := extensions.GetExtensionSet(plan, collection)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "not found")
-	})
-
-	t.Run("zero URN reference", func(t *testing.T) {
-		plan := &proto.Plan{
-			Extensions: []*extensionspb.SimpleExtensionDeclaration{
-				{
-					MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
-						ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
-							ExtensionUrnReference: 0, // Zero reference - should be treated as "no reference"
-							ExtensionUriReference: 0, // Both zero
-							FunctionAnchor:        10,
-							Name:                  "test_function",
-						},
-					},
-				},
-			},
-		}
-
-		_, err := extensions.GetExtensionSet(plan, collection)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "unable to resolve extension reference")
-	})
-
-	t.Run("both URI and URN resolve to same extension", func(t *testing.T) {
-		// This documents that when both URI and URN are provided, URN takes precedence
-		plan := &proto.Plan{
-			ExtensionUris: []*extensionspb.SimpleExtensionURI{
-				{ExtensionUriAnchor: 1, Uri: "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"},
-			},
-			ExtensionUrns: []*extensionspb.SimpleExtensionURN{
-				{ExtensionUrnAnchor: 1, Urn: "extension:io.substrait:functions_arithmetic"},
-			},
-			Extensions: []*extensionspb.SimpleExtensionDeclaration{
-				{
-					MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
-						ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
-							ExtensionUriReference: 1, // Points to arithmetic functions
-							ExtensionUrnReference: 1, // Also points to arithmetic functions (same extension)
-							FunctionAnchor:        10,
-							Name:                  "add:i32_i32",
-						},
-					},
-				},
-			},
-		}
-
-		extSet, err := extensions.GetExtensionSet(plan, collection)
-		require.NoError(t, err)
-
-		id, ok := extSet.DecodeFunc(10)
-		require.True(t, ok)
-		assert.Equal(t, "extension:io.substrait:functions_arithmetic", id.URN)
-		assert.Equal(t, "add:i32_i32", id.Name)
-	})
-}
-
-func TestToProtoPopulatesBothURNAndURI(t *testing.T) {
+func TestToProtoPopulatesURN(t *testing.T) {
 	c := &extensions.Collection{}
-	err := c.Load("some/uri", strings.NewReader(sampleYAML))
-	require.NoError(t, err)
+	require.NoError(t, c.Load("some/uri", strings.NewReader(sampleYAML)))
 
 	plan := &proto.Plan{
 		ExtensionUrns: []*extensionspb.SimpleExtensionURN{
@@ -829,93 +581,21 @@ func TestToProtoPopulatesBothURNAndURI(t *testing.T) {
 	extSet, err := extensions.GetExtensionSet(plan, c)
 	require.NoError(t, err)
 
-	urns, uris, decls := extSet.ToProto(c)
+	urns, decls := extSet.ToProto(c)
 
-	expectedUrns := []*extensionspb.SimpleExtensionURN{
-		{ExtensionUrnAnchor: 1, Urn: "extension:test:sample"},
-	}
-	expectedUris := []*extensionspb.SimpleExtensionURI{
-		{ExtensionUriAnchor: 1, Uri: "some/uri"},
-	}
-	expectedDecls := []*extensionspb.SimpleExtensionDeclaration{
-		{
-			MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
-				ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
-					ExtensionUrnReference: 1,
-					ExtensionUriReference: 1,
-					FunctionAnchor:        1,
-					Name:                  "add:i8_i8",
-				},
-			},
-		},
-	}
-
-	assert.Equal(t, expectedUrns, urns)
-	assert.Equal(t, expectedUris, uris)
-	assert.Equal(t, expectedDecls, decls)
-}
-
-func TestToProtoPopulatesBothURNAndURIFromURIOnly(t *testing.T) {
-	c := &extensions.Collection{}
-	err := c.Load("some/uri", strings.NewReader(sampleYAML))
-	require.NoError(t, err)
-
-	plan := &proto.Plan{
-		ExtensionUris: []*extensionspb.SimpleExtensionURI{
-			{ExtensionUriAnchor: 1, Uri: "some/uri"},
-		},
-		Extensions: []*extensionspb.SimpleExtensionDeclaration{
-			{
-				MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
-					ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
-						ExtensionUriReference: 1, // Only URI reference, no URN reference
-						FunctionAnchor:        1,
-						Name:                  "add:i8_i8",
-					},
-				},
-			},
-		},
-	}
-
-	extSet, err := extensions.GetExtensionSet(plan, c)
-	require.NoError(t, err)
-
-	urns, uris, decls := extSet.ToProto(c)
-
-	expectedUrns := []*extensionspb.SimpleExtensionURN{
-		{ExtensionUrnAnchor: 1, Urn: "extension:test:sample"},
-	}
-	expectedUris := []*extensionspb.SimpleExtensionURI{
-		{ExtensionUriAnchor: 1, Uri: "some/uri"},
-	}
-	expectedDecls := []*extensionspb.SimpleExtensionDeclaration{
-		{
-			MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
-				ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
-					ExtensionUrnReference: 1,
-					ExtensionUriReference: 1,
-					FunctionAnchor:        1,
-					Name:                  "add:i8_i8",
-				},
-			},
-		},
-	}
-
-	assert.Equal(t, expectedUrns, urns)
-	assert.Equal(t, expectedUris, uris)
-	assert.Equal(t, expectedDecls, decls)
+	require.Len(t, urns, 1)
+	assert.Equal(t, "extension:test:sample", urns[0].Urn)
+	require.Len(t, decls, 1)
+	assert.Equal(t, "add:i8_i8", decls[0].GetExtensionFunction().Name)
+	assert.EqualValues(t, 1, decls[0].GetExtensionFunction().ExtensionUrnReference)
 }
 
 func TestResolveRefToURNAllConditions(t *testing.T) {
-	// Setup a collection with known URN/URI mappings
 	c := &extensions.Collection{}
 	err := c.Load("some/uri", strings.NewReader(sampleYAML))
 	require.NoError(t, err)
 
-	// Note: In protobuf, omitted fields get zero values, so many "zero reference" cases
-	// are actually the same. These tests cover all truly distinct resolution paths.
-
-	t.Run("1. non-zero URN reference found and valid", func(t *testing.T) {
+	t.Run("non-zero URN reference found and valid", func(t *testing.T) {
 		plan := &proto.Plan{
 			ExtensionUrns: []*extensionspb.SimpleExtensionURN{
 				{ExtensionUrnAnchor: 1, Urn: "extension:test:sample"},
@@ -924,7 +604,7 @@ func TestResolveRefToURNAllConditions(t *testing.T) {
 				{
 					MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
 						ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
-							ExtensionUrnReference: 1, // Non-zero URN reference
+							ExtensionUrnReference: 1,
 							FunctionAnchor:        1,
 							Name:                  "test_function",
 						},
@@ -937,13 +617,12 @@ func TestResolveRefToURNAllConditions(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, extSet)
 
-		// Should successfully resolve to the URN
 		id, ok := extSet.DecodeFunc(1)
 		require.True(t, ok)
 		assert.Equal(t, "extension:test:sample", id.URN)
 	})
 
-	t.Run("2. non-zero URN reference found but invalid", func(t *testing.T) {
+	t.Run("non-zero URN reference found but invalid", func(t *testing.T) {
 		plan := &proto.Plan{
 			ExtensionUrns: []*extensionspb.SimpleExtensionURN{
 				{ExtensionUrnAnchor: 1, Urn: "extension:nonexistent:urn"},
@@ -952,7 +631,7 @@ func TestResolveRefToURNAllConditions(t *testing.T) {
 				{
 					MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
 						ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
-							ExtensionUrnReference: 1, // Non-zero URN reference to invalid URN
+							ExtensionUrnReference: 1,
 							FunctionAnchor:        1,
 							Name:                  "test_function",
 						},
@@ -966,64 +645,10 @@ func TestResolveRefToURNAllConditions(t *testing.T) {
 		assert.Contains(t, err.Error(), "URN 'extension:nonexistent:urn' not found in extension collection")
 	})
 
-	t.Run("3. non-zero URI reference found and resolvable", func(t *testing.T) {
-		plan := &proto.Plan{
-			ExtensionUris: []*extensionspb.SimpleExtensionURI{
-				{ExtensionUriAnchor: 1, Uri: "some/uri"},
-			},
-			Extensions: []*extensionspb.SimpleExtensionDeclaration{
-				{
-					MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
-						ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
-							ExtensionUriReference: 1, // Non-zero URI reference
-							FunctionAnchor:        1,
-							Name:                  "test_function",
-						},
-					},
-				},
-			},
-		}
-
-		extSet, err := extensions.GetExtensionSet(plan, c)
-		require.NoError(t, err)
-		require.NotNil(t, extSet)
-
-		// Should successfully resolve URI to URN
-		id, ok := extSet.DecodeFunc(1)
-		require.True(t, ok)
-		assert.Equal(t, "extension:test:sample", id.URN)
-	})
-
-	t.Run("4. non-zero URI reference found but not resolvable", func(t *testing.T) {
-		plan := &proto.Plan{
-			ExtensionUris: []*extensionspb.SimpleExtensionURI{
-				{ExtensionUriAnchor: 1, Uri: "unknown/uri"},
-			},
-			Extensions: []*extensionspb.SimpleExtensionDeclaration{
-				{
-					MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
-						ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
-							ExtensionUriReference: 1, // Non-zero URI reference to unknown URI
-							FunctionAnchor:        1,
-							Name:                  "test_function",
-						},
-					},
-				},
-			},
-		}
-
-		_, err := extensions.GetExtensionSet(plan, c)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "cannot resolve URI 'unknown/uri' to URN")
-	})
-
-	t.Run("5. both zero URN and URI references found and consistent", func(t *testing.T) {
+	t.Run("zero URN reference with zero anchor defined", func(t *testing.T) {
 		plan := &proto.Plan{
 			ExtensionUrns: []*extensionspb.SimpleExtensionURN{
-				{ExtensionUrnAnchor: 0, Urn: "extension:test:sample"}, // Zero anchor
-			},
-			ExtensionUris: []*extensionspb.SimpleExtensionURI{
-				{ExtensionUriAnchor: 0, Uri: "some/uri"}, // Zero anchor
+				{ExtensionUrnAnchor: 0, Urn: "extension:test:sample"},
 			},
 			Extensions: []*extensionspb.SimpleExtensionDeclaration{
 				{
@@ -1041,49 +666,18 @@ func TestResolveRefToURNAllConditions(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, extSet)
 
-		// Should successfully resolve since URN and URI are consistent
 		id, ok := extSet.DecodeFunc(1)
 		require.True(t, ok)
 		assert.Equal(t, "extension:test:sample", id.URN)
 	})
 
-	t.Run("6. both zero URN and URI references found but inconsistent", func(t *testing.T) {
-		plan := &proto.Plan{
-			ExtensionUrns: []*extensionspb.SimpleExtensionURN{
-				{Urn: "extension:wrong:urn"}, // Zero anchor, wrong URN
-			},
-			ExtensionUris: []*extensionspb.SimpleExtensionURI{
-				{Uri: "some/uri"}, // Zero anchor, correct URI
-			},
-			Extensions: []*extensionspb.SimpleExtensionDeclaration{
-				{
-					MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
-						ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
-							// Missing URN/URI reference equivalent to 0
-							FunctionAnchor: 1,
-							Name:           "test_function",
-						},
-					},
-				},
-			},
-		}
-
-		_, err := extensions.GetExtensionSet(plan, c)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "URN mismatch: found URN \"extension:wrong:urn\" but expected \"extension:test:sample\" for URI \"some/uri\"")
-	})
-
-	// Note: Cases 7-10 are redundant with case 5 since omitted protobuf fields = zero values
-	// The truly distinct "zero reference" cases are already covered above
-
-	t.Run("11. neither URN nor URI reference resolvable", func(t *testing.T) {
+	t.Run("URN reference not resolvable", func(t *testing.T) {
 		plan := &proto.Plan{
 			Extensions: []*extensionspb.SimpleExtensionDeclaration{
 				{
 					MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
 						ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
-							ExtensionUrnReference: 99, // Non-existent URN reference
-							ExtensionUriReference: 99, // Non-existent URI reference
+							ExtensionUrnReference: 99,
 							FunctionAnchor:        1,
 							Name:                  "test_function",
 						},
@@ -1094,28 +688,7 @@ func TestResolveRefToURNAllConditions(t *testing.T) {
 
 		_, err := extensions.GetExtensionSet(plan, c)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "unable to resolve extension reference: neither URN reference 99 nor URI reference 99 could be resolved")
-	})
-
-	t.Run("12. zero URN and URI references but neither resolvable", func(t *testing.T) {
-		plan := &proto.Plan{
-			Extensions: []*extensionspb.SimpleExtensionDeclaration{
-				{
-					MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
-						ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
-							ExtensionUrnReference: 0, // Zero URN reference (no URN at anchor 0)
-							ExtensionUriReference: 0, // Zero URI reference (no URI at anchor 0)
-							FunctionAnchor:        1,
-							Name:                  "test_function",
-						},
-					},
-				},
-			},
-		}
-
-		_, err := extensions.GetExtensionSet(plan, c)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "unable to resolve extension reference: neither URN reference 0 nor URI reference 0 could be resolved")
+		assert.Contains(t, err.Error(), "unable to resolve extension reference: URN reference 99 could not be resolved")
 	})
 }
 

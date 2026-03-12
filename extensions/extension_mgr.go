@@ -378,13 +378,12 @@ type Set interface {
 	GetFuncAnchor(id ID) uint32
 	GetTypeVariationAnchor(id ID) uint32
 
-	ToProto(c *Collection) ([]*extensions.SimpleExtensionURN, []*extensions.SimpleExtensionURI, []*extensions.SimpleExtensionDeclaration)
+	ToProto(c *Collection) ([]*extensions.SimpleExtensionURN, []*extensions.SimpleExtensionDeclaration)
 }
 
 func NewSet() Set {
 	return &set{
 		urns:             make(map[uint32]string),
-		uris:             make(map[uint32]string),
 		funcMap:          make(map[uint32]ID),
 		funcs:            make(map[ID]uint32),
 		types:            make(map[ID]uint32),
@@ -396,7 +395,6 @@ func NewSet() Set {
 
 type set struct {
 	urns map[uint32]string
-	uris map[uint32]string
 
 	typesMap map[uint32]ID
 	types    map[ID]uint32
@@ -408,9 +406,8 @@ type set struct {
 	funcs   map[ID]uint32
 }
 
-func (e *set) ToProto(c *Collection) ([]*extensions.SimpleExtensionURN, []*extensions.SimpleExtensionURI, []*extensions.SimpleExtensionDeclaration) {
+func (e *set) ToProto(c *Collection) ([]*extensions.SimpleExtensionURN, []*extensions.SimpleExtensionDeclaration) {
 	urnBackRef := make(map[string]uint32)
-	uriBackRef := make(map[string]uint32)
 
 	urns := make([]*extensions.SimpleExtensionURN, 0, len(e.urns))
 	for anchor, urn := range e.urns {
@@ -424,36 +421,12 @@ func (e *set) ToProto(c *Collection) ([]*extensions.SimpleExtensionURN, []*exten
 	// Sort URN extensions by the anchor for consistent output
 	sort.Slice(urns, func(i, j int) bool { return urns[i].ExtensionUrnAnchor < urns[j].ExtensionUrnAnchor })
 
-	// Create URI extensions - for each URN, get the corresponding URI
-	uris := make([]*extensions.SimpleExtensionURI, 0, len(e.urns))
-	nextURIAnchor := uint32(1)
-	for _, urnExt := range urns {
-		uri, ok := c.urnUriBiMap.getUri(urnExt.Urn)
-		if !ok {
-			panic(fmt.Sprintf("URN %q has no corresponding URI in bidirectional map", urnExt.Urn))
-		}
-		uriBackRef[uri] = nextURIAnchor
-		uris = append(uris, &extensions.SimpleExtensionURI{
-			ExtensionUriAnchor: nextURIAnchor,
-			Uri:                uri,
-		})
-		nextURIAnchor++
-	}
-
 	decls := make([]*extensions.SimpleExtensionDeclaration, 0, len(e.types)+len(e.typeVariations)+len(e.funcs))
 	for id, anchor := range e.types {
-		// Get the corresponding URI anchor
-		uri, ok := c.urnUriBiMap.getUri(id.URN)
-		if !ok {
-			panic(fmt.Sprintf("URN %q has no corresponding URI in bidirectional map", id.URN))
-		}
-		uriRef := uriBackRef[uri]
-
 		decls = append(decls, &extensions.SimpleExtensionDeclaration{
 			MappingType: &extensions.SimpleExtensionDeclaration_ExtensionType_{
 				ExtensionType: &extensions.SimpleExtensionDeclaration_ExtensionType{
 					ExtensionUrnReference: urnBackRef[id.URN],
-					ExtensionUriReference: uriRef,
 					TypeAnchor:            anchor,
 					Name:                  id.Name,
 				},
@@ -467,18 +440,10 @@ func (e *set) ToProto(c *Collection) ([]*extensions.SimpleExtensionURN, []*exten
 	typesCount := len(decls)
 
 	for id, anchor := range e.typeVariations {
-		// Get the corresponding URI anchor
-		uri, ok := c.urnUriBiMap.getUri(id.URN)
-		if !ok {
-			panic(fmt.Sprintf("URN %q has no corresponding URI in bidirectional map", id.URN))
-		}
-		uriRef := uriBackRef[uri]
-
 		decls = append(decls, &extensions.SimpleExtensionDeclaration{
 			MappingType: &extensions.SimpleExtensionDeclaration_ExtensionTypeVariation_{
 				ExtensionTypeVariation: &extensions.SimpleExtensionDeclaration_ExtensionTypeVariation{
 					ExtensionUrnReference: urnBackRef[id.URN],
-					ExtensionUriReference: uriRef,
 					TypeVariationAnchor:   anchor,
 					Name:                  id.Name,
 				},
@@ -493,18 +458,10 @@ func (e *set) ToProto(c *Collection) ([]*extensions.SimpleExtensionURN, []*exten
 
 	typeVarCount := len(decls)
 	for id, anchor := range e.funcs {
-		// Get the corresponding URI anchor
-		uri, ok := c.urnUriBiMap.getUri(id.URN)
-		if !ok {
-			panic(fmt.Sprintf("URN %q has no corresponding URI in bidirectional map", id.URN))
-		}
-		uriRef := uriBackRef[uri]
-
 		decls = append(decls, &extensions.SimpleExtensionDeclaration{
 			MappingType: &extensions.SimpleExtensionDeclaration_ExtensionFunction_{
 				ExtensionFunction: &extensions.SimpleExtensionDeclaration_ExtensionFunction{
 					ExtensionUrnReference: urnBackRef[id.URN],
-					ExtensionUriReference: uriRef,
 					FunctionAnchor:        anchor,
 					Name:                  id.Name,
 				},
@@ -517,7 +474,7 @@ func (e *set) ToProto(c *Collection) ([]*extensions.SimpleExtensionURN, []*exten
 		return decls[i].GetExtensionFunction().GetFunctionAnchor() < decls[j].GetExtensionFunction().GetFunctionAnchor()
 	})
 
-	return urns, uris, decls
+	return urns, decls
 }
 
 func (e *set) LookupWindowFunction(anchor uint32, c *Collection) (sv *WindowFunctionVariant, ok bool) {
@@ -665,27 +622,17 @@ func (e *set) addOrGetURN(urn string) (uint32, error) {
 
 type TopLevel interface {
 	GetExtensionUrns() []*extensions.SimpleExtensionURN
-	GetExtensionUris() []*extensions.SimpleExtensionURI
 	GetExtensions() []*extensions.SimpleExtensionDeclaration
 }
 
-// Adding Collection as an argument is a temporary workaround during the URI -> URN migration
-// This is because we want to encode functions using urn always. So if we encounter uris and not urns,
-// we need to first leverage the collection to convert from uri to urn
 func GetExtensionSet(plan TopLevel, c *Collection) (Set, error) {
 	urns := make(map[uint32]string)
 	for _, urn := range plan.GetExtensionUrns() {
 		urns[urn.ExtensionUrnAnchor] = urn.Urn
 	}
 
-	uris := make(map[uint32]string)
-	for _, uri := range plan.GetExtensionUris() {
-		uris[uri.ExtensionUriAnchor] = uri.Uri
-	}
-
 	ret := &set{
 		urns:             urns,
-		uris:             uris,
 		funcMap:          make(map[uint32]ID),
 		funcs:            make(map[ID]uint32),
 		typesMap:         make(map[uint32]ID),
@@ -694,72 +641,23 @@ func GetExtensionSet(plan TopLevel, c *Collection) (Set, error) {
 		typeVariations:   make(map[ID]uint32),
 	}
 
-	resolveRefToURN := func(uriRef, urnRef uint32) (string, error) {
-		// Because of the inability to differentiate zero references from absent references,
-		// we resolve in the following order of precedence
-		// 1. via non-zero urn
-		// 2. via non-zero uri
-		// 3. via both zero urn and zero uri if both resolve to a value (but check they are the same)
-		// 4. via zero urn if only it resolves to a value
-		// 5. via zero uri if only it resolves to a value
-		// Otherwise, we encounter an error case.
+	resolveRefToURN := func(urnRef uint32) (string, error) {
 		urn, urnOk := urns[urnRef]
-		uri, uriOk := uris[uriRef]
-		if urnRef != 0 && urnOk {
-			// Validate that the URN exists in the Collection
-			if _, found := c.urnUriBiMap.getUri(urn); !found {
-				return "", fmt.Errorf("%w: URN '%s' not found in extension collection", substraitgo.ErrNotFound, urn)
-			}
-			return urn, nil
+		if !urnOk {
+			return "", fmt.Errorf("unable to resolve extension reference: URN reference %d could not be resolved", urnRef)
 		}
-		if uriRef != 0 && uriOk {
-			deducedUrn, foundOk := c.urnUriBiMap.getUrn(uri)
-			if !foundOk {
-				return "", fmt.Errorf("%w: cannot resolve URI '%s' to URN", substraitgo.ErrExtensionURINotResolvable, uri)
-			}
-			if _, err := ret.addOrGetURN(deducedUrn); err != nil {
-				return "", fmt.Errorf("%w: failed to register URN '%s' (resolved from URI '%s') in extension set", err, deducedUrn, uri)
-			}
-			return deducedUrn, nil
+		// Validate that the URN exists in the Collection
+		if _, found := c.urnUriBiMap.getUri(urn); !found {
+			return "", fmt.Errorf("%w: URN '%s' not found in extension collection", substraitgo.ErrNotFound, urn)
 		}
-		if urnOk && uriOk {
-			expectedUrn, foundOk := c.urnUriBiMap.getUrn(uri)
-			if !foundOk {
-				return "", fmt.Errorf("%w: cannot resolve URI '%s' to URN", substraitgo.ErrExtensionURINotResolvable, uri)
-			}
-			if _, err := ret.addOrGetURN(urn); err != nil {
-				return "", fmt.Errorf("%w: failed to register URN '%s' (resolved from URI '%s') in extension set", err, urn, uri)
-			}
-			if urn == expectedUrn {
-				return urn, nil
-			}
-			return "", fmt.Errorf("URN mismatch: found URN %q but expected %q for URI %q", urn, expectedUrn, uri)
-		}
-		if urnOk {
-			// Validate that the URN exists in the Collection
-			if _, found := c.urnUriBiMap.getUri(urn); !found {
-				return "", fmt.Errorf("%w: URN '%s' not found in extension collection", substraitgo.ErrNotFound, urn)
-			}
-			return urn, nil
-		}
-		if uriOk {
-			deducedUrn, foundOk := c.urnUriBiMap.getUrn(uri)
-			if !foundOk {
-				return "", fmt.Errorf("%w: cannot resolve URI '%s' to URN", substraitgo.ErrExtensionURINotResolvable, uri)
-			}
-			if _, err := ret.addOrGetURN(urn); err != nil {
-				return "", fmt.Errorf("%w: failed to register URN '%s' (resolved from URI '%s') in extension set", err, urn, uri)
-			}
-			return deducedUrn, nil
-		}
-		return "", fmt.Errorf("unable to resolve extension reference: neither URN reference %d nor URI reference %d could be resolved", urnRef, uriRef)
+		return urn, nil
 	}
 
 	for _, ext := range plan.GetExtensions() {
 		switch e := ext.MappingType.(type) {
 		case *extensions.SimpleExtensionDeclaration_ExtensionTypeVariation_:
 			etv := e.ExtensionTypeVariation
-			urn, err := resolveRefToURN(etv.ExtensionUriReference, etv.ExtensionUrnReference)
+			urn, err := resolveRefToURN(etv.ExtensionUrnReference)
 			if err != nil {
 				return nil, err
 			}
@@ -769,7 +667,7 @@ func GetExtensionSet(plan TopLevel, c *Collection) (Set, error) {
 			})
 		case *extensions.SimpleExtensionDeclaration_ExtensionType_:
 			et := e.ExtensionType
-			urn, err := resolveRefToURN(et.ExtensionUriReference, et.ExtensionUrnReference)
+			urn, err := resolveRefToURN(et.ExtensionUrnReference)
 			if err != nil {
 				return nil, err
 			}
@@ -779,7 +677,7 @@ func GetExtensionSet(plan TopLevel, c *Collection) (Set, error) {
 			})
 		case *extensions.SimpleExtensionDeclaration_ExtensionFunction_:
 			ef := e.ExtensionFunction
-			urn, err := resolveRefToURN(ef.ExtensionUriReference, ef.ExtensionUrnReference)
+			urn, err := resolveRefToURN(ef.ExtensionUrnReference)
 			if err != nil {
 				return nil, err
 			}
