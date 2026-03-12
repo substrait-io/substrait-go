@@ -689,9 +689,11 @@ func (v *TestCaseVisitor) VisitLiteralList(ctx *baseparser.LiteralListContext) i
 	literals := make([]expr.Literal, 0, len(elements))
 	for _, elemCtx := range elements {
 		result := v.Visit(elemCtx)
-		if result != nil {
-			literals = append(literals, result.(expr.Literal))
+		if result == nil {
+			// Child visitor already reported the error via ErrorListener.
+			continue
 		}
+		literals = append(literals, result.(expr.Literal))
 	}
 	return literals
 }
