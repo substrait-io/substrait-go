@@ -43,18 +43,6 @@ func (v *TestCaseVisitor) clearLiteralTypeInContext() {
 	v.literalTypeInContext = nil
 }
 
-// withLiteralType temporarily sets the literal type context for the
-// duration of fn, then restores the previous value. This is used when
-// visiting child nodes that need to resolve literals against a
-// different type than the current context (e.g. unwrapping list<list<i32>>
-// to list<i32> when visiting inner list elements).
-func (v *TestCaseVisitor) withLiteralType(t types.Type, fn func()) {
-	prev := v.literalTypeInContext
-	v.literalTypeInContext = t
-	defer func() { v.literalTypeInContext = prev }()
-	fn()
-}
-
 var _ baseparser.FuncTestCaseParserVisitor = &TestCaseVisitor{}
 
 func (v *TestCaseVisitor) Visit(tree antlr.ParseTree) interface{} {
@@ -679,13 +667,20 @@ func (v *TestCaseVisitor) VisitPrecisionTimestampTZArg(ctx *baseparser.Precision
 
 func (v *TestCaseVisitor) VisitListArg(ctx *baseparser.ListArgContext) interface{} {
 	listType := v.Visit(ctx.ListType()).(*types.ListType)
+	v.setLiteralTypeInContext(listType.Type)
+	defer v.clearLiteralTypeInContext()
 
-	var values []expr.Literal
-	v.withLiteralType(listType.Type, func() {
-		values = v.Visit(ctx.LiteralList()).([]expr.Literal)
-	})
+	values := v.Visit(ctx.LiteralList()).([]expr.Literal)
 
-	value := v.buildListLiteral(ctx, listType.Type, values)
+	if len(values) == 0 {
+		value := expr.NewEmptyListLiteral(listType.Type, false)
+		return &CaseLiteral{Value: value, Type: listType}
+	}
+
+	value, err := literal.NewList(values, false)
+	if err != nil {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid list arg %v", err))
+	}
 	return &CaseLiteral{Value: value, Type: listType}
 }
 
@@ -694,11 +689,9 @@ func (v *TestCaseVisitor) VisitLiteralList(ctx *baseparser.LiteralListContext) i
 	literals := make([]expr.Literal, 0, len(elements))
 	for _, elemCtx := range elements {
 		result := v.Visit(elemCtx)
-		if result == nil {
-			// Child visitor already reported the error via ErrorListener.
-			continue
+		if result != nil {
+			literals = append(literals, result.(expr.Literal))
 		}
-		literals = append(literals, result.(expr.Literal))
 	}
 	return literals
 }
@@ -708,40 +701,34 @@ func (v *TestCaseVisitor) VisitListElement(ctx *baseparser.ListElementContext) i
 		return v.Visit(ctx.Literal())
 	}
 	if ctx.LiteralList() != nil {
-		return v.visitNestedList(ctx)
+		// For nested lists like [[1,2],[3,4]]::list<list<i32>>, the parent context
+		// has the element type set to list<i32>. We need to unwrap one level so
+		// that inner literals resolve against i32 instead of list<i32>.
+		parentType := v.getLiteralTypeInContext()
+		if lt, ok := parentType.(*types.ListType); ok {
+			v.setLiteralTypeInContext(lt.Type)
+			defer v.setLiteralTypeInContext(parentType)
+		}
+
+		values := v.Visit(ctx.LiteralList()).([]expr.Literal)
+		if len(values) == 0 {
+			// For empty nested lists, use the element type from the parent list context
+			if elemType := v.getLiteralTypeInContext(); elemType != nil {
+				if lt, ok := elemType.(*types.ListType); ok {
+					return expr.NewEmptyListLiteral(lt.Type, false)
+				}
+			}
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("cannot determine element type for empty nested list"))
+			return nil
+		}
+		value, err := literal.NewList(values, false)
+		if err != nil {
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid nested list %v", err))
+		}
+		return value
 	}
 	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("unexpected list element type"))
 	return nil
-}
-
-// visitNestedList handles a list element that is itself a list (e.g. [1,2] in [[1,2],[3,4]]).
-// It unwraps the parent list type so inner literals resolve against the element type.
-func (v *TestCaseVisitor) visitNestedList(ctx *baseparser.ListElementContext) interface{} {
-	var values []expr.Literal
-
-	innerType := v.getLiteralTypeInContext()
-	if lt, ok := innerType.(*types.ListType); ok {
-		innerType = lt.Type
-	}
-	v.withLiteralType(innerType, func() {
-		values = v.Visit(ctx.LiteralList()).([]expr.Literal)
-	})
-
-	return v.buildListLiteral(ctx, innerType, values)
-}
-
-// buildListLiteral constructs a list literal from the given values and element type.
-// literal.NewList requires at least one element to infer the type, so empty
-// lists must be constructed directly from the known type.
-func (v *TestCaseVisitor) buildListLiteral(ctx antlr.ParserRuleContext, elemType types.Type, values []expr.Literal) expr.Literal {
-	if len(values) == 0 {
-		return expr.NewEmptyListLiteral(elemType, false)
-	}
-	value, err := literal.NewList(values, false)
-	if err != nil {
-		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid list literal: %v", err))
-	}
-	return value
 }
 
 func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface{} {
