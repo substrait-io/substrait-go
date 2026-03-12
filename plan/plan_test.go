@@ -7,8 +7,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	substraitgo "github.com/substrait-io/substrait-go/v7"
 	"github.com/substrait-io/substrait-go/v7/expr"
 	"github.com/substrait-io/substrait-go/v7/extensions"
+	"github.com/substrait-io/substrait-go/v7/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	extensionspb "github.com/substrait-io/substrait-protobuf/go/substraitpb/extensions"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -141,6 +143,20 @@ func TestPlanRoundTripURIAndURNEquivalence(t *testing.T) {
 	assert.True(t, protobuf.Equal(protoFromURN, protoFromURI),
 		"Plans should be identical after round-trip conversion.\nURI-only plan: %s\nURN-only plan: %s",
 		protojson.Format(protoFromURI), protojson.Format(protoFromURN))
+}
+
+func TestRejectsMismatchedRootNames(t *testing.T) {
+	b := NewBuilderDefault()
+	scan := b.NamedScan([]string{"test"}, types.NamedStruct{
+		Names: []string{"a", "b"},
+		Struct: types.StructType{
+			Nullability: types.NullabilityRequired,
+			Types:       []types.Type{&types.Int64Type{}, &types.StringType{}},
+		},
+	})
+	_, err := b.Plan(scan, []string{"only_one"})
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+	assert.ErrorContains(t, err, "1 output name(s) but the output schema requires 2")
 }
 
 func TestFromProtoRightSemiJoinRootNames(t *testing.T) {
