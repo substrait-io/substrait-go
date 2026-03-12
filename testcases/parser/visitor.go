@@ -421,7 +421,9 @@ func (v *TestCaseVisitor) VisitArgument(ctx *baseparser.ArgumentContext) interfa
 		return &CaseLiteral{}
 	}
 	if ctx.LambdaArg() != nil {
-		return v.Visit(ctx.LambdaArg())
+		// TODO(#211): implement lambda argument parsing
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("lambda argument not yet implemented"))
+		return &CaseLiteral{}
 	}
 	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("argument type not implemented, arg %s", ctx.GetText()))
 	return &CaseLiteral{}
@@ -622,16 +624,6 @@ func (v *TestCaseVisitor) VisitIntervalDayArg(ctx *baseparser.IntervalDayArgCont
 		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid interval day arg %v", err))
 	}
 	return &CaseLiteral{Value: value, ValueText: ctx.IntervalDayLiteral().GetText(), Type: idayType}
-}
-
-func (v *TestCaseVisitor) VisitLambdaArg(ctx *baseparser.LambdaArgContext) interface{} {
-	funcType := v.Visit(ctx.FuncType()).(*types.FuncType)
-	// For the test framework, lambda arguments are used for function signature matching.
-	// We store a null literal of the func type as a placeholder — the test framework
-	// uses the Type field for matching and the Value as a FuncArg for invocation lookup.
-	// NewNullLiteral forces the type to nullable, so CaseLiteral.Type must match.
-	nullLit := expr.NewNullLiteral(funcType)
-	return &CaseLiteral{Value: nullLit, Type: nullLit.GetType()}
 }
 
 func (v *TestCaseVisitor) VisitDecimalArg(ctx *baseparser.DecimalArgContext) interface{} {
@@ -971,7 +963,9 @@ func (v *TestCaseVisitor) VisitParameterizedType(ctx *baseparser.ParameterizedTy
 		return v.Visit(ctx.ListType())
 	}
 	if ctx.FuncType() != nil {
-		return v.Visit(ctx.FuncType())
+		// TODO(#211): implement func type parsing for lambda support
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("func type not yet implemented"))
+		return nil
 	}
 
 	return nil
@@ -1036,27 +1030,4 @@ func (v *TestCaseVisitor) VisitVarCharType(ctx *baseparser.VarCharTypeContext) i
 func (v *TestCaseVisitor) VisitFixedBinaryType(ctx *baseparser.FixedBinaryTypeContext) interface{} {
 	length := v.Visit(ctx.GetLen_()).(int32)
 	return &types.FixedBinaryType{Length: length, Nullability: getNullability(ctx)}
-}
-
-func (v *TestCaseVisitor) VisitFuncType(ctx *baseparser.FuncTypeContext) interface{} {
-	paramTypes := v.Visit(ctx.GetParams()).([]types.Type)
-	returnType := v.Visit(ctx.GetReturnType()).(types.Type)
-	return &types.FuncType{
-		Nullability:    getNullability(ctx),
-		ParameterTypes: paramTypes,
-		ReturnType:     returnType,
-	}
-}
-
-func (v *TestCaseVisitor) VisitSingleFuncParam(ctx *baseparser.SingleFuncParamContext) interface{} {
-	return []types.Type{v.Visit(ctx.DataType()).(types.Type)}
-}
-
-func (v *TestCaseVisitor) VisitFuncParamsWithParens(ctx *baseparser.FuncParamsWithParensContext) interface{} {
-	dataTypes := ctx.AllDataType()
-	paramTypes := make([]types.Type, len(dataTypes))
-	for i, dt := range dataTypes {
-		paramTypes[i] = v.Visit(dt).(types.Type)
-	}
-	return paramTypes
 }
