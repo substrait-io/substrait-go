@@ -26,21 +26,8 @@ func getNullability(ctx isNull) types.Nullability {
 
 type TestCaseVisitor struct {
 	baseparser.FuncTestCaseParserVisitor
-	ErrorListener        util.VisitErrorListener
-	literalTypeInContext types.Type
-	testFuncType         TestFuncType
-}
-
-func (v *TestCaseVisitor) getLiteralTypeInContext() types.Type {
-	return v.literalTypeInContext
-}
-
-func (v *TestCaseVisitor) setLiteralTypeInContext(t types.Type) {
-	v.literalTypeInContext = t
-}
-
-func (v *TestCaseVisitor) clearLiteralTypeInContext() {
-	v.literalTypeInContext = nil
+	ErrorListener util.VisitErrorListener
+	testFuncType  TestFuncType
 }
 
 var _ baseparser.FuncTestCaseParserVisitor = &TestCaseVisitor{}
@@ -248,16 +235,12 @@ func (v *TestCaseVisitor) getColumnsFromRows(ctx antlr.ParserRuleContext, rows [
 
 func (v *TestCaseVisitor) VisitDataColumn(ctx *baseparser.DataColumnContext) interface{} {
 	columnType := v.Visit(ctx.DataType()).(types.Type)
-	v.setLiteralTypeInContext(columnType)
-	defer v.clearLiteralTypeInContext()
-	columnValues := v.Visit(ctx.ColumnValues()).([]expr.Literal)
+	columnValues := v.processColumnValues(ctx.ColumnValues(), columnType)
 	var err error
 	var column expr.Literal
 	if len(columnValues) == 0 {
 		column = expr.NewEmptyListLiteral(columnType, false)
 	} else {
-		v.setLiteralTypeInContext(columnType)
-		defer v.clearLiteralTypeInContext()
 		column, err = literal.NewList(columnValues, false)
 		if err != nil {
 			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid column values %v", err))
@@ -278,17 +261,21 @@ func (v *TestCaseVisitor) VisitDataColumn(ctx *baseparser.DataColumnContext) int
 func (v *TestCaseVisitor) VisitTableRows(ctx *baseparser.TableRowsContext) interface{} {
 	rows := make([][]expr.Literal, 0, len(ctx.AllColumnValues()))
 	for _, row := range ctx.AllColumnValues() {
-		rows = append(rows, v.Visit(row).([]expr.Literal))
+		rows = append(rows, v.processColumnValues(row, nil))
 	}
 	return rows
 }
 
-func (v *TestCaseVisitor) VisitColumnValues(ctx *baseparser.ColumnValuesContext) interface{} {
+func (v *TestCaseVisitor) processColumnValues(ctx baseparser.IColumnValuesContext, elemType types.Type) []expr.Literal {
 	values := make([]expr.Literal, 0, len(ctx.AllLiteral()))
-	for _, literalValue := range ctx.AllLiteral() {
-		values = append(values, v.Visit(literalValue).(expr.Literal))
+	for _, lit := range ctx.AllLiteral() {
+		values = append(values, v.processLiteral(lit, elemType))
 	}
 	return values
+}
+
+func (v *TestCaseVisitor) VisitColumnValues(_ *baseparser.ColumnValuesContext) interface{} {
+	panic("unreachable: use processColumnValues")
 }
 
 func (v *TestCaseVisitor) VisitAggregateFuncArgs(ctx *baseparser.AggregateFuncArgsContext) interface{} {
@@ -713,15 +700,15 @@ func (v *TestCaseVisitor) processLiteralList(ctx baseparser.ILiteralListContext,
 	return literals
 }
 
-func (v *TestCaseVisitor) VisitLiteralList(ctx *baseparser.LiteralListContext) interface{} {
+func (v *TestCaseVisitor) VisitLiteralList(_ *baseparser.LiteralListContext) interface{} {
 	panic("unreachable: use processLiteralList")
 }
 
-func (v *TestCaseVisitor) VisitListElement(ctx *baseparser.ListElementContext) interface{} {
+func (v *TestCaseVisitor) VisitListElement(_ *baseparser.ListElementContext) interface{} {
 	panic("unreachable: use processLiteralList")
 }
 
-func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface{} {
+func (v *TestCaseVisitor) VisitLiteral(_ *baseparser.LiteralContext) interface{} {
 	panic("unreachable: use processLiteral")
 }
 
