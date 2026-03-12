@@ -586,3 +586,117 @@ scalar_functions:
 	st := typeRegistry.GetSupportedTypes()
 	assert.Len(t, st, 8)
 }
+
+func TestStructTypeDepthFirstNameCount(t *testing.T) {
+	tests := []struct {
+		name     string
+		st       *StructType
+		expected int
+	}{
+		{
+			name:     "empty struct",
+			st:       &StructType{},
+			expected: 0,
+		},
+		{
+			name: "flat struct",
+			st: &StructType{Types: []Type{
+				&Int32Type{}, &StringType{},
+			}},
+			expected: 2,
+		},
+		{
+			name: "nested struct",
+			st: &StructType{Types: []Type{
+				&Int32Type{},
+				&StructType{Types: []Type{&StringType{}, &BooleanType{}}},
+			}},
+			expected: 4, // i32, struct, string, bool
+		},
+		{
+			name: "list and map with primitives don't add names",
+			st: &StructType{Types: []Type{
+				&ListType{Type: &Int32Type{}},
+				&MapType{Key: &StringType{}, Value: &Int32Type{}},
+			}},
+			expected: 2,
+		},
+		{
+			name: "struct inside list",
+			st: &StructType{Types: []Type{
+				&ListType{Type: &StructType{Types: []Type{&Int32Type{}, &StringType{}}}},
+			}},
+			expected: 3, // list field, then struct's i32 + string
+		},
+		{
+			name: "struct inside map value",
+			st: &StructType{Types: []Type{
+				&MapType{Key: &StringType{}, Value: &StructType{Types: []Type{&Int32Type{}}}},
+			}},
+			expected: 2, // map field, then struct's i32
+		},
+		{
+			name: "struct inside map key and value",
+			st: &StructType{Types: []Type{
+				&MapType{
+					Key:   &StructType{Types: []Type{&Int32Type{}}},
+					Value: &StructType{Types: []Type{&StringType{}, &BooleanType{}}},
+				},
+			}},
+			expected: 4, // map field, key struct's i32, value struct's string + bool
+		},
+		{
+			name: "deeply nested structs",
+			st: &StructType{Types: []Type{
+				&StructType{Types: []Type{
+					&StructType{Types: []Type{&Int32Type{}}},
+				}},
+			}},
+			expected: 3, // outer struct field, inner struct field, i32
+		},
+		// Spec examples from https://substrait.io/relations/basics
+		{
+			// struct<i64, list<i64>, map<i64, i64>, i64>
+			// names: [a, b, c, d]
+			name: "spec: simple named struct",
+			st: &StructType{Types: []Type{
+				&Int64Type{}, &ListType{Type: &Int64Type{}},
+				&MapType{Key: &Int64Type{}, Value: &Int64Type{}}, &Int64Type{},
+			}},
+			expected: 4,
+		},
+		{
+			// struct<i64, list<struct<i64, i64>>, map<i64, struct<i64, i64>>, i64>
+			// names: [a, b, c, d, e, f, g, h]
+			name: "spec: structs in compound types",
+			st: &StructType{Types: []Type{
+				&Int64Type{},
+				&ListType{Type: &StructType{Types: []Type{&Int64Type{}, &Int64Type{}}}},
+				&MapType{Key: &Int64Type{}, Value: &StructType{Types: []Type{&Int64Type{}, &Int64Type{}}}},
+				&Int64Type{},
+			}},
+			expected: 8,
+		},
+		{
+			// struct<i64, struct<i64, struct<i64, i64>, i64, struct<i64, i64>>>
+			// names: [a, b, c, d, e, f, g, h, i, j]
+			name: "spec: structs in structs",
+			st: &StructType{Types: []Type{
+				&Int64Type{},
+				&StructType{Types: []Type{
+					&Int64Type{},
+					&StructType{Types: []Type{&Int64Type{}, &Int64Type{}}},
+					&Int64Type{},
+					&StructType{Types: []Type{&Int64Type{}, &Int64Type{}}},
+				}},
+			}},
+			expected: 10,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, tc.st.DepthFirstNameCount())
+		})
+	}
+}

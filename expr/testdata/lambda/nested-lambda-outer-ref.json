@@ -135,7 +135,11 @@
               }
             ]
           }
-        }
+        },
+        "names": [
+          "values",
+          "transformed_values"
+        ]
       }
     }
   ]
