@@ -1,13 +1,20 @@
 package plan
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	substraitgo "github.com/substrait-io/substrait-go/v7"
 	"github.com/substrait-io/substrait-go/v7/expr"
 	"github.com/substrait-io/substrait-go/v7/extensions"
+	"github.com/substrait-io/substrait-go/v7/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
+	extensionspb "github.com/substrait-io/substrait-protobuf/go/substraitpb/extensions"
+	"google.golang.org/protobuf/encoding/protojson"
+	protobuf "google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -49,4 +56,134 @@ func TestRelFromProto(t *testing.T) {
 		})
 	}
 
+}
+
+const sampleYAML = `---
+urn: extension:test:sample
+types:
+  - name: point
+    structure:
+      latitude: i32
+      longitude: i32
+  - name: line
+    structure:
+      start: point
+      end: point
+scalar_functions:
+  -
+    name: "add"
+    description: "Add two values."
+    impls:
+      - args:
+          - name: x
+            value: i8
+          - name: y
+            value: i8
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i8`
+
+func TestPlanRoundTripURN(t *testing.T) {
+	c := &extensions.Collection{}
+	err := c.Load("some/uri", strings.NewReader(sampleYAML))
+	require.NoError(t, err)
+
+	urnPlan := &proto.Plan{
+		ExtensionUrns: []*extensionspb.SimpleExtensionURN{
+			{ExtensionUrnAnchor: 1, Urn: "extension:test:sample"},
+		},
+		Extensions: []*extensionspb.SimpleExtensionDeclaration{
+			{
+				MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
+					ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
+						ExtensionUrnReference: 1,
+						FunctionAnchor:        1,
+						Name:                  "add:i8_i8",
+					},
+				},
+			},
+		},
+		Relations: []*proto.PlanRel{},
+	}
+
+	planFromURN, err := FromProto(urnPlan, c)
+	require.NoError(t, err)
+
+	protoFromURN, err := planFromURN.ToProto()
+	require.NoError(t, err)
+
+	// Round-trip should produce equivalent protobuf output
+	assert.True(t, protobuf.Equal(urnPlan, protoFromURN),
+		"Plan should be equivalent after round-trip conversion.\nOriginal: %s\nRound-tripped: %s",
+		protojson.Format(urnPlan), protojson.Format(protoFromURN))
+}
+
+func TestRejectsMismatchedRootNames(t *testing.T) {
+	b := NewBuilderDefault()
+	scan := b.NamedScan([]string{"test"}, types.NamedStruct{
+		Names: []string{"a", "b"},
+		Struct: types.StructType{
+			Nullability: types.NullabilityRequired,
+			Types:       []types.Type{&types.Int64Type{}, &types.StringType{}},
+		},
+	})
+	_, err := b.Plan(scan, []string{"only_one"})
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+	assert.ErrorContains(t, err, "1 output name(s) but the output schema requires 2")
+}
+
+func TestFromProtoRightSemiJoinRootNames(t *testing.T) {
+	// Regression: validateRootNamesFromProto must not panic on JoinRel
+	// with RIGHT_SEMI (directOutputSchema panics for unsupported join types).
+	planJSON := `{
+		"version": { "majorNumber": 0, "minorNumber": 79 },
+		"relations": [{
+			"root": {
+				"names": ["id"],
+				"input": {
+					"join": {
+						"common": { "direct": {} },
+						"type": "JOIN_TYPE_RIGHT_SEMI",
+						"expression": {
+							"literal": { "boolean": true }
+						},
+						"left": {
+							"read": {
+								"common": { "direct": {} },
+								"baseSchema": {
+									"names": ["id"],
+									"struct": {
+										"nullability": "NULLABILITY_REQUIRED",
+										"types": [{"i64": {"nullability": "NULLABILITY_REQUIRED"}}]
+									}
+								},
+								"namedTable": { "names": ["left_table"] }
+							}
+						},
+						"right": {
+							"read": {
+								"common": { "direct": {} },
+								"baseSchema": {
+									"names": ["id"],
+									"struct": {
+										"nullability": "NULLABILITY_REQUIRED",
+										"types": [{"i64": {"nullability": "NULLABILITY_REQUIRED"}}]
+									}
+								},
+								"namedTable": { "names": ["right_table"] }
+							}
+						}
+					}
+				}
+			}
+		}]
+	}`
+
+	var p proto.Plan
+	require.NoError(t, protojson.Unmarshal([]byte(planJSON), &p))
+
+	c := extensions.GetDefaultCollectionWithNoError()
+	_, err := FromProto(&p, c)
+	require.NoError(t, err)
 }

@@ -102,9 +102,16 @@ func (r *Relation) FromProto(p *proto.PlanRel, reg expr.ExtensionRegistry) error
 			return err
 		}
 
+		names := rel.Root.Names
+		if isRecordTypeSupported(input) {
+			if err := validateRootNamesForSchema(input.RecordType(), names); err != nil {
+				return err
+			}
+		}
+
 		r.root = &Root{
 			input: input,
-			names: rel.Root.Names,
+			names: names,
 		}
 		return nil
 	}
@@ -246,6 +253,37 @@ func (p *Plan) ToProto() (*proto.Plan, error) {
 		Extensions:         decls,
 		ExtensionUrns:      urns,
 	}, nil
+}
+
+// validateRootNamesForSchema checks that the number of root output names
+// matches the depth-first field count of the given record type.
+// Per the spec, root relations have field names (https://substrait.io/faq).
+func validateRootNamesForSchema(recordType types.RecordType, names []string) error {
+	expected := recordType.AsStructType().DepthFirstNameCount()
+	if len(names) != expected {
+		return fmt.Errorf("%w: root relation has %d output name(s) but the output schema requires %d",
+			substraitgo.ErrInvalidRel, len(names), expected)
+	}
+	return nil
+}
+
+// canSafelyCallRecordType reports whether the relation's RecordType() can be
+// called without panicking or returning incorrect results. Some relation types
+// have incomplete implementations that panic or guess.
+// TODO(#210): remove this once RecordType() is fixed for all relation types.
+func isRecordTypeSupported(rel Rel) bool {
+	switch r := rel.(type) {
+	case *ExtensionSingleRel, *ExtensionLeafRel, *ExtensionMultiRel:
+		return false // TODO(#210): UndecodedExtension.Schema() guesses or returns empty
+	case *NamedTableWriteRel:
+		return false // TODO(#210): panics when outputMode is unspecified
+	case *JoinRel:
+		switch r.joinType {
+		case JoinTypeRightSemi, JoinTypeRightAnti, JoinTypeRightSingle:
+			return false // TODO(#210) panics: not yet implemented
+		}
+	}
+	return true
 }
 
 // Root is a relation with output field names.

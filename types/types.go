@@ -1200,6 +1200,34 @@ func (*StructType) BaseString() string {
 	return "struct"
 }
 
+// DepthFirstNameCount returns the number of names required to name all
+// fields in the struct in depth-first order. Each field consumes one name,
+// and nested StructType fields recursively consume additional names,
+// including structs nested inside list or map types.
+func (t *StructType) DepthFirstNameCount() int {
+	count := 0
+	for _, typ := range t.Types {
+		count++
+		count += nestedNameCount(typ)
+	}
+	return count
+}
+
+// nestedNameCount returns the number of additional names consumed by
+// nested types. It mirrors the depth-first traversal in NamedStruct.String().
+func nestedNameCount(t Type) int {
+	switch t := t.(type) {
+	case *StructType:
+		return t.DepthFirstNameCount()
+	case *ListType:
+		return nestedNameCount(t.Type)
+	case *MapType:
+		return nestedNameCount(t.Key) + nestedNameCount(t.Value)
+	default:
+		return 0
+	}
+}
+
 // FuncType represents a function type for higher-order functions.
 // It describes a function that takes parameters of specified types and
 // returns a value of a specified type.
