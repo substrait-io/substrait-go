@@ -7,6 +7,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	substraitgo "github.com/substrait-io/substrait-go/v7"
 	"github.com/substrait-io/substrait-go/v7/expr"
 	"github.com/substrait-io/substrait-go/v7/extensions"
@@ -84,12 +85,12 @@ scalar_functions:
             values: [ SILENT, SATURATE, ERROR ]
         return: i8`
 
-func TestPlanRoundTripURN(t *testing.T) {
+func TestPlanRoundTripWithExtensions(t *testing.T) {
 	c := &extensions.Collection{}
 	err := c.Load("some/uri", strings.NewReader(sampleYAML))
 	require.NoError(t, err)
 
-	urnPlan := &proto.Plan{
+	original := &proto.Plan{
 		ExtensionUrns: []*extensionspb.SimpleExtensionURN{
 			{ExtensionUrnAnchor: 1, Urn: "extension:test:sample"},
 		},
@@ -107,16 +108,15 @@ func TestPlanRoundTripURN(t *testing.T) {
 		Relations: []*proto.PlanRel{},
 	}
 
-	planFromURN, err := FromProto(urnPlan, c)
+	plan, err := FromProto(original, c)
 	require.NoError(t, err)
 
-	protoFromURN, err := planFromURN.ToProto()
+	roundTripped, err := plan.ToProto()
 	require.NoError(t, err)
 
-	// Round-trip should produce equivalent protobuf output
-	assert.True(t, protobuf.Equal(urnPlan, protoFromURN),
-		"Plan should be equivalent after round-trip conversion.\nOriginal: %s\nRound-tripped: %s",
-		protojson.Format(urnPlan), protojson.Format(protoFromURN))
+	assert.True(t, protobuf.Equal(original, roundTripped),
+		"Plan should be equivalent after round-trip.\nOriginal:      %s\nRound-tripped: %s",
+		protojson.Format(original), protojson.Format(roundTripped))
 }
 
 func TestRejectsMismatchedRootNames(t *testing.T) {
