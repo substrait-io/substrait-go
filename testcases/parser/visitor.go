@@ -130,7 +130,7 @@ func (v *TestCaseVisitor) VisitSingleArgAggregateFuncCall(ctx *baseparser.Single
 }
 
 func (v *TestCaseVisitor) VisitCompactAggregateFuncCall(ctx *baseparser.CompactAggregateFuncCallContext) interface{} {
-	// Handles test of the form
+	// Handles tests of the form
 	//   ((20, 20), (-3, -3), (1, 1), (10,10), (5,5)) corr(col0::fp32, col1::fp32) = 1::fp64
 	//
 	// Types for values can be inferred from the type annotations on col* arguments
@@ -288,10 +288,7 @@ func (v *TestCaseVisitor) processTableRows(ctx baseparser.ITableRowsContext, col
 		lits := row.AllLiteral()
 		rowValues := make([]expr.Literal, 0, len(lits))
 		for i, lit := range lits {
-			var colType types.Type
-			if i < len(columnTypes) {
-				colType = columnTypes[i]
-			}
+			colType := columnTypes[i]
 			rowValues = append(rowValues, v.processLiteral(lit, colType))
 		}
 		rows = append(rows, rowValues)
@@ -706,8 +703,9 @@ func (v *TestCaseVisitor) VisitListArg(ctx *baseparser.ListArgContext) interface
 }
 
 func (v *TestCaseVisitor) processLiteralList(ctx baseparser.ILiteralListContext, elemType types.Type) []expr.Literal {
-	literals := make([]expr.Literal, 0, len(ctx.AllListElement()))
-	for _, elemCtx := range ctx.AllListElement() {
+	elements := ctx.AllListElement()
+	literals := make([]expr.Literal, 0, len(elements))
+	for _, elemCtx := range elements {
 		if elemCtx.Literal() != nil {
 			lit := v.processLiteral(elemCtx.Literal(), elemType)
 			if lit != nil {
