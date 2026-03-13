@@ -119,6 +119,8 @@ func (v *TestCaseVisitor) VisitAggFuncTestCase(ctx *baseparser.AggFuncTestCaseCo
 }
 
 func (v *TestCaseVisitor) VisitSingleArgAggregateFuncCall(ctx *baseparser.SingleArgAggregateFuncCallContext) interface{} {
+	// Handles tests of the form
+	//   sum((1, 2, 3, 4, 5)::i8) = 15::i8
 	arg := v.Visit(ctx.DataColumn()).(*CaseLiteral)
 	return &TestCase{
 		FuncName:      ctx.Identifier().GetText(),
@@ -128,23 +130,43 @@ func (v *TestCaseVisitor) VisitSingleArgAggregateFuncCall(ctx *baseparser.Single
 }
 
 func (v *TestCaseVisitor) VisitCompactAggregateFuncCall(ctx *baseparser.CompactAggregateFuncCallContext) interface{} {
-	rows := v.Visit(ctx.TableRows()).([][]expr.Literal)
+	// Handles test of the form
+	//   ((20, 20), (-3, -3), (1, 1), (10,10), (5,5)) corr(col0::fp32, col1::fp32) = 1::fp64
+	//
+	// Types for values can be inferred from the type annotations on col* arguments
+
 	var args []*AggregateArgument
 	if ctx.AggregateFuncArgs() != nil {
 		args = v.Visit(ctx.AggregateFuncArgs()).([]*AggregateArgument)
 	}
 
-	numberOfColumns := int32(len(rows[0]))
-	columnTypes := make([]types.Type, numberOfColumns)
+	// Build a map from column index to annotated type.
+	colTypeMap := make(map[int32]types.Type)
 	for _, arg := range args {
-		if arg.ColumnIndex >= numberOfColumns {
-			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid column index %d, expected less than %d", arg.ColumnIndex, len(columnTypes)))
-			continue
-		}
-		if arg.ColumnType != nil {
-			columnTypes[arg.ColumnIndex] = arg.ColumnType
+		if !arg.IsScalar && arg.ColumnType != nil {
+			colTypeMap[arg.ColumnIndex] = arg.ColumnType
 		}
 	}
+
+	// Determine column count from the first row without processing literals.
+	allRows := ctx.TableRows().AllColumnValues()
+	var numberOfColumns int32
+	if len(allRows) > 0 {
+		numberOfColumns = int32(len(allRows[0].AllLiteral()))
+	}
+
+	// Build columnTypes array defaulting to nil (untyped columns stored as strings),
+	// then apply declared types from args.
+	columnTypes := make([]types.Type, numberOfColumns)
+	for colIdx, colType := range colTypeMap {
+		if colIdx >= numberOfColumns {
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid column index %d, expected less than %d", colIdx, numberOfColumns))
+			continue
+		}
+		columnTypes[colIdx] = colType
+	}
+
+	rows := v.processTableRows(ctx.TableRows(), columnTypes)
 	columns, newColumnTypes := v.getColumnsFromRows(ctx, rows, columnTypes)
 	return &TestCase{
 		FuncName:      ctx.Identifier().GetText(),
@@ -155,6 +177,9 @@ func (v *TestCaseVisitor) VisitCompactAggregateFuncCall(ctx *baseparser.CompactA
 }
 
 func (v *TestCaseVisitor) VisitMultiArgAggregateFuncCall(ctx *baseparser.MultiArgAggregateFuncCallContext) interface{} {
+	// Handles tests of the form
+	//   DEFINE t1(fp32, fp32) = ((20, 20), (-3, -3), (1, 1), (10,10), (5,5))
+	//   corr(t1.col0, t1.col1) = 1::fp64
 	testcase := v.Visit(ctx.TableData()).(*TestCase)
 	var args []*AggregateArgument
 	if ctx.QualifiedAggregateFuncArgs() != nil {
@@ -200,11 +225,10 @@ func (v *TestCaseVisitor) VisitQualifiedAggregateFuncArg(ctx *baseparser.Qualifi
 
 func (v *TestCaseVisitor) VisitTableData(ctx *baseparser.TableDataContext) interface{} {
 	columnTypes := make([]types.Type, 0, len(ctx.AllDataType()))
-	rows := v.Visit(ctx.TableRows()).([][]expr.Literal)
 	for _, dataType := range ctx.AllDataType() {
-		columnType := v.Visit(dataType).(types.Type)
-		columnTypes = append(columnTypes, columnType)
+		columnTypes = append(columnTypes, v.Visit(dataType).(types.Type))
 	}
+	rows := v.processTableRows(ctx.TableRows(), columnTypes)
 	columns, newColumnTypes := v.getColumnsFromRows(ctx, rows, columnTypes)
 	return &TestCase{
 		Columns:     columns,
@@ -258,12 +282,25 @@ func (v *TestCaseVisitor) VisitDataColumn(ctx *baseparser.DataColumnContext) int
 	}
 }
 
-func (v *TestCaseVisitor) VisitTableRows(ctx *baseparser.TableRowsContext) interface{} {
+func (v *TestCaseVisitor) processTableRows(ctx baseparser.ITableRowsContext, columnTypes []types.Type) [][]expr.Literal {
 	rows := make([][]expr.Literal, 0, len(ctx.AllColumnValues()))
 	for _, row := range ctx.AllColumnValues() {
-		rows = append(rows, v.processColumnValues(row, nil))
+		lits := row.AllLiteral()
+		rowValues := make([]expr.Literal, 0, len(lits))
+		for i, lit := range lits {
+			var colType types.Type
+			if i < len(columnTypes) {
+				colType = columnTypes[i]
+			}
+			rowValues = append(rowValues, v.processLiteral(lit, colType))
+		}
+		rows = append(rows, rowValues)
 	}
 	return rows
+}
+
+func (v *TestCaseVisitor) VisitTableRows(_ *baseparser.TableRowsContext) interface{} {
+	panic("unreachable: use processTableRows")
 }
 
 func (v *TestCaseVisitor) processColumnValues(ctx baseparser.IColumnValuesContext, elemType types.Type) []expr.Literal {
