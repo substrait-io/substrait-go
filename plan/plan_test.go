@@ -7,7 +7,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
 	substraitgo "github.com/substrait-io/substrait-go/v7"
 	"github.com/substrait-io/substrait-go/v7/expr"
 	"github.com/substrait-io/substrait-go/v7/extensions"
