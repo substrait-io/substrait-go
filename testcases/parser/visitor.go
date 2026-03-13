@@ -26,21 +26,8 @@ func getNullability(ctx isNull) types.Nullability {
 
 type TestCaseVisitor struct {
 	baseparser.FuncTestCaseParserVisitor
-	ErrorListener        util.VisitErrorListener
-	literalTypeInContext types.Type
-	testFuncType         TestFuncType
-}
-
-func (v *TestCaseVisitor) getLiteralTypeInContext() types.Type {
-	return v.literalTypeInContext
-}
-
-func (v *TestCaseVisitor) setLiteralTypeInContext(t types.Type) {
-	v.literalTypeInContext = t
-}
-
-func (v *TestCaseVisitor) clearLiteralTypeInContext() {
-	v.literalTypeInContext = nil
+	ErrorListener util.VisitErrorListener
+	testFuncType  TestFuncType
 }
 
 var _ baseparser.FuncTestCaseParserVisitor = &TestCaseVisitor{}
@@ -132,6 +119,8 @@ func (v *TestCaseVisitor) VisitAggFuncTestCase(ctx *baseparser.AggFuncTestCaseCo
 }
 
 func (v *TestCaseVisitor) VisitSingleArgAggregateFuncCall(ctx *baseparser.SingleArgAggregateFuncCallContext) interface{} {
+	// Handles tests of the form
+	//   sum((1, 2, 3, 4, 5)::i8) = 15::i8
 	arg := v.Visit(ctx.DataColumn()).(*CaseLiteral)
 	return &TestCase{
 		FuncName:      ctx.Identifier().GetText(),
@@ -141,23 +130,43 @@ func (v *TestCaseVisitor) VisitSingleArgAggregateFuncCall(ctx *baseparser.Single
 }
 
 func (v *TestCaseVisitor) VisitCompactAggregateFuncCall(ctx *baseparser.CompactAggregateFuncCallContext) interface{} {
-	rows := v.Visit(ctx.TableRows()).([][]expr.Literal)
+	// Handles tests of the form
+	//   ((20, 20), (-3, -3), (1, 1), (10,10), (5,5)) corr(col0::fp32, col1::fp32) = 1::fp64
+	//
+	// Types for values can be inferred from the type annotations on col* arguments
+
 	var args []*AggregateArgument
 	if ctx.AggregateFuncArgs() != nil {
 		args = v.Visit(ctx.AggregateFuncArgs()).([]*AggregateArgument)
 	}
 
-	numberOfColumns := int32(len(rows[0]))
-	columnTypes := make([]types.Type, numberOfColumns)
+	// Build a map from column index to annotated type.
+	colTypeMap := make(map[int32]types.Type)
 	for _, arg := range args {
-		if arg.ColumnIndex >= numberOfColumns {
-			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid column index %d, expected less than %d", arg.ColumnIndex, len(columnTypes)))
-			continue
-		}
-		if arg.ColumnType != nil {
-			columnTypes[arg.ColumnIndex] = arg.ColumnType
+		if !arg.IsScalar && arg.ColumnType != nil {
+			colTypeMap[arg.ColumnIndex] = arg.ColumnType
 		}
 	}
+
+	// Determine column count from the first row without processing literals.
+	allRows := ctx.TableRows().AllColumnValues()
+	var numberOfColumns int32
+	if len(allRows) > 0 {
+		numberOfColumns = int32(len(allRows[0].AllLiteral()))
+	}
+
+	// Build columnTypes array defaulting to nil (untyped columns stored as strings),
+	// then apply declared types from args.
+	columnTypes := make([]types.Type, numberOfColumns)
+	for colIdx, colType := range colTypeMap {
+		if colIdx >= numberOfColumns {
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid column index %d, expected less than %d", colIdx, numberOfColumns))
+			continue
+		}
+		columnTypes[colIdx] = colType
+	}
+
+	rows := v.processTableRows(ctx.TableRows(), columnTypes)
 	columns, newColumnTypes := v.getColumnsFromRows(ctx, rows, columnTypes)
 	return &TestCase{
 		FuncName:      ctx.Identifier().GetText(),
@@ -168,6 +177,9 @@ func (v *TestCaseVisitor) VisitCompactAggregateFuncCall(ctx *baseparser.CompactA
 }
 
 func (v *TestCaseVisitor) VisitMultiArgAggregateFuncCall(ctx *baseparser.MultiArgAggregateFuncCallContext) interface{} {
+	// Handles tests of the form
+	//   DEFINE t1(fp32, fp32) = ((20, 20), (-3, -3), (1, 1), (10,10), (5,5))
+	//   corr(t1.col0, t1.col1) = 1::fp64
 	testcase := v.Visit(ctx.TableData()).(*TestCase)
 	var args []*AggregateArgument
 	if ctx.QualifiedAggregateFuncArgs() != nil {
@@ -213,11 +225,10 @@ func (v *TestCaseVisitor) VisitQualifiedAggregateFuncArg(ctx *baseparser.Qualifi
 
 func (v *TestCaseVisitor) VisitTableData(ctx *baseparser.TableDataContext) interface{} {
 	columnTypes := make([]types.Type, 0, len(ctx.AllDataType()))
-	rows := v.Visit(ctx.TableRows()).([][]expr.Literal)
 	for _, dataType := range ctx.AllDataType() {
-		columnType := v.Visit(dataType).(types.Type)
-		columnTypes = append(columnTypes, columnType)
+		columnTypes = append(columnTypes, v.Visit(dataType).(types.Type))
 	}
+	rows := v.processTableRows(ctx.TableRows(), columnTypes)
 	columns, newColumnTypes := v.getColumnsFromRows(ctx, rows, columnTypes)
 	return &TestCase{
 		Columns:     columns,
@@ -248,16 +259,12 @@ func (v *TestCaseVisitor) getColumnsFromRows(ctx antlr.ParserRuleContext, rows [
 
 func (v *TestCaseVisitor) VisitDataColumn(ctx *baseparser.DataColumnContext) interface{} {
 	columnType := v.Visit(ctx.DataType()).(types.Type)
-	v.setLiteralTypeInContext(columnType)
-	defer v.clearLiteralTypeInContext()
-	columnValues := v.Visit(ctx.ColumnValues()).([]expr.Literal)
+	columnValues := v.processColumnValues(ctx.ColumnValues(), columnType)
 	var err error
 	var column expr.Literal
 	if len(columnValues) == 0 {
 		column = expr.NewEmptyListLiteral(columnType, false)
 	} else {
-		v.setLiteralTypeInContext(columnType)
-		defer v.clearLiteralTypeInContext()
 		column, err = literal.NewList(columnValues, false)
 		if err != nil {
 			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid column values %v", err))
@@ -275,20 +282,34 @@ func (v *TestCaseVisitor) VisitDataColumn(ctx *baseparser.DataColumnContext) int
 	}
 }
 
-func (v *TestCaseVisitor) VisitTableRows(ctx *baseparser.TableRowsContext) interface{} {
+func (v *TestCaseVisitor) processTableRows(ctx baseparser.ITableRowsContext, columnTypes []types.Type) [][]expr.Literal {
 	rows := make([][]expr.Literal, 0, len(ctx.AllColumnValues()))
 	for _, row := range ctx.AllColumnValues() {
-		rows = append(rows, v.Visit(row).([]expr.Literal))
+		lits := row.AllLiteral()
+		rowValues := make([]expr.Literal, 0, len(lits))
+		for i, lit := range lits {
+			colType := columnTypes[i]
+			rowValues = append(rowValues, v.processLiteral(lit, colType))
+		}
+		rows = append(rows, rowValues)
 	}
 	return rows
 }
 
-func (v *TestCaseVisitor) VisitColumnValues(ctx *baseparser.ColumnValuesContext) interface{} {
+func (v *TestCaseVisitor) VisitTableRows(_ *baseparser.TableRowsContext) interface{} {
+	panic("unreachable: use processTableRows")
+}
+
+func (v *TestCaseVisitor) processColumnValues(ctx baseparser.IColumnValuesContext, elemType types.Type) []expr.Literal {
 	values := make([]expr.Literal, 0, len(ctx.AllLiteral()))
-	for _, literalValue := range ctx.AllLiteral() {
-		values = append(values, v.Visit(literalValue).(expr.Literal))
+	for _, lit := range ctx.AllLiteral() {
+		values = append(values, v.processLiteral(lit, elemType))
 	}
 	return values
+}
+
+func (v *TestCaseVisitor) VisitColumnValues(_ *baseparser.ColumnValuesContext) interface{} {
+	panic("unreachable: use processColumnValues")
 }
 
 func (v *TestCaseVisitor) VisitAggregateFuncArgs(ctx *baseparser.AggregateFuncArgsContext) interface{} {
@@ -667,10 +688,7 @@ func (v *TestCaseVisitor) VisitPrecisionTimestampTZArg(ctx *baseparser.Precision
 
 func (v *TestCaseVisitor) VisitListArg(ctx *baseparser.ListArgContext) interface{} {
 	listType := v.Visit(ctx.ListType()).(*types.ListType)
-	v.setLiteralTypeInContext(listType.Type)
-	defer v.clearLiteralTypeInContext()
-
-	values := v.Visit(ctx.LiteralList()).([]expr.Literal)
+	values := v.processLiteralList(ctx.LiteralList(), listType.Type)
 
 	if len(values) == 0 {
 		value := expr.NewEmptyListLiteral(listType.Type, false)
@@ -684,56 +702,52 @@ func (v *TestCaseVisitor) VisitListArg(ctx *baseparser.ListArgContext) interface
 	return &CaseLiteral{Value: value, Type: listType}
 }
 
-func (v *TestCaseVisitor) VisitLiteralList(ctx *baseparser.LiteralListContext) interface{} {
+func (v *TestCaseVisitor) processLiteralList(ctx baseparser.ILiteralListContext, elemType types.Type) []expr.Literal {
 	elements := ctx.AllListElement()
 	literals := make([]expr.Literal, 0, len(elements))
 	for _, elemCtx := range elements {
-		result := v.Visit(elemCtx)
-		if result == nil {
-			// Child visitor already reported the error via ErrorListener.
-			continue
+		if elemCtx.Literal() != nil {
+			lit := v.processLiteral(elemCtx.Literal(), elemType)
+			if lit != nil {
+				literals = append(literals, lit)
+			}
+		} else if elemCtx.LiteralList() != nil {
+			innerListType, ok := elemType.(*types.ListType)
+			if !ok {
+				v.ErrorListener.ReportVisitError(elemCtx, fmt.Errorf("expected list element type for nested list, got %T", elemType))
+				continue
+			}
+			inner := v.processLiteralList(elemCtx.LiteralList(), innerListType.Type)
+			if len(inner) == 0 {
+				literals = append(literals, expr.NewEmptyListLiteral(innerListType.Type, false))
+			} else {
+				value, err := literal.NewList(inner, false)
+				if err != nil {
+					v.ErrorListener.ReportVisitError(elemCtx, fmt.Errorf("invalid nested list %v", err))
+					continue
+				}
+				literals = append(literals, value)
+			}
+		} else {
+			v.ErrorListener.ReportVisitError(elemCtx, fmt.Errorf("unexpected list element type"))
 		}
-		literals = append(literals, result.(expr.Literal))
 	}
 	return literals
 }
 
-func (v *TestCaseVisitor) VisitListElement(ctx *baseparser.ListElementContext) interface{} {
-	if ctx.Literal() != nil {
-		return v.Visit(ctx.Literal())
-	}
-	if ctx.LiteralList() != nil {
-		// For nested lists like [[1,2],[3,4]]::list<list<i32>>, the parent context
-		// has the element type set to list<i32>. We need to unwrap one level so
-		// that inner literals resolve against i32 instead of list<i32>.
-		parentType := v.getLiteralTypeInContext()
-		if lt, ok := parentType.(*types.ListType); ok {
-			v.setLiteralTypeInContext(lt.Type)
-			defer v.setLiteralTypeInContext(parentType)
-		}
-
-		values := v.Visit(ctx.LiteralList()).([]expr.Literal)
-		if len(values) == 0 {
-			// For empty nested lists, use the element type from the parent list context
-			if elemType := v.getLiteralTypeInContext(); elemType != nil {
-				if lt, ok := elemType.(*types.ListType); ok {
-					return expr.NewEmptyListLiteral(lt.Type, false)
-				}
-			}
-			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("cannot determine element type for empty nested list"))
-			return nil
-		}
-		value, err := literal.NewList(values, false)
-		if err != nil {
-			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid nested list %v", err))
-		}
-		return value
-	}
-	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("unexpected list element type"))
-	return nil
+func (v *TestCaseVisitor) VisitLiteralList(_ *baseparser.LiteralListContext) interface{} {
+	panic("unreachable: use processLiteralList")
 }
 
-func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface{} {
+func (v *TestCaseVisitor) VisitListElement(_ *baseparser.ListElementContext) interface{} {
+	panic("unreachable: use processLiteralList")
+}
+
+func (v *TestCaseVisitor) VisitLiteral(_ *baseparser.LiteralContext) interface{} {
+	panic("unreachable: use processLiteral")
+}
+
+func (v *TestCaseVisitor) processLiteral(ctx baseparser.ILiteralContext, elemType types.Type) expr.Literal {
 	if ctx.BooleanLiteral() != nil {
 		flag := strings.ToLower(ctx.BooleanLiteral().GetText()) == "true"
 		return literal.NewBool(flag, false)
@@ -788,11 +802,11 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 	}
 
 	if ctx.NumericLiteral() != nil {
-		if v.getLiteralTypeInContext() == nil {
+		if elemType == nil {
 			// in compactAggregateFuncCall context, the type is not set, full schema of table may not be available
 			return literal.NewString(ctx.NumericLiteral().GetText(), false)
 		}
-		value := v.getLiteralFromString(nil, ctx.NumericLiteral().GetText(), v.getLiteralTypeInContext())
+		value := v.getLiteralFromString(ctx, ctx.NumericLiteral().GetText(), elemType)
 		if value == nil {
 			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid numeric arg %v", ctx.GetText()))
 		}
@@ -806,7 +820,7 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 	}
 
 	if ctx.NullLiteral() != nil {
-		nullType := v.getLiteralTypeInContext()
+		nullType := elemType
 		if nullType == nil {
 			// Use a dummy type for null literal. This happens in AggregateFuncCall context, where type is not set
 			nullType = &types.DecimalType{Precision: 38, Scale: 0, Nullability: types.NullabilityNullable}
