@@ -84,32 +84,12 @@ scalar_functions:
             values: [ SILENT, SATURATE, ERROR ]
         return: i8`
 
-func TestPlanRoundTripURIAndURNEquivalence(t *testing.T) {
+func TestPlanRoundTripWithExtensions(t *testing.T) {
 	c := &extensions.Collection{}
 	err := c.Load("some/uri", strings.NewReader(sampleYAML))
 	require.NoError(t, err)
 
-	// Create a simple plan with only URI extensions
-	uriOnlyPlan := &proto.Plan{
-		ExtensionUris: []*extensionspb.SimpleExtensionURI{
-			{ExtensionUriAnchor: 1, Uri: "some/uri"},
-		},
-		Extensions: []*extensionspb.SimpleExtensionDeclaration{
-			{
-				MappingType: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction_{
-					ExtensionFunction: &extensionspb.SimpleExtensionDeclaration_ExtensionFunction{
-						ExtensionUriReference: 1,
-						FunctionAnchor:        1,
-						Name:                  "add:i8_i8",
-					},
-				},
-			},
-		},
-		Relations: []*proto.PlanRel{},
-	}
-
-	// Create equivalent plan with only URN extensions
-	urnOnlyPlan := &proto.Plan{
+	original := &proto.Plan{
 		ExtensionUrns: []*extensionspb.SimpleExtensionURN{
 			{ExtensionUrnAnchor: 1, Urn: "extension:test:sample"},
 		},
@@ -127,22 +107,15 @@ func TestPlanRoundTripURIAndURNEquivalence(t *testing.T) {
 		Relations: []*proto.PlanRel{},
 	}
 
-	planFromURI, err := FromProto(uriOnlyPlan, c)
+	plan, err := FromProto(original, c)
 	require.NoError(t, err)
 
-	planFromURN, err := FromProto(urnOnlyPlan, c)
+	roundTripped, err := plan.ToProto()
 	require.NoError(t, err)
 
-	protoFromURI, err := planFromURI.ToProto()
-	require.NoError(t, err)
-
-	protoFromURN, err := planFromURN.ToProto()
-	require.NoError(t, err)
-
-	// Both plans should produce identical protobuf output after round-trip conversion
-	assert.True(t, protobuf.Equal(protoFromURN, protoFromURI),
-		"Plans should be identical after round-trip conversion.\nURI-only plan: %s\nURN-only plan: %s",
-		protojson.Format(protoFromURI), protojson.Format(protoFromURN))
+	assert.True(t, protobuf.Equal(original, roundTripped),
+		"Plan should be equivalent after round-trip.\nOriginal:      %s\nRound-tripped: %s",
+		protojson.Format(original), protojson.Format(roundTripped))
 }
 
 func TestRejectsMismatchedRootNames(t *testing.T) {

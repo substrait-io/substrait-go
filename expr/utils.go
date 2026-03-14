@@ -77,7 +77,7 @@ func (e *ExtensionRegistry) LookupWindowFunction(anchor uint32) (*extensions.Win
 	return e.Set.LookupWindowFunction(anchor, e.c)
 }
 
-// ExtensionsToProto returns the URNs, URIs, and declarations from the extension set using the registry's collection.
-func (e *ExtensionRegistry) ExtensionsToProto() ([]*extensionspb.SimpleExtensionURN, []*extensionspb.SimpleExtensionURI, []*extensionspb.SimpleExtensionDeclaration) {
+// ExtensionsToProto returns the URNs and declarations from the extension set using the registry's collection.
+func (e *ExtensionRegistry) ExtensionsToProto() ([]*extensionspb.SimpleExtensionURN, []*extensionspb.SimpleExtensionDeclaration) {
 	return e.Set.ToProto(e.c)
 }
