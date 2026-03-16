@@ -1,0 +1,55 @@
+{
+	"version": {"majorNumber": 0, "minorNumber": 29, "patchNumber": 0},
+	"relations": [
+		{
+			"root": {
+				"input": {
+					"project": {
+						"common": {"direct": {}},
+						"input": {
+							"read": {
+								"common": {"direct": {}},
+								"baseSchema": {
+									"names": ["id", "name"],
+									"struct": {
+										"nullability": "NULLABILITY_REQUIRED",
+										"types": [
+											{"i64": {"nullability": "NULLABILITY_REQUIRED"}},
+											{"string": {"nullability": "NULLABILITY_NULLABLE"}}
+										]
+									}
+								},
+								"namedTable": {"names": ["users"]}
+							}
+						},
+						"expressions": [
+							{
+								"dynamicParameter": {
+									"type": {"i32": {"nullability": "NULLABILITY_REQUIRED"}},
+									"parameterReference": 0
+								}
+							},
+							{
+								"dynamicParameter": {
+									"type": {"string": {"nullability": "NULLABILITY_NULLABLE"}},
+									"parameterReference": 1
+								}
+							}
+						]
+					}
+				},
+				"names": ["id", "name", "param0", "param1"]
+			}
+		}
+	],
+	"parameterBindings": [
+		{
+			"parameterAnchor": 0,
+			"value": {"i32": 99}
+		},
+		{
+			"parameterAnchor": 1,
+			"value": {"string": "test_value"}
+		}
+	]
+}

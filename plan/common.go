@@ -3,10 +3,23 @@
 package plan
 
 import (
+	"github.com/substrait-io/substrait-go/v7/expr"
 	"github.com/substrait-io/substrait-go/v7/extensions"
 	"github.com/substrait-io/substrait-go/v7/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
+
+// DynamicParameterBinding maps a parameter anchor to a literal value
+// for use with DynamicParameter expressions in a plan.
+//
+// NOTE: this library does not currently validate that the type of the
+// literal Value matches the OutputType declared on the corresponding
+// DynamicParameter expression. Consumers should perform their own
+// type-checking if needed.
+type DynamicParameterBinding struct {
+	ParameterAnchor uint32
+	Value           expr.Literal
+}
 
 type (
 	Hint              = proto.RelCommon_Hint

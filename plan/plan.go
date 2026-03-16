@@ -152,11 +152,12 @@ type AdvancedExtension interface {
 // Plan describes a set of operations to complete. For
 // compactness, identifiers are normalized at the plan level.
 type Plan struct {
-	version          *types.Version
-	extensions       extensions.Set
-	expectedTypeURLs []string
-	advExtension     *extensions.AdvancedExtension
-	relations        []Relation
+	version           *types.Version
+	extensions        extensions.Set
+	expectedTypeURLs  []string
+	advExtension      *extensions.AdvancedExtension
+	relations         []Relation
+	parameterBindings []DynamicParameterBinding
 
 	reg expr.ExtensionRegistry
 }
@@ -216,6 +217,14 @@ func (p *Plan) GetNonRootRelations() (rels []Rel) {
 	return rels
 }
 
+// ParameterBindings returns the list of dynamic parameter bindings for this plan.
+// Each binding maps a parameter anchor to a runtime literal value.
+//
+// This returns a clone of the internal slice so that the plan itself remains immutable.
+func (p *Plan) ParameterBindings() []DynamicParameterBinding {
+	return slices.Clone(p.parameterBindings)
+}
+
 func FromProto(plan *proto.Plan, c *extensions.Collection) (*Plan, error) {
 	extSet, err := extensions.GetExtensionSet(plan, c)
 	if err != nil {
@@ -236,6 +245,16 @@ func FromProto(plan *proto.Plan, c *extensions.Collection) (*Plan, error) {
 		}
 	}
 
+	if len(plan.ParameterBindings) > 0 {
+		ret.parameterBindings = make([]DynamicParameterBinding, len(plan.ParameterBindings))
+		for i, pb := range plan.ParameterBindings {
+			ret.parameterBindings[i] = DynamicParameterBinding{
+				ParameterAnchor: pb.ParameterAnchor,
+				Value:           expr.LiteralFromProto(pb.Value),
+			}
+		}
+	}
+
 	return ret, nil
 }
 
@@ -245,6 +264,18 @@ func (p *Plan) ToProto() (*proto.Plan, error) {
 	for i, r := range p.relations {
 		relations[i] = r.ToProto()
 	}
+
+	var bindings []*proto.DynamicParameterBinding
+	if len(p.parameterBindings) > 0 {
+		bindings = make([]*proto.DynamicParameterBinding, len(p.parameterBindings))
+		for i, b := range p.parameterBindings {
+			bindings[i] = &proto.DynamicParameterBinding{
+				ParameterAnchor: b.ParameterAnchor,
+				Value:           b.Value.ToProtoLiteral(),
+			}
+		}
+	}
+
 	return &proto.Plan{
 		Version:            p.version,
 		ExpectedTypeUrls:   p.expectedTypeURLs,
@@ -252,6 +283,7 @@ func (p *Plan) ToProto() (*proto.Plan, error) {
 		Relations:          relations,
 		Extensions:         decls,
 		ExtensionUrns:      urns,
+		ParameterBindings:  bindings,
 	}, nil
 }
 

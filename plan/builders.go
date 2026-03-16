@@ -142,6 +142,10 @@ type Builder interface {
 	// that may be in use with this plan for advanced extensions, optimizations,
 	// and so on.
 	PlanWithTypes(root Rel, rootNames []string, expectedTypeURLs []string, others ...Rel) (*Plan, error)
+	// PlanWithBindings is the same as PlanWithTypes, but additionally accepts
+	// dynamic parameter bindings. These bind DynamicParameter expressions in
+	// the plan tree to concrete literal values at runtime.
+	PlanWithBindings(root Rel, rootNames []string, expectedTypeURLs []string, bindings []DynamicParameterBinding, others ...Rel) (*Plan, error)
 
 	// GetExprBuilder returns an expr.ExprBuilder that shares the extension
 	// registry that this Builder uses.
@@ -739,6 +743,14 @@ func (b *builder) Set(op SetOp, inputs ...Rel) (*SetRel, error) {
 }
 
 func (b *builder) PlanWithTypes(root Rel, rootNames []string, expectedTypeURLs []string, others ...Rel) (*Plan, error) {
+	return b.PlanWithBindings(root, rootNames, expectedTypeURLs, nil, others...)
+}
+
+// PlanWithBindings constructs a new plan with the provided root relation,
+// expected type URLs, and dynamic parameter bindings. This allows creating
+// parameterized plans where expressions contain DynamicParameter references
+// that are bound to concrete values.
+func (b *builder) PlanWithBindings(root Rel, rootNames []string, expectedTypeURLs []string, bindings []DynamicParameterBinding, others ...Rel) (*Plan, error) {
 	if root == nil {
 		return nil, fmt.Errorf("%w: must provide non-nil root relation for plan",
 			substraitgo.ErrInvalidRel)
@@ -758,11 +770,12 @@ func (b *builder) PlanWithTypes(root Rel, rootNames []string, expectedTypeURLs [
 	}
 
 	return &Plan{
-		version:          &CurrentVersion,
-		extensions:       b.extSet,
-		reg:              b.reg,
-		expectedTypeURLs: expectedTypeURLs,
-		relations:        relations,
+		version:           &CurrentVersion,
+		extensions:        b.extSet,
+		reg:               b.reg,
+		expectedTypeURLs:  expectedTypeURLs,
+		relations:         relations,
+		parameterBindings: bindings,
 	}, nil
 }
 
