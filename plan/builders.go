@@ -760,6 +760,10 @@ func (b *builder) PlanWithBindings(root Rel, rootNames []string, expectedTypeURL
 		return nil, err
 	}
 
+	if err := ValidateParameterBindings(root, bindings); err != nil {
+		return nil, err
+	}
+
 	relations := make([]Relation, len(others)+1)
 	relations[0].root = &Root{
 		input: root, names: rootNames,
