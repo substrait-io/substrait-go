@@ -316,6 +316,14 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 			return nil, fmt.Errorf("%w: nested expression: %s",
 				substraitgo.ErrInvalidExpr, n)
 		}
+	case *proto.Expression_DynamicParameter:
+		if et.DynamicParameter == nil {
+			return nil, fmt.Errorf("%w: dynamic parameter is nil", substraitgo.ErrInvalidExpr)
+		}
+		return &DynamicParameter{
+			OutputType:         types.TypeFromProto(et.DynamicParameter.Type),
+			ParameterReference: et.DynamicParameter.ParameterReference,
+		}, nil
 	case *proto.Expression_Enum_:
 		return nil, fmt.Errorf("%w: deprecated", substraitgo.ErrNotImplemented)
 	case *proto.Expression_Subquery_:
@@ -372,6 +380,7 @@ type VisitFunc func(Expression) Expression
 //   - A Cast expression
 //   - A Subquery
 //   - A Nested expression
+//   - A Dynamic Parameter
 type Expression interface {
 	// an Expression can also be a function argument
 	types.FuncArg
@@ -652,6 +661,54 @@ func (ex *Cast) Visit(visit VisitFunc) Expression {
 	newCast := *ex
 	newCast.Input = newInput
 	return &newCast
+}
+
+type DynamicParameter struct {
+	OutputType         types.Type
+	ParameterReference uint32
+}
+
+func (dp *DynamicParameter) String() string {
+	return fmt.Sprintf("$%d:%s", dp.ParameterReference, dp.OutputType)
+}
+
+func (dp *DynamicParameter) ToProtoFuncArg() *proto.FunctionArgument {
+	return &proto.FunctionArgument{
+		ArgType: &proto.FunctionArgument_Value{
+			Value: dp.ToProto(),
+		},
+	}
+}
+
+func (dp *DynamicParameter) isRootRef() {}
+
+func (dp *DynamicParameter) IsScalar() bool { return true }
+
+func (dp *DynamicParameter) GetType() types.Type { return dp.OutputType }
+
+func (dp *DynamicParameter) ToProto() *proto.Expression {
+	return &proto.Expression{
+		RexType: &proto.Expression_DynamicParameter{
+			DynamicParameter: &proto.DynamicParameter{
+				Type:               types.TypeToProto(dp.OutputType),
+				ParameterReference: dp.ParameterReference,
+			},
+		},
+	}
+}
+
+func (dp *DynamicParameter) Equals(other Expression) bool {
+	rhs, ok := other.(*DynamicParameter)
+	if !ok {
+		return false
+	}
+
+	return dp.ParameterReference == rhs.ParameterReference &&
+		dp.OutputType.Equals(rhs.OutputType)
+}
+
+func (dp *DynamicParameter) Visit(visit VisitFunc) Expression {
+	return dp
 }
 
 type SwitchExpr struct {

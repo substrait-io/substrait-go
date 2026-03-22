@@ -1,0 +1,111 @@
+{
+	"version": {
+		"minorNumber": 29,
+		"producer": "substrait-go (devel) darwin/arm64"
+	},
+	"extensionUrns": [
+		{
+			"extensionUrnAnchor": 1,
+			"urn": "extension:io.substrait:functions_comparison"
+		}
+	],
+	"extensions": [
+		{
+			"extensionFunction": {
+				"extensionUrnReference": 1,
+				"functionAnchor": 1,
+				"name": "gt:any_any"
+			}
+		}
+	],
+	"relations": [
+		{
+			"root": {
+				"input": {
+					"filter": {
+						"common": {
+							"direct": {}
+						},
+						"input": {
+							"read": {
+								"common": {
+									"direct": {}
+								},
+								"baseSchema": {
+									"names": [
+										"x",
+										"y"
+									],
+									"struct": {
+										"types": [
+											{
+												"i32": {
+													"nullability": "NULLABILITY_REQUIRED"
+												}
+											},
+											{
+												"i32": {
+													"nullability": "NULLABILITY_REQUIRED"
+												}
+											}
+										],
+										"nullability": "NULLABILITY_REQUIRED"
+									}
+								},
+								"namedTable": {
+									"names": [
+										"test"
+									]
+								}
+							}
+						},
+						"condition": {
+							"scalarFunction": {
+								"functionReference": 1,
+								"arguments": [
+									{
+										"value": {
+											"selection": {
+												"directReference": {
+													"structField": {}
+												},
+												"rootReference": {}
+											}
+										}
+									},
+									{
+										"value": {
+											"dynamicParameter": {
+												"type": {
+													"i32": {
+														"nullability": "NULLABILITY_REQUIRED"
+													}
+												}
+											}
+										}
+									}
+								],
+								"outputType": {
+									"bool": {
+										"nullability": "NULLABILITY_REQUIRED"
+									}
+								}
+							}
+						}
+					}
+				},
+				"names": [
+					"x",
+					"y"
+				]
+			}
+		}
+	],
+	"parameterBindings": [
+		{
+			"value": {
+				"i32": 42
+			}
+		}
+	]
+}

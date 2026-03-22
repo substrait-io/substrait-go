@@ -180,6 +180,15 @@ func (e *ExprBuilder) Cast(from Builder, to types.Type) *castBuilder {
 	}
 }
 
+// DynamicParam returns a builder for constructing a DynamicParameter expression.
+// The paramRef identifies the parameter binding in the plan.
+func (e *ExprBuilder) DynamicParam(outputType types.Type, paramRef uint32) *dynamicParamBuilder {
+	return &dynamicParamBuilder{
+		outputType: outputType,
+		paramRef:   paramRef,
+	}
+}
+
 // Lambda returns a builder for constructing a Lambda expression with the
 // given parameters.
 //
@@ -300,6 +309,24 @@ func (cb *castBuilder) FailBehavior(b types.CastFailBehavior) *castBuilder {
 	cb.failureBehavior = b
 	return cb
 }
+
+type dynamicParamBuilder struct {
+	outputType types.Type
+	paramRef   uint32
+}
+
+func (dpb *dynamicParamBuilder) Build() (*DynamicParameter, error) {
+	if dpb.outputType == nil {
+		return nil, fmt.Errorf("%w: dynamic parameter must have an output type", substraitgo.ErrInvalidExpr)
+	}
+	return &DynamicParameter{
+		OutputType:         dpb.outputType,
+		ParameterReference: dpb.paramRef,
+	}, nil
+}
+
+func (dpb *dynamicParamBuilder) BuildExpr() (Expression, error)       { return dpb.Build() }
+func (dpb *dynamicParamBuilder) BuildFuncArg() (types.FuncArg, error) { return dpb.Build() }
 
 type scalarFuncBuilder struct {
 	b *ExprBuilder
