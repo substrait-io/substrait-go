@@ -10,7 +10,7 @@ github:
 # computed version (e.g., "8.0.0").
 hooks:
   preRelease:
-  - name: ./scripts/check-module-version.sh
+  - ./scripts/check-module-version.sh
 changelog:
   printAll: true
   title: "v{{.Version}}"
