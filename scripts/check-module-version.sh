@@ -9,8 +9,9 @@
 set -euo pipefail
 
 if [ -z "${RELEASE_VERSION:-}" ]; then
-    echo "RELEASE_VERSION not set, skipping check"
-    exit 0
+    echo "ERROR: RELEASE_VERSION not set"
+    echo "This script should be run as a preRelease hook in go-semantic-release"
+    exit 1
 fi
 
 # Extract major version from go.mod module path (e.g., "v8" from ".../substrait-go/v8")
