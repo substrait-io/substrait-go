@@ -5,7 +5,7 @@ package types
 import (
 	"fmt"
 
-	"github.com/substrait-io/substrait-go/v7/types/integer_parameters"
+	"github.com/substrait-io/substrait-go/v8/types/integer_parameters"
 )
 
 // ParameterizedDecimalType is a decimal type which to hold function arguments

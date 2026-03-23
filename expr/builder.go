@@ -9,9 +9,9 @@ package expr
 import (
 	"fmt"
 
-	substraitgo "github.com/substrait-io/substrait-go/v7"
-	"github.com/substrait-io/substrait-go/v7/extensions"
-	"github.com/substrait-io/substrait-go/v7/types"
+	substraitgo "github.com/substrait-io/substrait-go/v8"
+	"github.com/substrait-io/substrait-go/v8/extensions"
+	"github.com/substrait-io/substrait-go/v8/types"
 )
 
 // Builder is a basic interface for any type which can construct

@@ -6,11 +6,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/v7/expr"
-	"github.com/substrait-io/substrait-go/v7/extensions"
-	"github.com/substrait-io/substrait-go/v7/literal"
-	"github.com/substrait-io/substrait-go/v7/plan"
-	"github.com/substrait-io/substrait-go/v7/types"
+	"github.com/substrait-io/substrait-go/v8/expr"
+	"github.com/substrait-io/substrait-go/v8/extensions"
+	"github.com/substrait-io/substrait-go/v8/literal"
+	"github.com/substrait-io/substrait-go/v8/plan"
+	"github.com/substrait-io/substrait-go/v8/types"
 	substraitproto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 

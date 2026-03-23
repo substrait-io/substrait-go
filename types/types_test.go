@@ -10,9 +10,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/v7/functions"
-	. "github.com/substrait-io/substrait-go/v7/types"
-	"github.com/substrait-io/substrait-go/v7/types/integer_parameters"
+	"github.com/substrait-io/substrait-go/v8/functions"
+	. "github.com/substrait-io/substrait-go/v8/types"
+	"github.com/substrait-io/substrait-go/v8/types/integer_parameters"
 )
 
 func TestTypeToString(t *testing.T) {
