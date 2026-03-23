@@ -5,6 +5,9 @@ release: 'github'
 github:
   repo: "substrait-go"
   user: "substrait-io"
+hooks:
+  preRelease:
+    - name: ./scripts/check-module-version.sh
 changelog:
   printAll: true
   title: "v{{.Version}}"
