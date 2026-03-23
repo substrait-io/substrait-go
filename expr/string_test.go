@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/substrait-io/substrait-go/v7/expr"
-	"github.com/substrait-io/substrait-go/v7/literal"
-	"github.com/substrait-io/substrait-go/v7/types"
+	"github.com/substrait-io/substrait-go/v8/expr"
+	"github.com/substrait-io/substrait-go/v8/literal"
+	"github.com/substrait-io/substrait-go/v8/types"
 )
 
 func MustLiteral(l expr.Literal, err error) expr.Literal {

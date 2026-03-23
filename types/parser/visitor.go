@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/substrait-io/substrait-go/v7/types"
-	"github.com/substrait-io/substrait-go/v7/types/integer_parameters"
-	baseparser2 "github.com/substrait-io/substrait-go/v7/types/parser/baseparser"
-	"github.com/substrait-io/substrait-go/v7/types/parser/util"
+	"github.com/substrait-io/substrait-go/v8/types"
+	"github.com/substrait-io/substrait-go/v8/types/integer_parameters"
+	baseparser2 "github.com/substrait-io/substrait-go/v8/types/parser/baseparser"
+	"github.com/substrait-io/substrait-go/v8/types/parser/util"
 )
 
 type TypeVisitor struct {
