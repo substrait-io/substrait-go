@@ -3,9 +3,9 @@ package functions
 import (
 	"strings"
 
-	"github.com/substrait-io/substrait-go/v7/expr"
-	"github.com/substrait-io/substrait-go/v7/extensions"
-	"github.com/substrait-io/substrait-go/v7/types"
+	"github.com/substrait-io/substrait-go/v8/expr"
+	"github.com/substrait-io/substrait-go/v8/extensions"
+	"github.com/substrait-io/substrait-go/v8/types"
 )
 
 type TypeRegistry interface {
