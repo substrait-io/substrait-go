@@ -208,8 +208,10 @@ func TestParseTestWithVariousTypes(t *testing.T) {
 			}
 			for _, arg := range testFile.TestCases[0].Args {
 				assert.NotNil(t, arg.Value)
-				if lit, ok := arg.Value.(expr.Literal); ok {
+				if lit, ok := arg.literal(); ok {
 					checkNullability(t, lit, arg.Type)
+				} else {
+					assert.Equal(t, types.CommonEnumType, arg.Type)
 				}
 			}
 			assert.NotNil(t, testFile.TestCases[0].Result.Value)

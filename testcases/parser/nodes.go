@@ -27,6 +27,12 @@ type CaseLiteral struct {
 	SubstraitError *SubstraitError
 }
 
+// literal returns the underlying Literal if Value is one, distinguishing from enum args.
+func (c *CaseLiteral) literal() (expr.Literal, bool) {
+	lit, ok := c.Value.(expr.Literal)
+	return lit, ok
+}
+
 func (c *CaseLiteral) String() string {
 	if c.SubstraitError != nil {
 		return c.SubstraitError.String()
@@ -34,7 +40,7 @@ func (c *CaseLiteral) String() string {
 	if c.Value == nil {
 		return "NULL"
 	}
-	if lit, ok := c.Value.(expr.Literal); ok {
+	if lit, ok := c.literal(); ok {
 		return literalToString(lit) + "::" + c.Type.String()
 	}
 	return c.ValueText + "::" + c.Type.String()
@@ -79,7 +85,7 @@ func (c *CaseLiteral) AsAggregateArgumentString() string {
 		}
 		return "(" + strings.Join(elements, ", ") + ")::" + c.Type.String()
 	}
-	if lit, ok := c.Value.(expr.Literal); ok {
+	if lit, ok := c.literal(); ok {
 		return lit.ValueString() + "::" + c.Type.String()
 	}
 	return c.ValueText + "::" + c.Type.String()
@@ -89,6 +95,7 @@ func (c *CaseLiteral) AsAggregateArgumentString() string {
 // Parser creates a literal with a type using existing util functions.
 // For ParameterizedTypes utils functions use minimum required values for the parameters.
 // This function changes the type to use requested type, so that the function invocation object is created correctly.
+// Enum args are excluded: CommonEnumType has no parameters, so they return early.
 func (c *CaseLiteral) updateLiteralType() error {
 	if len(c.Type.GetParameters()) == 0 {
 		return nil
