@@ -26,12 +26,16 @@ type Builder interface {
 	// function identified by its namespace and function name. This also
 	// ensures that any plans built from this builder will contain this
 	// function anchor in its extensions section.
-	GetFunctionRef(nameSpace, key string) types.FunctionRef
+	//
+	// Returns an error if the function does not exist in the extension collection.
+	GetFunctionRef(nameSpace, key string) (types.FunctionRef, error)
 
 	// Construct a user-defined type from the extension namespace and typename,
 	// along with optional type parameters. It will add the type to the internal
 	// extension set if it doesn't already exist and assign it a type reference.
-	UserDefinedType(nameSpace, typeName string, params ...types.TypeParam) types.UserDefinedType
+	//
+	// Returns an error if the type does not exist in the extension collection.
+	UserDefinedType(nameSpace, typeName string, params ...types.TypeParam) (types.UserDefinedType, error)
 	// RootFieldRef constructs a Root Field Reference to the column of the input
 	// relation indicated by the passed in index. This will ensure the output
 	// type is properly propagated based on the reference.
@@ -225,17 +229,27 @@ func (b *builder) GetExprBuilder() *expr.ExprBuilder {
 	}
 }
 
-func (b *builder) GetFunctionRef(nameSpace, key string) types.FunctionRef {
-	return types.FunctionRef(b.extSet.GetFuncAnchor(extensions.ID{URN: nameSpace, Name: key}))
+func (b *builder) GetFunctionRef(nameSpace, key string) (types.FunctionRef, error) {
+	id := extensions.ID{URN: nameSpace, Name: key}
+	_, scalarOk := b.ext.GetScalarFunc(id)
+	_, aggregateOk := b.ext.GetAggregateFunc(id)
+	_, windowOk := b.ext.GetWindowFunc(id)
+	if !scalarOk && !aggregateOk && !windowOk {
+		return 0, fmt.Errorf("%w: could not find function %s in %s", substraitgo.ErrNotFound, key, nameSpace)
+	}
+	return types.FunctionRef(b.extSet.GetFuncAnchor(id)), nil
 }
 
-func (b *builder) UserDefinedType(nameSpace, typeName string, params ...types.TypeParam) types.UserDefinedType {
+func (b *builder) UserDefinedType(nameSpace, typeName string, params ...types.TypeParam) (types.UserDefinedType, error) {
 	id := extensions.ID{URN: nameSpace, Name: typeName}
+	if _, ok := b.ext.GetType(id); !ok {
+		return types.UserDefinedType{}, fmt.Errorf("%w: could not find type %s in %s", substraitgo.ErrNotFound, typeName, nameSpace)
+	}
 	return types.UserDefinedType{
 		Nullability:    types.NullabilityNullable,
 		TypeReference:  b.extSet.GetTypeAnchor(id),
 		TypeParameters: params,
-	}
+	}, nil
 }
 
 func (b *builder) JoinedRecordFieldRef(left, right Rel, index int32) (*expr.FieldReference, error) {

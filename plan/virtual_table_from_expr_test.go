@@ -22,7 +22,8 @@ func makeAddExpr(t *testing.T, b plan.Builder, val1, val2 expr.Literal) expr.Exp
 		URN:  "extension:io.substrait:functions_arithmetic",
 		Name: "add:i32_i32",
 	}
-	b.GetFunctionRef(id.URN, id.Name)
+	_, err := b.GetFunctionRef(id.URN, id.Name)
+	require.NoError(t, err)
 	scalarExpr, err := b.ScalarFn(id.URN, id.Name, nil, val1, val2)
 	require.NoError(t, err)
 	return scalarExpr
