@@ -471,8 +471,14 @@ func (v *TestCaseVisitor) getLiteralFromString(ctx antlr.ParserRuleContext, valu
 		decimal, err := literal.NewDecimalFromString(value, false)
 		if err != nil {
 			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid decimal arg %v", err))
+			return nil
 		}
-		return decimal
+		typed, err := decimal.(expr.WithTypeLiteral).WithType(elementType)
+		if err != nil {
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid decimal arg %v", err))
+			return nil
+		}
+		return typed
 	default:
 		return nil
 	}
