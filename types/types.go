@@ -625,7 +625,7 @@ func (e *EnumType) MatchWithoutNullability(ot Type) bool {
 }
 
 func (e *EnumType) ShortString() string {
-	return "enum"
+	return "req"
 }
 
 func (e *EnumType) GetNullability() Nullability {
