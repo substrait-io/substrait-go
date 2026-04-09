@@ -921,8 +921,7 @@ func TestLoadAllSubstraitTestFiles(t *testing.T) {
 			switch filePath {
 			case "tests/cases/arithmetic/std_dev.test",
 				"tests/cases/arithmetic/variance.test":
-				// TODO: these files use single-column compact format ((v1, v2, ..., vn)) which
-				// is parsed as 1 row with n columns, but the tests expect n rows with 1 column.
+				// TODO(#223): skipping for now until resolved
 				t.Skip("Skipping tests with single-column compact aggregate format")
 			case "tests/cases/list/all_match.test",
 				"tests/cases/list/any_match.test",

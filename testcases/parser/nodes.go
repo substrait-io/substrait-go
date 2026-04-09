@@ -267,19 +267,10 @@ func (tc *TestCase) getAggregateFuncArgTypes() []types.Type {
 }
 
 func (tc *TestCase) getAggregateFuncTableSchema() []types.Type {
-	var maxColIdx int32 = -1
-	for _, arg := range tc.AggregateArgs {
-		if !arg.IsScalar && arg.ColumnIndex > maxColIdx {
-			maxColIdx = arg.ColumnIndex
-		}
-	}
-	if maxColIdx < 0 {
-		return nil
-	}
-	schemaTypes := make([]types.Type, maxColIdx+1)
-	for _, arg := range tc.AggregateArgs {
+	schemaTypes := make([]types.Type, len(tc.AggregateArgs))
+	for i, arg := range tc.AggregateArgs {
 		if !arg.IsScalar {
-			schemaTypes[arg.ColumnIndex] = arg.ColumnType
+			schemaTypes[i] = arg.ColumnType
 		}
 	}
 	return schemaTypes
