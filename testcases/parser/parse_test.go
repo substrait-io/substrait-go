@@ -208,10 +208,14 @@ func TestParseTestWithVariousTypes(t *testing.T) {
 			}
 			for _, arg := range testFile.TestCases[0].Args {
 				assert.NotNil(t, arg.Value)
-				checkNullability(t, arg.Value, arg.Type)
+				if lit, ok := arg.Value.(expr.Literal); ok {
+					checkNullability(t, lit, arg.Type)
+				}
 			}
 			assert.NotNil(t, testFile.TestCases[0].Result.Value)
-			checkNullability(t, testFile.TestCases[0].Result.Value, testFile.TestCases[0].Result.Type)
+			if resultLit, ok := testFile.TestCases[0].Result.Value.(expr.Literal); ok {
+				checkNullability(t, resultLit, testFile.TestCases[0].Result.Type)
+			}
 		})
 	}
 }
@@ -427,7 +431,9 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 		"sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ERROR>",
 	}
 	assert.Equal(t, newFloat32List(1, 2, 3), tc.AggregateArgs[0].Argument.Value)
-	assert.Equal(t, listType, tc.AggregateArgs[0].Argument.Value.GetType())
+	if lit, ok := tc.AggregateArgs[0].Argument.Value.(expr.Literal); ok {
+		assert.Equal(t, listType, lit.GetType())
+	}
 	assert.Equal(t, "fp64", tc.Result.Type.String())
 	assert.Equal(t, literal.NewFloat64(2, false), tc.Result.Value)
 	assert.Equal(t, AggregateFuncType, tc.FuncType)

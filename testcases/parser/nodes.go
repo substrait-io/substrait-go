@@ -23,7 +23,7 @@ const (
 type CaseLiteral struct {
 	Type           types.Type
 	ValueText      string
-	Value          expr.Literal
+	Value          types.FuncArg
 	SubstraitError *SubstraitError
 }
 
@@ -34,17 +34,10 @@ func (c *CaseLiteral) String() string {
 	if c.Value == nil {
 		return "NULL"
 	}
-	return literalToString(c.Value) + "::" + c.Type.String()
-}
-
-// FuncArg returns the value of this literal as a types.FuncArg suitable for
-// passing to a function builder. Enum args (Type == CommonEnumType, Value nil)
-// are constructed from ValueText; all other args return Value directly.
-func (c *CaseLiteral) FuncArg() types.FuncArg {
-	if _, ok := c.Type.(*types.EnumType); ok {
-		return types.Enum(c.ValueText)
+	if lit, ok := c.Value.(expr.Literal); ok {
+		return literalToString(lit) + "::" + c.Type.String()
 	}
-	return c.Value
+	return c.ValueText + "::" + c.Type.String()
 }
 
 func literalToString(literal expr.Literal) string {
@@ -86,7 +79,10 @@ func (c *CaseLiteral) AsAggregateArgumentString() string {
 		}
 		return "(" + strings.Join(elements, ", ") + ")::" + c.Type.String()
 	}
-	return c.Value.ValueString() + "::" + c.Type.String()
+	if lit, ok := c.Value.(expr.Literal); ok {
+		return lit.ValueString() + "::" + c.Type.String()
+	}
+	return c.ValueText + "::" + c.Type.String()
 }
 
 // updateLiteralType updates the type of the literal CaseLiteral.Value to use the CaseLiteral.Type
@@ -359,7 +355,7 @@ func (tc *TestCase) GetScalarFunctionInvocation(reg *expr.ExtensionRegistry, fun
 	id := tc.ID()
 	args := make([]types.FuncArg, len(tc.Args))
 	for i, arg := range tc.Args {
-		args[i] = arg.FuncArg()
+		args[i] = arg.Value
 	}
 
 	invocation, err := expr.NewScalarFunc(*reg, id, tc.GetFunctionOptions(), args...)
@@ -449,7 +445,7 @@ func (tc *TestCase) GetAggregateFunctionInvocation(reg *expr.ExtensionRegistry, 
 	baseSchema := types.NewRecordTypeFromTypes(tc.getAggregateFuncTableSchema())
 	for i, arg := range tc.AggregateArgs {
 		if arg.IsScalar {
-			args[i] = arg.Argument.FuncArg()
+			args[i] = arg.Argument.Value
 			continue
 		}
 
