@@ -215,7 +215,7 @@ func TestParseTestWithVariousTypes(t *testing.T) {
 				}
 			}
 			assert.NotNil(t, testFile.TestCases[0].Result.Value)
-			if resultLit, ok := testFile.TestCases[0].Result.Value.(expr.Literal); ok {
+			if resultLit, ok := testFile.TestCases[0].Result.literal(); ok {
 				checkNullability(t, resultLit, testFile.TestCases[0].Result.Type)
 			}
 		})

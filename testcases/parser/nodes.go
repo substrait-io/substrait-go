@@ -409,6 +409,8 @@ func (tc *TestCase) GetAggregateFunctionInvocation(reg *expr.ExtensionRegistry, 
 	return nil, fmt.Errorf("%w: no matching function found  or %s", substraitgo.ErrNotFound, id)
 }
 
+// GetAggregateColumnsData returns column data for aggregate test cases.
+// Enum args in aggregate functions are not yet supported (#223).
 func (tc *TestCase) GetAggregateColumnsData() ([][]expr.Literal, error) {
 	if tc.FuncType != AggregateFuncType {
 		return nil, fmt.Errorf("expected function type %v, but got %v", AggregateFuncType, tc.FuncType)
