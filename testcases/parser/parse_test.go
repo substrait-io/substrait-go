@@ -810,6 +810,7 @@ func TestParseTestWithBadAggregateTests(t *testing.T) {
 	}{
 		{"max((-12, +5)::i8) = -7.0::i8", "no viable alternative at input '-7.0::i8'"},
 		{"max((-12, 'arg')::i32) = -7::i8", "invalid column values"},
+		{"max((4.53, 2.2)::dec<38, 1>) = 4.0::dec<38, 1>", "invalid decimal arg"},
 		{
 			`DEFINE t1(fp32, fp32) = ((20, 20), (-3, -3), (1, 1), (10,10), (5,5))
 corr(t1.col0, t2.col1) = 1::fp64`,
