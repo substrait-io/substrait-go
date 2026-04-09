@@ -363,77 +363,15 @@ func (tc *TestCase) GetScalarFunctionInvocation(reg *expr.ExtensionRegistry, fun
 		return invocation, nil
 	}
 
-	// exact match not found, try to find a function that matches with function parameter type "any".
-	// Also try substituting string-typed args with CommonEnumType, to handle test cases that represent
-	// enum options as string literals (e.g. 'YEAR'::str for extract).
-	argTypes := tc.GetArgTypes()
-	enumArgTypes, hasEnumFallback := enumSubstitutedArgTypes(argTypes)
+	// exact match not found, try to find a function that matches with function parameter type "any"
 	funcVariants := funcRegistry.GetScalarFunctions(tc.FuncName, len(args))
 	for _, function := range funcVariants {
-		if function.ID().URN != id.URN {
-			continue
-		}
-		isMatch, err1 := function.Match(argTypes)
-		if (err1 != nil || !isMatch) && hasEnumFallback {
-			isMatch, err1 = function.Match(enumArgTypes)
-		}
-		if err1 == nil && isMatch {
-			normalizedArgs := normalizeArgsForVariant(function, args)
-			return expr.NewScalarFunc(*reg, function.ID(), tc.GetFunctionOptions(), normalizedArgs...)
+		isMatch, err1 := function.Match(tc.GetArgTypes())
+		if err1 == nil && isMatch && function.ID().URN == id.URN {
+			return expr.NewScalarFunc(*reg, function.ID(), tc.GetFunctionOptions(), args...)
 		}
 	}
 	return nil, fmt.Errorf("%w: no matching function found  or %s", substraitgo.ErrNotFound, id)
-}
-
-// normalizeArgsForVariant converts string-typed args to enum values at positions
-// where the given function variant declares an EnumArg. Test cases represent
-// enum options as string literals (e.g. 'YEAR'::str for extract).
-func normalizeArgsForVariant(variant extensions.FunctionVariant, args []types.FuncArg) []types.FuncArg {
-	params := variant.Args()
-	out := make([]types.FuncArg, len(args))
-	copy(out, args)
-	for i, param := range params {
-		if i >= len(args) {
-			break
-		}
-		if _, isEnum := param.(extensions.EnumArg); !isEnum {
-			continue
-		}
-		lit, ok := args[i].(expr.Literal)
-		if !ok {
-			continue
-		}
-		strLit, ok := lit.(*expr.PrimitiveLiteral[string])
-		if !ok {
-			continue
-		}
-		out[i] = types.Enum(strLit.Value)
-	}
-	return out
-}
-
-// enumSubstitutedArgTypes returns a copy of argTypes where StringType entries are
-// replaced with CommonEnumType, and reports whether any substitution was made.
-func enumSubstitutedArgTypes(argTypes []types.Type) ([]types.Type, bool) {
-	hasString := false
-	for _, t := range argTypes {
-		if _, ok := t.(*types.StringType); ok {
-			hasString = true
-			break
-		}
-	}
-	if !hasString {
-		return argTypes, false
-	}
-	out := make([]types.Type, len(argTypes))
-	for i, t := range argTypes {
-		if _, ok := t.(*types.StringType); ok {
-			out[i] = types.CommonEnumType
-		} else {
-			out[i] = t
-		}
-	}
-	return out, true
 }
 
 func (tc *TestCase) GetAggregateFunctionInvocation(reg *expr.ExtensionRegistry, funcRegistry functions.FunctionRegistry) (*expr.AggregateFunction, error) {
