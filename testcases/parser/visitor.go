@@ -646,7 +646,7 @@ func (v *TestCaseVisitor) VisitDecimalArg(ctx *baseparser.DecimalArgContext) int
 
 func (v *TestCaseVisitor) VisitEnumArg(ctx *baseparser.EnumArgContext) interface{} {
 	identifier := ctx.Identifier().GetText()
-	return &CaseLiteral{Value: types.Enum(identifier), ValueText: identifier, Type: types.CommonEnumType}
+	return &CaseLiteral{ValueText: identifier, Type: types.CommonEnumType}
 }
 
 func (v *TestCaseVisitor) VisitPrecisionTimeArg(ctx *baseparser.PrecisionTimeArgContext) interface{} {
