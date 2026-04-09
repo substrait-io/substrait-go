@@ -634,14 +634,8 @@ func (v *TestCaseVisitor) VisitDecimalArg(ctx *baseparser.DecimalArgContext) int
 	decimal, err := literal.NewDecimalFromString(ctx.NumericLiteral().GetText(), decType.GetNullability() == types.NullabilityNullable)
 	if err != nil {
 		v.ErrorListener.ReportVisitError(ctx, err)
-		return &CaseLiteral{ValueText: ctx.NumericLiteral().GetText(), Type: decType}
 	}
-	typed, err := decimal.(expr.WithTypeLiteral).WithType(decType)
-	if err != nil {
-		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid decimal arg %v", err))
-		return &CaseLiteral{ValueText: ctx.NumericLiteral().GetText(), Type: decType}
-	}
-	return &CaseLiteral{Value: typed, ValueText: ctx.NumericLiteral().GetText(), Type: decType}
+	return &CaseLiteral{Value: decimal, ValueText: ctx.NumericLiteral().GetText(), Type: decType}
 }
 
 func (v *TestCaseVisitor) VisitEnumArg(ctx *baseparser.EnumArgContext) interface{} {
