@@ -948,30 +948,13 @@ func testGetFunctionInvocation(t *testing.T, tc *TestCase, reg *expr.ExtensionRe
 		invocation, err := tc.GetScalarFunctionInvocation(reg, registry)
 		require.NoError(t, err, "GetScalarFunctionInvocation failed with error in test case: %s", tc.CompoundFunctionName())
 		require.Equal(t, tc.ID().URN, invocation.ID().URN)
-		argTypes := invocation.GetArgTypes()
-		// Enum args appear as nil in invocation arg types since types.Enum has no GetType();
-		// skip the comparison when enum args are present.
-		if !hasNilType(argTypes) {
-			require.Equal(t, tc.GetArgTypes(), argTypes, "unexpected arg types in test case: %s", tc.CompoundFunctionName())
-		}
+		require.Equal(t, tc.GetArgTypes(), invocation.GetArgTypes(), "unexpected arg types in test case: %s", tc.CompoundFunctionName())
 	case AggregateFuncType:
 		invocation, err := tc.GetAggregateFunctionInvocation(reg, registry)
 		require.NoError(t, err, "GetAggregateFunctionInvocation failed with error in test case: %s", tc.CompoundFunctionName())
 		require.Equal(t, tc.ID().URN, invocation.ID().URN)
-		argTypes := invocation.GetArgTypes()
-		if !hasNilType(argTypes) {
-			require.Equal(t, tc.GetArgTypes(), argTypes, "unexpected arg types in test case: %s", tc.CompoundFunctionName())
-		}
+		require.Equal(t, tc.GetArgTypes(), invocation.GetArgTypes(), "unexpected arg types in test case: %s", tc.CompoundFunctionName())
 	}
-}
-
-func hasNilType(types []types.Type) bool {
-	for _, t := range types {
-		if t == nil {
-			return true
-		}
-	}
-	return false
 }
 
 func listFiles(embedFs embed.FS, root string) ([]string, error) {
