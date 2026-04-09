@@ -199,6 +199,10 @@ func (v *BaseFuncTestCaseParserVisitor) VisitLambdaArg(ctx *LambdaArgContext) in
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseFuncTestCaseParserVisitor) VisitEnumArg(ctx *EnumArgContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseFuncTestCaseParserVisitor) VisitLiteralList(ctx *LiteralListContext) interface{} {
 	return v.VisitChildren(ctx)
 }
