@@ -801,9 +801,6 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 			return literal.NewString(ctx.NumericLiteral().GetText(), false)
 		}
 		value := v.getLiteralFromString(ctx, ctx.NumericLiteral().GetText(), v.getLiteralTypeInContext())
-		if value == nil {
-			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid numeric arg %v", ctx.GetText()))
-		}
 		return value
 	}
 
