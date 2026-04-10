@@ -488,6 +488,27 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 	assert.Equal(t, []types.Type{&types.Int64Type{Nullability: types.NullabilityRequired}}, tc.GetArgTypes())
 }
 
+func TestParseAggregateFuncDecimalPrecision(t *testing.T) {
+	header := makeAggregateTestHeader("v1.0", "/extensions/functions_arithmetic_decimal.yaml")
+	tests := `# basic
+max((20, -3, 1, -10, 0, 5)::dec<2, 0>) = 20::dec<2, 0>`
+
+	testFile, err := ParseTestCasesFromString(header + tests)
+	require.NoError(t, err)
+	require.Len(t, testFile.TestCases, 1)
+
+	tc := testFile.TestCases[0]
+	require.Len(t, tc.AggregateArgs, 1)
+
+	listLiteral, ok := tc.AggregateArgs[0].Argument.Value.(*expr.NestedLiteral[expr.ListLiteralValue])
+	require.True(t, ok)
+
+	dec2x0 := &types.DecimalType{Precision: 2, Scale: 0, Nullability: types.NullabilityRequired}
+	for i, elem := range listLiteral.Value {
+		assert.Equal(t, dec2x0, elem.GetType(), "element %d has wrong type", i)
+	}
+}
+
 func newInt64List(values ...int64) interface{} {
 	list, _ := literal.NewList(newInt64Values(values...), false)
 	return list
@@ -789,6 +810,7 @@ func TestParseTestWithBadAggregateTests(t *testing.T) {
 	}{
 		{"max((-12, +5)::i8) = -7.0::i8", "no viable alternative at input '-7.0::i8'"},
 		{"max((-12, 'arg')::i32) = -7::i8", "invalid column values"},
+		{"max((4.53, 2.2)::dec<38, 1>) = 4.0::dec<38, 1>", "invalid decimal arg"},
 		{
 			`DEFINE t1(fp32, fp32) = ((20, 20), (-3, -3), (1, 1), (10,10), (5,5))
 corr(t1.col0, t2.col1) = 1::fp64`,
@@ -826,10 +848,10 @@ func TestParseAggregateTestWithVariousTypes(t *testing.T) {
 		{testCaseStr: "f5((1.1, 2.2)::fp64?) = 3.3::fp64?"},
 		{testCaseStr: "f5((1, 2)::decimal) = 3::dec", expTestStr: "f5((1, 2)::decimal<38,0>) = 3::decimal<38,0>"},
 		{testCaseStr: "f5((1.1, 2.2)::dec<38,1>) = 3.3::dec<38,1>", expTestStr: "f5((1.1, 2.2)::decimal<38,1>) = 3.3::decimal<38,1>"},
-		{testCaseStr: "f6((1.1, 2.2)::dec<38,10>) = 3.3::dec<38,10>", expTestStr: "f6((1.1, 2.2)::decimal<38,10>) = 3.3000000000::decimal<38,10>"},
-		{testCaseStr: "f7((1.0, 2)::decimal<38,0>) = 3::decimal<38,0>"},
-		{testCaseStr: "f7((1.0, 2)::decimal?<38,0>) = 3::decimal?<38,0>"},
-		{testCaseStr: "f6((1.1, 2.2, null)::dec?<38,10>) = 3.3::dec<38,10>", expTestStr: "f6((1.1, 2.2, null)::decimal?<38,10>) = 3.3000000000::decimal<38,10>"},
+		{testCaseStr: "f6((1.1, 2.2)::dec<38,10>) = 3.3::dec<38,10>", expTestStr: "f6((1.1000000000, 2.2000000000)::decimal<38,10>) = 3.3000000000::decimal<38,10>"},
+		{testCaseStr: "f7((1.0, 2)::decimal<38,0>) = 3::decimal<38,0>", expTestStr: "f7((1, 2)::decimal<38,0>) = 3::decimal<38,0>"},
+		{testCaseStr: "f7((1.0, 2)::decimal?<38,0>) = 3::decimal?<38,0>", expTestStr: "f7((1, 2)::decimal?<38,0>) = 3::decimal?<38,0>"},
+		{testCaseStr: "f6((1.1, 2.2, null)::dec?<38,10>) = 3.3::dec<38,10>", expTestStr: "f6((1.1000000000, 2.2000000000, null)::decimal?<38,10>) = 3.3000000000::decimal<38,10>"},
 		{testCaseStr: "f8(('1991-01-01', '1991-02-02')::date) = '2001-01-01'::date"},
 		{testCaseStr: "f8(('1991-01-01', '1991-02-02')::date?) = '2001-01-01'::date?"},
 		{testCaseStr: "f8(('13:01:01.2345678', '14:01:01.333')::time) = 123456::i64", expTestStr: "f8(('13:01:01.234567', '14:01:01.333000')::time) = 123456::i64"},
