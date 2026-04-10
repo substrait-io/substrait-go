@@ -286,7 +286,9 @@ func (v *TestCaseVisitor) VisitTableRows(ctx *baseparser.TableRowsContext) inter
 func (v *TestCaseVisitor) VisitColumnValues(ctx *baseparser.ColumnValuesContext) interface{} {
 	values := make([]expr.Literal, 0, len(ctx.AllLiteral()))
 	for _, literalValue := range ctx.AllLiteral() {
-		values = append(values, v.Visit(literalValue).(expr.Literal))
+		if result := v.Visit(literalValue); result != nil {
+			values = append(values, result.(expr.Literal))
+		}
 	}
 	return values
 }
@@ -474,8 +476,14 @@ func (v *TestCaseVisitor) getLiteralFromString(ctx antlr.ParserRuleContext, valu
 		decimal, err := literal.NewDecimalFromString(value, false)
 		if err != nil {
 			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid decimal arg %v", err))
+			return nil
 		}
-		return decimal
+		typed, err := decimal.(expr.WithTypeLiteral).WithType(elementType)
+		if err != nil {
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid decimal arg %v", err))
+			return nil
+		}
+		return typed
 	default:
 		return nil
 	}
@@ -800,10 +808,7 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 			// in compactAggregateFuncCall context, the type is not set, full schema of table may not be available
 			return literal.NewString(ctx.NumericLiteral().GetText(), false)
 		}
-		value := v.getLiteralFromString(nil, ctx.NumericLiteral().GetText(), v.getLiteralTypeInContext())
-		if value == nil {
-			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid numeric arg %v", ctx.GetText()))
-		}
+		value := v.getLiteralFromString(ctx, ctx.NumericLiteral().GetText(), v.getLiteralTypeInContext())
 		return value
 	}
 
