@@ -945,8 +945,9 @@ func TestLoadAllSubstraitTestFiles(t *testing.T) {
 			switch filePath {
 			case "tests/cases/arithmetic/std_dev.test",
 				"tests/cases/arithmetic/variance.test":
-				// TODO(#223): skipping for now until resolved
-				t.Skip("Skipping tests with single-column compact aggregate format")
+				// Skipping: upstream test files use an invalid single-column compact format,
+				// fixed in substrait v0.88.0 (substrait-io/substrait#1043).
+				t.Skip("Skipping until substrait dependency is updated to v0.88.0+")
 			case "tests/cases/list/all_match.test",
 				"tests/cases/list/any_match.test",
 				"tests/cases/list/filter.test",
