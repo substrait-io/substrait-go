@@ -27,12 +27,6 @@ type CaseLiteral struct {
 	SubstraitError *SubstraitError
 }
 
-// literal returns the underlying Literal if Value is one, distinguishing from enum args.
-func (c *CaseLiteral) literal() (expr.Literal, bool) {
-	lit, ok := c.Value.(expr.Literal)
-	return lit, ok
-}
-
 func (c *CaseLiteral) String() string {
 	if c.SubstraitError != nil {
 		return c.SubstraitError.String()
@@ -40,7 +34,7 @@ func (c *CaseLiteral) String() string {
 	if c.Value == nil {
 		return "NULL"
 	}
-	if lit, ok := c.literal(); ok {
+	if lit, ok := c.Value.(expr.Literal); ok {
 		return literalToString(lit) + "::" + c.Type.String()
 	}
 	// Enum args use CommonEnumType whose String() is empty; render as "enum"
@@ -86,7 +80,7 @@ func (c *CaseLiteral) AsAggregateArgumentString() string {
 		}
 		return "(" + strings.Join(elements, ", ") + ")::" + c.Type.String()
 	}
-	if lit, ok := c.literal(); ok {
+	if lit, ok := c.Value.(expr.Literal); ok {
 		return lit.ValueString() + "::" + c.Type.String()
 	}
 	return c.ValueText + "::" + c.Type.String()
