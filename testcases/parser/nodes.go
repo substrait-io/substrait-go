@@ -102,9 +102,10 @@ func (c *CaseLiteral) updateLiteralType() error {
 }
 
 type TestFileHeader struct {
-	Version     string
-	FuncType    TestFuncType
-	IncludedURI string
+	Version        string
+	FuncType       TestFuncType
+	IncludedURI    string
+	DependencyURIs []string
 }
 
 type TestCase struct {
@@ -356,7 +357,62 @@ func (tc *TestCase) GetScalarFunctionInvocation(reg *expr.ExtensionRegistry, fun
 			return expr.NewScalarFunc(*reg, function.ID(), tc.GetFunctionOptions(), args...)
 		}
 	}
+
+	// Try again, coercing string literal args to enum at positions where the variant
+	// defines an enum parameter. The test case format uses 'VALUE'::str for enum args.
+	for _, function := range funcVariants {
+		if function.ID().URN != id.URN {
+			continue
+		}
+		coercedArgs, coerced := coerceEnumStringArgs(tc.Args, function)
+		if !coerced {
+			continue
+		}
+		coercedTypes := make([]types.Type, len(tc.Args))
+		for i, a := range coercedArgs {
+			if _, isEnum := a.(types.Enum); isEnum {
+				coercedTypes[i] = types.CommonEnumType
+			} else {
+				coercedTypes[i] = tc.Args[i].Type
+			}
+		}
+		isMatch, err1 := function.Match(coercedTypes)
+		if err1 == nil && isMatch {
+			invocation, err2 := expr.NewScalarFunc(*reg, function.ID(), tc.GetFunctionOptions(), coercedArgs...)
+			if err2 == nil {
+				// Update the test case arg types to reflect the coercion so that
+				// subsequent calls to GetArgTypes return consistent results.
+				for i, a := range coercedArgs {
+					if _, isEnum := a.(types.Enum); isEnum {
+						tc.Args[i].Type = types.CommonEnumType
+					}
+				}
+				return invocation, nil
+			}
+		}
+	}
 	return nil, fmt.Errorf("%w: no matching function found  or %s", substraitgo.ErrNotFound, id)
+}
+
+// coerceEnumStringArgs converts string-typed CaseLiteral args to types.Enum values at
+// positions where the function variant expects an EnumArg. Returns the new arg slice
+// and whether any coercions were made.
+func coerceEnumStringArgs(caseLiterals []*CaseLiteral, function *extensions.ScalarFunctionVariant) ([]types.FuncArg, bool) {
+	params := function.Args()
+	coerced := false
+	result := make([]types.FuncArg, len(caseLiterals))
+	for i, lit := range caseLiterals {
+		result[i] = lit.Value
+		if i < len(params) {
+			if _, isEnum := params[i].(extensions.EnumArg); isEnum {
+				if _, isStr := lit.Type.(*types.StringType); isStr {
+					result[i] = types.Enum(lit.Value.ValueString())
+					coerced = true
+				}
+			}
+		}
+	}
+	return result, coerced
 }
 
 func (tc *TestCase) GetAggregateFunctionInvocation(reg *expr.ExtensionRegistry, funcRegistry functions.FunctionRegistry) (*expr.AggregateFunction, error) {

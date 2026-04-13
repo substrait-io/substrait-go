@@ -71,7 +71,14 @@ func (v *TestCaseVisitor) VisitDoc(ctx *baseparser.DocContext) interface{} {
 func (v *TestCaseVisitor) VisitHeader(ctx *baseparser.HeaderContext) interface{} {
 	header := v.Visit(ctx.Version()).(*TestFileHeader)
 	header.IncludedURI = v.Visit(ctx.Include()).(string)
+	for _, dep := range ctx.AllDependency() {
+		header.DependencyURIs = append(header.DependencyURIs, v.Visit(dep).(string))
+	}
 	return header
+}
+
+func (v *TestCaseVisitor) VisitDependency(ctx *baseparser.DependencyContext) interface{} {
+	return getRawStringFromStringLiteral(ctx.StringLiteral().GetText())
 }
 
 func (v *TestCaseVisitor) VisitVersion(ctx *baseparser.VersionContext) interface{} {

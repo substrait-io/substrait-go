@@ -926,6 +926,22 @@ func TestParseTestCaseFile(t *testing.T) {
 	assert.Len(t, testFile.TestCases, 13)
 }
 
+func TestParseSubstraitDependency(t *testing.T) {
+	// Verify that SUBSTRAIT_DEPENDENCY headers are parsed and stored on the header.
+	// The arithmetic extension is used here since the function registry supports it;
+	// the dependency URI is just checked for correct parsing.
+	header := "### SUBSTRAIT_SCALAR_TEST: v1.0\n" +
+		"### SUBSTRAIT_INCLUDE: '/extensions/functions_arithmetic.yaml'\n" +
+		"### SUBSTRAIT_DEPENDENCY: '/extensions/functions_comparison.yaml'\n\n"
+	tests := "# basic\nadd(1::i32, 2::i32) = 3::i32\n"
+	testFile, err := ParseTestCasesFromString(header + tests)
+	require.NoError(t, err)
+	require.NotNil(t, testFile)
+	assert.Equal(t, "/extensions/functions_arithmetic.yaml", testFile.Header.IncludedURI)
+	assert.Equal(t, []string{"/extensions/functions_comparison.yaml"}, testFile.Header.DependencyURIs)
+	assert.Len(t, testFile.TestCases, 1)
+}
+
 func TestLoadAllSubstraitTestFiles(t *testing.T) {
 	got := substrait.GetSubstraitTestsFS()
 	filePaths, err := listFiles(got, ".")
@@ -935,9 +951,6 @@ func TestLoadAllSubstraitTestFiles(t *testing.T) {
 	for _, filePath := range filePaths {
 		t.Run(filePath, func(t *testing.T) {
 			switch filePath {
-			case "tests/cases/datetime/extract.test":
-				// TODO deal with enum arguments in testcase
-				t.Skip("Skipping extract.test")
 			case "tests/cases/list/all_match.test",
 				"tests/cases/list/any_match.test",
 				"tests/cases/list/filter.test",
