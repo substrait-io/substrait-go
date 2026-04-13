@@ -43,7 +43,8 @@ func (c *CaseLiteral) String() string {
 	if lit, ok := c.literal(); ok {
 		return literalToString(lit) + "::" + c.Type.String()
 	}
-	return c.ValueText + "::" + c.Type.String()
+	// Enum args use CommonEnumType whose String() is empty; render as "enum"
+	return c.ValueText + "::enum"
 }
 
 func literalToString(literal expr.Literal) string {
