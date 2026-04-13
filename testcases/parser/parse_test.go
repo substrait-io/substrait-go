@@ -189,6 +189,7 @@ func TestParseTestWithVariousTypes(t *testing.T) {
 		{testCaseStr: "concat('abcd'::vchar<9>, Null::varchar<9>) = Null::vchar<9>", expTestStr: "concat('abcd'::varchar<9>, null::varchar?<9>) = null::varchar?<9>"},
 		{testCaseStr: "concat('abcd'::vchar<9>, Null::fixedchar<9>) = Null::fchar<9>", expTestStr: "concat('abcd'::varchar<9>, null::fixedchar?<9>) = null::fixedchar?<9>"},
 		{testCaseStr: "concat('abcd'::fbin<9>, Null::fixedbinary<9>) = Null::fbin<9>", expTestStr: "concat('0x61626364'::fixedbinary<9>, null::fixedbinary?<9>) = null::fixedbinary?<9>"},
+		{testCaseStr: "extract(YEAR::enum, '2016-12-31T13:30:15'::ts) = 2016::i64", expTestStr: "extract(YEAR::enum, '2016-12-31T13:30:15'::timestamp) = 2016::i64"},
 		{testCaseStr: "f35('1991-01-01T01:02:03.456'::pts<3>) = '1991-01-01T01:02:30.123123'::precision_timestamp<3>", expTestStr: "f35('1991-01-01T01:02:03.456'::precision_timestamp<3>) = '1991-01-01T01:02:30.123'::precision_timestamp<3>"},
 		{testCaseStr: "f36('1991-01-01T01:02:03.456'::pts<3>, '1991-01-01T01:02:30.123123'::precision_timestamp<3>) = 123456::i64", expTestStr: "f36('1991-01-01T01:02:03.456'::precision_timestamp<3>, '1991-01-01T01:02:30.123'::precision_timestamp<3>) = 123456::i64"},
 		{testCaseStr: "f37('1991-01-01T01:02:03.123456'::pts<6>, '1991-01-01T04:05:06.456'::precision_timestamp<6>) = 123456::i64", expTestStr: "f37('1991-01-01T01:02:03.123456'::precision_timestamp<6>, '1991-01-01T04:05:06.456'::precision_timestamp<6>) = 123456::i64"},
@@ -214,10 +215,9 @@ func TestParseTestWithVariousTypes(t *testing.T) {
 					assert.Equal(t, types.CommonEnumType, arg.Type)
 				}
 			}
-			assert.NotNil(t, testFile.TestCases[0].Result.Value)
-			if resultLit, ok := testFile.TestCases[0].Result.Value.(expr.Literal); ok {
-				checkNullability(t, resultLit, testFile.TestCases[0].Result.Type)
-			}
+			resultLit, ok := testFile.TestCases[0].Result.Value.(expr.Literal)
+			require.True(t, ok, "result should be a literal, got %T", testFile.TestCases[0].Result.Value)
+			checkNullability(t, resultLit, testFile.TestCases[0].Result.Type)
 		})
 	}
 }
@@ -896,6 +896,8 @@ count(t1.col0) = 4::fp64`, expTestStr: "(('cat'), ('bat'), ('rat'), (null)) coun
 			expTestStr: "f38(('1990-12-31T19:32:03.456')::precision_timestamp_tz?<3>) = '1990-12-31T08:30:00.000+00:00'::precision_timestamp_tz<3>"},
 		{testCaseStr: "f39(('1991-01-01T01:02:03.456+05:30', '1991-01-01T01:02:03.123456+05:30')::ptstz<6>) = '1991-01-01T00:00:00+15:30'::ptstz<6>",
 			expTestStr: "f39(('1990-12-31T19:32:03.456', '1990-12-31T19:32:03.123456')::precision_timestamp_tz<6>) = '1990-12-31T08:30:00.000+00:00'::precision_timestamp_tz<6>"},
+		{testCaseStr: "((1.0), (2.0), (3.0)) std_dev(SAMPLE::enum, col0::fp32) = 1.0::fp32?",
+			expTestStr: "((1), (2), (3)) std_dev(SAMPLE::enum, col0::fp32) = 1::fp32?"},
 	}
 	for _, test := range tests {
 		t.Run(test.testCaseStr, func(t *testing.T) {
