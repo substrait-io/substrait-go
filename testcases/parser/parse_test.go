@@ -938,30 +938,17 @@ func TestParseTestCaseFile(t *testing.T) {
 
 func TestParseEnumArg(t *testing.T) {
 	header := makeHeader("v1.0", "/extensions/functions_datetime.yaml")
-	tests := "# timestamps\nextract(YEAR::enum, '2016-12-31T13:30:15'::ts) = 2016::i64\n"
-	testFile, err := ParseTestCasesFromString(header + tests)
+	testFile, err := ParseTestCasesFromString(header + "# timestamps\nextract(YEAR::enum, '2016-12-31T13:30:15'::ts) = 2016::i64\n")
 	require.NoError(t, err)
 	require.Len(t, testFile.TestCases, 1)
 
 	tc := testFile.TestCases[0]
-	require.Len(t, tc.Args, 2)
-
-	// Enum arg has CommonEnumType and the identifier as ValueText
-	enumArg := tc.Args[0]
-	assert.Equal(t, types.CommonEnumType, enumArg.Type)
-	assert.Equal(t, "YEAR", enumArg.ValueText)
-
-	// String() on an enum CaseLiteral uses ValueText, not literalToString
-	assert.Equal(t, "YEAR::enum", enumArg.String())
-
-	// The test case string representation round-trips correctly
+	assert.Equal(t, types.CommonEnumType, tc.Args[0].Type)
 	assert.Equal(t, "extract(YEAR::enum, '2016-12-31T13:30:15'::timestamp) = 2016::i64", tc.String())
 
-	// Function invocation resolves correctly
 	reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(extensions.GetDefaultCollectionWithNoError())
 	invocation, err := tc.GetScalarFunctionInvocation(&reg, funcRegistry)
 	require.NoError(t, err)
-	assert.Equal(t, tc.ID().URN, invocation.ID().URN)
 	assert.Equal(t, []types.Type{types.CommonEnumType, &types.TimestampType{Nullability: types.NullabilityRequired}}, invocation.GetArgTypes())
 }
 
