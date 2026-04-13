@@ -805,8 +805,7 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 
 	if ctx.NumericLiteral() != nil {
 		if v.getLiteralTypeInContext() == nil {
-			// Type is unavailable when parsing table rows in aggregate contexts;
-			// store as string until the column type is resolved.
+			// in compactAggregateFuncCall context, the type is not set, full schema of table may not be available
 			return literal.NewString(ctx.NumericLiteral().GetText(), false)
 		}
 		value := v.getLiteralFromString(ctx, ctx.NumericLiteral().GetText(), v.getLiteralTypeInContext())
@@ -822,8 +821,7 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 	if ctx.NullLiteral() != nil {
 		nullType := v.getLiteralTypeInContext()
 		if nullType == nil {
-			// Type is unavailable when parsing table rows in aggregate contexts;
-			// use a nullable decimal as a placeholder until the column type is resolved.
+			// Use a dummy type for null literal. This happens in AggregateFuncCall context, where type is not set
 			nullType = &types.DecimalType{Precision: 38, Scale: 0, Nullability: types.NullabilityNullable}
 		}
 		return expr.NewNullLiteral(nullType)
