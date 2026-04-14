@@ -80,9 +80,6 @@ func (c *CaseLiteral) AsAggregateArgumentString() string {
 		}
 		return "(" + strings.Join(elements, ", ") + ")::" + c.Type.String()
 	}
-	if lit, ok := c.Value.(expr.Literal); ok {
-		return lit.ValueString() + "::" + c.Type.String()
-	}
 	return c.ValueText + "::enum"
 }
 

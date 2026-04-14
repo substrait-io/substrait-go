@@ -433,9 +433,9 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 		"sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ERROR>",
 	}
 	assert.Equal(t, newFloat32List(1, 2, 3), tc.AggregateArgs[0].Argument.Value)
-	if lit, ok := tc.AggregateArgs[0].Argument.Value.(expr.Literal); ok {
-		assert.Equal(t, listType, lit.GetType())
-	}
+	lit, ok := tc.AggregateArgs[0].Argument.Value.(expr.Literal)
+	require.True(t, ok, "aggregate arg should be a literal, got %T", tc.AggregateArgs[0].Argument.Value)
+	assert.Equal(t, listType, lit.GetType())
 	assert.Equal(t, "fp64", tc.Result.Type.String())
 	assert.Equal(t, literal.NewFloat64(2, false), tc.Result.Value)
 	assert.Equal(t, AggregateFuncType, tc.FuncType)
