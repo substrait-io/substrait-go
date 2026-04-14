@@ -80,7 +80,7 @@ func (c *CaseLiteral) AsAggregateArgumentString() string {
 		}
 		return "(" + strings.Join(elements, ", ") + ")::" + c.Type.String()
 	}
-	return c.ValueText + "::enum"
+	return c.ValueText + "::" + c.Type.String()
 }
 
 // updateLiteralType updates the type of the literal CaseLiteral.Value to use the CaseLiteral.Type
