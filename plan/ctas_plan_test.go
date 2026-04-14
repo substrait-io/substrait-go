@@ -86,7 +86,8 @@ func makeConditionExprForLike(t *testing.T, b plan.Builder, scan plan.Rel, colId
 		URN:  "extension:io.substrait:functions_string",
 		Name: "contains:str_str",
 	}
-	b.GetFunctionRef(id.URN, id.Name)
+	_, err := b.GetFunctionRef(id.URN, id.Name)
+	require.NoError(t, err)
 	colIdRef, err := b.RootFieldRef(scan, int32(colId))
 	require.NoError(t, err)
 	scalarExpr, err := b.ScalarFn(id.URN, id.Name, nil, colIdRef, valueLiteral)

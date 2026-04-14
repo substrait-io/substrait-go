@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -1078,7 +1079,10 @@ func TestSortRelationKeyEqual(t *testing.T) {
 	ref, err := b.RootFieldRef(scan, 0)
 	require.NoError(t, err)
 
-	sort, err := b.Sort(scan, expr.SortField{Expr: ref, Kind: b.GetFunctionRef(extensions.SubstraitDefaultURNPrefix+"functions_comparison", "equal")})
+	funcRef, err := b.GetFunctionRef(extensions.SubstraitDefaultURNPrefix+"functions_comparison", "equal")
+	require.NoError(t, err)
+
+	sort, err := b.Sort(scan, expr.SortField{Expr: ref, Kind: funcRef})
 	require.NoError(t, err)
 
 	p, err := b.Plan(sort, []string{"a", "b"})
@@ -2411,4 +2415,45 @@ func TestExtensionBuildersErrors(t *testing.T) {
 	_, err = b.ExtensionMulti([]plan.Rel{scan}, nil)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidArg)
 	assert.ErrorContains(t, err, "definition must not be nil")
+}
+
+func TestGetFunctionRefErrors(t *testing.T) {
+	b := plan.NewBuilderDefault()
+
+	t.Run("non-existent function returns error", func(t *testing.T) {
+		_, err := b.GetFunctionRef("nonexistent_namespace", "nonexistent_func:i32")
+		assert.ErrorIs(t, err, substraitgo.ErrNotFound)
+		assert.ErrorContains(t, err, "nonexistent_func:i32")
+	})
+
+	t.Run("existing function succeeds", func(t *testing.T) {
+		ref, err := b.GetFunctionRef(extensions.SubstraitDefaultURNPrefix+"functions_comparison", "equal")
+		assert.NoError(t, err)
+		assert.NotZero(t, ref)
+	})
+}
+
+func TestUserDefinedTypeErrors(t *testing.T) {
+	b := plan.NewBuilderDefault()
+
+	t.Run("non-existent type returns error", func(t *testing.T) {
+		_, err := b.UserDefinedType("nonexistent_namespace", "nonexistent_type")
+		assert.ErrorIs(t, err, substraitgo.ErrNotFound)
+		assert.ErrorContains(t, err, "nonexistent_type")
+	})
+
+	t.Run("existing type succeeds", func(t *testing.T) {
+		collection := extensions.Collection{}
+		err := collection.Load("custom", strings.NewReader(`%YAML 1.2
+---
+urn: extension:test:custom
+types:
+  - name: "my_type"
+`))
+		require.NoError(t, err)
+		cb := plan.NewBuilder(&collection)
+		udt, err := cb.UserDefinedType("extension:test:custom", "my_type")
+		assert.NoError(t, err)
+		assert.NotZero(t, udt.TypeReference)
+	})
 }

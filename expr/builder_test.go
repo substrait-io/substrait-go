@@ -160,9 +160,12 @@ window_functions:
 
 	planBuilder := plan.NewBuilder(&collection)
 
-	customType1 := planBuilder.UserDefinedType("extension:test:custom", "custom_type1")
-	customType2 := planBuilder.UserDefinedType("extension:test:custom", "custom_type2")
-	customType3 := planBuilder.UserDefinedType("extension:test:custom", "custom_type3")
+	customType1, err := planBuilder.UserDefinedType("extension:test:custom", "custom_type1")
+	require.NoError(t, err)
+	customType2, err := planBuilder.UserDefinedType("extension:test:custom", "custom_type2")
+	require.NoError(t, err)
+	customType3, err := planBuilder.UserDefinedType("extension:test:custom", "custom_type3")
+	require.NoError(t, err)
 
 	anyVal, err := anypb.New(expr.NewPrimitiveLiteral("foo", false).ToProto())
 	require.NoError(t, err)
