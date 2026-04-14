@@ -2451,7 +2451,7 @@ func TestExtensionTable(t *testing.T) {
 	require.NoError(t, err)
 
 	schema := types.NamedStruct{
-		Names:  []string{"a"},
+		Names: []string{"a"},
 		Struct: types.StructType{
 			Nullability: types.NullabilityRequired,
 			Types:       []types.Type{&types.Int32Type{Nullability: types.NullabilityRequired}},

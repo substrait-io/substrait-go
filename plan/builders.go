@@ -5,13 +5,12 @@ package plan
 import (
 	"fmt"
 
-	"google.golang.org/protobuf/types/known/anypb"
-
 	substraitgo "github.com/substrait-io/substrait-go/v8"
 	"github.com/substrait-io/substrait-go/v8/expr"
 	"github.com/substrait-io/substrait-go/v8/extensions"
 	"github.com/substrait-io/substrait-go/v8/types"
 	"golang.org/x/exp/slices"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // Builder is the base object for constructing the various elements of a plan.
