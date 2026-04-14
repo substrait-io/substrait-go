@@ -209,10 +209,13 @@ func TestParseTestWithVariousTypes(t *testing.T) {
 			}
 			for _, arg := range testFile.TestCases[0].Args {
 				assert.NotNil(t, arg.Value)
-				if lit, ok := arg.Value.(expr.Literal); ok {
-					checkNullability(t, lit, arg.Type)
-				} else {
+				switch v := arg.Value.(type) {
+				case expr.Literal:
+					checkNullability(t, v, arg.Type)
+				case types.Enum:
 					assert.Equal(t, types.CommonEnumType, arg.Type)
+				default:
+					t.Errorf("unexpected arg value type %T", v)
 				}
 			}
 			resultLit, ok := testFile.TestCases[0].Result.Value.(expr.Literal)
