@@ -417,6 +417,9 @@ func (v *TestCaseVisitor) VisitArgument(ctx *baseparser.ArgumentContext) interfa
 	if ctx.ListArg() != nil {
 		return v.Visit(ctx.ListArg())
 	}
+	if ctx.EnumArg() != nil {
+		return v.Visit(ctx.EnumArg())
+	}
 	if ctx.IntervalCompoundArg() != nil {
 		// TODO(#209): implement when substrait test cases use interval compound args
 		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("interval compound argument not yet implemented"))
@@ -641,6 +644,11 @@ func (v *TestCaseVisitor) VisitDecimalArg(ctx *baseparser.DecimalArgContext) int
 		v.ErrorListener.ReportVisitError(ctx, err)
 	}
 	return &CaseLiteral{Value: decimal, ValueText: ctx.NumericLiteral().GetText(), Type: decType}
+}
+
+func (v *TestCaseVisitor) VisitEnumArg(ctx *baseparser.EnumArgContext) interface{} {
+	identifier := ctx.Identifier().GetText()
+	return &CaseLiteral{Value: types.Enum(identifier), ValueText: identifier, Type: types.CommonEnumType}
 }
 
 func (v *TestCaseVisitor) VisitPrecisionTimeArg(ctx *baseparser.PrecisionTimeArgContext) interface{} {

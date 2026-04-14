@@ -23,7 +23,7 @@ const (
 type CaseLiteral struct {
 	Type           types.Type
 	ValueText      string
-	Value          expr.Literal
+	Value          types.FuncArg
 	SubstraitError *SubstraitError
 }
 
@@ -34,7 +34,11 @@ func (c *CaseLiteral) String() string {
 	if c.Value == nil {
 		return "NULL"
 	}
-	return literalToString(c.Value) + "::" + c.Type.String()
+	if lit, ok := c.Value.(expr.Literal); ok {
+		return literalToString(lit) + "::" + c.Type.String()
+	}
+	// Enum args use CommonEnumType whose String() is empty; render as "enum"
+	return c.ValueText + "::enum"
 }
 
 func literalToString(literal expr.Literal) string {
@@ -76,13 +80,14 @@ func (c *CaseLiteral) AsAggregateArgumentString() string {
 		}
 		return "(" + strings.Join(elements, ", ") + ")::" + c.Type.String()
 	}
-	return c.Value.ValueString() + "::" + c.Type.String()
+	return c.ValueText + "::" + c.Type.String()
 }
 
 // updateLiteralType updates the type of the literal CaseLiteral.Value to use the CaseLiteral.Type
 // Parser creates a literal with a type using existing util functions.
 // For ParameterizedTypes utils functions use minimum required values for the parameters.
 // This function changes the type to use requested type, so that the function invocation object is created correctly.
+// Enum args are excluded: CommonEnumType has no parameters, so they return early.
 func (c *CaseLiteral) updateLiteralType() error {
 	if len(c.Type.GetParameters()) == 0 {
 		return nil
@@ -396,6 +401,7 @@ func (tc *TestCase) GetAggregateFunctionInvocation(reg *expr.ExtensionRegistry, 
 	return nil, fmt.Errorf("%w: no matching function found  or %s", substraitgo.ErrNotFound, id)
 }
 
+// GetAggregateColumnsData returns column data for aggregate test cases.
 func (tc *TestCase) GetAggregateColumnsData() ([][]expr.Literal, error) {
 	if tc.FuncType != AggregateFuncType {
 		return nil, fmt.Errorf("expected function type %v, but got %v", AggregateFuncType, tc.FuncType)

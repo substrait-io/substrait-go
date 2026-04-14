@@ -700,3 +700,7 @@ func TestStructTypeDepthFirstNameCount(t *testing.T) {
 		})
 	}
 }
+
+func TestEnumTypeShortString(t *testing.T) {
+	assert.Equal(t, "req", CommonEnumType.ShortString())
+}

@@ -189,6 +189,7 @@ func TestParseTestWithVariousTypes(t *testing.T) {
 		{testCaseStr: "concat('abcd'::vchar<9>, Null::varchar<9>) = Null::vchar<9>", expTestStr: "concat('abcd'::varchar<9>, null::varchar?<9>) = null::varchar?<9>"},
 		{testCaseStr: "concat('abcd'::vchar<9>, Null::fixedchar<9>) = Null::fchar<9>", expTestStr: "concat('abcd'::varchar<9>, null::fixedchar?<9>) = null::fixedchar?<9>"},
 		{testCaseStr: "concat('abcd'::fbin<9>, Null::fixedbinary<9>) = Null::fbin<9>", expTestStr: "concat('0x61626364'::fixedbinary<9>, null::fixedbinary?<9>) = null::fixedbinary?<9>"},
+		{testCaseStr: "extract(YEAR::enum, '2016-12-31T13:30:15'::ts) = 2016::i64", expTestStr: "extract(YEAR::enum, '2016-12-31T13:30:15'::timestamp) = 2016::i64"},
 		{testCaseStr: "f35('1991-01-01T01:02:03.456'::pts<3>) = '1991-01-01T01:02:30.123123'::precision_timestamp<3>", expTestStr: "f35('1991-01-01T01:02:03.456'::precision_timestamp<3>) = '1991-01-01T01:02:30.123'::precision_timestamp<3>"},
 		{testCaseStr: "f36('1991-01-01T01:02:03.456'::pts<3>, '1991-01-01T01:02:30.123123'::precision_timestamp<3>) = 123456::i64", expTestStr: "f36('1991-01-01T01:02:03.456'::precision_timestamp<3>, '1991-01-01T01:02:30.123'::precision_timestamp<3>) = 123456::i64"},
 		{testCaseStr: "f37('1991-01-01T01:02:03.123456'::pts<6>, '1991-01-01T04:05:06.456'::precision_timestamp<6>) = 123456::i64", expTestStr: "f37('1991-01-01T01:02:03.123456'::precision_timestamp<6>, '1991-01-01T04:05:06.456'::precision_timestamp<6>) = 123456::i64"},
@@ -208,10 +209,18 @@ func TestParseTestWithVariousTypes(t *testing.T) {
 			}
 			for _, arg := range testFile.TestCases[0].Args {
 				assert.NotNil(t, arg.Value)
-				checkNullability(t, arg.Value, arg.Type)
+				switch v := arg.Value.(type) {
+				case expr.Literal:
+					checkNullability(t, v, arg.Type)
+				case types.Enum:
+					assert.Equal(t, types.CommonEnumType, arg.Type)
+				default:
+					t.Errorf("unexpected arg value type %T", v)
+				}
 			}
-			assert.NotNil(t, testFile.TestCases[0].Result.Value)
-			checkNullability(t, testFile.TestCases[0].Result.Value, testFile.TestCases[0].Result.Type)
+			resultLit, ok := testFile.TestCases[0].Result.Value.(expr.Literal)
+			require.True(t, ok, "result should be a literal, got %T", testFile.TestCases[0].Result.Value)
+			checkNullability(t, resultLit, testFile.TestCases[0].Result.Type)
 		})
 	}
 }
@@ -427,7 +436,9 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 		"sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ERROR>",
 	}
 	assert.Equal(t, newFloat32List(1, 2, 3), tc.AggregateArgs[0].Argument.Value)
-	assert.Equal(t, listType, tc.AggregateArgs[0].Argument.Value.GetType())
+	lit, ok := tc.AggregateArgs[0].Argument.Value.(expr.Literal)
+	require.True(t, ok, "aggregate arg should be a literal, got %T", tc.AggregateArgs[0].Argument.Value)
+	assert.Equal(t, listType, lit.GetType())
 	assert.Equal(t, "fp64", tc.Result.Type.String())
 	assert.Equal(t, literal.NewFloat64(2, false), tc.Result.Value)
 	assert.Equal(t, AggregateFuncType, tc.FuncType)
@@ -816,8 +827,8 @@ func TestParseTestWithBadAggregateTests(t *testing.T) {
 corr(t1.col0, t2.col1) = 1::fp64`,
 			"table name in argument t2, does not match the table name in the function call t1",
 		},
-		{"((20, 20), (-3, -3), (1, 1), (10,10), (5,5)) corr(my_col::fp32, col0::fp32) = 1::fp64", "mismatched input '::' expecting ')"},
-		{"((20, 20), (-3, -3), (1, 1), (10,10), (5,5)) corr(col0::fp32, column1::fp32) = 1::fp64", "mismatched input '::' expecting ')"},
+		{"((20, 20), (-3, -3), (1, 1), (10,10), (5,5)) corr(my_col::fp32, col0::fp32) = 1::fp64", "mismatched input 'fp32' expecting 'enum'"},
+		{"((20, 20), (-3, -3), (1, 1), (10,10), (5,5)) corr(col0::fp32, column1::fp32) = 1::fp64", "mismatched input 'fp32' expecting 'enum'"},
 		{"f8('13:01:01.234'::time) = 123::i32", "expected aggregate testcase based on test file header, but got scalar function testcase"},
 	}
 	for _, test := range tests {
@@ -888,6 +899,8 @@ count(t1.col0) = 4::fp64`, expTestStr: "(('cat'), ('bat'), ('rat'), (null)) coun
 			expTestStr: "f38(('1990-12-31T19:32:03.456')::precision_timestamp_tz?<3>) = '1990-12-31T08:30:00.000+00:00'::precision_timestamp_tz<3>"},
 		{testCaseStr: "f39(('1991-01-01T01:02:03.456+05:30', '1991-01-01T01:02:03.123456+05:30')::ptstz<6>) = '1991-01-01T00:00:00+15:30'::ptstz<6>",
 			expTestStr: "f39(('1990-12-31T19:32:03.456', '1990-12-31T19:32:03.123456')::precision_timestamp_tz<6>) = '1990-12-31T08:30:00.000+00:00'::precision_timestamp_tz<6>"},
+		{testCaseStr: "((1.0), (2.0), (3.0)) std_dev(SAMPLE::enum, col0::fp32) = 1.0::fp32?",
+			expTestStr: "((1), (2), (3)) std_dev(SAMPLE::enum, col0::fp32) = 1::fp32?"},
 	}
 	for _, test := range tests {
 		t.Run(test.testCaseStr, func(t *testing.T) {
@@ -926,6 +939,22 @@ func TestParseTestCaseFile(t *testing.T) {
 	assert.Len(t, testFile.TestCases, 13)
 }
 
+func TestParseEnumArg(t *testing.T) {
+	header := makeHeader("v1.0", "/extensions/functions_datetime.yaml")
+	testFile, err := ParseTestCasesFromString(header + "# timestamps\nextract(YEAR::enum, '2016-12-31T13:30:15'::ts) = 2016::i64\n")
+	require.NoError(t, err)
+	require.Len(t, testFile.TestCases, 1)
+
+	tc := testFile.TestCases[0]
+	assert.Equal(t, types.CommonEnumType, tc.Args[0].Type)
+	assert.Equal(t, "extract(YEAR::enum, '2016-12-31T13:30:15'::timestamp) = 2016::i64", tc.String())
+
+	reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(extensions.GetDefaultCollectionWithNoError())
+	invocation, err := tc.GetScalarFunctionInvocation(&reg, funcRegistry)
+	require.NoError(t, err)
+	assert.Equal(t, []types.Type{types.CommonEnumType, &types.TimestampType{Nullability: types.NullabilityRequired}}, invocation.GetArgTypes())
+}
+
 func TestLoadAllSubstraitTestFiles(t *testing.T) {
 	got := substrait.GetSubstraitTestsFS()
 	filePaths, err := listFiles(got, ".")
@@ -935,9 +964,11 @@ func TestLoadAllSubstraitTestFiles(t *testing.T) {
 	for _, filePath := range filePaths {
 		t.Run(filePath, func(t *testing.T) {
 			switch filePath {
-			case "tests/cases/datetime/extract.test":
-				// TODO deal with enum arguments in testcase
-				t.Skip("Skipping extract.test")
+			case "tests/cases/arithmetic/std_dev.test",
+				"tests/cases/arithmetic/variance.test":
+				// Skipping: upstream test files use an invalid single-column compact format,
+				// fixed in substrait v0.88.0 (substrait-io/substrait#1043).
+				t.Skip("Skipping until substrait dependency is updated to v0.88.0+")
 			case "tests/cases/list/all_match.test",
 				"tests/cases/list/any_match.test",
 				"tests/cases/list/filter.test",

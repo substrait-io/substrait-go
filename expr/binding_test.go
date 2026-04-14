@@ -108,3 +108,10 @@ func TestBoundExpressions(t *testing.T) {
 		})
 	}
 }
+
+func TestGetArgTypesWithEnum(t *testing.T) {
+	f, err := NewScalarFunc(extReg, extractID, nil, types.Enum("YEAR"),
+		MustExpr(NewRootFieldRef(NewStructFieldRef(9), types.NewRecordTypeFromStruct(boringSchema.Struct))))
+	assert.NoError(t, err)
+	assert.Equal(t, types.CommonEnumType, f.GetArgTypes()[0])
+}

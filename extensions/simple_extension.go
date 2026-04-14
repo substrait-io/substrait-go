@@ -48,7 +48,7 @@ type TypeVariationFunctions string
 const (
 	TypeVariationInheritsFuncs TypeVariationFunctions = "INHERITS"
 	TypeVariationSeparateFuncs TypeVariationFunctions = "SEPARATE"
-	EnumTypeString                                    = "req" // TODO change this to "enum"
+	EnumTypeString                                    = "req"
 )
 
 type TypeVariation struct {

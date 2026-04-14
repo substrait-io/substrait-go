@@ -368,6 +368,8 @@ func getArgTypes(args []types.FuncArg) []types.Type {
 	argTypes := make([]types.Type, len(args))
 	for i, arg := range args {
 		switch a := arg.(type) {
+		case types.Enum:
+			argTypes[i] = types.CommonEnumType
 		case Expression:
 			argTypes[i] = a.GetType()
 		case types.Type:

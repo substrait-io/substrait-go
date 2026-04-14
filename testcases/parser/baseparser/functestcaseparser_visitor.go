@@ -151,6 +151,9 @@ type FuncTestCaseParserVisitor interface {
 	// Visit a parse tree produced by FuncTestCaseParser#lambdaArg.
 	VisitLambdaArg(ctx *LambdaArgContext) interface{}
 
+	// Visit a parse tree produced by FuncTestCaseParser#enumArg.
+	VisitEnumArg(ctx *EnumArgContext) interface{}
+
 	// Visit a parse tree produced by FuncTestCaseParser#literalList.
 	VisitLiteralList(ctx *LiteralListContext) interface{}
 

@@ -625,7 +625,9 @@ func (e *EnumType) MatchWithoutNullability(ot Type) bool {
 }
 
 func (e *EnumType) ShortString() string {
-	return "enum"
+	// Enum args use "req" as their compound function name key, matching the
+	// substrait spec's EnumTypeString constant in extensions/simple_extension.go.
+	return "req"
 }
 
 func (e *EnumType) GetNullability() Nullability {
