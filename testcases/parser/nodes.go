@@ -514,7 +514,6 @@ func (e NonValueOutcome) String() string {
 		return "<!ERROR>"
 	case NonValueUndefined:
 		return "<!UNDEFINED>"
-	default:
-		return "<!UNKNOWN>"
 	}
+	return "<!UNKNOWN>"
 }

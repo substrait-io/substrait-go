@@ -23,6 +23,11 @@ func resultLiteral(t *testing.T, r TestCaseResult) *CaseLiteral {
 	return lit
 }
 
+func TestNonValueOutcomeString(t *testing.T) {
+	assert.Equal(t, "<!ERROR>", NonValueError.String())
+	assert.Equal(t, "<!UNDEFINED>", NonValueUndefined.String())
+}
+
 func makeHeader(version, include string) string {
 	return fmt.Sprintf("### SUBSTRAIT_SCALAR_TEST: %s\n### SUBSTRAIT_INCLUDE: '%s'\n\n", version, include)
 }
