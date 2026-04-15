@@ -2412,3 +2412,55 @@ func TestExtensionBuildersErrors(t *testing.T) {
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidArg)
 	assert.ErrorContains(t, err, "definition must not be nil")
 }
+
+func TestExtensionTable(t *testing.T) {
+	const expectedJSON = `{
+		` + versionStruct + `,
+		"relations": [
+			{
+				"root": {
+					"input": {
+						"read": {
+							"common": {"direct":{}},
+							"baseSchema": {
+								"names": ["a"],
+								"struct": {
+									"types": [
+										{"i32": {"nullability": "NULLABILITY_REQUIRED"}}
+									],
+									"nullability": "NULLABILITY_REQUIRED"
+								}
+							},
+							"extensionTable": {
+								"detail": {
+									"@type": "type.googleapis.com/google.protobuf.StringValue",
+									"value": "my_custom_table"
+								}
+							}
+						}
+					},
+					"names": ["a"]
+				}
+			}
+		]
+	}`
+
+	b := plan.NewBuilderDefault()
+
+	detail, err := anypb.New(wrapperspb.String("my_custom_table"))
+	require.NoError(t, err)
+
+	schema := types.NamedStruct{
+		Names: []string{"a"},
+		Struct: types.StructType{
+			Nullability: types.NullabilityRequired,
+			Types:       []types.Type{&types.Int32Type{Nullability: types.NullabilityRequired}},
+		},
+	}
+
+	ext := b.ExtensionTable(detail, schema)
+	p, err := b.Plan(ext, []string{"a"})
+	require.NoError(t, err)
+
+	checkRoundTrip(t, expectedJSON, p)
+}

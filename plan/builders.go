@@ -10,6 +10,7 @@ import (
 	"github.com/substrait-io/substrait-go/v8/extensions"
 	"github.com/substrait-io/substrait-go/v8/types"
 	"golang.org/x/exp/slices"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // Builder is the base object for constructing the various elements of a plan.
@@ -125,6 +126,7 @@ type Builder interface {
 	VirtualTableFromExprRemap(fieldNames []string, remap []int32, values ...expr.VirtualTableExpressionValue) (*VirtualTableReadRel, error)
 	VirtualTableFromExpr(fieldNames []string, values ...expr.VirtualTableExpressionValue) (*VirtualTableReadRel, error)
 	EmptyVirtualTable(fieldNames []string, types []types.Type) (*VirtualTableReadRel, error)
+	ExtensionTable(detail *anypb.Any, schema types.NamedStruct) *ExtensionTableReadRel
 	IcebergTableFromMetadataFile(metadataURI string, snapshot IcebergSnapshot, schema types.NamedStruct) (*IcebergTableReadRel, error)
 	// Deprecated: Use Sort(...).Remap() instead.
 	SortRemap(input Rel, remap []int32, sorts ...expr.SortField) (*SortRel, error)
@@ -637,6 +639,15 @@ func (b *builder) EmptyVirtualTable(fieldNames []string, typeList []types.Type) 
 			baseSchema: baseSchema,
 		},
 	}, nil
+}
+
+func (b *builder) ExtensionTable(detail *anypb.Any, schema types.NamedStruct) *ExtensionTableReadRel {
+	return &ExtensionTableReadRel{
+		baseReadRel: baseReadRel{
+			baseSchema: schema,
+		},
+		detail: detail,
+	}
 }
 
 func (b *builder) IcebergTableFromMetadataFile(metadataURI string, snapshot IcebergSnapshot, schema types.NamedStruct) (*IcebergTableReadRel, error) {
