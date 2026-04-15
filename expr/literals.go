@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 
@@ -17,15 +18,13 @@ import (
 	substraitgo "github.com/substrait-io/substrait-go/v8"
 	"github.com/substrait-io/substrait-go/v8/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
-	"golang.org/x/exp/slices"
 )
 
 // PrimitiveLiteralValue is a type constraint that represents
 // any of the non-nested literal types which are also easily comparable
 // via ==
 type PrimitiveLiteralValue interface {
-	bool | int8 | int16 | ~int32 | ~int64 |
-		float32 | float64 | ~string
+	bool | int8 | int16 | ~int32 | ~int64 | float32 | float64 | ~string
 }
 
 type nestedLiteral interface {
@@ -779,8 +778,7 @@ func getNullability(nullable bool) types.Nullability {
 
 // A PrimitiveLiteral is a literal with one of the types specified in this interface
 type newPrimitiveLiteralTypes interface {
-	bool | int8 | int16 | ~int32 | ~int64 |
-		float32 | float64 | string
+	bool | int8 | int16 | ~int32 | ~int64 | float32 | float64 | string
 }
 
 func NewPrimitiveLiteral[T newPrimitiveLiteralTypes](val T, nullable bool) Literal {

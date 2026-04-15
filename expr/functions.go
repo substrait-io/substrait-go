@@ -4,13 +4,13 @@ package expr
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	substraitgo "github.com/substrait-io/substrait-go/v8"
 	"github.com/substrait-io/substrait-go/v8/extensions"
 	"github.com/substrait-io/substrait-go/v8/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
-	"golang.org/x/exp/slices"
 	pb "google.golang.org/protobuf/proto"
 )
 
