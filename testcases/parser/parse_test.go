@@ -16,6 +16,13 @@ import (
 	"github.com/substrait-io/substrait-go/v8/types"
 )
 
+func resultLiteral(t *testing.T, r TestCaseResult) *CaseLiteral {
+	t.Helper()
+	lit, ok := r.(*CaseLiteral)
+	require.True(t, ok, "expected *CaseLiteral, got %T", r)
+	return lit
+}
+
 func makeHeader(version, include string) string {
 	return fmt.Sprintf("### SUBSTRAIT_SCALAR_TEST: %s\n### SUBSTRAIT_INCLUDE: '%s'\n\n", version, include)
 }
@@ -93,8 +100,8 @@ lt('2016-12-31T13:30:15'::ts, '2017-12-31T13:30:15'::ts) = true::bool
 	require.NoError(t, err)
 	assert.Equal(t, tsLiteral, testFile.TestCases[0].Args[1].Value)
 	boolLiteral := literal.NewBool(true, false)
-	assert.Equal(t, boolLiteral, testFile.TestCases[0].Result.Value)
-	assert.Equal(t, &types.BooleanType{Nullability: types.NullabilityRequired}, testFile.TestCases[0].Result.Type)
+	assert.Equal(t, boolLiteral, resultLiteral(t, testFile.TestCases[0].Result).Value)
+	assert.Equal(t, &types.BooleanType{Nullability: types.NullabilityRequired}, resultLiteral(t, testFile.TestCases[0].Result).Type)
 	timestampType := &types.TimestampType{Nullability: types.NullabilityRequired}
 	assert.Equal(t, timestampType, testFile.TestCases[0].Args[0].Type)
 	assert.Equal(t, timestampType, testFile.TestCases[0].Args[1].Type)
@@ -134,13 +141,13 @@ add(0.5::dec<1, 1>, 0.25::dec<2, 2>) = 0.75::dec<5, 2>
 	f641 := literal.NewFloat64(1, false)
 	assert.Equal(t, dec8, testFile.TestCases[0].Args[0].Value)
 	assert.Equal(t, dec2, testFile.TestCases[0].Args[1].Value)
-	assert.Equal(t, f6464, testFile.TestCases[0].Result.Value)
+	assert.Equal(t, f6464, resultLiteral(t, testFile.TestCases[0].Result).Value)
 	assert.Equal(t, dec1, testFile.TestCases[1].Args[0].Value)
 	assert.Equal(t, decMinus1Point0, testFile.TestCases[1].Args[1].Value)
-	assert.Equal(t, f641, testFile.TestCases[1].Result.Value)
+	assert.Equal(t, f641, resultLiteral(t, testFile.TestCases[1].Result).Value)
 	assert.Equal(t, decMinus1, testFile.TestCases[2].Args[0].Value)
 	assert.Equal(t, decPoint5, testFile.TestCases[2].Args[1].Value)
-	assert.Equal(t, "fp64(NaN)", testFile.TestCases[2].Result.Value.String())
+	assert.Equal(t, "fp64(NaN)", resultLiteral(t, testFile.TestCases[2].Result).Value.String())
 
 	decPoint25Value, _ := literal.NewDecimalFromString("0.25", false)
 	decPoint75Value, _ := literal.NewDecimalFromString("0.75", false)
@@ -149,7 +156,7 @@ add(0.5::dec<1, 1>, 0.25::dec<2, 2>) = 0.75::dec<5, 2>
 	decPoint5, _ = decPoint5Value.(expr.WithTypeLiteral).WithType(&types.DecimalType{Precision: 1, Scale: 1, Nullability: types.NullabilityRequired})
 	assert.Equal(t, decPoint5, testFile.TestCases[3].Args[0].Value)
 	assert.Equal(t, decPoint25, testFile.TestCases[3].Args[1].Value)
-	assert.Equal(t, decPoint75, testFile.TestCases[3].Result.Value)
+	assert.Equal(t, decPoint75, resultLiteral(t, testFile.TestCases[3].Result).Value)
 }
 
 func TestParseTestWithVariousTypes(t *testing.T) {
@@ -218,9 +225,9 @@ func TestParseTestWithVariousTypes(t *testing.T) {
 					t.Errorf("unexpected arg value type %T", v)
 				}
 			}
-			resultLit, ok := testFile.TestCases[0].Result.Value.(expr.Literal)
-			require.True(t, ok, "result should be a literal, got %T", testFile.TestCases[0].Result.Value)
-			checkNullability(t, resultLit, testFile.TestCases[0].Result.Type)
+			resultLit, ok := resultLiteral(t, testFile.TestCases[0].Result).Value.(expr.Literal)
+			require.True(t, ok, "result should be a literal, got %T", resultLiteral(t, testFile.TestCases[0].Result).Value)
+			checkNullability(t, resultLit, resultLiteral(t, testFile.TestCases[0].Result).Type)
 		})
 	}
 }
@@ -257,7 +264,7 @@ starts_with('abcd'::str, 'AB'::str) [case_sensitivity:CASE_INSENSITIVE] = true::
 	strRes := literal.NewString("abcdef", false)
 	assert.Equal(t, strAbc, testFile.TestCases[0].Args[0].Value)
 	assert.Equal(t, strDef, testFile.TestCases[0].Args[1].Value)
-	assert.Equal(t, strRes, testFile.TestCases[0].Result.Value)
+	assert.Equal(t, strRes, resultLiteral(t, testFile.TestCases[0].Result).Value)
 
 	strArg1 := literal.NewString("HHHelloooo", false)
 	strArg2 := literal.NewString("Hel+", false)
@@ -267,17 +274,17 @@ starts_with('abcd'::str, 'AB'::str) [case_sensitivity:CASE_INSENSITIVE] = true::
 	strRes1 := literal.NewString("HH", false)
 	strRes2 := literal.NewString("oooo", false)
 	result, _ := literal.NewList([]expr.Literal{strRes1, strRes2}, false)
-	assert.Equal(t, result, testFile.TestCases[1].Result.Value)
+	assert.Equal(t, result, resultLiteral(t, testFile.TestCases[1].Result).Value)
 
 	str1 := literal.NewString("à", false)
 	i642 := literal.NewInt64(2, false)
 	assert.Equal(t, str1, testFile.TestCases[2].Args[0].Value)
-	assert.Equal(t, i642, testFile.TestCases[2].Result.Value)
+	assert.Equal(t, i642, resultLiteral(t, testFile.TestCases[2].Result).Value)
 
 	str2 := literal.NewString("😄", false)
 	i644 := literal.NewInt64(4, false)
 	assert.Equal(t, str2, testFile.TestCases[3].Args[0].Value)
-	assert.Equal(t, i644, testFile.TestCases[3].Result.Value)
+	assert.Equal(t, i644, resultLiteral(t, testFile.TestCases[3].Result).Value)
 
 }
 
@@ -301,8 +308,8 @@ some_func('abc'::str, 'def'::str) = [1, 2, 3, 4, 5, 6]::List<i8>`
 		literal.NewInt8(1, false), literal.NewInt8(2, false), literal.NewInt8(3, false),
 		literal.NewInt8(4, false), literal.NewInt8(5, false), literal.NewInt8(6, false),
 	}, false)
-	assert.Equal(t, list, testFile.TestCases[0].Result.Value)
-	assert.Equal(t, i8List, testFile.TestCases[0].Result.Type)
+	assert.Equal(t, list, resultLiteral(t, testFile.TestCases[0].Result).Value)
+	assert.Equal(t, i8List, resultLiteral(t, testFile.TestCases[0].Result).Type)
 }
 
 func TestParseNestedListLiteral(t *testing.T) {
@@ -439,8 +446,8 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 	lit, ok := tc.AggregateArgs[0].Argument.Value.(expr.Literal)
 	require.True(t, ok, "aggregate arg should be a literal, got %T", tc.AggregateArgs[0].Argument.Value)
 	assert.Equal(t, listType, lit.GetType())
-	assert.Equal(t, "fp64", tc.Result.Type.String())
-	assert.Equal(t, literal.NewFloat64(2, false), tc.Result.Value)
+	assert.Equal(t, "fp64", resultLiteral(t, tc.Result).Type.String())
+	assert.Equal(t, literal.NewFloat64(2, false), resultLiteral(t, tc.Result).Value)
 	assert.Equal(t, AggregateFuncType, tc.FuncType)
 	_, err = tc.GetScalarFunctionInvocation(nil, nil)
 	require.Error(t, err)
@@ -466,7 +473,7 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 	require.Equal(t, 1, aggregateFunc.NArgs())
 	assert.Equal(t, &types.Float32Type{Nullability: types.NullabilityNullable}, aggArg.GetType())
 	assert.Equal(t, []types.Type{&types.Float32Type{Nullability: types.NullabilityNullable}}, tc.GetArgTypes())
-	assert.Equal(t, tc.Result.Type, &types.Float64Type{Nullability: types.NullabilityNullable})
+	assert.Equal(t, resultLiteral(t, tc.Result).Type, &types.Float64Type{Nullability: types.NullabilityNullable})
 	argValues := newFloat32Values(true, 1, 2, 3)
 	argValues = append(argValues, &expr.NullLiteral{Type: &types.Float32Type{Nullability: types.NullabilityNullable}})
 	argList, _ := literal.NewList(argValues, false)
@@ -572,14 +579,14 @@ func TestParseAggregateFuncCompact(t *testing.T) {
 		createAggregateArg(t, "", "col1", f32Type),
 	}
 	assert.Equal(t, args, tc.AggregateArgs)
-	assert.Equal(t, "fp64", tc.Result.Type.String())
-	assert.Equal(t, literal.NewFloat64(1, false), tc.Result.Value)
+	assert.Equal(t, "fp64", resultLiteral(t, tc.Result).Type.String())
+	assert.Equal(t, literal.NewFloat64(1, false), resultLiteral(t, tc.Result).Value)
 	assert.Equal(t, testString, tc.String())
 
 	tc = testFile.TestCases[1]
 	args[1] = createAggregateArg(t, "", "col1", f32Type.WithNullability(types.NullabilityNullable))
 	assert.Equal(t, args, tc.AggregateArgs)
-	assert.Equal(t, "fp64?", tc.Result.Type.String())
+	assert.Equal(t, "fp64?", resultLiteral(t, tc.Result).Type.String())
 }
 
 func createAggregateArg(t *testing.T, tableName, columnName string, columnType types.Type) *AggregateArgument {
