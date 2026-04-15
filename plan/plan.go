@@ -7,6 +7,7 @@ package plan
 import (
 	"fmt"
 	"runtime/debug"
+	"slices"
 	"strings"
 
 	substraitgo "github.com/substrait-io/substrait-go/v8"
@@ -15,7 +16,6 @@ import (
 	"github.com/substrait-io/substrait-go/v8/plan/internal"
 	"github.com/substrait-io/substrait-go/v8/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
-	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
