@@ -20,17 +20,28 @@ const (
 	WindowFuncType    TestFuncType = "window"
 )
 
-type CaseLiteral struct {
-	Type           types.Type
-	ValueText      string
-	Value          types.FuncArg
-	SubstraitError *SubstraitError
+// TestCaseResult is the expected result of a test case. It is either a
+// *CaseLiteral (a concrete value or NULL) or a NonValueOutcome (<!ERROR> or <!UNDEFINED>).
+type TestCaseResult interface {
+	String() string
+	// isTestCaseResult restricts TestCaseResult to types in this package.
+	isTestCaseResult()
 }
 
+// CaseLiteral is a typed literal value used as a function argument or expected
+// result in a Substrait test case (e.g. "120::i8" or "NULL").
+type CaseLiteral struct {
+	// Type is the Substrait type of the literal (e.g. i8, fp64, string).
+	Type types.Type
+	// ValueText is the original text representation of the value as it appeared in the test case.
+	ValueText string
+	// Value is the parsed literal value or enum argument. Nil for NULL literals.
+	Value types.FuncArg
+}
+
+func (*CaseLiteral) isTestCaseResult() {}
+
 func (c *CaseLiteral) String() string {
-	if c.SubstraitError != nil {
-		return c.SubstraitError.String()
-	}
 	if c.Value == nil {
 		return "NULL"
 	}
@@ -70,9 +81,6 @@ func literalToString(literal expr.Literal) string {
 }
 
 func (c *CaseLiteral) AsAggregateArgumentString() string {
-	if c.SubstraitError != nil {
-		return c.SubstraitError.String()
-	}
 	if list, ok := c.Value.(*expr.ListLiteral); ok {
 		var elements []string
 		for _, element := range list.Value {
@@ -118,7 +126,7 @@ type TestCase struct {
 	FuncName      string
 	Args          []*CaseLiteral
 	AggregateArgs []*AggregateArgument
-	Result        *CaseLiteral
+	Result        TestCaseResult
 	Options       FuncOptions
 	Columns       [][]expr.Literal
 	TableName     string
@@ -486,10 +494,26 @@ type CompactAggregateFuncCall struct {
 	AggregateArgs []*AggregateArgument
 }
 
-type SubstraitError struct {
-	Error string
-}
+// NonValueOutcome represents a test case result that is not a concrete value.
+// Per the Substrait test case spec, a result may be <!ERROR> (the operation
+// must fail) or <!UNDEFINED> (the operation may return any value).
+type NonValueOutcome int
 
-func (e SubstraitError) String() string {
-	return "<!" + e.Error + ">"
+func (NonValueOutcome) isTestCaseResult() {}
+
+const (
+	// NonValueError indicates the function is expected to fail with an error.
+	NonValueError NonValueOutcome = iota + 1
+	// NonValueUndefined indicates the result is implementation-defined; any value is acceptable.
+	NonValueUndefined
+)
+
+func (e NonValueOutcome) String() string {
+	switch e {
+	case NonValueError:
+		return "<!ERROR>"
+	case NonValueUndefined:
+		return "<!UNDEFINED>"
+	}
+	return "<!UNKNOWN>"
 }
