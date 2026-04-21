@@ -39,6 +39,30 @@ func TestToProtoLiteral(t *testing.T) {
 	}
 }
 
+func TestMapLiteralToProtoLiteral(t *testing.T) {
+	mapLit := NewNestedLiteral(MapLiteralValue{
+		{
+			Key:   NewPrimitiveLiteral("foo", false),
+			Value: NewPrimitiveLiteral[int32](1, false),
+		},
+		{
+			Key:   NewPrimitiveLiteral("bar", false),
+			Value: NewPrimitiveLiteral[int32](2, false),
+		},
+	}, false)
+
+	got := mapLit.ToProtoLiteral()
+
+	mapProto := got.GetMap()
+	assert.NotNil(t, mapProto, "expected Map literal type, got %T", got.LiteralType)
+	assert.Len(t, mapProto.KeyValues, 2)
+	for i, kv := range mapProto.KeyValues {
+		assert.NotNil(t, kv, "key-value entry %d is nil", i)
+		assert.NotNil(t, kv.Key, "key at %d is nil", i)
+		assert.NotNil(t, kv.Value, "value at %d is nil", i)
+	}
+}
+
 func TestLiteralFromProtoLiteral(t *testing.T) {
 	intDayToSecVal := &proto.Expression_Literal_IntervalDayToSecond{Days: 1, Seconds: 2, PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{Precision: 5}}
 	for _, tc := range []struct {
