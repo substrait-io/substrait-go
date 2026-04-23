@@ -944,6 +944,25 @@ func (v *TestCaseVisitor) VisitDataType(ctx *baseparser.DataTypeContext) interfa
 	return nil
 }
 
+// VisitUserDefined handles the `u!<identifier>[?]` scalar form that
+// shows up in parser inputs like `null::u!geometry?`. The base visitor
+// returns VisitChildren here (nil), which caused VisitNullArg to try
+// to use nil as a types.Type and panic with
+// "interface conversion: interface {} is nil, not string".
+func (v *TestCaseVisitor) VisitUserDefined(ctx *baseparser.UserDefinedContext) interface{} {
+	nullability := types.NullabilityRequired
+	if ctx.QMark() != nil {
+		nullability = types.NullabilityNullable
+	}
+	ident := ctx.Identifier()
+	if ident == nil {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("user-defined type without identifier: %v", ctx.GetText()))
+		return &types.UserDefinedType{Nullability: nullability}
+	}
+	_ = ident.GetText() // reserved for type-lookup; not available at this visit depth
+	return &types.UserDefinedType{Nullability: nullability}
+}
+
 func (v *TestCaseVisitor) VisitParameterizedType(ctx *baseparser.ParameterizedTypeContext) interface{} {
 	if ctx.DecimalType() != nil {
 		return v.Visit(ctx.DecimalType())
