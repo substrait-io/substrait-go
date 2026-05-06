@@ -336,6 +336,8 @@ func TestCollection_GetAllScalarFunctions(t *testing.T) {
 				assert.Contains(t, scalarFunctions, sf)
 				// verify that default nullability is set to MIRROR
 				assert.Equal(t, extensions.MirrorNullability, sf.Nullability())
+				// verify that deterministic defaults to true (per substrait spec)
+				assert.True(t, sf.Deterministic())
 			}
 			if tt.isAggregate {
 				af, ok := defaultExtensions.GetAggregateFunc(extensions.ID{URN: tt.urn, Name: tt.signature})
@@ -347,6 +349,78 @@ func TestCollection_GetAllScalarFunctions(t *testing.T) {
 				assert.True(t, ok)
 				assert.Contains(t, windowFunctions, wf)
 			}
+		})
+	}
+}
+
+func TestScalarFunctionImpl_DeterministicYAML(t *testing.T) {
+	const uri = "http://localhost/det.yaml"
+	tests := []struct {
+		name     string
+		yaml     string
+		expected bool
+	}{
+		{
+			name: "omitted defaults to true",
+			yaml: `
+urn: extension:test:det_omitted
+scalar_functions:
+  - name: "f"
+    impls:
+      - args:
+          - name: x
+            value: i8
+        return: i8
+`,
+			expected: true,
+		},
+		{
+			name: "explicit true",
+			yaml: `
+urn: extension:test:det_true
+scalar_functions:
+  - name: "f"
+    impls:
+      - args:
+          - name: x
+            value: i8
+        deterministic: true
+        return: i8
+`,
+			expected: true,
+		},
+		{
+			name: "explicit false is preserved",
+			yaml: `
+urn: extension:test:det_false
+scalar_functions:
+  - name: "f"
+    impls:
+      - args:
+          - name: x
+            value: i8
+        deterministic: false
+        return: i8
+`,
+			expected: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var c extensions.Collection
+			require.NoError(t, c.Load(uri+tt.name, strings.NewReader(tt.yaml)))
+
+			var urn string
+			for _, line := range strings.Split(tt.yaml, "\n") {
+				if strings.HasPrefix(line, "urn:") {
+					urn = strings.TrimSpace(strings.TrimPrefix(line, "urn:"))
+					break
+				}
+			}
+
+			sf, ok := c.GetScalarFunc(extensions.ID{URN: urn, Name: "f:i8"})
+			require.True(t, ok)
+			assert.Equal(t, tt.expected, sf.Deterministic())
 		})
 	}
 }

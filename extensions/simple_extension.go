@@ -261,6 +261,42 @@ type ScalarFunction struct {
 	Metadata    map[string]any       `yaml:"metadata,omitempty"`
 }
 
+// UnmarshalYAML decodes a ScalarFunction and applies the substrait
+// spec default of `deterministic = true` to each impl, but only for
+// impls where the YAML omits the key. Doing this via a custom decode
+// (rather than a `default:"true"` struct tag) avoids clobbering an
+// explicit `deterministic: false`, which would otherwise be overwritten
+// because false is the zero value that creasty/defaults targets.
+func (s *ScalarFunction) UnmarshalYAML(fn func(interface{}) error) error {
+	type rawImpl struct {
+		ScalarFunctionImpl `yaml:",inline"`
+		Deterministic      *bool `yaml:"deterministic,omitempty"`
+	}
+	type rawFn struct {
+		Name        string         `yaml:",omitempty"`
+		Description string         `yaml:",omitempty,flow"`
+		Impls       []rawImpl      `yaml:",omitempty"`
+		Metadata    map[string]any `yaml:"metadata,omitempty"`
+	}
+	var aux rawFn
+	if err := fn(&aux); err != nil {
+		return err
+	}
+	s.Name = aux.Name
+	s.Description = aux.Description
+	s.Metadata = aux.Metadata
+	s.Impls = make([]ScalarFunctionImpl, len(aux.Impls))
+	for i, ri := range aux.Impls {
+		s.Impls[i] = ri.ScalarFunctionImpl
+		if ri.Deterministic != nil {
+			s.Impls[i].Deterministic = *ri.Deterministic
+		} else {
+			s.Impls[i].Deterministic = true
+		}
+	}
+	return nil
+}
+
 func (s *ScalarFunction) GetVariants(urn string) []*ScalarFunctionVariant {
 	out := make([]*ScalarFunctionVariant, len(s.Impls))
 	for i, impl := range s.Impls {
@@ -312,6 +348,39 @@ type AggregateFunction struct {
 	Metadata    map[string]any `yaml:"metadata,omitempty"`
 }
 
+// UnmarshalYAML mirrors ScalarFunction.UnmarshalYAML: it preserves
+// explicit `deterministic: false` on each impl while defaulting an
+// omitted key to true per the substrait spec.
+func (s *AggregateFunction) UnmarshalYAML(fn func(interface{}) error) error {
+	type rawImpl struct {
+		AggregateFunctionImpl `yaml:",inline"`
+		Deterministic         *bool `yaml:"deterministic,omitempty"`
+	}
+	type rawFn struct {
+		Name        string         `yaml:",omitempty"`
+		Description string         `yaml:",omitempty,flow"`
+		Impls       []rawImpl      `yaml:",omitempty"`
+		Metadata    map[string]any `yaml:"metadata,omitempty"`
+	}
+	var aux rawFn
+	if err := fn(&aux); err != nil {
+		return err
+	}
+	s.Name = aux.Name
+	s.Description = aux.Description
+	s.Metadata = aux.Metadata
+	s.Impls = make([]AggregateFunctionImpl, len(aux.Impls))
+	for i, ri := range aux.Impls {
+		s.Impls[i] = ri.AggregateFunctionImpl
+		if ri.Deterministic != nil {
+			s.Impls[i].Deterministic = *ri.Deterministic
+		} else {
+			s.Impls[i].Deterministic = true
+		}
+	}
+	return nil
+}
+
 func (s *AggregateFunction) GetVariants(urn string) []*AggregateFunctionVariant {
 	out := make([]*AggregateFunctionVariant, len(s.Impls))
 	for i, impl := range s.Impls {
@@ -360,6 +429,39 @@ type WindowFunction struct {
 	Description string
 	Impls       []WindowFunctionImpl
 	Metadata    map[string]any `yaml:"metadata,omitempty"`
+}
+
+// UnmarshalYAML mirrors ScalarFunction.UnmarshalYAML: it preserves
+// explicit `deterministic: false` on each impl while defaulting an
+// omitted key to true per the substrait spec.
+func (s *WindowFunction) UnmarshalYAML(fn func(interface{}) error) error {
+	type rawImpl struct {
+		WindowFunctionImpl `yaml:",inline"`
+		Deterministic      *bool `yaml:"deterministic,omitempty"`
+	}
+	type rawFn struct {
+		Name        string         `yaml:",omitempty"`
+		Description string         `yaml:",omitempty,flow"`
+		Impls       []rawImpl      `yaml:",omitempty"`
+		Metadata    map[string]any `yaml:"metadata,omitempty"`
+	}
+	var aux rawFn
+	if err := fn(&aux); err != nil {
+		return err
+	}
+	s.Name = aux.Name
+	s.Description = aux.Description
+	s.Metadata = aux.Metadata
+	s.Impls = make([]WindowFunctionImpl, len(aux.Impls))
+	for i, ri := range aux.Impls {
+		s.Impls[i] = ri.WindowFunctionImpl
+		if ri.Deterministic != nil {
+			s.Impls[i].Deterministic = *ri.Deterministic
+		} else {
+			s.Impls[i].Deterministic = true
+		}
+	}
+	return nil
 }
 
 func (s *WindowFunction) GetVariants(urn string) []*WindowFunctionVariant {
