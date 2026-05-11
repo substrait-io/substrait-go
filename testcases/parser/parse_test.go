@@ -108,7 +108,7 @@ lt('2016-12-31T13:30:15'::ts, '2017-12-31T13:30:15'::ts) = true::bool
 // `VisitUserDefined` returns a `*types.UserDefinedType` so the null
 // literal can be constructed without panic. (`VisitNullArg` then forces
 // the `CaseLiteral.Type`'s nullability to `Nullable` regardless of the
-// parsed `?`, so we don't assert on that — we only assert the arg type
+// parsed `?`, so we don't assert on that, we only assert the arg type
 // is a `UserDefinedType` and the value is a `NullLiteral`.)
 func TestParseUserDefinedNullArg(t *testing.T) {
 	header := makeHeader("v1.0", "/extensions/functions_arithmetic.yaml")
