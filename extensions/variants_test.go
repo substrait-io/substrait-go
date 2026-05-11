@@ -442,6 +442,87 @@ func valArg(typ types.FuncDefArgType) extensions.ValueArg {
 	return extensions.ValueArg{Value: &parser.TypeExpression{ValueType: typ}}
 }
 
+func mustParseFuncDefArg(t *testing.T, typeExpression string) types.FuncDefArgType {
+	t.Helper()
+
+	typ, err := parser.ParseType(typeExpression)
+	require.NoError(t, err)
+	return typ
+}
+
+func mustParseConcreteType(t *testing.T, typeExpression string) types.Type {
+	t.Helper()
+
+	typ, err := mustParseFuncDefArg(t, typeExpression).ReturnType(nil, nil)
+	require.NoError(t, err)
+	return typ
+}
+
+func TestNullabilityAndAnyTypeBindingDocExamples(t *testing.T) {
+	tests := []struct {
+		definition          string
+		nullabilityHandling extensions.NullabilityHandling
+		argTypes            []string
+		returnType          string
+		matches             bool
+		expectedReturnType  string
+	}{
+		{"f(any1, any1) -> any1", extensions.MirrorNullability, []string{"i32", "i32"}, "any1", true, "i32"},
+		{"f(any1, any1) -> any1", extensions.MirrorNullability, []string{"i32?", "i32"}, "any1", true, "i32?"},
+		{"f(any1, any1) -> any1", extensions.MirrorNullability, []string{"i32", "i32?"}, "any1", true, "i32?"},
+		{"f(any1, any1) -> any1", extensions.MirrorNullability, []string{"i32?", "i32?"}, "any1", true, "i32?"},
+		{"h(list<any1>, list<any1>) -> list<any1>", extensions.MirrorNullability, []string{"list<i32>", "list<i32>"}, "list<any1>", true, "list<i32>"},
+		{"h(list<any1>, list<any1>) -> list<any1>", extensions.MirrorNullability, []string{"list?<i32>", "list<i32>"}, "list<any1>", true, "list?<i32>"},
+		{"h(list<any1>, list<any1>) -> list<any1>", extensions.MirrorNullability, []string{"list<i32?>", "list<i32?>"}, "list<any1>", true, "list<i32?>"},
+		{"h(list<any1>, list<any1>) -> list<any1>", extensions.MirrorNullability, []string{"list<i32>", "list<i32?>"}, "list<any1>", false, ""},
+		{"j(any1, list<any1?>) -> any1", extensions.MirrorNullability, []string{"i32", "list<i32?>"}, "any1", true, "i32"},
+		{"j(any1, list<any1?>) -> any1", extensions.MirrorNullability, []string{"i32", "list<i32>"}, "any1", false, ""},
+		{"j(any1, list<any1?>) -> any1", extensions.MirrorNullability, []string{"i32", "list<fp64?>"}, "any1", false, ""},
+		{"d(any1, any1) -> any1?", extensions.DeclaredOutputNullability, []string{"i32", "i32"}, "any1?", true, "i32?"},
+		{"d(any1, any1) -> any1?", extensions.DeclaredOutputNullability, []string{"i32?", "i32"}, "any1?", true, "i32?"},
+		{"d(any1, any1) -> any1?", extensions.DeclaredOutputNullability, []string{"i32?", "i32?"}, "any1?", true, "i32?"},
+		{"g(any1, any1) -> any1", extensions.DiscreteNullability, []string{"i32", "i32"}, "any1", true, "i32"},
+		{"g(any1, any1) -> any1", extensions.DiscreteNullability, []string{"i32?", "i32?"}, "any1", false, ""},
+		{"g(any1, any1) -> any1", extensions.DiscreteNullability, []string{"i32", "i32?"}, "any1", false, ""},
+		{"g2(any1, any1?) -> any1?", extensions.DiscreteNullability, []string{"i32", "i32?"}, "any1?", true, "i32?"},
+		{"g2(any1, any1?) -> any1?", extensions.DiscreteNullability, []string{"i32", "i32"}, "any1?", false, ""},
+		{"g2(any1, any1?) -> any1?", extensions.DiscreteNullability, []string{"i32?", "i32?"}, "any1?", false, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.definition+" with "+strings.Join(tt.argTypes, ", "), func(t *testing.T) {
+			funcParams := strings.TrimSuffix(strings.TrimPrefix(tt.definition[strings.Index(tt.definition, "("):strings.Index(tt.definition, ")")], "("), ")")
+			paramExpressions := strings.Split(funcParams, ", ")
+			parameters := make(extensions.FuncParameterList, len(paramExpressions))
+			for i, paramExpression := range paramExpressions {
+				parameters[i] = valArg(mustParseFuncDefArg(t, paramExpression))
+			}
+
+			arguments := make([]types.Type, len(tt.argTypes))
+			for i, argType := range tt.argTypes {
+				arguments[i] = mustParseConcreteType(t, argType)
+			}
+
+			actual, err := extensions.EvaluateTypeExpression(
+				"extension:test:def",
+				tt.nullabilityHandling,
+				mustParseFuncDefArg(t, tt.returnType),
+				parameters,
+				nil,
+				arguments,
+				extensions.NewSet())
+
+			if !tt.matches {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			require.True(t, mustParseConcreteType(t, tt.expectedReturnType).Equals(actual))
+		})
+	}
+}
+
 func TestResolveType(t *testing.T) {
 	// Test TypeReference setting logic for user-defined types
 	tests := []struct {
