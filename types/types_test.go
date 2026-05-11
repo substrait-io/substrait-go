@@ -701,6 +701,49 @@ func TestStructTypeDepthFirstNameCount(t *testing.T) {
 	}
 }
 
+func TestParameterizedFuncTypeComponentNullabilityMatching(t *testing.T) {
+	param := &ParameterizedFuncType{
+		Nullability: NullabilityRequired,
+		Parameters:  []FuncDefArgType{&AnyType{Name: "any1", Nullability: NullabilityRequired}},
+		Return:      &AnyType{Name: "any1", Nullability: NullabilityNullable},
+	}
+
+	t.Run("match without nullability ignores only outer function nullability", func(t *testing.T) {
+		actual := &FuncType{
+			Nullability:    NullabilityNullable,
+			ParameterTypes: []Type{&Int32Type{Nullability: NullabilityRequired}},
+			ReturnType:     &Int32Type{Nullability: NullabilityNullable},
+		}
+
+		assert.True(t, param.MatchWithoutNullability(actual))
+		assert.False(t, param.MatchWithNullability(actual))
+	})
+
+	t.Run("nested component nullability still matters", func(t *testing.T) {
+		actual := &FuncType{
+			Nullability:    NullabilityRequired,
+			ParameterTypes: []Type{&Int32Type{Nullability: NullabilityRequired}},
+			ReturnType:     &Int32Type{Nullability: NullabilityRequired},
+		}
+
+		assert.False(t, param.MatchWithoutNullability(actual))
+	})
+
+	t.Run("non-function actual does not match", func(t *testing.T) {
+		assert.False(t, param.MatchWithoutNullability(&Int32Type{Nullability: NullabilityRequired}))
+	})
+
+	t.Run("parameter count must match", func(t *testing.T) {
+		actual := &FuncType{
+			Nullability:    NullabilityRequired,
+			ParameterTypes: []Type{},
+			ReturnType:     &Int32Type{Nullability: NullabilityNullable},
+		}
+
+		assert.False(t, param.MatchWithoutNullability(actual))
+	})
+}
+
 func TestParameterizedTypeComponentNullabilityMatching(t *testing.T) {
 	tests := []struct {
 		name   string
