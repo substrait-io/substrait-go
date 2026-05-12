@@ -681,6 +681,8 @@ func getLeafParameterizedParams(abstractTypes interface{}) []string {
 	panic("invalid non-leaf, non-parameterized type param")
 }
 
+// bindAnyType binds a constrained AnyType name to a concrete argument type.
+// When ignoreNullability is true, the binding uses the required version of the argument type.
 func bindAnyType(anyType *types.AnyType, argType types.Type, bindings map[string]types.Type, ignoreNullability bool) error {
 	// Plain "any" is unconstrained - each occurrence can be a different type.
 	if anyType.Name == "any" {
@@ -707,6 +709,7 @@ func bindAnyType(anyType *types.AnyType, argType types.Type, bindings map[string
 	return nil
 }
 
+// validateTopLevelAnyTypeBinding handles top-level argument bindings, where MIRROR and DECLARED_OUTPUT ignore outer argument nullability.
 func validateTopLevelAnyTypeBinding(nullHandling NullabilityHandling, paramType types.FuncDefArgType, argType types.Type, bindings map[string]types.Type) error {
 	if anyType, ok := paramType.(*types.AnyType); ok {
 		return bindAnyType(anyType, argType, bindings,
@@ -715,7 +718,7 @@ func validateTopLevelAnyTypeBinding(nullHandling NullabilityHandling, paramType 
 	return validateAnyTypeBinding(nullHandling, paramType, argType, bindings)
 }
 
-// validateAnyTypeBinding validates and records the binding of an AnyType parameter to a concrete type.
+// validateAnyTypeBinding validates nested AnyType bindings, preserving nullability unless the nested AnyType is declared nullable.
 // It recursively handles nested types (lists, maps, structs, and functions).
 func validateAnyTypeBinding(nullHandling NullabilityHandling, paramType types.FuncDefArgType, argType types.Type, bindings map[string]types.Type) error {
 	switch p := paramType.(type) {
