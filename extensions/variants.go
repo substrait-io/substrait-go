@@ -240,46 +240,37 @@ func (m *argumentMatcher) matchArgument(actualType types.Type, argPos int) (bool
 func (m *argumentMatcher) matchTopLevel(paramType types.FuncDefArgType, argType types.Type) (bool, error) {
 	switch m.nullability {
 	case DiscreteNullability:
-		if anyType, ok := paramType.(*types.AnyType); ok {
-			return m.matchTopLevelAnyType(anyType, argType, true)
-		}
-		return m.matchType(paramType, argType, true)
+		return m.matchNested(paramType, argType)
 	case MirrorNullability, DeclaredOutputNullability:
-		if anyType, ok := paramType.(*types.AnyType); ok {
-			return m.matchTopLevelAnyType(anyType, argType, false)
-		}
-		return m.matchType(paramType, argType, false)
+		return m.matchTopLevelWithoutNullability(paramType, argType)
 	}
 	return false, fmt.Errorf("invalid nullability type: %s", m.nullability)
 }
 
-func (m *argumentMatcher) matchTopLevelAnyType(anyType *types.AnyType, argType types.Type, checkOuterNullability bool) (bool, error) {
-	if anyType.Nullability == types.NullabilityNullable && argType.GetNullability() != types.NullabilityNullable {
-		return false, nil
+func (m *argumentMatcher) matchTopLevelWithoutNullability(paramType types.FuncDefArgType, argType types.Type) (bool, error) {
+	if anyType, ok := paramType.(*types.AnyType); ok {
+		if anyType.Nullability == types.NullabilityNullable && argType.GetNullability() != types.NullabilityNullable {
+			return false, nil
+		}
+		return m.bindAnyType(anyType, argType, true)
 	}
-	if checkOuterNullability && anyType.Nullability != argType.GetNullability() {
-		return false, nil
-	}
-	return m.bindAnyType(anyType, argType, !checkOuterNullability || anyType.Nullability != types.NullabilityRequired)
+	return m.matchType(paramType, argType, false)
 }
 
 func (m *argumentMatcher) matchNested(paramType types.FuncDefArgType, argType types.Type) (bool, error) {
+	if anyType, ok := paramType.(*types.AnyType); ok {
+		if anyType.Nullability == types.NullabilityNullable && argType.GetNullability() != types.NullabilityNullable {
+			return false, nil
+		}
+		return m.bindAnyType(anyType, argType, anyType.Nullability != types.NullabilityRequired)
+	}
+	if paramType.GetNullability() != argType.GetNullability() {
+		return false, nil
+	}
 	return m.matchType(paramType, argType, true)
 }
 
-func (m *argumentMatcher) matchType(paramType types.FuncDefArgType, argType types.Type, checkOuterNullability bool) (bool, error) {
-	switch p := paramType.(type) {
-	case *types.AnyType:
-		if p.Nullability == types.NullabilityNullable && argType.GetNullability() != types.NullabilityNullable {
-			return false, nil
-		}
-		return m.bindAnyType(p, argType, p.Nullability != types.NullabilityRequired)
-	}
-
-	if checkOuterNullability && paramType.GetNullability() != argType.GetNullability() {
-		return false, nil
-	}
-
+func (m *argumentMatcher) matchType(paramType types.FuncDefArgType, argType types.Type, hasMatchedOuterNullability bool) (bool, error) {
 	switch p := paramType.(type) {
 	case *types.ParameterizedListType:
 		listType, ok := argType.(*types.ListType)
@@ -320,7 +311,7 @@ func (m *argumentMatcher) matchType(paramType types.FuncDefArgType, argType type
 		return m.matchNested(p.Return, funcType.ReturnType)
 	}
 
-	if checkOuterNullability {
+	if hasMatchedOuterNullability {
 		return paramType.MatchWithNullability(argType), nil
 	}
 	return paramType.MatchWithoutNullability(argType), nil
