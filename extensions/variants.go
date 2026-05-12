@@ -159,6 +159,12 @@ func EvaluateTypeExpression(urn string, nullHandling NullabilityHandling, return
 		return outType.WithNullability(types.NullabilityNullable), nil
 	}
 
+	if nullHandling == DeclaredOutputNullability {
+		if anyReturn, ok := returnTypeExpr.(*types.AnyType); ok && anyReturn.Nullability == types.NullabilityRequired {
+			return outType.WithNullability(types.NullabilityRequired), nil
+		}
+	}
+
 	return outType, nil
 }
 
@@ -750,6 +756,17 @@ func validateAnyTypeBinding(nullHandling NullabilityHandling, paramType types.Fu
 						}
 					}
 				}
+			}
+		}
+	case *types.ParameterizedFuncType:
+		if funcType, ok := argType.(*types.FuncType); ok && len(funcType.ParameterTypes) == len(p.Parameters) {
+			for i, parameterType := range p.Parameters {
+				if err := validateAnyTypeBinding(nullHandling, parameterType, funcType.ParameterTypes[i], bindings, false); err != nil {
+					return err
+				}
+			}
+			if err := validateAnyTypeBinding(nullHandling, p.Return, funcType.ReturnType, bindings, false); err != nil {
+				return err
 			}
 		}
 	}

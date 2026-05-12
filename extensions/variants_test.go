@@ -475,12 +475,17 @@ func TestNullabilityAndAnyTypeBindingDocExamples(t *testing.T) {
 		{"h(list<any1>, list<any1>) -> list<any1>", extensions.MirrorNullability, []string{"list?<i32>", "list<i32>"}, "list<any1>", true, "list?<i32>"},
 		{"h(list<any1>, list<any1>) -> list<any1>", extensions.MirrorNullability, []string{"list<i32?>", "list<i32?>"}, "list<any1>", true, "list<i32?>"},
 		{"h(list<any1>, list<any1>) -> list<any1>", extensions.MirrorNullability, []string{"list<i32>", "list<i32?>"}, "list<any1>", false, ""},
+		{"k(func<any1 -> any1>) -> any1", extensions.MirrorNullability, []string{"func<i32 -> i32>"}, "any1", true, "i32"},
+		{"k(func<any1 -> any1>) -> any1", extensions.MirrorNullability, []string{"func<i32 -> fp64>"}, "any1", false, ""},
 		{"j(any1, list<any1?>) -> any1", extensions.MirrorNullability, []string{"i32", "list<i32?>"}, "any1", true, "i32"},
 		{"j(any1, list<any1?>) -> any1", extensions.MirrorNullability, []string{"i32", "list<i32>"}, "any1", false, ""},
 		{"j(any1, list<any1?>) -> any1", extensions.MirrorNullability, []string{"i32", "list<fp64?>"}, "any1", false, ""},
 		{"d(any1, any1) -> any1?", extensions.DeclaredOutputNullability, []string{"i32", "i32"}, "any1?", true, "i32?"},
 		{"d(any1, any1) -> any1?", extensions.DeclaredOutputNullability, []string{"i32?", "i32"}, "any1?", true, "i32?"},
 		{"d(any1, any1) -> any1?", extensions.DeclaredOutputNullability, []string{"i32?", "i32?"}, "any1?", true, "i32?"},
+		{"d(any1, any1) -> any1", extensions.DeclaredOutputNullability, []string{"i32", "i32"}, "any1", true, "i32"},
+		{"d(any1, any1) -> any1", extensions.DeclaredOutputNullability, []string{"i32?", "i32"}, "any1", true, "i32"},
+		{"d(any1, any1) -> any1", extensions.DeclaredOutputNullability, []string{"i32?", "i32?"}, "any1", true, "i32"},
 		{"g(any1, any1) -> any1", extensions.DiscreteNullability, []string{"i32", "i32"}, "any1", true, "i32"},
 		{"g(any1, any1) -> any1", extensions.DiscreteNullability, []string{"i32?", "i32?"}, "any1", false, ""},
 		{"g(any1, any1) -> any1", extensions.DiscreteNullability, []string{"i32", "i32?"}, "any1", false, ""},
@@ -906,6 +911,45 @@ func TestValidateConstrainedAnyTypeConsistency(t *testing.T) {
 		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "type parameter any1 cannot be both i32 and i64")
+	})
+
+	t.Run("nested function types with matching parameter and return types", func(t *testing.T) {
+		// func(func<any1 -> any1>) with (func<i32 -> i32>)
+		params := []types.FuncDefArgType{
+			&types.ParameterizedFuncType{
+				Parameters: []types.FuncDefArgType{&types.AnyType{Name: "any1"}},
+				Return:     &types.AnyType{Name: "any1"},
+			},
+		}
+		args := []types.Type{
+			&types.FuncType{
+				ParameterTypes: []types.Type{&types.Int32Type{}},
+				ReturnType:     &types.Int32Type{},
+			},
+		}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("nested function types with mismatched return type fail", func(t *testing.T) {
+		// func(func<any1 -> any1>) with (func<i32 -> fp64>)
+		params := []types.FuncDefArgType{
+			&types.ParameterizedFuncType{
+				Parameters: []types.FuncDefArgType{&types.AnyType{Name: "any1"}},
+				Return:     &types.AnyType{Name: "any1"},
+			},
+		}
+		args := []types.Type{
+			&types.FuncType{
+				ParameterTypes: []types.Type{&types.Int32Type{}},
+				ReturnType:     &types.Float64Type{},
+			},
+		}
+
+		err := extensions.ValidateConstrainedAnyTypeConsistency(params, args, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "type parameter any1 cannot be both i32 and fp64")
 	})
 
 	t.Run("single any1 parameter is always valid", func(t *testing.T) {
