@@ -240,27 +240,40 @@ func (m *argumentMatcher) matchArgument(actualType types.Type, argPos int) (bool
 func (m *argumentMatcher) matchTopLevel(paramType types.FuncDefArgType, argType types.Type) (bool, error) {
 	switch m.nullability {
 	case DiscreteNullability:
-		return m.matchType(paramType, argType, true, true)
+		if anyType, ok := paramType.(*types.AnyType); ok {
+			return m.matchTopLevelAnyType(anyType, argType, true)
+		}
+		return m.matchType(paramType, argType, true)
 	case MirrorNullability, DeclaredOutputNullability:
-		return m.matchType(paramType, argType, false, true)
+		if anyType, ok := paramType.(*types.AnyType); ok {
+			return m.matchTopLevelAnyType(anyType, argType, false)
+		}
+		return m.matchType(paramType, argType, false)
 	}
 	return false, fmt.Errorf("invalid nullability type: %s", m.nullability)
 }
 
-func (m *argumentMatcher) matchNested(paramType types.FuncDefArgType, argType types.Type) (bool, error) {
-	return m.matchType(paramType, argType, true, false)
+func (m *argumentMatcher) matchTopLevelAnyType(anyType *types.AnyType, argType types.Type, checkOuterNullability bool) (bool, error) {
+	if anyType.Nullability == types.NullabilityNullable && argType.GetNullability() != types.NullabilityNullable {
+		return false, nil
+	}
+	if checkOuterNullability && anyType.Nullability != argType.GetNullability() {
+		return false, nil
+	}
+	return m.bindAnyType(anyType, argType, !checkOuterNullability || anyType.Nullability != types.NullabilityRequired)
 }
 
-func (m *argumentMatcher) matchType(paramType types.FuncDefArgType, argType types.Type, checkOuterNullability, isTopLevel bool) (bool, error) {
+func (m *argumentMatcher) matchNested(paramType types.FuncDefArgType, argType types.Type) (bool, error) {
+	return m.matchType(paramType, argType, true)
+}
+
+func (m *argumentMatcher) matchType(paramType types.FuncDefArgType, argType types.Type, checkOuterNullability bool) (bool, error) {
 	switch p := paramType.(type) {
 	case *types.AnyType:
 		if p.Nullability == types.NullabilityNullable && argType.GetNullability() != types.NullabilityNullable {
 			return false, nil
 		}
-		if isTopLevel && checkOuterNullability && p.Nullability != argType.GetNullability() {
-			return false, nil
-		}
-		return m.bindAnyType(p, argType, !checkOuterNullability || p.Nullability != types.NullabilityRequired)
+		return m.bindAnyType(p, argType, p.Nullability != types.NullabilityRequired)
 	}
 
 	if checkOuterNullability && paramType.GetNullability() != argType.GetNullability() {
