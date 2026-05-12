@@ -159,6 +159,12 @@ func EvaluateTypeExpression(urn string, nullHandling NullabilityHandling, return
 		return outType.WithNullability(types.NullabilityNullable), nil
 	}
 
+	if nullHandling == DeclaredOutputNullability {
+		if anyReturn, ok := returnTypeExpr.(*types.AnyType); ok && anyReturn.Nullability == types.NullabilityRequired {
+			return outType.WithNullability(types.NullabilityRequired), nil
+		}
+	}
+
 	return outType, nil
 }
 
@@ -189,10 +195,6 @@ func matchArguments(nullability NullabilityHandling, paramTypeList FuncParameter
 	if HasSyncParams(funcDefArgList) {
 		return types.AreSyncTypeParametersMatching(funcDefArgList, actualTypes), nil
 	}
-
-	if err := matcher.validateConstrainedAnyTypeConsistency(actualTypes); err != nil {
-		return false, err
-	}
 	return true, nil
 }
 
@@ -212,6 +214,7 @@ type argumentMatcher struct {
 	nullability      NullabilityHandling
 	funcDefArgList   []types.FuncDefArgType
 	variadicBehavior *VariadicBehavior
+	bindings         map[string]types.Type
 }
 
 // newArgumentMatcher creates a matcher for one function variant signature.
@@ -220,6 +223,7 @@ func newArgumentMatcher(nullability NullabilityHandling, funcDefArgList []types.
 		nullability:      nullability,
 		funcDefArgList:   funcDefArgList,
 		variadicBehavior: variadicBehavior,
+		bindings:         make(map[string]types.Type),
 	}
 }
 
@@ -230,13 +234,109 @@ func (m *argumentMatcher) matchArgument(actualType types.Type, argPos int) (bool
 		return false, nil
 	}
 
+	return m.matchTopLevel(funcDefArg, actualType)
+}
+
+func (m *argumentMatcher) matchTopLevel(paramType types.FuncDefArgType, argType types.Type) (bool, error) {
 	switch m.nullability {
 	case DiscreteNullability:
-		return funcDefArg.MatchWithNullability(actualType), nil
+		return m.matchNested(paramType, argType)
 	case MirrorNullability, DeclaredOutputNullability:
-		return funcDefArg.MatchWithoutNullability(actualType), nil
+		return m.matchTopLevelWithoutNullability(paramType, argType)
 	}
 	return false, fmt.Errorf("invalid nullability type: %s", m.nullability)
+}
+
+func (m *argumentMatcher) matchTopLevelWithoutNullability(paramType types.FuncDefArgType, argType types.Type) (bool, error) {
+	if anyType, ok := paramType.(*types.AnyType); ok {
+		if anyType.Nullability == types.NullabilityNullable && argType.GetNullability() != types.NullabilityNullable {
+			return false, nil
+		}
+		return m.bindAnyType(anyType, argType, true)
+	}
+	return m.matchType(paramType, argType, false)
+}
+
+func (m *argumentMatcher) matchNested(paramType types.FuncDefArgType, argType types.Type) (bool, error) {
+	if anyType, ok := paramType.(*types.AnyType); ok {
+		if anyType.Nullability == types.NullabilityNullable && argType.GetNullability() != types.NullabilityNullable {
+			return false, nil
+		}
+		return m.bindAnyType(anyType, argType, anyType.Nullability != types.NullabilityRequired)
+	}
+	if paramType.GetNullability() != argType.GetNullability() {
+		return false, nil
+	}
+	return m.matchType(paramType, argType, true)
+}
+
+func (m *argumentMatcher) matchType(paramType types.FuncDefArgType, argType types.Type, hasMatchedOuterNullability bool) (bool, error) {
+	switch p := paramType.(type) {
+	case *types.ParameterizedListType:
+		listType, ok := argType.(*types.ListType)
+		if !ok {
+			return false, nil
+		}
+		return m.matchNested(p.Type, listType.Type)
+	case *types.ParameterizedMapType:
+		mapType, ok := argType.(*types.MapType)
+		if !ok {
+			return false, nil
+		}
+		if match, err := m.matchNested(p.Key, mapType.Key); !match || err != nil {
+			return match, err
+		}
+		return m.matchNested(p.Value, mapType.Value)
+	case *types.ParameterizedStructType:
+		structType, ok := argType.(*types.StructType)
+		if !ok || len(p.Types) != len(structType.Types) {
+			return false, nil
+		}
+		for i, fieldType := range p.Types {
+			if match, err := m.matchNested(fieldType, structType.Types[i]); !match || err != nil {
+				return match, err
+			}
+		}
+		return true, nil
+	case *types.ParameterizedFuncType:
+		funcType, ok := argType.(*types.FuncType)
+		if !ok || len(p.Parameters) != len(funcType.ParameterTypes) {
+			return false, nil
+		}
+		for i, parameterType := range p.Parameters {
+			if match, err := m.matchNested(parameterType, funcType.ParameterTypes[i]); !match || err != nil {
+				return match, err
+			}
+		}
+		return m.matchNested(p.Return, funcType.ReturnType)
+	}
+
+	if hasMatchedOuterNullability {
+		return paramType.MatchWithNullability(argType), nil
+	}
+	return paramType.MatchWithoutNullability(argType), nil
+}
+
+func (m *argumentMatcher) bindAnyType(anyType *types.AnyType, argType types.Type, ignoreNullability bool) (bool, error) {
+	if anyType.Name == "any" {
+		return true, nil
+	}
+
+	boundType := argType
+	if boundType.GetNullability() == types.NullabilityUnspecified || ignoreNullability {
+		boundType = boundType.WithNullability(types.NullabilityRequired)
+	}
+
+	if existingType, exists := m.bindings[anyType.Name]; exists {
+		if !existingType.Equals(boundType) {
+			return false, fmt.Errorf("%w: type parameter %s cannot be both %s and %s",
+				substraitgo.ErrInvalidType, anyType.Name,
+				existingType.ShortString(), boundType.ShortString())
+		}
+	} else {
+		m.bindings[anyType.Name] = boundType
+	}
+	return true, nil
 }
 
 // parameterAt returns the signature parameter for an argument position, accounting for variadic signatures.
@@ -700,103 +800,19 @@ func getLeafParameterizedParams(abstractTypes interface{}) []string {
 	panic("invalid non-leaf, non-parameterized type param")
 }
 
-// validateAnyTypeBinding validates and records the binding of an AnyType parameter to a concrete type.
-// It recursively handles nested types (lists, maps, structs).
-func validateAnyTypeBinding(paramType types.FuncDefArgType, argType types.Type, bindings map[string]types.Type) error {
-	switch p := paramType.(type) {
-	case *types.AnyType:
-		// Plain "any" is unconstrained - each occurrence can be a different type
-		if p.Name == "any" {
-			return nil
-		}
-		if existingType, exists := bindings[p.Name]; exists {
-			// Compare base types ignoring nullability. Nullability is enforced separately
-			// at the individual argument level by MatchWithNullability/MatchWithoutNullability
-			// (see matchArgumentAtCommon in variants.go). Here we only validate that all uses
-			// of the same type parameter (e.g., any1) resolve to the same base type.
-			existingBase := existingType.WithNullability(types.NullabilityRequired)
-			argBase := argType.WithNullability(types.NullabilityRequired)
-			if !existingBase.Equals(argBase) {
-				return fmt.Errorf("%w: type parameter %s cannot be both %s and %s",
-					substraitgo.ErrInvalidType, p.Name,
-					existingType.ShortString(), argType.ShortString())
-			}
-		} else {
-			bindings[p.Name] = argType
-		}
-	case *types.ParameterizedListType:
-		if listType, ok := argType.(*types.ListType); ok {
-			params := listType.GetParameters()
-			if len(params) > 0 && params[0] != nil {
-				elementType, ok := params[0].(types.Type)
-				if !ok {
-					return fmt.Errorf("%w: invalid list element type", substraitgo.ErrInvalidType)
-				}
-				if err := validateAnyTypeBinding(p.Type, elementType, bindings); err != nil {
-					return err
-				}
-			}
-		}
-	case *types.ParameterizedMapType:
-		if mapType, ok := argType.(*types.MapType); ok {
-			params := mapType.GetParameters()
-			if len(params) >= 2 && params[0] != nil && params[1] != nil {
-				keyType, ok := params[0].(types.Type)
-				if !ok {
-					return fmt.Errorf("%w: invalid map key type", substraitgo.ErrInvalidType)
-				}
-				valueType, ok := params[1].(types.Type)
-				if !ok {
-					return fmt.Errorf("%w: invalid map value type", substraitgo.ErrInvalidType)
-				}
-				if err := validateAnyTypeBinding(p.Key, keyType, bindings); err != nil {
-					return err
-				}
-				if err := validateAnyTypeBinding(p.Value, valueType, bindings); err != nil {
-					return err
-				}
-			}
-		}
-	case *types.ParameterizedStructType:
-		if structType, ok := argType.(*types.StructType); ok {
-			params := structType.GetParameters()
-			if len(params) == len(p.Types) {
-				for i, fieldType := range p.Types {
-					if params[i] != nil {
-						elementType, ok := params[i].(types.Type)
-						if !ok {
-							return fmt.Errorf("%w: invalid struct field type at position %d", substraitgo.ErrInvalidType, i)
-						}
-						if err := validateAnyTypeBinding(fieldType, elementType, bindings); err != nil {
-							return err
-						}
-					}
-				}
-			}
-		}
-	}
-	return nil
-}
-
 // ValidateConstrainedAnyTypeConsistency validates that all uses of the same AnyN parameter
 // (e.g., any1, any2, etc.) resolve to the same concrete type across all arguments
 func ValidateConstrainedAnyTypeConsistency(funcParameters []types.FuncDefArgType, argumentTypes []types.Type, variadicBehavior *VariadicBehavior) error {
-	return newArgumentMatcher(MirrorNullability, funcParameters, variadicBehavior).validateConstrainedAnyTypeConsistency(argumentTypes)
-}
-
-// validateConstrainedAnyTypeConsistency checks that repeated anyN parameters bind to the same concrete type.
-func (m *argumentMatcher) validateConstrainedAnyTypeConsistency(argumentTypes []types.Type) error {
-	bindings := make(map[string]types.Type)
-
-	for i, funcParameter := range m.expandedParameters(argumentTypes) {
-		if i >= len(argumentTypes) {
-			break
-		}
-		if err := validateAnyTypeBinding(funcParameter, argumentTypes[i], bindings); err != nil {
+	matcher := newArgumentMatcher(MirrorNullability, funcParameters, variadicBehavior)
+	for argPos, argumentType := range argumentTypes {
+		match, err := matcher.matchArgument(argumentType, argPos)
+		if err != nil {
 			return err
 		}
+		if !match {
+			return fmt.Errorf("%w: argument types did not match", substraitgo.ErrInvalidType)
+		}
 	}
-
 	return nil
 }
 
