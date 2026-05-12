@@ -261,12 +261,8 @@ type ScalarFunction struct {
 	Metadata    map[string]any       `yaml:"metadata,omitempty"`
 }
 
-// UnmarshalYAML decodes a ScalarFunction and applies the substrait
-// spec default of `deterministic = true` to each impl, but only for
-// impls where the YAML omits the key. Doing this via a custom decode
-// (rather than a `default:"true"` struct tag) avoids clobbering an
-// explicit `deterministic: false`, which would otherwise be overwritten
-// because false is the zero value that creasty/defaults targets.
+// UnmarshalYAML decodes a ScalarFunction and applies the Substrait default
+// for omitted deterministic values.
 func (s *ScalarFunction) UnmarshalYAML(fn func(interface{}) error) error {
 	type rawImpl struct {
 		ScalarFunctionImpl `yaml:",inline"`
@@ -348,9 +344,8 @@ type AggregateFunction struct {
 	Metadata    map[string]any `yaml:"metadata,omitempty"`
 }
 
-// UnmarshalYAML mirrors ScalarFunction.UnmarshalYAML: it preserves
-// explicit `deterministic: false` on each impl while defaulting an
-// omitted key to true per the substrait spec.
+// UnmarshalYAML decodes an AggregateFunction and applies the Substrait default
+// for omitted deterministic values.
 func (s *AggregateFunction) UnmarshalYAML(fn func(interface{}) error) error {
 	type rawImpl struct {
 		AggregateFunctionImpl `yaml:",inline"`
@@ -431,9 +426,8 @@ type WindowFunction struct {
 	Metadata    map[string]any `yaml:"metadata,omitempty"`
 }
 
-// UnmarshalYAML mirrors ScalarFunction.UnmarshalYAML: it preserves
-// explicit `deterministic: false` on each impl while defaulting an
-// omitted key to true per the substrait spec.
+// UnmarshalYAML decodes a WindowFunction and applies the Substrait default
+// for omitted deterministic values.
 func (s *WindowFunction) UnmarshalYAML(fn func(interface{}) error) error {
 	type rawImpl struct {
 		WindowFunctionImpl `yaml:",inline"`
