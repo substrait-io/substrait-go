@@ -207,12 +207,14 @@ func matchArgumentAt(actualType types.Type, argPos int, nullability NullabilityH
 	return newArgumentMatcher(nullability, funcDefArgList, variadicBehavior).matchArgument(actualType, argPos)
 }
 
+// argumentMatcher holds the state needed to compare invocation argument types against a function variant signature.
 type argumentMatcher struct {
 	nullability      NullabilityHandling
 	funcDefArgList   []types.FuncDefArgType
 	variadicBehavior *VariadicBehavior
 }
 
+// newArgumentMatcher creates a matcher for one function variant signature.
 func newArgumentMatcher(nullability NullabilityHandling, funcDefArgList []types.FuncDefArgType, variadicBehavior *VariadicBehavior) *argumentMatcher {
 	return &argumentMatcher{
 		nullability:      nullability,
@@ -221,6 +223,7 @@ func newArgumentMatcher(nullability NullabilityHandling, funcDefArgList []types.
 	}
 }
 
+// matchArgument checks whether an argument type matches the signature parameter at the same position.
 func (m *argumentMatcher) matchArgument(actualType types.Type, argPos int) (bool, error) {
 	funcDefArg, ok := m.parameterAt(argPos)
 	if !ok {
@@ -236,6 +239,7 @@ func (m *argumentMatcher) matchArgument(actualType types.Type, argPos int) (bool
 	return false, fmt.Errorf("invalid nullability type: %s", m.nullability)
 }
 
+// parameterAt returns the signature parameter for an argument position, accounting for variadic signatures.
 func (m *argumentMatcher) parameterAt(argPos int) (types.FuncDefArgType, bool) {
 	if argPos < 0 {
 		return nil, false
@@ -780,6 +784,7 @@ func ValidateConstrainedAnyTypeConsistency(funcParameters []types.FuncDefArgType
 	return newArgumentMatcher(MirrorNullability, funcParameters, variadicBehavior).validateConstrainedAnyTypeConsistency(argumentTypes)
 }
 
+// validateConstrainedAnyTypeConsistency checks that repeated anyN parameters bind to the same concrete type.
 func (m *argumentMatcher) validateConstrainedAnyTypeConsistency(argumentTypes []types.Type) error {
 	bindings := make(map[string]types.Type)
 
@@ -795,6 +800,7 @@ func (m *argumentMatcher) validateConstrainedAnyTypeConsistency(argumentTypes []
 	return nil
 }
 
+// expandedParameters repeats the variadic parameter so parameter and argument slices can be compared positionally.
 func (m *argumentMatcher) expandedParameters(argumentTypes []types.Type) []types.FuncDefArgType {
 	if m.variadicBehavior == nil || len(argumentTypes) <= len(m.funcDefArgList) {
 		return m.funcDefArgList
