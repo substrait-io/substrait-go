@@ -595,6 +595,84 @@ scalar_functions:
 	assert.Contains(t, err.Error(), "invalid urn")
 }
 
+func TestLoadExtensionWithDependencies(t *testing.T) {
+	const dependency = `---
+urn: extension:test:dependency
+scalar_functions:
+`
+	const extensionWithDependencies = `---
+urn: extension:test:with_dependencies
+dependencies:
+  ext: extension:test:dependency
+  $ext: extension:test:dependency
+scalar_functions:
+`
+
+	var c extensions.Collection
+	require.NoError(t, c.Load("http://localhost/dependency.yaml", strings.NewReader(dependency)))
+	err := c.Load("http://localhost/test.yaml", strings.NewReader(extensionWithDependencies))
+
+	assert.NoError(t, err)
+}
+
+func TestLoadExtensionWithUnloadedDependencyURN(t *testing.T) {
+	const extensionWithUnloadedDependencyURN = `---
+urn: extension:test:with_dependencies
+dependencies:
+  ext: extension:test:dependency
+scalar_functions:
+`
+
+	var c extensions.Collection
+	err := c.Load("http://localhost/test.yaml", strings.NewReader(extensionWithUnloadedDependencyURN))
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "dependency urn \"extension:test:dependency\" for alias \"ext\" is not loaded")
+}
+
+func TestLoadExtensionWithInvalidDependencyURN(t *testing.T) {
+	const extensionWithInvalidDependencyURN = `---
+urn: extension:test:with_dependencies
+dependencies:
+  ext: invalid:urn:format
+scalar_functions:
+`
+
+	var c extensions.Collection
+	err := c.Load("http://localhost/test.yaml", strings.NewReader(extensionWithInvalidDependencyURN))
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid dependency urn")
+}
+
+func TestLoadExtensionWithInvalidDependencyAlias(t *testing.T) {
+	tests := []struct {
+		name  string
+		alias string
+	}{
+		{name: "empty", alias: `""`},
+		{name: "starts with digit", alias: "1ext"},
+		{name: "contains hyphen", alias: "ext-name"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			yaml := `---
+urn: extension:test:with_dependencies
+dependencies:
+  ` + tt.alias + `: extension:test:dependency
+scalar_functions:
+`
+
+			var c extensions.Collection
+			err := c.Load("http://localhost/test.yaml", strings.NewReader(yaml))
+
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "invalid dependency alias")
+		})
+	}
+}
+
 func TestCannotLoadDuplicateURI(t *testing.T) {
 	const ext1 = `---
 urn: extension:urn:ext1
