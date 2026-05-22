@@ -1,10 +1,11 @@
 package parser
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/antlr4-go/antlr/v4"
-	substraitgo "github.com/substrait-io/substrait-go/v8"
+	"github.com/goccy/go-yaml"
 	"github.com/substrait-io/substrait-go/v8/types"
 	baseparser2 "github.com/substrait-io/substrait-go/v8/types/parser/baseparser"
 	"github.com/substrait-io/substrait-go/v8/types/parser/util"
@@ -16,48 +17,36 @@ type TypeExpression struct {
 
 type UserDefinedTypeResolver func(name string) (urn string, err error)
 
-type ParseOption func(*parseOptions)
+type userDefinedTypeResolverKey struct{}
 
-type parseOptions struct {
-	resolveUserDefinedType UserDefinedTypeResolver
+func ContextWithUserDefinedTypeResolver(ctx context.Context, resolver UserDefinedTypeResolver) context.Context {
+	return context.WithValue(ctx, userDefinedTypeResolverKey{}, resolver)
 }
 
-func WithUserDefinedTypeResolver(resolver UserDefinedTypeResolver) ParseOption {
-	return func(opts *parseOptions) {
-		opts.resolveUserDefinedType = resolver
-	}
+func UserDefinedTypeResolverFromContext(ctx context.Context) UserDefinedTypeResolver {
+	resolver, _ := ctx.Value(userDefinedTypeResolverKey{}).(UserDefinedTypeResolver)
+	return resolver
 }
 
 func (t *TypeExpression) MarshalYAML() (interface{}, error) {
 	return t.ValueType.String(), nil
 }
 
-func (t *TypeExpression) UnmarshalYAML(fn func(interface{}) error) error {
-	type Alias any
-	var alias Alias
-	if err := fn(&alias); err != nil {
+func (t *TypeExpression) UnmarshalYAML(ctx context.Context, data []byte) error {
+	var typeString string
+	if err := yaml.UnmarshalContext(ctx, data, &typeString); err != nil {
 		return err
 	}
 
-	switch v := alias.(type) {
-	case string:
-		exp, err := ParseType(v)
-		if err != nil {
-			return err
-		}
-		t.ValueType = exp
-		return nil
+	exp, err := ParseType(typeString, UserDefinedTypeResolverFromContext(ctx))
+	if err != nil {
+		return err
 	}
-
-	return substraitgo.ErrNotImplemented
+	t.ValueType = exp
+	return nil
 }
 
-func ParseType(input string, options ...ParseOption) (types.FuncDefArgType, error) {
-	var opts parseOptions
-	for _, option := range options {
-		option(&opts)
-	}
-
+func ParseType(input string, resolveUserDefinedType UserDefinedTypeResolver) (types.FuncDefArgType, error) {
 	is := antlr.NewInputStream(input)
 	lexer := baseparser2.NewSubstraitTypeLexer(is)
 	stream := antlr.NewCommonTokenStream(lexer, 0)
@@ -66,7 +55,7 @@ func ParseType(input string, options ...ParseOption) (types.FuncDefArgType, erro
 	p.AddErrorListener(errorListener)
 	p.GetInterpreter().SetPredictionMode(antlr.PredictionModeSLL)
 
-	visitor := &TypeVisitor{ResolveUserDefinedType: opts.resolveUserDefinedType, ErrorListener: errorListener}
+	visitor := &TypeVisitor{ResolveUserDefinedType: resolveUserDefinedType, ErrorListener: errorListener}
 	ret, err := parseType(input, p, errorListener, visitor)
 	if err != nil {
 		return nil, err

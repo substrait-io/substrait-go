@@ -209,7 +209,9 @@ func (v *TypeVisitor) VisitUserDefined(ctx *baseparser2.UserDefinedContext) inte
 	}
 	name := ctx.Identifier().GetText()
 	var urn string
-	if v.ResolveUserDefinedType != nil {
+	if v.ResolveUserDefinedType == nil {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("user-defined type resolver is required"))
+	} else {
 		resolvedURN, err := v.ResolveUserDefinedType(name)
 		if err != nil {
 			v.ErrorListener.ReportVisitError(ctx, err)

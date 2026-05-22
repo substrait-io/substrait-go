@@ -380,7 +380,7 @@ func TestRoundTripUsingTestData(t *testing.T) {
 			assert.True(t, e.Equals(e))
 
 			if typTest, ok := test["type"].(string); ok {
-				exp, err := parser.ParseType(typTest)
+				exp, err := parser.ParseType(typTest, nil)
 				require.NoError(t, err)
 
 				assert.Equal(t, exp.String(), e.GetType().String())

@@ -281,7 +281,7 @@ func parseFuncName(compoundName string) (name string, args FuncParameterList) {
 	}
 	splitArgs := strings.Split(argsStr, "_")
 	for _, argStr := range splitArgs {
-		parsed, err := parser.ParseType(argStr)
+		parsed, err := parser.ParseType(argStr, nil)
 		if err != nil {
 			panic(err)
 		}
@@ -426,7 +426,7 @@ func NewAggFuncVariantOpts(id ID, opts AggVariantOptions) *AggregateFunctionVari
 				substraitgo.ErrInvalidExpr, id))
 		}
 
-		intermediate, err := parser.ParseType(opts.IntermediateOutputType)
+		intermediate, err := parser.ParseType(opts.IntermediateOutputType, nil)
 		if err != nil {
 			panic(err)
 		}
@@ -553,7 +553,7 @@ func NewWindowFuncVariantOpts(id ID, opts WindowVariantOpts) *WindowFunctionVari
 				substraitgo.ErrInvalidExpr, id))
 		}
 
-		intermediate, err := parser.ParseType(opts.IntermediateOutputType)
+		intermediate, err := parser.ParseType(opts.IntermediateOutputType, nil)
 		if err != nil {
 			panic(err)
 		}
