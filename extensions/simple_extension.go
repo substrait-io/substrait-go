@@ -502,11 +502,16 @@ func (s *SimpleExtensionFile) UnmarshalYAML(ctx context.Context, data []byte) er
 		declaredTypes[typ.Name] = struct{}{}
 	}
 
-	resolveUserDefinedType := func(name string) (string, error) {
-		if _, ok := declaredTypes[name]; ok {
-			return declarations.Urn, nil
+	resolveUserDefinedType := func(name string, nullability types.Nullability, parameters []types.UDTParameter) (*types.ParameterizedUserDefinedType, error) {
+		if _, ok := declaredTypes[name]; !ok {
+			return nil, fmt.Errorf("%w: user-defined type %q is not declared", substraitgo.ErrInvalidSimpleExtention, name)
 		}
-		return "", fmt.Errorf("%w: user-defined type %q is not declared", substraitgo.ErrInvalidSimpleExtention, name)
+		return &types.ParameterizedUserDefinedType{
+			Name:           name,
+			URN:            declarations.Urn,
+			Nullability:    nullability,
+			TypeParameters: parameters,
+		}, nil
 	}
 
 	type rawFile SimpleExtensionFile

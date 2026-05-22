@@ -208,17 +208,17 @@ func (v *TypeVisitor) VisitUserDefined(ctx *baseparser2.UserDefinedContext) inte
 		}
 	}
 	name := ctx.Identifier().GetText()
-	var urn string
 	if v.ResolveUserDefinedType == nil {
 		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("user-defined type resolver is required"))
-	} else {
-		resolvedURN, err := v.ResolveUserDefinedType(name)
-		if err != nil {
-			v.ErrorListener.ReportVisitError(ctx, err)
-		}
-		urn = resolvedURN
+		return nil
 	}
-	return &types.ParameterizedUserDefinedType{Name: name, URN: urn, Nullability: nullability, TypeParameters: params}
+
+	udt, err := v.ResolveUserDefinedType(name, nullability, params)
+	if err != nil {
+		v.ErrorListener.ReportVisitError(ctx, err)
+		return nil
+	}
+	return udt
 }
 
 func (v *TypeVisitor) VisitFixedChar(ctx *baseparser2.FixedCharContext) interface{} {

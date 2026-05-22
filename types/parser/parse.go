@@ -15,7 +15,7 @@ type TypeExpression struct {
 	ValueType types.FuncDefArgType
 }
 
-type UserDefinedTypeResolver func(name string) (urn string, err error)
+type UserDefinedTypeResolver func(name string, nullability types.Nullability, parameters []types.UDTParameter) (*types.ParameterizedUserDefinedType, error)
 
 type userDefinedTypeResolverKey struct{}
 

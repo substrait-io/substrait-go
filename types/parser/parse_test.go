@@ -121,7 +121,9 @@ func TestParseFuncDefArgType(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			got, err := ParseType(tt.input, func(name string) (string, error) { return "extension:test:test", nil })
+			got, err := ParseType(tt.input, func(name string, nullability types.Nullability, parameters []types.UDTParameter) (*types.ParameterizedUserDefinedType, error) {
+				return &types.ParameterizedUserDefinedType{Name: name, URN: "extension:test:test", Nullability: nullability, TypeParameters: parameters}, nil
+			})
 			require.NoError(t, err)
 			require.NotNil(t, got)
 			assert.Equal(t, tt.expected, got.String())

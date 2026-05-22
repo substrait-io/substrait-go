@@ -473,7 +473,9 @@ func TestResolveType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// set up type registry
-			returnType, _ := parser.ParseType(tt.returnType, func(name string) (string, error) { return "extension:org:item", nil })
+			returnType, _ := parser.ParseType(tt.returnType, func(name string, nullability types.Nullability, parameters []types.UDTParameter) (*types.ParameterizedUserDefinedType, error) {
+				return &types.ParameterizedUserDefinedType{Name: name, URN: "extension:org:item", Nullability: nullability, TypeParameters: parameters}, nil
+			})
 			registry := extensions.NewSet()
 			var expectedRef uint32
 			if tt.expectedUDT {
@@ -512,7 +514,9 @@ func TestResolveType(t *testing.T) {
 
 func TestResolveTypeErrorHandling(t *testing.T) {
 	// Test error propagation from EvaluateTypeExpression
-	returnType, _ := parser.ParseType("u!custom_type", func(name string) (string, error) { return "extension:org:item", nil })
+	returnType, _ := parser.ParseType("u!custom_type", func(name string, nullability types.Nullability, parameters []types.UDTParameter) (*types.ParameterizedUserDefinedType, error) {
+		return &types.ParameterizedUserDefinedType{Name: name, URN: "extension:org:item", Nullability: nullability, TypeParameters: parameters}, nil
+	})
 	argType, _ := parser.ParseType("i64", nil)
 
 	// Create function parameter list that expects one argument
