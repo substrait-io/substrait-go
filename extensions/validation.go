@@ -10,55 +10,57 @@ import (
 	"github.com/substrait-io/substrait-go/v8/types/parser"
 )
 
-func validateLocalUserDefinedTypeReferences(file SimpleExtensionFile) error {
-	declaredTypes := make(map[string]struct{}, len(file.Types))
-	for _, typ := range file.Types {
+func declaredTypeNames(typeDefinitions []Type) map[string]struct{} {
+	declaredTypes := make(map[string]struct{}, len(typeDefinitions))
+	for _, typ := range typeDefinitions {
 		declaredTypes[typ.Name] = struct{}{}
 	}
+	return declaredTypes
+}
 
-	for _, fn := range file.ScalarFunctions {
-		for i, impl := range fn.Impls {
-			if err := validateScalarFunctionImplLocalUserDefinedTypes(declaredTypes, fn.Name, i, impl); err != nil {
-				return err
-			}
+func (s *ScalarFunction) validateLocalUserDefinedTypeReferences(declaredTypes map[string]struct{}) error {
+	for i, impl := range s.Impls {
+		if err := validateScalarFunctionImplLocalUserDefinedTypes(declaredTypes, impl); err != nil {
+			return fmt.Errorf("function %q impl %d: %w", s.Name, i, err)
 		}
 	}
-
-	for _, fn := range file.AggregateFunctions {
-		for i, impl := range fn.Impls {
-			if err := validateScalarFunctionImplLocalUserDefinedTypes(declaredTypes, fn.Name, i, impl.ScalarFunctionImpl); err != nil {
-				return err
-			}
-			if err := validateTypeExpressionLocalUserDefinedTypes(declaredTypes, impl.Intermediate); err != nil {
-				return fmt.Errorf("aggregate function %q impl %d intermediate: %w", fn.Name, i, err)
-			}
-		}
-	}
-
-	for _, fn := range file.WindowFunctions {
-		for i, impl := range fn.Impls {
-			if err := validateScalarFunctionImplLocalUserDefinedTypes(declaredTypes, fn.Name, i, impl.ScalarFunctionImpl); err != nil {
-				return err
-			}
-			if err := validateTypeExpressionLocalUserDefinedTypes(declaredTypes, impl.Intermediate); err != nil {
-				return fmt.Errorf("window function %q impl %d intermediate: %w", fn.Name, i, err)
-			}
-		}
-	}
-
 	return nil
 }
 
-func validateScalarFunctionImplLocalUserDefinedTypes(declaredTypes map[string]struct{}, functionName string, implIndex int, impl ScalarFunctionImpl) error {
+func (s *AggregateFunction) validateLocalUserDefinedTypeReferences(declaredTypes map[string]struct{}) error {
+	for i, impl := range s.Impls {
+		if err := validateScalarFunctionImplLocalUserDefinedTypes(declaredTypes, impl.ScalarFunctionImpl); err != nil {
+			return fmt.Errorf("aggregate function %q impl %d: %w", s.Name, i, err)
+		}
+		if err := validateTypeExpressionLocalUserDefinedTypes(declaredTypes, impl.Intermediate); err != nil {
+			return fmt.Errorf("aggregate function %q impl %d intermediate: %w", s.Name, i, err)
+		}
+	}
+	return nil
+}
+
+func (s *WindowFunction) validateLocalUserDefinedTypeReferences(declaredTypes map[string]struct{}) error {
+	for i, impl := range s.Impls {
+		if err := validateScalarFunctionImplLocalUserDefinedTypes(declaredTypes, impl.ScalarFunctionImpl); err != nil {
+			return fmt.Errorf("window function %q impl %d: %w", s.Name, i, err)
+		}
+		if err := validateTypeExpressionLocalUserDefinedTypes(declaredTypes, impl.Intermediate); err != nil {
+			return fmt.Errorf("window function %q impl %d intermediate: %w", s.Name, i, err)
+		}
+	}
+	return nil
+}
+
+func validateScalarFunctionImplLocalUserDefinedTypes(declaredTypes map[string]struct{}, impl ScalarFunctionImpl) error {
 	for i, arg := range impl.Args {
 		if err := validateFunctionParameterLocalUserDefinedTypes(declaredTypes, arg); err != nil {
-			return fmt.Errorf("function %q impl %d arg %d: %w", functionName, implIndex, i, err)
+			return fmt.Errorf("arg %d: %w", i, err)
 		}
 	}
 
 	if impl.Return != nil {
 		if err := validateTypeExpressionLocalUserDefinedTypes(declaredTypes, *impl.Return); err != nil {
-			return fmt.Errorf("function %q impl %d return: %w", functionName, implIndex, err)
+			return fmt.Errorf("return: %w", err)
 		}
 	}
 
