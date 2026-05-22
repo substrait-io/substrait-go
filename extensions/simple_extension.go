@@ -501,3 +501,129 @@ type SimpleExtensionFile struct {
 	AggregateFunctions []AggregateFunction `yaml:"aggregate_functions,omitempty"`
 	WindowFunctions    []WindowFunction    `yaml:"window_functions,omitempty"`
 }
+
+func (s *SimpleExtensionFile) UnmarshalYAML(fn func(interface{}) error) error {
+	type rawFile SimpleExtensionFile
+	var raw rawFile
+	if err := fn(&raw); err != nil {
+		return err
+	}
+
+	*s = SimpleExtensionFile(raw)
+	return s.validateUserDefinedTypeReferences()
+}
+
+func (s *SimpleExtensionFile) validateUserDefinedTypeReferences() error {
+	declaredTypes := make(map[string]struct{}, len(s.Types))
+	for _, typ := range s.Types {
+		declaredTypes[typ.Name] = struct{}{}
+	}
+
+	for _, fn := range s.ScalarFunctions {
+		for i, impl := range fn.Impls {
+			if err := validateScalarFunctionImplUserDefinedTypes(declaredTypes, impl); err != nil {
+				return fmt.Errorf("function %q impl %d: %w", fn.Name, i, err)
+			}
+		}
+	}
+
+	for _, fn := range s.AggregateFunctions {
+		for i, impl := range fn.Impls {
+			if err := validateScalarFunctionImplUserDefinedTypes(declaredTypes, impl.ScalarFunctionImpl); err != nil {
+				return fmt.Errorf("aggregate function %q impl %d: %w", fn.Name, i, err)
+			}
+			if err := validateTypeExpressionUserDefinedTypes(declaredTypes, impl.Intermediate); err != nil {
+				return fmt.Errorf("aggregate function %q impl %d intermediate: %w", fn.Name, i, err)
+			}
+		}
+	}
+
+	for _, fn := range s.WindowFunctions {
+		for i, impl := range fn.Impls {
+			if err := validateScalarFunctionImplUserDefinedTypes(declaredTypes, impl.ScalarFunctionImpl); err != nil {
+				return fmt.Errorf("window function %q impl %d: %w", fn.Name, i, err)
+			}
+			if err := validateTypeExpressionUserDefinedTypes(declaredTypes, impl.Intermediate); err != nil {
+				return fmt.Errorf("window function %q impl %d intermediate: %w", fn.Name, i, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func validateScalarFunctionImplUserDefinedTypes(declaredTypes map[string]struct{}, impl ScalarFunctionImpl) error {
+	for i, arg := range impl.Args {
+		if err := validateFunctionParameterUserDefinedTypes(declaredTypes, arg); err != nil {
+			return fmt.Errorf("arg %d: %w", i, err)
+		}
+	}
+
+	if impl.Return != nil {
+		if err := validateTypeExpressionUserDefinedTypes(declaredTypes, *impl.Return); err != nil {
+			return fmt.Errorf("return: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func validateFunctionParameterUserDefinedTypes(declaredTypes map[string]struct{}, arg FuncParameter) error {
+	switch arg := arg.(type) {
+	case ValueArg:
+		return validateTypeExpressionUserDefinedTypes(declaredTypes, *arg.Value)
+	case TypeArg:
+		return validateTypeExpressionUserDefinedTypes(declaredTypes, *arg.Type)
+	default:
+		return nil
+	}
+}
+
+func validateTypeExpressionUserDefinedTypes(declaredTypes map[string]struct{}, expr parser.TypeExpression) error {
+	if expr.ValueType == nil {
+		return nil
+	}
+	return validateFuncDefArgTypeUserDefinedTypes(declaredTypes, expr.ValueType)
+}
+
+func validateFuncDefArgTypeUserDefinedTypes(declaredTypes map[string]struct{}, typ types.FuncDefArgType) error {
+	switch typ := typ.(type) {
+	case *types.ParameterizedUserDefinedType:
+		if _, ok := declaredTypes[typ.Name]; !ok {
+			return fmt.Errorf("%w: user-defined type %q is not declared", substraitgo.ErrInvalidSimpleExtention, typ.Name)
+		}
+		for _, param := range typ.TypeParameters {
+			if err := validateUDTParameterUserDefinedTypes(declaredTypes, param); err != nil {
+				return err
+			}
+		}
+	case *types.ParameterizedListType:
+		return validateFuncDefArgTypeUserDefinedTypes(declaredTypes, typ.Type)
+	case *types.ParameterizedMapType:
+		if err := validateFuncDefArgTypeUserDefinedTypes(declaredTypes, typ.Key); err != nil {
+			return err
+		}
+		return validateFuncDefArgTypeUserDefinedTypes(declaredTypes, typ.Value)
+	case *types.ParameterizedStructType:
+		for _, fieldType := range typ.Types {
+			if err := validateFuncDefArgTypeUserDefinedTypes(declaredTypes, fieldType); err != nil {
+				return err
+			}
+		}
+	case *types.ParameterizedFuncType:
+		for _, paramType := range typ.Parameters {
+			if err := validateFuncDefArgTypeUserDefinedTypes(declaredTypes, paramType); err != nil {
+				return err
+			}
+		}
+		return validateFuncDefArgTypeUserDefinedTypes(declaredTypes, typ.Return)
+	}
+	return nil
+}
+
+func validateUDTParameterUserDefinedTypes(declaredTypes map[string]struct{}, param types.UDTParameter) error {
+	if dataParam, ok := param.(*types.DataTypeUDTParam); ok {
+		return validateFuncDefArgTypeUserDefinedTypes(declaredTypes, dataParam.Type)
+	}
+	return nil
+}

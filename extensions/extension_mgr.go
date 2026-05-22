@@ -238,14 +238,10 @@ func (c *Collection) Load(r io.Reader) error {
 	// it should be findable by its simple name in addition to the
 	// compound name.
 	simpleNames := make(map[string]string)
-	declaredTypes := declaredTypeNames(file.Types)
 
 	for _, f := range file.ScalarFunctions {
 		if err := defaults.Set(&f); err != nil {
 			return fmt.Errorf("failure setting defaults for scalar functions: %w", err)
-		}
-		if err := f.validateLocalUserDefinedTypeReferences(declaredTypes); err != nil {
-			return err
 		}
 		addToMaps[*ScalarFunctionVariant](id, &f, c.scalarMap, simpleNames)
 	}
@@ -254,18 +250,12 @@ func (c *Collection) Load(r io.Reader) error {
 		if err := defaults.Set(&f); err != nil {
 			return fmt.Errorf("failure setting defaults for aggregate functions: %w", err)
 		}
-		if err := f.validateLocalUserDefinedTypeReferences(declaredTypes); err != nil {
-			return err
-		}
 		addToMaps[*AggregateFunctionVariant](id, &f, c.aggregateMap, simpleNames)
 	}
 
 	for _, f := range file.WindowFunctions {
 		if err := defaults.Set(&f); err != nil {
 			return fmt.Errorf("failure setting defaults for window functions: %w", err)
-		}
-		if err := f.validateLocalUserDefinedTypeReferences(declaredTypes); err != nil {
-			return err
 		}
 		addToMaps[*WindowFunctionVariant](id, &f, c.windowMap, simpleNames)
 	}
