@@ -591,6 +591,45 @@ scalar_functions:
 	assert.Contains(t, err.Error(), "invalid urn")
 }
 
+func TestLoadExtensionWithUndeclaredUserDefinedType(t *testing.T) {
+	const extensionWithUndeclaredType = `---
+urn: extension:test:with_undeclared_type
+scalar_functions:
+  - name: use_type
+    impls:
+      - args:
+          - name: x
+            value: u!missing_type
+        return: i32
+`
+
+	var c extensions.Collection
+	err := c.Load(strings.NewReader(extensionWithUndeclaredType))
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), `user-defined type "missing_type" is not declared`)
+}
+
+func TestLoadExtensionWithDeclaredUserDefinedType(t *testing.T) {
+	const extensionWithDeclaredType = `---
+urn: extension:test:with_declared_type
+types:
+  - name: custom_type
+scalar_functions:
+  - name: use_type
+    impls:
+      - args:
+          - name: x
+            value: u!custom_type
+        return: u!custom_type
+`
+
+	var c extensions.Collection
+	err := c.Load(strings.NewReader(extensionWithDeclaredType))
+
+	assert.NoError(t, err)
+}
+
 func TestCannotLoadDuplicateURN(t *testing.T) {
 	const extension = `---
 urn: extension:urn:format
