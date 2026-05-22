@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -17,28 +16,21 @@ type TypeExpression struct {
 
 type UserDefinedTypeResolver func(name string, nullability types.Nullability, parameters []types.UDTParameter) (*types.ParameterizedUserDefinedType, error)
 
-type userDefinedTypeResolverKey struct{}
-
-func ContextWithUserDefinedTypeResolver(ctx context.Context, resolver UserDefinedTypeResolver) context.Context {
-	return context.WithValue(ctx, userDefinedTypeResolverKey{}, resolver)
-}
-
-func UserDefinedTypeResolverFromContext(ctx context.Context) UserDefinedTypeResolver {
-	resolver, _ := ctx.Value(userDefinedTypeResolverKey{}).(UserDefinedTypeResolver)
-	return resolver
+type TypeParser struct {
+	ResolveUserDefinedType UserDefinedTypeResolver
 }
 
 func (t *TypeExpression) MarshalYAML() (interface{}, error) {
 	return t.ValueType.String(), nil
 }
 
-func (t *TypeExpression) UnmarshalYAML(ctx context.Context, data []byte) error {
+func (t *TypeExpression) UnmarshalYAML(data []byte) error {
 	var typeString string
-	if err := yaml.UnmarshalContext(ctx, data, &typeString); err != nil {
+	if err := yaml.Unmarshal(data, &typeString); err != nil {
 		return err
 	}
 
-	exp, err := ParseType(typeString, UserDefinedTypeResolverFromContext(ctx))
+	exp, err := TypeParser{}.Parse(typeString)
 	if err != nil {
 		return err
 	}
@@ -47,6 +39,10 @@ func (t *TypeExpression) UnmarshalYAML(ctx context.Context, data []byte) error {
 }
 
 func ParseType(input string, resolveUserDefinedType UserDefinedTypeResolver) (types.FuncDefArgType, error) {
+	return TypeParser{ResolveUserDefinedType: resolveUserDefinedType}.Parse(input)
+}
+
+func (tp TypeParser) Parse(input string) (types.FuncDefArgType, error) {
 	is := antlr.NewInputStream(input)
 	lexer := baseparser2.NewSubstraitTypeLexer(is)
 	stream := antlr.NewCommonTokenStream(lexer, 0)
@@ -55,7 +51,7 @@ func ParseType(input string, resolveUserDefinedType UserDefinedTypeResolver) (ty
 	p.AddErrorListener(errorListener)
 	p.GetInterpreter().SetPredictionMode(antlr.PredictionModeSLL)
 
-	visitor := &TypeVisitor{ResolveUserDefinedType: resolveUserDefinedType, ErrorListener: errorListener}
+	visitor := &TypeVisitor{ResolveUserDefinedType: tp.ResolveUserDefinedType, ErrorListener: errorListener}
 	ret, err := parseType(input, p, errorListener, visitor)
 	if err != nil {
 		return nil, err
