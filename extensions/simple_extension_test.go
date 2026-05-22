@@ -47,6 +47,9 @@ types:
 func TestUnmarshalCustomScalarFunction(t *testing.T) {
 	const customDef = `
 urn: extension:test:test_ext
+types:
+  - name: customtype1
+  - name: customtype2
 scalar_functions:
   - name: "scalar1"
     impls:
@@ -83,6 +86,47 @@ scalar_functions:
 	assert.NoError(t, err)
 	assert.IsType(t, &types.UserDefinedType{}, typ)
 	assert.Equal(t, proto.Type_NULLABILITY_NULLABLE, typ.GetNullability(), "expected NULLABILITY_NULLABLE")
+}
+
+func TestUnmarshalSimpleExtensionRejectsUndeclaredUserDefinedType(t *testing.T) {
+	const customDef = `
+urn: extension:test:test_ext
+scalar_functions:
+  - name: "scalar1"
+    impls:
+      - args:
+          - name: arg1
+            value: u!missing_type
+        return: i64
+`
+
+	var f extensions.SimpleExtensionFile
+	err := yaml.Unmarshal([]byte(customDef), &f)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `user-defined type "missing_type" is not declared`)
+}
+
+func TestUnmarshalSimpleExtensionResolvesUserDefinedTypeURN(t *testing.T) {
+	const customDef = `
+urn: extension:test:test_ext
+types:
+  - name: customtype
+scalar_functions:
+  - name: "scalar1"
+    impls:
+      - args:
+          - name: arg1
+            value: i64
+        return: u!customtype
+`
+
+	var f extensions.SimpleExtensionFile
+	require.NoError(t, yaml.Unmarshal([]byte(customDef), &f))
+
+	udt, ok := f.ScalarFunctions[0].Impls[0].Return.ValueType.(*types.ParameterizedUserDefinedType)
+	require.True(t, ok)
+	assert.Equal(t, "extension:test:test_ext", udt.URN)
 }
 
 func TestUnmarshalSimpleExtensionScalarFunction(t *testing.T) {

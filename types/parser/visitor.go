@@ -14,7 +14,8 @@ import (
 
 type TypeVisitor struct {
 	baseparser2.SubstraitTypeVisitor
-	ErrorListener util.VisitErrorListener
+	ErrorListener          util.VisitErrorListener
+	ResolveUserDefinedType UserDefinedTypeResolver
 }
 
 var _ baseparser2.SubstraitTypeVisitor = &TypeVisitor{}
@@ -207,7 +208,15 @@ func (v *TypeVisitor) VisitUserDefined(ctx *baseparser2.UserDefinedContext) inte
 		}
 	}
 	name := ctx.Identifier().GetText()
-	return &types.ParameterizedUserDefinedType{Name: name, Nullability: nullability, TypeParameters: params}
+	var urn string
+	if v.ResolveUserDefinedType != nil {
+		resolvedURN, err := v.ResolveUserDefinedType(name)
+		if err != nil {
+			v.ErrorListener.ReportVisitError(ctx, err)
+		}
+		urn = resolvedURN
+	}
+	return &types.ParameterizedUserDefinedType{Name: name, URN: urn, Nullability: nullability, TypeParameters: params}
 }
 
 func (v *TypeVisitor) VisitFixedChar(ctx *baseparser2.FixedCharContext) interface{} {

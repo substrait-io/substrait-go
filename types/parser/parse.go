@@ -14,6 +14,20 @@ type TypeExpression struct {
 	ValueType types.FuncDefArgType
 }
 
+type UserDefinedTypeResolver func(name string) (urn string, err error)
+
+type ParseOption func(*parseOptions)
+
+type parseOptions struct {
+	resolveUserDefinedType UserDefinedTypeResolver
+}
+
+func WithUserDefinedTypeResolver(resolver UserDefinedTypeResolver) ParseOption {
+	return func(opts *parseOptions) {
+		opts.resolveUserDefinedType = resolver
+	}
+}
+
 func (t *TypeExpression) MarshalYAML() (interface{}, error) {
 	return t.ValueType.String(), nil
 }
@@ -38,7 +52,12 @@ func (t *TypeExpression) UnmarshalYAML(fn func(interface{}) error) error {
 	return substraitgo.ErrNotImplemented
 }
 
-func ParseType(input string) (types.FuncDefArgType, error) {
+func ParseType(input string, options ...ParseOption) (types.FuncDefArgType, error) {
+	var opts parseOptions
+	for _, option := range options {
+		option(&opts)
+	}
+
 	is := antlr.NewInputStream(input)
 	lexer := baseparser2.NewSubstraitTypeLexer(is)
 	stream := antlr.NewCommonTokenStream(lexer, 0)
@@ -47,7 +66,7 @@ func ParseType(input string) (types.FuncDefArgType, error) {
 	p.AddErrorListener(errorListener)
 	p.GetInterpreter().SetPredictionMode(antlr.PredictionModeSLL)
 
-	visitor := &TypeVisitor{}
+	visitor := &TypeVisitor{ResolveUserDefinedType: opts.resolveUserDefinedType, ErrorListener: errorListener}
 	ret, err := parseType(input, p, errorListener, visitor)
 	if err != nil {
 		return nil, err

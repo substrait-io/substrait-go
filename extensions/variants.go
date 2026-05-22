@@ -148,7 +148,11 @@ func EvaluateTypeExpression(urn string, nullHandling NullabilityHandling, return
 	// For other types like AnyType, the TypeReference is already correctly set.
 	if udt, ok := outType.(*types.UserDefinedType); ok {
 		if paramUDT, ok := returnTypeExpr.(*types.ParameterizedUserDefinedType); ok {
-			udt.TypeReference = registry.GetTypeAnchor(ID{Name: paramUDT.Name, URN: urn})
+			udtURN := paramUDT.URN
+			if udtURN == "" {
+				udtURN = urn
+			}
+			udt.TypeReference = registry.GetTypeAnchor(ID{Name: paramUDT.Name, URN: udtURN})
 		}
 	}
 

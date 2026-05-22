@@ -501,3 +501,255 @@ type SimpleExtensionFile struct {
 	AggregateFunctions []AggregateFunction `yaml:"aggregate_functions,omitempty"`
 	WindowFunctions    []WindowFunction    `yaml:"window_functions,omitempty"`
 }
+
+type rawSimpleExtensionFile struct {
+	Urn                string                 `yaml:"urn"`
+	Metadata           map[string]any         `yaml:"metadata,omitempty"`
+	Types              []Type                 `yaml:"types,omitempty"`
+	TypeVariations     []TypeVariation        `yaml:"type_variations,omitempty"`
+	ScalarFunctions    []rawScalarFunction    `yaml:"scalar_functions,omitempty"`
+	AggregateFunctions []rawAggregateFunction `yaml:"aggregate_functions,omitempty"`
+	WindowFunctions    []rawWindowFunction    `yaml:"window_functions,omitempty"`
+}
+
+type rawScalarFunction struct {
+	Name        string                  `yaml:",omitempty"`
+	Description string                  `yaml:",omitempty,flow"`
+	Impls       []rawScalarFunctionImpl `yaml:",omitempty"`
+	Metadata    map[string]any          `yaml:"metadata,omitempty"`
+}
+
+type rawScalarFunctionImpl struct {
+	Args             []rawFuncParameter  `yaml:",omitempty"`
+	Options          map[string]Option   `yaml:",omitempty"`
+	Variadic         *VariadicBehavior   `yaml:",omitempty"`
+	SessionDependent bool                `yaml:"sessionDependent,omitempty"`
+	Deterministic    *bool               `yaml:"deterministic,omitempty"`
+	Nullability      NullabilityHandling `yaml:",omitempty" default:"MIRROR"`
+	Return           any                 `yaml:",omitempty"`
+	Implementation   map[string]string   `yaml:",omitempty"`
+}
+
+type rawAggregateFunction struct {
+	Name        string                     `yaml:",omitempty"`
+	Description string                     `yaml:",omitempty,flow"`
+	Impls       []rawAggregateFunctionImpl `yaml:",omitempty"`
+	Metadata    map[string]any             `yaml:"metadata,omitempty"`
+}
+
+type rawAggregateFunctionImpl struct {
+	ScalarFunctionImpl rawScalarFunctionImpl `yaml:",inline"`
+	Intermediate       any
+	Ordered            bool
+	MaxSet             int
+	Decomposable       DecomposeType
+}
+
+type rawWindowFunction struct {
+	Name        string                  `yaml:",omitempty"`
+	Description string                  `yaml:",omitempty,flow"`
+	Impls       []rawWindowFunctionImpl `yaml:",omitempty"`
+	Metadata    map[string]any          `yaml:"metadata,omitempty"`
+}
+
+type rawWindowFunctionImpl struct {
+	AggregateFunctionImpl rawAggregateFunctionImpl `yaml:",inline"`
+	WindowType            WindowType               `yaml:"window_type"`
+}
+
+type rawFuncParameter struct {
+	Name        string   `yaml:",omitempty"`
+	Description string   `yaml:",omitempty"`
+	Options     []string `yaml:",omitempty"`
+	Value       any
+	Constant    bool `yaml:",omitempty"`
+	Type        any
+}
+
+func (s *SimpleExtensionFile) UnmarshalYAML(fn func(interface{}) error) error {
+	var raw rawSimpleExtensionFile
+	if err := fn(&raw); err != nil {
+		return err
+	}
+
+	declaredTypes := make(map[string]struct{}, len(raw.Types))
+	for _, typ := range raw.Types {
+		declaredTypes[typ.Name] = struct{}{}
+	}
+
+	resolveUserDefinedType := parser.WithUserDefinedTypeResolver(func(name string) (string, error) {
+		if _, ok := declaredTypes[name]; ok {
+			return raw.Urn, nil
+		}
+		return "", fmt.Errorf("%w: user-defined type %q is not declared", substraitgo.ErrInvalidSimpleExtention, name)
+	})
+
+	scalarFunctions, err := convertScalarFunctions(raw.ScalarFunctions, resolveUserDefinedType)
+	if err != nil {
+		return err
+	}
+	aggregateFunctions, err := convertAggregateFunctions(raw.AggregateFunctions, resolveUserDefinedType)
+	if err != nil {
+		return err
+	}
+	windowFunctions, err := convertWindowFunctions(raw.WindowFunctions, resolveUserDefinedType)
+	if err != nil {
+		return err
+	}
+
+	*s = SimpleExtensionFile{
+		Urn:                raw.Urn,
+		Metadata:           raw.Metadata,
+		Types:              raw.Types,
+		TypeVariations:     raw.TypeVariations,
+		ScalarFunctions:    scalarFunctions,
+		AggregateFunctions: aggregateFunctions,
+		WindowFunctions:    windowFunctions,
+	}
+	return nil
+}
+
+func convertScalarFunctions(rawFunctions []rawScalarFunction, parseOptions ...parser.ParseOption) ([]ScalarFunction, error) {
+	functions := make([]ScalarFunction, len(rawFunctions))
+	for i, rawFunction := range rawFunctions {
+		impls, err := convertScalarFunctionImpls(rawFunction.Impls, parseOptions...)
+		if err != nil {
+			return nil, fmt.Errorf("scalar function %q: %w", rawFunction.Name, err)
+		}
+		functions[i] = ScalarFunction{Name: rawFunction.Name, Description: rawFunction.Description, Impls: impls, Metadata: rawFunction.Metadata}
+	}
+	return functions, nil
+}
+
+func convertAggregateFunctions(rawFunctions []rawAggregateFunction, parseOptions ...parser.ParseOption) ([]AggregateFunction, error) {
+	functions := make([]AggregateFunction, len(rawFunctions))
+	for i, rawFunction := range rawFunctions {
+		impls := make([]AggregateFunctionImpl, len(rawFunction.Impls))
+		for j, rawImpl := range rawFunction.Impls {
+			scalarImpl, err := convertScalarFunctionImpl(rawImpl.ScalarFunctionImpl, parseOptions...)
+			if err != nil {
+				return nil, fmt.Errorf("aggregate function %q impl %d: %w", rawFunction.Name, j, err)
+			}
+			intermediate, err := parseTypeExpression(rawImpl.Intermediate, parseOptions...)
+			if err != nil {
+				return nil, fmt.Errorf("aggregate function %q impl %d intermediate: %w", rawFunction.Name, j, err)
+			}
+			impls[j] = AggregateFunctionImpl{ScalarFunctionImpl: scalarImpl, Intermediate: intermediate, Ordered: rawImpl.Ordered, MaxSet: rawImpl.MaxSet, Decomposable: rawImpl.Decomposable}
+		}
+		functions[i] = AggregateFunction{Name: rawFunction.Name, Description: rawFunction.Description, Impls: impls, Metadata: rawFunction.Metadata}
+	}
+	return functions, nil
+}
+
+func convertWindowFunctions(rawFunctions []rawWindowFunction, parseOptions ...parser.ParseOption) ([]WindowFunction, error) {
+	functions := make([]WindowFunction, len(rawFunctions))
+	for i, rawFunction := range rawFunctions {
+		impls := make([]WindowFunctionImpl, len(rawFunction.Impls))
+		for j, rawImpl := range rawFunction.Impls {
+			aggImpl, err := convertAggregateFunctionImpl(rawImpl.AggregateFunctionImpl, parseOptions...)
+			if err != nil {
+				return nil, fmt.Errorf("window function %q impl %d: %w", rawFunction.Name, j, err)
+			}
+			impls[j] = WindowFunctionImpl{AggregateFunctionImpl: aggImpl, WindowType: rawImpl.WindowType}
+		}
+		functions[i] = WindowFunction{Name: rawFunction.Name, Description: rawFunction.Description, Impls: impls, Metadata: rawFunction.Metadata}
+	}
+	return functions, nil
+}
+
+func convertAggregateFunctionImpl(rawImpl rawAggregateFunctionImpl, parseOptions ...parser.ParseOption) (AggregateFunctionImpl, error) {
+	scalarImpl, err := convertScalarFunctionImpl(rawImpl.ScalarFunctionImpl, parseOptions...)
+	if err != nil {
+		return AggregateFunctionImpl{}, err
+	}
+	intermediate, err := parseTypeExpression(rawImpl.Intermediate, parseOptions...)
+	if err != nil {
+		return AggregateFunctionImpl{}, fmt.Errorf("intermediate: %w", err)
+	}
+	return AggregateFunctionImpl{ScalarFunctionImpl: scalarImpl, Intermediate: intermediate, Ordered: rawImpl.Ordered, MaxSet: rawImpl.MaxSet, Decomposable: rawImpl.Decomposable}, nil
+}
+
+func convertScalarFunctionImpls(rawImpls []rawScalarFunctionImpl, parseOptions ...parser.ParseOption) ([]ScalarFunctionImpl, error) {
+	impls := make([]ScalarFunctionImpl, len(rawImpls))
+	for i, rawImpl := range rawImpls {
+		impl, err := convertScalarFunctionImpl(rawImpl, parseOptions...)
+		if err != nil {
+			return nil, fmt.Errorf("impl %d: %w", i, err)
+		}
+		impls[i] = impl
+	}
+	return impls, nil
+}
+
+func convertScalarFunctionImpl(rawImpl rawScalarFunctionImpl, parseOptions ...parser.ParseOption) (ScalarFunctionImpl, error) {
+	args, err := convertFuncParameters(rawImpl.Args, parseOptions...)
+	if err != nil {
+		return ScalarFunctionImpl{}, err
+	}
+	returnType, err := parseTypeExpression(rawImpl.Return, parseOptions...)
+	if err != nil {
+		return ScalarFunctionImpl{}, fmt.Errorf("return: %w", err)
+	}
+	deterministic := true
+	if rawImpl.Deterministic != nil {
+		deterministic = *rawImpl.Deterministic
+	}
+	return ScalarFunctionImpl{
+		Args:             args,
+		Options:          rawImpl.Options,
+		Variadic:         rawImpl.Variadic,
+		SessionDependent: rawImpl.SessionDependent,
+		Deterministic:    deterministic,
+		Nullability:      rawImpl.Nullability,
+		Return:           &returnType,
+		Implementation:   rawImpl.Implementation,
+	}, nil
+}
+
+func convertFuncParameters(rawArgs []rawFuncParameter, parseOptions ...parser.ParseOption) (FuncParameterList, error) {
+	args := make(FuncParameterList, len(rawArgs))
+	for i, rawArg := range rawArgs {
+		arg, err := convertFuncParameter(rawArg, parseOptions...)
+		if err != nil {
+			return nil, fmt.Errorf("arg %d: %w", i, err)
+		}
+		args[i] = arg
+	}
+	return args, nil
+}
+
+func convertFuncParameter(rawArg rawFuncParameter, parseOptions ...parser.ParseOption) (FuncParameter, error) {
+	if len(rawArg.Options) > 0 {
+		return EnumArg{Name: rawArg.Name, Description: rawArg.Description, Options: rawArg.Options}, nil
+	}
+	if rawArg.Value != nil {
+		value, err := parseTypeExpression(rawArg.Value, parseOptions...)
+		if err != nil {
+			return nil, err
+		}
+		return ValueArg{Name: rawArg.Name, Description: rawArg.Description, Value: &value, Constant: rawArg.Constant}, nil
+	}
+	if rawArg.Type != nil {
+		typ, err := parseTypeExpression(rawArg.Type, parseOptions...)
+		if err != nil {
+			return nil, err
+		}
+		return TypeArg{Name: rawArg.Name, Description: rawArg.Description, Type: &typ}, nil
+	}
+	return nil, substraitgo.ErrInvalidSimpleExtention
+}
+
+func parseTypeExpression(value any, parseOptions ...parser.ParseOption) (parser.TypeExpression, error) {
+	if value == nil {
+		return parser.TypeExpression{}, nil
+	}
+	typeString, ok := value.(string)
+	if !ok {
+		return parser.TypeExpression{}, substraitgo.ErrInvalidType
+	}
+	typ, err := parser.ParseType(typeString, parseOptions...)
+	if err != nil {
+		return parser.TypeExpression{}, err
+	}
+	return parser.TypeExpression{ValueType: typ}, nil
+}
