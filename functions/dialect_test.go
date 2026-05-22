@@ -601,7 +601,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -665,7 +665,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -738,7 +738,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -821,7 +821,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -895,7 +895,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -950,7 +950,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -1033,7 +1033,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -1100,7 +1100,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -1159,7 +1159,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -1220,7 +1220,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -1288,7 +1288,7 @@ aggregate_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -1354,7 +1354,7 @@ window_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -1643,8 +1643,8 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(arithmeticUrn, strings.NewReader(arithmeticYaml)))
-	require.NoError(t, c.Load(decimalUrn, strings.NewReader(decimalYaml)))
+	require.NoError(t, c.Load(strings.NewReader(arithmeticYaml)))
+	require.NoError(t, c.Load(strings.NewReader(decimalYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 	allFunctions := funcRegistry.GetAllFunctions()
@@ -1782,8 +1782,8 @@ aggregate_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(arithmeticUrn, strings.NewReader(arithmeticYaml)))
-	require.NoError(t, c.Load(decimalUrn, strings.NewReader(decimalYaml)))
+	require.NoError(t, c.Load(strings.NewReader(arithmeticYaml)))
+	require.NoError(t, c.Load(strings.NewReader(decimalYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 	allFunctions := funcRegistry.GetAllFunctions()

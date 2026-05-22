@@ -45,7 +45,7 @@ scalar_functions:
 var collection ext.Collection
 
 func init() {
-	err := collection.Load("https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml", strings.NewReader(sampleYAML))
+	err := collection.Load(strings.NewReader(sampleYAML))
 	if err != nil {
 		panic(err)
 	}
