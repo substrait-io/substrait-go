@@ -599,6 +599,12 @@ func TestLoadExtensionWithDependencies(t *testing.T) {
 	const dependency = `---
 urn: extension:test:dependency
 scalar_functions:
+  - name: random_fn_doesnt_matter
+    impls:
+      - args:
+          - name: x
+            value: i32
+        return: i32
 `
 	const extensionWithDependencies = `---
 urn: extension:test:with_dependencies
