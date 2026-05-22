@@ -207,6 +207,11 @@ func (v *TypeVisitor) VisitUserDefined(ctx *baseparser2.UserDefinedContext) inte
 		}
 	}
 	name := ctx.Identifier().GetText()
+	if userDefinedTypeValidator != nil {
+		if err := userDefinedTypeValidator(name); err != nil {
+			v.ErrorListener.ReportVisitError(ctx, err)
+		}
+	}
 	return &types.ParameterizedUserDefinedType{Name: name, Nullability: nullability, TypeParameters: params}
 }
 

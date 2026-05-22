@@ -14,6 +14,17 @@ type TypeExpression struct {
 	ValueType types.FuncDefArgType
 }
 
+var userDefinedTypeValidator func(string) error
+
+func WithUserDefinedTypeValidator(validator func(string) error, fn func() error) error {
+	previous := userDefinedTypeValidator
+	userDefinedTypeValidator = validator
+	defer func() {
+		userDefinedTypeValidator = previous
+	}()
+	return fn()
+}
+
 func (t *TypeExpression) MarshalYAML() (interface{}, error) {
 	return t.ValueType.String(), nil
 }
@@ -47,7 +58,7 @@ func ParseType(input string) (types.FuncDefArgType, error) {
 	p.AddErrorListener(errorListener)
 	p.GetInterpreter().SetPredictionMode(antlr.PredictionModeSLL)
 
-	visitor := &TypeVisitor{}
+	visitor := &TypeVisitor{ErrorListener: errorListener}
 	ret, err := parseType(input, p, errorListener, visitor)
 	if err != nil {
 		return nil, err
