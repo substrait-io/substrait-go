@@ -88,11 +88,10 @@ aggregate_functions:
 `
 
 func TestLoadExtensionCollection(t *testing.T) {
-	const uri = "http://localhost/sample.yaml"
 	const urn = "extension:test:sample"
 
 	var c extensions.Collection
-	require.NoError(t, c.Load(uri, strings.NewReader(sampleYAML)))
+	require.NoError(t, c.Load(strings.NewReader(sampleYAML)))
 
 	t.Run("check types", func(t *testing.T) {
 		id := extensions.ID{URN: urn}
@@ -161,7 +160,6 @@ func TestLoadExtensionCollection(t *testing.T) {
 }
 
 func TestExtensionSet(t *testing.T) {
-	const uri = "http://localhost/sample.yaml"
 	const urn = "extension:test:sample"
 
 	s := extensions.NewSet()
@@ -195,7 +193,7 @@ func TestExtensionSet(t *testing.T) {
 	})
 
 	var c extensions.Collection
-	require.NoError(t, c.Load(uri, strings.NewReader(sampleYAML)))
+	require.NoError(t, c.Load(strings.NewReader(sampleYAML)))
 
 	t.Run("lookup from collection", func(t *testing.T) {
 		fn, ok := s.LookupScalarFunction(1, &c)
@@ -354,7 +352,6 @@ func TestCollection_GetAllScalarFunctions(t *testing.T) {
 }
 
 func TestScalarFunctionImpl_DeterministicYAML(t *testing.T) {
-	const uri = "http://localhost/det.yaml"
 	tests := []struct {
 		name     string
 		yaml     string
@@ -408,7 +405,7 @@ scalar_functions:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var c extensions.Collection
-			require.NoError(t, c.Load(uri+tt.name, strings.NewReader(tt.yaml)))
+			require.NoError(t, c.Load(strings.NewReader(tt.yaml)))
 
 			var urn string
 			for _, line := range strings.Split(tt.yaml, "\n") {
@@ -426,11 +423,10 @@ scalar_functions:
 }
 
 func TestAggregateToWindow(t *testing.T) {
-	const uri = "http://localhost/sample.yaml"
 	const urn = "extension:test:sample"
 
 	var c extensions.Collection
-	require.NoError(t, c.Load(uri, strings.NewReader(sampleYAML)))
+	require.NoError(t, c.Load(strings.NewReader(sampleYAML)))
 
 	t.Run("aggregate functions available as window functions", func(t *testing.T) {
 		// Test that the count function (with args) is available as both aggregate and window function
@@ -576,7 +572,7 @@ scalar_functions:
 `
 
 	var c extensions.Collection
-	err := c.Load("http://localhost/test.yaml", strings.NewReader(extensionWithoutURN))
+	err := c.Load(strings.NewReader(extensionWithoutURN))
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "missing urn")
@@ -589,30 +585,10 @@ scalar_functions:
 `
 
 	var c extensions.Collection
-	err := c.Load("http://localhost/test.yaml", strings.NewReader(extensionWithInvalidURN))
+	err := c.Load(strings.NewReader(extensionWithInvalidURN))
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid urn")
-}
-
-func TestCannotLoadDuplicateURI(t *testing.T) {
-	const ext1 = `---
-urn: extension:urn:ext1
-scalar_functions:
-`
-	const ext2 = `---
-urn: extension:urn:ext2
-scalar_functions:
-`
-
-	var c extensions.Collection
-	err := c.Load("http://localhost/test.yaml", strings.NewReader(ext1))
-	assert.NoError(t, err)
-
-	err = c.Load("http://localhost/test.yaml", strings.NewReader(ext2))
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "already loaded")
 }
 
 func TestCannotLoadDuplicateURN(t *testing.T) {
@@ -622,10 +598,10 @@ scalar_functions:
 `
 
 	var c extensions.Collection
-	err := c.Load("http://localhost/test.yaml", strings.NewReader(extension))
+	err := c.Load(strings.NewReader(extension))
 	assert.NoError(t, err)
 
-	err = c.Load("http://localhost/test2.yaml", strings.NewReader(extension))
+	err = c.Load(strings.NewReader(extension))
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "already loaded")
@@ -633,7 +609,7 @@ scalar_functions:
 
 func TestToProtoPopulatesURN(t *testing.T) {
 	c := &extensions.Collection{}
-	require.NoError(t, c.Load("some/uri", strings.NewReader(sampleYAML)))
+	require.NoError(t, c.Load(strings.NewReader(sampleYAML)))
 
 	plan := &proto.Plan{
 		ExtensionUrns: []*extensionspb.SimpleExtensionURN{
@@ -666,7 +642,7 @@ func TestToProtoPopulatesURN(t *testing.T) {
 
 func TestResolveRefToURNAllConditions(t *testing.T) {
 	c := &extensions.Collection{}
-	err := c.Load("some/uri", strings.NewReader(sampleYAML))
+	err := c.Load(strings.NewReader(sampleYAML))
 	require.NoError(t, err)
 
 	t.Run("non-zero URN reference found and valid", func(t *testing.T) {
@@ -779,7 +755,7 @@ scalar_functions:
         return: struct<any1>
 `
 	var c extensions.Collection
-	require.NoError(t, c.Load("http://test", strings.NewReader(yaml)))
+	require.NoError(t, c.Load(strings.NewReader(yaml)))
 
 	fn, _ := c.GetScalarFunc(extensions.ID{URN: "extension:x:test", Name: "f:any"})
 	i64 := &types.Int64Type{Nullability: types.NullabilityRequired}
@@ -806,7 +782,7 @@ scalar_functions:
         return: map<any1, any2>
 `
 	var c extensions.Collection
-	require.NoError(t, c.Load("http://test", strings.NewReader(yaml)))
+	require.NoError(t, c.Load(strings.NewReader(yaml)))
 
 	fn, _ := c.GetScalarFunc(extensions.ID{URN: "extension:x:test", Name: "f:any_any"})
 	str := &types.StringType{Nullability: types.NullabilityRequired}
@@ -836,7 +812,7 @@ scalar_functions:
         return: u!Wrapper<any1>
 `
 	var c extensions.Collection
-	require.NoError(t, c.Load("http://test", strings.NewReader(yaml)))
+	require.NoError(t, c.Load(strings.NewReader(yaml)))
 
 	fn, _ := c.GetScalarFunc(extensions.ID{URN: "extension:x:test", Name: "f:any"})
 	i64 := &types.Int64Type{Nullability: types.NullabilityRequired}
@@ -896,7 +872,7 @@ window_functions:
 `
 
 	var c extensions.Collection
-	require.NoError(t, c.Load("http://test-metadata", strings.NewReader(yamlWithMetadata)))
+	require.NoError(t, c.Load(strings.NewReader(yamlWithMetadata)))
 
 	urn := "extension:test:metadata_test"
 
