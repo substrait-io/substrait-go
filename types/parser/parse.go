@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -14,11 +15,25 @@ type TypeExpression struct {
 	ValueType types.FuncDefArgType
 }
 
+type userDefinedTypeValidatorKey struct{}
+
+// WithUserDefinedTypeValidator returns a context that validates every
+// user-defined type encountered while parsing a type expression. It lets
+// callers reject references to types that are not declared.
+func WithUserDefinedTypeValidator(ctx context.Context, validate func(name string) error) context.Context {
+	return context.WithValue(ctx, userDefinedTypeValidatorKey{}, validate)
+}
+
+func userDefinedTypeValidatorFromContext(ctx context.Context) func(string) error {
+	validate, _ := ctx.Value(userDefinedTypeValidatorKey{}).(func(string) error)
+	return validate
+}
+
 func (t *TypeExpression) MarshalYAML() (interface{}, error) {
 	return t.ValueType.String(), nil
 }
 
-func (t *TypeExpression) UnmarshalYAML(fn func(interface{}) error) error {
+func (t *TypeExpression) UnmarshalYAML(ctx context.Context, fn func(interface{}) error) error {
 	type Alias any
 	var alias Alias
 	if err := fn(&alias); err != nil {
@@ -27,7 +42,7 @@ func (t *TypeExpression) UnmarshalYAML(fn func(interface{}) error) error {
 
 	switch v := alias.(type) {
 	case string:
-		exp, err := ParseType(v)
+		exp, err := parseType(ctx, v)
 		if err != nil {
 			return err
 		}
@@ -39,6 +54,10 @@ func (t *TypeExpression) UnmarshalYAML(fn func(interface{}) error) error {
 }
 
 func ParseType(input string) (types.FuncDefArgType, error) {
+	return parseType(context.Background(), input)
+}
+
+func parseType(ctx context.Context, input string) (types.FuncDefArgType, error) {
 	is := antlr.NewInputStream(input)
 	lexer := baseparser2.NewSubstraitTypeLexer(is)
 	stream := antlr.NewCommonTokenStream(lexer, 0)
@@ -47,8 +66,11 @@ func ParseType(input string) (types.FuncDefArgType, error) {
 	p.AddErrorListener(errorListener)
 	p.GetInterpreter().SetPredictionMode(antlr.PredictionModeSLL)
 
-	visitor := &TypeVisitor{}
-	ret, err := parseType(input, p, errorListener, visitor)
+	visitor := &TypeVisitor{
+		ErrorListener:               errorListener,
+		validateUserDefinedTypeName: userDefinedTypeValidatorFromContext(ctx),
+	}
+	ret, err := visitType(input, p, errorListener, visitor)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +84,7 @@ func ParseType(input string) (types.FuncDefArgType, error) {
 	return retType, nil
 }
 
-func parseType(input string, p *baseparser2.SubstraitTypeParser, errorListener *util.SimpleErrorListener, visitor *TypeVisitor) (any, error) {
+func visitType(input string, p *baseparser2.SubstraitTypeParser, errorListener *util.SimpleErrorListener, visitor *TypeVisitor) (any, error) {
 	var err error
 	defer util.TransformPanicToError(&err, input, "ParseExpr", errorListener)
 	context := p.StartRule()

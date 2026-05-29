@@ -3,6 +3,8 @@
 package extensions
 
 import (
+	"bytes"
+	"context"
 	"embed"
 	"fmt"
 	"io"
@@ -16,6 +18,7 @@ import (
 	"github.com/goccy/go-yaml"
 	"github.com/substrait-io/substrait"
 	substraitgo "github.com/substrait-io/substrait-go/v8"
+	"github.com/substrait-io/substrait-go/v8/types/parser"
 	"github.com/substrait-io/substrait-protobuf/go/substraitpb/extensions"
 )
 
@@ -197,12 +200,45 @@ func (c *Collection) init() {
 	}
 }
 
+// declaredTypeNames reads only the type declarations from an extension file so
+// that references to user-defined types can be validated as the rest of the
+// file is parsed.
+func declaredTypeNames(data []byte) (map[string]struct{}, error) {
+	var file struct {
+		Types []Type `yaml:"types,omitempty"`
+	}
+	if err := yaml.Unmarshal(data, &file); err != nil {
+		return nil, err
+	}
+
+	names := make(map[string]struct{}, len(file.Types))
+	for _, t := range file.Types {
+		names[t.Name] = struct{}{}
+	}
+	return names, nil
+}
+
 func (c *Collection) Load(r io.Reader) error {
 	c.init()
 
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+
+	declaredTypes, err := declaredTypeNames(data)
+	if err != nil {
+		return err
+	}
+	ctx := parser.WithUserDefinedTypeValidator(context.Background(), func(name string) error {
+		if _, ok := declaredTypes[name]; ok {
+			return nil
+		}
+		return fmt.Errorf("%w: user-defined type %q is not declared", substraitgo.ErrInvalidSimpleExtention, name)
+	})
+
 	var file SimpleExtensionFile
-	dec := yaml.NewDecoder(r)
-	if err := dec.Decode(&file); err != nil {
+	if err := yaml.NewDecoder(bytes.NewReader(data)).DecodeContext(ctx, &file); err != nil {
 		return err
 	}
 
@@ -215,10 +251,6 @@ func (c *Collection) Load(r io.Reader) error {
 	}
 	if c.URNLoaded(urn) {
 		return fmt.Errorf("%w:  urn %s already loaded", substraitgo.ErrKeyExists, urn)
-	}
-
-	if err := file.validateLocalUserDefinedTypeReferences(); err != nil {
-		return err
 	}
 
 	c.urnSet[urn] = void
