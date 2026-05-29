@@ -28,6 +28,17 @@ func TestNonValueOutcomeString(t *testing.T) {
 	assert.Equal(t, "<!UNDEFINED>", NonValueUndefined.String())
 }
 
+func TestParseErrorResult(t *testing.T) {
+	header := makeHeader("v1.0", "/extensions/functions_arithmetic.yaml")
+	testFile, err := ParseTestCasesFromString(header + `# basic
+add(1::i8, 2::i8) = <!ERROR>`)
+	require.NoError(t, err)
+	require.Len(t, testFile.TestCases, 1)
+
+	assert.Equal(t, NonValueError, testFile.TestCases[0].Result)
+	assert.Equal(t, "add(1::i8, 2::i8) = <!ERROR>", testFile.TestCases[0].String())
+}
+
 func TestParseUndefinedResult(t *testing.T) {
 	header := makeHeader("v1.0", "/extensions/functions_arithmetic.yaml")
 	testFile, err := ParseTestCasesFromString(header + `# basic
