@@ -514,6 +514,7 @@ func (e NonValueOutcome) String() string {
 		return "<!ERROR>"
 	case NonValueUndefined:
 		return "<!UNDEFINED>"
+	default:
+		panic(fmt.Sprintf("unknown non-value outcome: %d", e))
 	}
-	return "<!UNKNOWN>"
 }
