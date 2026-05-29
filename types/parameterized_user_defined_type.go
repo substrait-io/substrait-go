@@ -233,8 +233,9 @@ func (m *ParameterizedUserDefinedType) WithParameters(params []interface{}) (Typ
 }
 
 // UserDefinedTypeReference identifies a user-defined type referenced by a type
-// expression. A local reference has a nil DependencyAlias; a foreign reference
-// (e.g. "dep.u!name") carries the dependency alias it was qualified with.
+// expression. A local reference has a nil DependencyAlias. A dependency-
+// qualified reference (e.g. "dep.u!name") carries the dependency alias it was
+// qualified with.
 type UserDefinedTypeReference struct {
 	DependencyAlias *string
 	Name            string
