@@ -21,7 +21,6 @@ import (
 
 type AdvancedExtension = extensions.AdvancedExtension
 
-const SubstraitDefaultURIPrefix = "https://github.com/substrait-io/substrait/blob/main/extensions/"
 const SubstraitDefaultURNPrefix = "extension:io.substrait:"
 
 var (
@@ -91,44 +90,12 @@ func loadExtensionFile(collection *Collection, substraitFS embed.FS, ent fs.DirE
 	}
 	fileName := path.Base(fileStat.Name())
 	if _, ok := unsupportedExtensions[fileName]; !ok {
-		err = collection.Load(SubstraitDefaultURIPrefix+ent.Name(), f)
+		err = collection.Load(f)
 		if err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-// This is just an implementation detail during the uri -> urn migration
-// This entire struct will be dropped once the migration is complete.
-type uriUrnBiMap struct {
-	uriToUrn map[string]string
-	urnToUri map[string]string
-}
-
-func newuriUrnBiMap() *uriUrnBiMap {
-	return &uriUrnBiMap{
-		uriToUrn: make(map[string]string),
-		urnToUri: make(map[string]string),
-	}
-}
-
-// Here we are assuming that we are never overwriting.
-// This is okay because we actually check for the existence right before
-// calling this function
-func (bm *uriUrnBiMap) add(uri, urn string) {
-	bm.uriToUrn[uri] = urn
-	bm.urnToUri[urn] = uri
-}
-
-func (bm *uriUrnBiMap) getUri(urn string) (string, bool) {
-	uri, found := bm.urnToUri[urn]
-	return uri, found
-}
-
-func (bm *uriUrnBiMap) getUrn(uri string) (string, bool) {
-	urn, found := bm.uriToUrn[uri]
-	return urn, found
 }
 
 // ID is the unique identifier for a substrait object
@@ -140,8 +107,7 @@ type ID struct {
 }
 
 type Collection struct {
-	urnSet      map[string]struct{}
-	urnUriBiMap *uriUrnBiMap
+	urnSet map[string]struct{}
 
 	simpleNameMap map[ID]string
 
@@ -228,7 +194,6 @@ func (c *Collection) GetWindowFunc(id ID) (*WindowFunctionVariant, bool) {
 func (c *Collection) init() {
 	if c.urnSet == nil {
 		c.urnSet = make(map[string]struct{})
-		c.urnUriBiMap = newuriUrnBiMap()
 		c.simpleNameMap = make(map[ID]string)
 		c.scalarMap = make(map[ID]*ScalarFunctionVariant)
 		c.aggregateMap = make(map[ID]*AggregateFunctionVariant)
@@ -239,13 +204,8 @@ func (c *Collection) init() {
 	}
 }
 
-func (c *Collection) Load(uri string, r io.Reader) error {
+func (c *Collection) Load(r io.Reader) error {
 	c.init()
-
-	if c.URILoaded(uri) {
-		return fmt.Errorf("%w: uri '%s' already loaded",
-			substraitgo.ErrKeyExists, uri)
-	}
 
 	var file SimpleExtensionFile
 	dec := yaml.NewDecoder(r)
@@ -277,7 +237,6 @@ func (c *Collection) Load(uri string, r io.Reader) error {
 	}
 
 	c.urnSet[urn] = void
-	c.urnUriBiMap.add(uri, urn)
 
 	if file.Metadata != nil {
 		c.fileMetadataMap[urn] = file.Metadata
@@ -355,11 +314,6 @@ func (c *Collection) Load(uri string, r io.Reader) error {
 func (c *Collection) URNLoaded(urn string) bool {
 	_, ok := c.urnSet[urn]
 	return ok
-}
-
-func (c *Collection) URILoaded(uri string) bool {
-	_, found := c.urnUriBiMap.getUrn(uri)
-	return found
 }
 
 func (c *Collection) GetAllScalarFunctions() []*ScalarFunctionVariant {
@@ -666,7 +620,7 @@ func GetExtensionSet(plan TopLevel, c *Collection) (Set, error) {
 			return "", fmt.Errorf("unable to resolve extension reference: URN reference %d could not be resolved", urnRef)
 		}
 		// Validate that the URN exists in the Collection
-		if _, found := c.urnUriBiMap.getUri(urn); !found {
+		if !c.URNLoaded(urn) {
 			return "", fmt.Errorf("%w: URN '%s' not found in extension collection", substraitgo.ErrNotFound, urn)
 		}
 		return urn, nil

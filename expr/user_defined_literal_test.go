@@ -30,7 +30,7 @@ types:
 // can be round-tripped
 func TestUserDefinedLiteralRoundTrip(t *testing.T) {
 	collection := &extensions.Collection{}
-	err := collection.Load("test/uri", strings.NewReader(testExtensionYAML))
+	err := collection.Load(strings.NewReader(testExtensionYAML))
 	pointID := extensions.ID{
 		URN:  "extension:test:point_type",
 		Name: "point",
@@ -62,7 +62,7 @@ func TestUserDefinedLiteralRoundTrip(t *testing.T) {
 // TestNewUserDefinedLiteralHelper demonstrates the simplified API for creating user-defined literals
 func TestNewUserDefinedLiteralHelper(t *testing.T) {
 	collection := &extensions.Collection{}
-	err := collection.Load("test/uri", strings.NewReader(testExtensionYAML))
+	err := collection.Load(strings.NewReader(testExtensionYAML))
 	require.NoError(t, err)
 
 	registry := expr.NewEmptyExtensionRegistry(collection)
@@ -116,7 +116,7 @@ types:
 // simple string to demonstrate this.
 func TestUserDefinedLiteralWithAnyRepresentation(t *testing.T) {
 	collection := &extensions.Collection{}
-	err := collection.Load("test/uri", strings.NewReader(nestedTypesYAML))
+	err := collection.Load(strings.NewReader(nestedTypesYAML))
 	require.NoError(t, err)
 
 	registry := expr.NewEmptyExtensionRegistry(collection)
@@ -146,7 +146,7 @@ func TestUserDefinedLiteralWithAnyRepresentation(t *testing.T) {
 // user-defined type using Struct representation.
 func TestUserDefinedLiteralWithStructRepresentation(t *testing.T) {
 	collection := &extensions.Collection{}
-	err := collection.Load("test/uri", strings.NewReader(nestedTypesYAML))
+	err := collection.Load(strings.NewReader(nestedTypesYAML))
 	require.NoError(t, err)
 
 	registry := expr.NewEmptyExtensionRegistry(collection)
@@ -177,7 +177,7 @@ func TestUserDefinedLiteralWithStructRepresentation(t *testing.T) {
 // uses Any representation, and would typically encode its nested point UDTs within that Any value.
 func TestNestedUserDefinedLiteralWithAnyRepresentation(t *testing.T) {
 	collection := &extensions.Collection{}
-	err := collection.Load("test/uri", strings.NewReader(nestedTypesYAML))
+	err := collection.Load(strings.NewReader(nestedTypesYAML))
 	require.NoError(t, err)
 
 	registry := expr.NewEmptyExtensionRegistry(collection)
@@ -208,7 +208,7 @@ func TestNestedUserDefinedLiteralWithAnyRepresentation(t *testing.T) {
 // use Struct representation.
 func TestNestedUserDefinedLiteralWithStructRepresentation(t *testing.T) {
 	collection := &extensions.Collection{}
-	err := collection.Load("test/uri", strings.NewReader(nestedTypesYAML))
+	err := collection.Load(strings.NewReader(nestedTypesYAML))
 	require.NoError(t, err)
 
 	registry := expr.NewEmptyExtensionRegistry(collection)
@@ -269,7 +269,7 @@ func TestNestedUserDefinedLiteralWithStructRepresentation(t *testing.T) {
 // while the nested point UDTs use Any representation.
 func TestMixedRepresentationNestedUserDefinedLiteral(t *testing.T) {
 	collection := &extensions.Collection{}
-	err := collection.Load("test/uri", strings.NewReader(nestedTypesYAML))
+	err := collection.Load(strings.NewReader(nestedTypesYAML))
 	require.NoError(t, err)
 
 	registry := expr.NewEmptyExtensionRegistry(collection)
@@ -314,7 +314,7 @@ func TestMixedRepresentationNestedUserDefinedLiteral(t *testing.T) {
 // are correctly preserved during serialization and deserialization.
 func TestParameterizedVectorUDTRoundtrip(t *testing.T) {
 	collection := &extensions.Collection{}
-	err := collection.Load("test/uri", strings.NewReader(nestedTypesYAML))
+	err := collection.Load(strings.NewReader(nestedTypesYAML))
 	require.NoError(t, err)
 
 	registry := expr.NewEmptyExtensionRegistry(collection)

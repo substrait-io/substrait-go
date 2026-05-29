@@ -86,7 +86,7 @@ scalar_functions:
 
 func TestPlanRoundTripWithExtensions(t *testing.T) {
 	c := &extensions.Collection{}
-	err := c.Load("some/uri", strings.NewReader(sampleYAML))
+	err := c.Load(strings.NewReader(sampleYAML))
 	require.NoError(t, err)
 
 	original := &proto.Plan{
