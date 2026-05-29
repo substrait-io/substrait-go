@@ -606,7 +606,6 @@ scalar_functions:
 urn: extension:test:with_dependencies
 dependencies:
   ext: extension:test:dependency
-  $ext: extension:test:dependency
 scalar_functions:
 `
 
@@ -630,21 +629,6 @@ scalar_functions:
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "dependency urn \"extension:test:dependency\" for alias \"ext\" is not loaded")
-}
-
-func TestLoadExtensionWithInvalidDependencyURN(t *testing.T) {
-	const extensionWithInvalidDependencyURN = `---
-urn: extension:test:with_dependencies
-dependencies:
-  ext: invalid:urn:format
-scalar_functions:
-`
-
-	var c extensions.Collection
-	err := c.Load(strings.NewReader(extensionWithInvalidDependencyURN))
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid dependency urn")
 }
 
 func TestLoadExtensionWithInvalidDependencyAlias(t *testing.T) {

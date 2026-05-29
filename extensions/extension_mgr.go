@@ -228,9 +228,6 @@ func (c *Collection) Load(r io.Reader) error {
 		if !validateDependencyAlias(alias) {
 			return fmt.Errorf("%w: invalid dependency alias %q", substraitgo.ErrInvalidSimpleExtention, alias)
 		}
-		if !validateUrn(dependencyURN) {
-			return fmt.Errorf("%w: invalid dependency urn for alias %q, expected format is \"extension:<owner>:<id>\", got: %s", substraitgo.ErrInvalidSimpleExtention, alias, dependencyURN)
-		}
 		if !c.URNLoaded(dependencyURN) {
 			return fmt.Errorf("%w: dependency urn %q for alias %q is not loaded", substraitgo.ErrNotFound, dependencyURN, alias)
 		}
