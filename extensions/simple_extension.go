@@ -501,35 +501,3 @@ type SimpleExtensionFile struct {
 	AggregateFunctions []AggregateFunction `yaml:"aggregate_functions,omitempty"`
 	WindowFunctions    []WindowFunction    `yaml:"window_functions,omitempty"`
 }
-
-func (s *SimpleExtensionFile) UnmarshalYAML(fn func(interface{}) error) error {
-	type typeDeclarations struct {
-		Types []Type `yaml:"types,omitempty"`
-	}
-	var declarations typeDeclarations
-	if err := fn(&declarations); err != nil {
-		return err
-	}
-
-	declaredTypes := make(map[string]struct{}, len(declarations.Types))
-	for _, typ := range declarations.Types {
-		declaredTypes[typ.Name] = struct{}{}
-	}
-
-	type rawFile SimpleExtensionFile
-	var raw rawFile
-	err := parser.WithUserDefinedTypeValidator(func(name string) error {
-		if _, ok := declaredTypes[name]; ok {
-			return nil
-		}
-		return fmt.Errorf("%w: user-defined type %q is not declared", substraitgo.ErrInvalidSimpleExtention, name)
-	}, func() error {
-		return fn(&raw)
-	})
-	if err != nil {
-		return err
-	}
-
-	*s = SimpleExtensionFile(raw)
-	return nil
-}
