@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	substraitgo "github.com/substrait-io/substrait-go/v8"
-	"github.com/substrait-io/substrait-go/v8/types/parser"
+	"github.com/substrait-io/substrait-go/v8/types"
 )
 
 // validateUserDefinedTypeReferences ensures every user-defined type used by a
@@ -17,8 +17,8 @@ func (s SimpleExtensionFile) validateUserDefinedTypeReferences() error {
 		declared[t.Name] = struct{}{}
 	}
 
-	for _, expr := range s.functionTypeExpressions() {
-		for _, name := range expr.UserDefinedTypes {
+	for _, typ := range s.functionTypes() {
+		for _, name := range types.ReferencedUserDefinedTypes(typ) {
 			if _, ok := declared[name]; !ok {
 				return fmt.Errorf("%w: user-defined type %q is not declared",
 					substraitgo.ErrInvalidSimpleExtention, name)
@@ -28,26 +28,18 @@ func (s SimpleExtensionFile) validateUserDefinedTypeReferences() error {
 	return nil
 }
 
-// functionTypeExpressions returns every type expression referenced by the
-// file's function signatures.
-func (s SimpleExtensionFile) functionTypeExpressions() []parser.TypeExpression {
-	var out []parser.TypeExpression
+// functionTypes returns every type referenced by the file's function signatures.
+func (s SimpleExtensionFile) functionTypes() []types.FuncDefArgType {
+	var out []types.FuncDefArgType
 
 	addImpl := func(impl ScalarFunctionImpl) {
 		for _, arg := range impl.Args {
-			switch a := arg.(type) {
-			case ValueArg:
-				if a.Value != nil {
-					out = append(out, *a.Value)
-				}
-			case TypeArg:
-				if a.Type != nil {
-					out = append(out, *a.Type)
-				}
+			if typ := arg.GetTypeExpression(); typ != nil {
+				out = append(out, typ)
 			}
 		}
-		if impl.Return != nil {
-			out = append(out, *impl.Return)
+		if impl.Return != nil && impl.Return.ValueType != nil {
+			out = append(out, impl.Return.ValueType)
 		}
 	}
 
@@ -59,13 +51,17 @@ func (s SimpleExtensionFile) functionTypeExpressions() []parser.TypeExpression {
 	for _, fn := range s.AggregateFunctions {
 		for _, impl := range fn.Impls {
 			addImpl(impl.ScalarFunctionImpl)
-			out = append(out, impl.Intermediate)
+			if impl.Intermediate.ValueType != nil {
+				out = append(out, impl.Intermediate.ValueType)
+			}
 		}
 	}
 	for _, fn := range s.WindowFunctions {
 		for _, impl := range fn.Impls {
 			addImpl(impl.ScalarFunctionImpl)
-			out = append(out, impl.Intermediate)
+			if impl.Intermediate.ValueType != nil {
+				out = append(out, impl.Intermediate.ValueType)
+			}
 		}
 	}
 	return out

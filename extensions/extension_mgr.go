@@ -201,7 +201,8 @@ func (c *Collection) Load(r io.Reader) error {
 	c.init()
 
 	var file SimpleExtensionFile
-	if err := yaml.NewDecoder(r).Decode(&file); err != nil {
+	dec := yaml.NewDecoder(r)
+	if err := dec.Decode(&file); err != nil {
 		return err
 	}
 

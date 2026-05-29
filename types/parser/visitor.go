@@ -15,9 +15,6 @@ import (
 type TypeVisitor struct {
 	baseparser2.SubstraitTypeVisitor
 	ErrorListener util.VisitErrorListener
-	// userDefinedTypes collects the names of user-defined types referenced
-	// while visiting, including those nested inside other types.
-	userDefinedTypes []string
 }
 
 var _ baseparser2.SubstraitTypeVisitor = &TypeVisitor{}
@@ -210,7 +207,6 @@ func (v *TypeVisitor) VisitUserDefined(ctx *baseparser2.UserDefinedContext) inte
 		}
 	}
 	name := ctx.Identifier().GetText()
-	v.userDefinedTypes = append(v.userDefinedTypes, name)
 	return &types.ParameterizedUserDefinedType{Name: name, Nullability: nullability, TypeParameters: params}
 }
 
