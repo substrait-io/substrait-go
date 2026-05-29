@@ -3,7 +3,6 @@
 package extensions
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -115,7 +114,7 @@ func (v TypeArg) GetTypeExpression() types.FuncDefArgType {
 
 type FuncParameterList []FuncParameter
 
-func (a *FuncParameterList) UnmarshalYAML(ctx context.Context, fn func(interface{}) error) error {
+func (a *FuncParameterList) UnmarshalYAML(fn func(interface{}) error) error {
 	var args []map[string]any
 	if err := fn(&args); err != nil {
 		return err
@@ -156,7 +155,7 @@ func (a *FuncParameterList) UnmarshalYAML(ctx context.Context, fn func(interface
 				Value:       new(parser.TypeExpression),
 				Constant:    constant,
 			}
-			err := arg.Value.UnmarshalYAML(ctx, func(v any) error {
+			err := arg.Value.UnmarshalYAML(func(v any) error {
 				rv := reflect.ValueOf(v)
 				if rv.Type().Kind() != reflect.Ptr {
 					return substraitgo.ErrInvalidType
@@ -176,7 +175,7 @@ func (a *FuncParameterList) UnmarshalYAML(ctx context.Context, fn func(interface
 				Description: desc,
 				Type:        new(parser.TypeExpression),
 			}
-			err := arg.Type.UnmarshalYAML(ctx, func(v any) error {
+			err := arg.Type.UnmarshalYAML(func(v any) error {
 				rv := reflect.ValueOf(v)
 				if rv.Type().Kind() != reflect.Ptr {
 					return substraitgo.ErrInvalidType

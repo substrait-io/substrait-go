@@ -15,9 +15,9 @@ import (
 type TypeVisitor struct {
 	baseparser2.SubstraitTypeVisitor
 	ErrorListener util.VisitErrorListener
-	// validateUserDefinedTypeName, when set, is called for every user-defined
-	// type reference encountered during parsing.
-	validateUserDefinedTypeName func(name string) error
+	// userDefinedTypes collects the names of user-defined types referenced
+	// while visiting, including those nested inside other types.
+	userDefinedTypes []string
 }
 
 var _ baseparser2.SubstraitTypeVisitor = &TypeVisitor{}
@@ -210,11 +210,7 @@ func (v *TypeVisitor) VisitUserDefined(ctx *baseparser2.UserDefinedContext) inte
 		}
 	}
 	name := ctx.Identifier().GetText()
-	if v.validateUserDefinedTypeName != nil {
-		if err := v.validateUserDefinedTypeName(name); err != nil {
-			v.ErrorListener.ReportVisitError(ctx, err)
-		}
-	}
+	v.userDefinedTypes = append(v.userDefinedTypes, name)
 	return &types.ParameterizedUserDefinedType{Name: name, Nullability: nullability, TypeParameters: params}
 }
 

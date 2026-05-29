@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 	"testing"
@@ -203,7 +202,7 @@ func TestTypeExpression_UnmarshalYAML1(t1 *testing.T) {
 				}
 				return fmt.Errorf("expected pointer argument")
 			}
-			err := t.UnmarshalYAML(context.Background(), dummyFunc)
+			err := t.UnmarshalYAML(dummyFunc)
 			if tt.hasError {
 				require.Error(t1, err)
 				return
