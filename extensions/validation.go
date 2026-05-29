@@ -23,9 +23,9 @@ func (s SimpleExtensionFile) validateUserDefinedTypeReferences() error {
 	// leaves the collection untouched.
 	//
 	// Dependency-qualified references (non-nil DependencyAlias) are skipped for
-	// now; the parser does not yet produce them. A later PR will resolve them
-	// against the registry (c.GetType under the dependency's URN), since a
-	// dependency's types are already loaded by the time this file is.
+	// now. A later PR will resolve them against the registry (c.GetType under
+	// the dependency's URN), since a dependency's types are already loaded by
+	// the time this file is.
 	for _, typ := range s.functionTypes() {
 		for _, ref := range types.ReferencedUserDefinedTypes(typ) {
 			if ref.DependencyAlias == nil {
