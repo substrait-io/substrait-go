@@ -17,9 +17,12 @@ func (s SimpleExtensionFile) validateUserDefinedTypeReferences() error {
 		declared[t.Name] = struct{}{}
 	}
 
-	// Only locally declared user-defined types are validated here.
-	// Dependency-qualified references carry a non-nil DependencyAlias and are
-	// resolved against declared dependencies in a later change.
+	// Local references are checked against this file's own declared types,
+	// before they are committed to the collection registry, so a failed load
+	// leaves the collection untouched. Dependency-qualified references carry a
+	// non-nil DependencyAlias and will instead be resolved against the registry
+	// (c.GetType under the dependency's URN), since a dependency's types are
+	// already loaded by the time this file is.
 	for _, typ := range s.functionTypes() {
 		for _, ref := range types.ReferencedUserDefinedTypes(typ) {
 			if ref.DependencyAlias == nil {
