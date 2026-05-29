@@ -231,3 +231,46 @@ func (m *ParameterizedUserDefinedType) WithParameters(params []interface{}) (Typ
 		TypeParameters:   typeParams,
 	}, nil
 }
+
+// UserDefinedTypeReference identifies a user-defined type referenced by a type
+// expression. A local reference has a nil DependencyAlias; a foreign reference
+// (e.g. "dep.u!name") carries the dependency alias it was qualified with.
+type UserDefinedTypeReference struct {
+	DependencyAlias *string
+	Name            string
+}
+
+// ReferencedUserDefinedTypes returns every user-defined type referenced by t,
+// including those nested inside lists, maps, structs, function types, and
+// user-defined type parameters.
+func ReferencedUserDefinedTypes(t FuncDefArgType) []UserDefinedTypeReference {
+	var refs []UserDefinedTypeReference
+	collectUserDefinedTypes(t, &refs)
+	return refs
+}
+
+func collectUserDefinedTypes(t FuncDefArgType, refs *[]UserDefinedTypeReference) {
+	switch t := t.(type) {
+	case *ParameterizedUserDefinedType:
+		*refs = append(*refs, UserDefinedTypeReference{Name: t.Name})
+		for _, param := range t.TypeParameters {
+			if dataParam, ok := param.(*DataTypeUDTParam); ok {
+				collectUserDefinedTypes(dataParam.Type, refs)
+			}
+		}
+	case *ParameterizedListType:
+		collectUserDefinedTypes(t.Type, refs)
+	case *ParameterizedMapType:
+		collectUserDefinedTypes(t.Key, refs)
+		collectUserDefinedTypes(t.Value, refs)
+	case *ParameterizedStructType:
+		for _, field := range t.Types {
+			collectUserDefinedTypes(field, refs)
+		}
+	case *ParameterizedFuncType:
+		for _, param := range t.Parameters {
+			collectUserDefinedTypes(param, refs)
+		}
+		collectUserDefinedTypes(t.Return, refs)
+	}
+}
