@@ -43,6 +43,12 @@ func (v *TestCaseVisitor) clearLiteralTypeInContext() {
 	v.literalTypeInContext = nil
 }
 
+func (v *TestCaseVisitor) validateNullLiteralType(ctx antlr.ParserRuleContext, nullType types.Type) {
+	if nullType.GetNullability() != types.NullabilityNullable {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("null literal must use a nullable type, got %s", nullType))
+	}
+}
+
 var _ baseparser.FuncTestCaseParserVisitor = &TestCaseVisitor{}
 
 func (v *TestCaseVisitor) Visit(tree antlr.ParseTree) interface{} {
@@ -436,7 +442,8 @@ func (v *TestCaseVisitor) VisitArgument(ctx *baseparser.ArgumentContext) interfa
 
 func (v *TestCaseVisitor) VisitNullArg(ctx *baseparser.NullArgContext) interface{} {
 	dataType := v.Visit(ctx.DataType()).(types.Type)
-	return &CaseLiteral{Value: expr.NewNullLiteral(dataType), ValueText: ctx.NullLiteral().GetText(), Type: dataType.WithNullability(types.NullabilityNullable)}
+	v.validateNullLiteralType(ctx, dataType)
+	return &CaseLiteral{Value: expr.NewNullLiteral(dataType), ValueText: ctx.NullLiteral().GetText(), Type: dataType}
 }
 
 func (v *TestCaseVisitor) VisitBooleanArg(ctx *baseparser.BooleanArgContext) interface{} {

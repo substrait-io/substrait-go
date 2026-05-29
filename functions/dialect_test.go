@@ -569,7 +569,6 @@ func checkCompoundNames(t *testing.T, compoundNames []string, expectedNames []st
 
 // test match functionality fails if it has sync param
 func TestScalarFunctionsSyncParamsError(t *testing.T) {
-	const urn = "extension:test:def"
 	const defYaml = `---
 urn: extension:test:def
 scalar_functions:
@@ -601,7 +600,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -633,7 +632,6 @@ scalar_functions:
 
 // test match functionality with MIRROR nullability
 func TestScalarFunctionsMirrorNullabilityMatch(t *testing.T) {
-	const urn = "extension:test:def"
 	const defYaml = `---
 urn: extension:test:def
 scalar_functions:
@@ -665,7 +663,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -705,7 +703,6 @@ scalar_functions:
 
 // test match functionality DeclaredOutput nullability
 func TestScalarFunctionsDeclaredOutputNullabilityMatch(t *testing.T) {
-	const urn = "extension:test:def"
 	const defYaml = `---
 urn: extension:test:def
 scalar_functions:
@@ -738,7 +735,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -774,7 +771,6 @@ scalar_functions:
 
 // test match functionality with DISCRETE nullability
 func TestScalarFunctionsDiscreteNullabilityMatch(t *testing.T) {
-	const urn = "extension:test:def"
 	const defYaml = `---
 urn: extension:test:def
 scalar_functions:
@@ -821,7 +817,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -860,7 +856,6 @@ scalar_functions:
 
 // test match functionality returns true for function with variadic argument
 func TestScalarFunctionsVariadicMatch(t *testing.T) {
-	const urn = "extension:test:def"
 	const defYaml = `---
 urn: extension:test:def
 scalar_functions:
@@ -895,7 +890,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -918,7 +913,6 @@ scalar_functions:
 }
 
 func TestScalarFunctionsVariadicMin0(t *testing.T) {
-	const urn = "extension:test:def"
 	const defYaml = `---
 urn: extension:test:def
 scalar_functions:
@@ -950,7 +944,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -995,7 +989,6 @@ scalar_functions:
 // this tests that match functionality returns true for function with variadic argument
 // when argument count is greater than variadic min count
 func TestScalarFuncVariadicArgMatch(t *testing.T) {
-	const urn = "extension:test:def"
 	const defYaml = `---
 urn: extension:test:def
 scalar_functions:
@@ -1033,7 +1026,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -1062,7 +1055,6 @@ scalar_functions:
 // this tests that match functionality returns true for function with variadic argument
 // when argument count is greater than variadic min count
 func TestScalarFuncVariadicArgMisMatch(t *testing.T) {
-	const urn = "extension:test:def"
 	const defYaml = `---
 urn: extension:test:def
 scalar_functions:
@@ -1100,7 +1092,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -1125,7 +1117,6 @@ scalar_functions:
 // test match functionality returns true for function with variadic argument
 // if argument count is lesser than variadic min count
 func TestScalarFuncVariadicMismatch(t *testing.T) {
-	const urn = "extension:test:def"
 	const defYaml = `---
 urn: extension:test:def
 scalar_functions:
@@ -1159,7 +1150,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -1184,7 +1175,6 @@ scalar_functions:
 // test match functionality returns false if consistency check for argument fails
 // when function implementation has "CONSISTENCY" property for parameter consistency
 func TestScalarFuncVariadicConsistencyCheckMisMatch(t *testing.T) {
-	const urn = "extension:test:def"
 	const defYaml = `---
 urn: extension:test:def
 scalar_functions:
@@ -1220,7 +1210,7 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -1240,7 +1230,6 @@ scalar_functions:
 }
 
 func TestAggregateFuncMinMax(t *testing.T) {
-	const urn = "extension:test:def"
 	const defYaml = `---
 urn: extension:test:def
 aggregate_functions:
@@ -1288,7 +1277,7 @@ aggregate_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -1306,7 +1295,6 @@ aggregate_functions:
 }
 
 func TestWindowFuncMinMax(t *testing.T) {
-	const urn = "extension:test:def"
 	const defYaml = `---
 urn: extension:test:def
 window_functions:
@@ -1354,7 +1342,7 @@ window_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(urn, strings.NewReader(defYaml)))
+	require.NoError(t, c.Load(strings.NewReader(defYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 
@@ -1643,8 +1631,8 @@ scalar_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(arithmeticUrn, strings.NewReader(arithmeticYaml)))
-	require.NoError(t, c.Load(decimalUrn, strings.NewReader(decimalYaml)))
+	require.NoError(t, c.Load(strings.NewReader(arithmeticYaml)))
+	require.NoError(t, c.Load(strings.NewReader(decimalYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 	allFunctions := funcRegistry.GetAllFunctions()
@@ -1782,8 +1770,8 @@ aggregate_functions:
 `
 	// get substrait function registry
 	var c extensions.Collection
-	require.NoError(t, c.Load(arithmeticUrn, strings.NewReader(arithmeticYaml)))
-	require.NoError(t, c.Load(decimalUrn, strings.NewReader(decimalYaml)))
+	require.NoError(t, c.Load(strings.NewReader(arithmeticYaml)))
+	require.NoError(t, c.Load(strings.NewReader(decimalYaml)))
 	funcRegistry := NewFunctionRegistry(&c)
 	localRegistry := getLocalFunctionRegistry(t, dialectYaml, funcRegistry)
 	allFunctions := funcRegistry.GetAllFunctions()
