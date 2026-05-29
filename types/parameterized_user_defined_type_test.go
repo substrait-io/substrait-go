@@ -61,3 +61,39 @@ func TestParameterizedUserDefinedType(t *testing.T) {
 	}
 
 }
+
+func TestReferencedUserDefinedTypes(t *testing.T) {
+	udt := func(name string) *ParameterizedUserDefinedType {
+		return &ParameterizedUserDefinedType{Name: name}
+	}
+
+	tests := []struct {
+		name     string
+		typ      FuncDefArgType
+		expected []string
+	}{
+		{"nil", nil, nil},
+		{"non-udt", &Int32Type{}, nil},
+		{"plain", udt("a"), []string{"a"}},
+		{"list", &ParameterizedListType{Type: udt("b")}, []string{"b"}},
+		{"map", &ParameterizedMapType{Key: udt("k"), Value: udt("v")}, []string{"k", "v"}},
+		{"struct", &ParameterizedStructType{Types: []FuncDefArgType{udt("s1"), udt("s2")}}, []string{"s1", "s2"}},
+		{"func", &ParameterizedFuncType{Parameters: []FuncDefArgType{udt("p")}, Return: udt("r")}, []string{"p", "r"}},
+		{
+			"nested udt param",
+			&ParameterizedUserDefinedType{Name: "outer", TypeParameters: []UDTParameter{&DataTypeUDTParam{Type: udt("inner")}}},
+			[]string{"outer", "inner"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var names []string
+			for _, ref := range ReferencedUserDefinedTypes(tt.typ) {
+				assert.Nil(t, ref.DependencyAlias)
+				names = append(names, ref.Name)
+			}
+			assert.Equal(t, tt.expected, names)
+		})
+	}
+}

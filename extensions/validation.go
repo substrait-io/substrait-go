@@ -17,18 +17,16 @@ func (s SimpleExtensionFile) validateUserDefinedTypeReferences() error {
 		declared[t.Name] = struct{}{}
 	}
 
+	// Only locally declared user-defined types are validated here. Foreign
+	// (dependency-qualified) references carry a non-nil DependencyAlias and are
+	// resolved against declared dependencies in a later change.
 	for _, typ := range s.functionTypes() {
 		for _, ref := range types.ReferencedUserDefinedTypes(typ) {
-			if ref.DependencyAlias != nil {
-				// Foreign reference. No dependencies are supported yet, so any
-				// alias is unknown. When dependency support lands, check the
-				// alias against the file's declared dependencies here.
-				return fmt.Errorf("%w: unknown dependency alias %q",
-					substraitgo.ErrInvalidSimpleExtention, *ref.DependencyAlias)
-			}
-			if _, ok := declared[ref.Name]; !ok {
-				return fmt.Errorf("%w: user-defined type %q is not declared",
-					substraitgo.ErrInvalidSimpleExtention, ref.Name)
+			if ref.DependencyAlias == nil {
+				if _, ok := declared[ref.Name]; !ok {
+					return fmt.Errorf("%w: user-defined type %q is not declared",
+						substraitgo.ErrInvalidSimpleExtention, ref.Name)
+				}
 			}
 		}
 	}
