@@ -52,14 +52,25 @@ func TestMapLiteralToProtoLiteral(t *testing.T) {
 	}, false)
 
 	got := mapLit.ToProtoLiteral()
+	expected := &proto.Expression_Literal{
+		LiteralType: &proto.Expression_Literal_Map_{
+			Map: &proto.Expression_Literal_Map{
+				KeyValues: []*proto.Expression_Literal_Map_KeyValue{
+					{
+						Key:   NewPrimitiveLiteral("foo", false).ToProtoLiteral(),
+						Value: NewPrimitiveLiteral[int32](1, false).ToProtoLiteral(),
+					},
+					{
+						Key:   NewPrimitiveLiteral("bar", false).ToProtoLiteral(),
+						Value: NewPrimitiveLiteral[int32](2, false).ToProtoLiteral(),
+					},
+				},
+			},
+		},
+	}
 
-	mapProto := got.GetMap()
-	assert.NotNil(t, mapProto, "expected Map literal type, got %T", got.LiteralType)
-	assert.Len(t, mapProto.KeyValues, 2)
-	for i, kv := range mapProto.KeyValues {
-		assert.NotNil(t, kv, "key-value entry %d is nil", i)
-		assert.NotNil(t, kv.Key, "key at %d is nil", i)
-		assert.NotNil(t, kv.Value, "value at %d is nil", i)
+	if diff := cmp.Diff(got, expected, protocmp.Transform()); diff != "" {
+		t.Errorf("proto didn't match, diff:\n%v", diff)
 	}
 }
 
