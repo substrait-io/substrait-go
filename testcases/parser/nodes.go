@@ -24,10 +24,19 @@ type CaseLiteral struct {
 	Type           types.Type
 	ValueText      string
 	Value          types.FuncArg
+	FuncCall       *FuncCallArg
 	SubstraitError *SubstraitError
 }
 
+type FuncCallArg struct {
+	FuncName string
+	Args     []*CaseLiteral
+}
+
 func (c *CaseLiteral) String() string {
+	if c.FuncCall != nil {
+		return c.FuncCall.String()
+	}
 	if c.SubstraitError != nil {
 		return c.SubstraitError.String()
 	}
@@ -39,6 +48,20 @@ func (c *CaseLiteral) String() string {
 	}
 	// Enum args use CommonEnumType whose String() is empty; render as "enum"
 	return c.ValueText + "::enum"
+}
+
+func (f *FuncCallArg) String() string {
+	var b strings.Builder
+	b.WriteString(f.FuncName)
+	b.WriteByte('(')
+	for i, arg := range f.Args {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(arg.String())
+	}
+	b.WriteByte(')')
+	return b.String()
 }
 
 func literalToString(literal expr.Literal) string {
@@ -89,6 +112,9 @@ func (c *CaseLiteral) AsAggregateArgumentString() string {
 // This function changes the type to use requested type, so that the function invocation object is created correctly.
 // Enum args are excluded: CommonEnumType has no parameters, so they return early.
 func (c *CaseLiteral) updateLiteralType() error {
+	if c.FuncCall != nil || c.Type == nil {
+		return nil
+	}
 	if len(c.Type.GetParameters()) == 0 {
 		return nil
 	}
@@ -286,15 +312,23 @@ func (tc *TestCase) GetArgTypes() []types.Type {
 	}
 }
 
-func (tc *TestCase) scalarSignatureKey() string {
+func signatureKeyForArgs(args []*CaseLiteral) string {
 	var b strings.Builder
-	for i, a := range tc.Args {
+	for i, a := range args {
 		if i != 0 {
 			b.WriteByte('_')
+		}
+		if a.Type == nil {
+			b.WriteString("unknown")
+			continue
 		}
 		b.WriteString(a.Type.ShortString())
 	}
 	return b.String()
+}
+
+func (tc *TestCase) scalarSignatureKey() string {
+	return signatureKeyForArgs(tc.Args)
 }
 
 func (tc *TestCase) aggregateSignatureKey() string {
@@ -323,45 +357,70 @@ func (tc *TestCase) CompoundFunctionName() string {
 	return tc.FuncName + ":" + tc.signatureKey()
 }
 
-func (tc *TestCase) ID() extensions.ID {
-	baseURN := tc.BaseURI
+func normalizeBaseURN(baseURN string) string {
 	if strings.HasPrefix(baseURN, "/") {
 		// Convert from URI path format like "/extensions/functions_arithmetic.yaml"
 		// to URN format like "extension:io.substrait:functions_arithmetic"
 		path := strings.TrimPrefix(baseURN, "/extensions/")
 		path = strings.TrimSuffix(path, ".yaml")
-		baseURN = extensions.SubstraitDefaultURNPrefix + path
+		return extensions.SubstraitDefaultURNPrefix + path
 	}
+	return baseURN
+}
+
+func functionID(baseURI, funcName string, args []*CaseLiteral) extensions.ID {
 	return extensions.ID{
-		URN:  baseURN,
+		URN:  normalizeBaseURN(baseURI),
+		Name: funcName + ":" + signatureKeyForArgs(args),
+	}
+}
+
+func (tc *TestCase) ID() extensions.ID {
+	return extensions.ID{
+		URN:  normalizeBaseURN(tc.BaseURI),
 		Name: tc.CompoundFunctionName(),
 	}
+}
+
+func resolveScalarFunction(baseURI, funcName string, caseArgs []*CaseLiteral, opts []*types.FunctionOption, reg *expr.ExtensionRegistry, funcRegistry functions.FunctionRegistry) (*expr.ScalarFunction, error) {
+	args := make([]types.FuncArg, len(caseArgs))
+	for i, arg := range caseArgs {
+		if arg.FuncCall != nil {
+			nested, err := resolveScalarFunction(baseURI, arg.FuncCall.FuncName, arg.FuncCall.Args, nil, reg, funcRegistry)
+			if err != nil {
+				return nil, err
+			}
+			arg.Value = nested
+			arg.Type = nested.GetType()
+		}
+		args[i] = arg.Value
+	}
+
+	id := functionID(baseURI, funcName, caseArgs)
+	invocation, err := expr.NewScalarFunc(*reg, id, opts, args...)
+	if err == nil {
+		return invocation, nil
+	}
+
+	argTypes := make([]types.Type, len(caseArgs))
+	for i, arg := range caseArgs {
+		argTypes[i] = arg.Type
+	}
+	funcVariants := funcRegistry.GetScalarFunctions(funcName, len(args))
+	for _, function := range funcVariants {
+		isMatch, err1 := function.Match(argTypes)
+		if err1 == nil && isMatch && function.ID().URN == id.URN {
+			return expr.NewScalarFunc(*reg, function.ID(), opts, args...)
+		}
+	}
+	return nil, fmt.Errorf("%w: no matching function found  or %s", substraitgo.ErrNotFound, id)
 }
 
 func (tc *TestCase) GetScalarFunctionInvocation(reg *expr.ExtensionRegistry, funcRegistry functions.FunctionRegistry) (*expr.ScalarFunction, error) {
 	if tc.FuncType != ScalarFuncType {
 		return nil, fmt.Errorf("not a scalar function testcase")
 	}
-	id := tc.ID()
-	args := make([]types.FuncArg, len(tc.Args))
-	for i, arg := range tc.Args {
-		args[i] = arg.Value
-	}
-
-	invocation, err := expr.NewScalarFunc(*reg, id, tc.GetFunctionOptions(), args...)
-	if err == nil {
-		return invocation, nil
-	}
-
-	// exact match not found, try to find a function that matches with function parameter type "any"
-	funcVariants := funcRegistry.GetScalarFunctions(tc.FuncName, len(args))
-	for _, function := range funcVariants {
-		isMatch, err1 := function.Match(tc.GetArgTypes())
-		if err1 == nil && isMatch && function.ID().URN == id.URN {
-			return expr.NewScalarFunc(*reg, function.ID(), tc.GetFunctionOptions(), args...)
-		}
-	}
-	return nil, fmt.Errorf("%w: no matching function found  or %s", substraitgo.ErrNotFound, id)
+	return resolveScalarFunction(tc.BaseURI, tc.FuncName, tc.Args, tc.GetFunctionOptions(), reg, funcRegistry)
 }
 
 func (tc *TestCase) GetAggregateFunctionInvocation(reg *expr.ExtensionRegistry, funcRegistry functions.FunctionRegistry) (*expr.AggregateFunction, error) {

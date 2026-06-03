@@ -436,8 +436,18 @@ func (v *TestCaseVisitor) VisitArgument(ctx *baseparser.ArgumentContext) interfa
 		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("lambda argument not yet implemented"))
 		return &CaseLiteral{}
 	}
+	if ctx.FuncCallArg() != nil {
+		return v.Visit(ctx.FuncCallArg())
+	}
 	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("argument type not implemented, arg %s", ctx.GetText()))
 	return &CaseLiteral{}
+}
+
+func (v *TestCaseVisitor) VisitFuncCallArg(ctx *baseparser.FuncCallArgContext) interface{} {
+	return &CaseLiteral{FuncCall: &FuncCallArg{
+		FuncName: ctx.Identifier().GetText(),
+		Args:     v.Visit(ctx.Arguments()).([]*CaseLiteral),
+	}}
 }
 
 func (v *TestCaseVisitor) VisitNullArg(ctx *baseparser.NullArgContext) interface{} {
