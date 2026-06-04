@@ -28,6 +28,12 @@ func TestNonValueOutcomeString(t *testing.T) {
 	assert.Equal(t, "<!UNDEFINED>", NonValueUndefined.String())
 }
 
+func TestUnknownNonValueOutcomeStringPanics(t *testing.T) {
+	assert.Panics(t, func() {
+		NonValueOutcome(99).String()
+	})
+}
+
 func TestParseErrorResult(t *testing.T) {
 	header := makeHeader("v1.0", "/extensions/functions_arithmetic.yaml")
 	testFile, err := ParseTestCasesFromString(header + `# basic
