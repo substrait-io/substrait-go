@@ -43,7 +43,11 @@ func (s SimpleExtensionFile) validateUserDefinedTypeReferences() error {
 func (s SimpleExtensionFile) functionTypes() []types.FuncDefArgType {
 	var out []types.FuncDefArgType
 
-	addImpl := func(impl ScalarFunctionImpl) {
+	// Extension impl structs embed their shared fields in layers:
+	// ScalarFunctionImpl <- AggregateFunctionImpl <- WindowFunctionImpl.
+	// Collect the shared args/return fields once, then add aggregate/window
+	// intermediate types through the aggregate layer.
+	addScalarImpl := func(impl ScalarFunctionImpl) {
 		for _, arg := range impl.Args {
 			if typ := arg.GetTypeExpression(); typ != nil {
 				out = append(out, typ)
@@ -54,25 +58,26 @@ func (s SimpleExtensionFile) functionTypes() []types.FuncDefArgType {
 		}
 	}
 
+	addAggregateImpl := func(impl AggregateFunctionImpl) {
+		addScalarImpl(impl.ScalarFunctionImpl)
+		if impl.Intermediate.ValueType != nil {
+			out = append(out, impl.Intermediate.ValueType)
+		}
+	}
+
 	for _, fn := range s.ScalarFunctions {
 		for _, impl := range fn.Impls {
-			addImpl(impl)
+			addScalarImpl(impl)
 		}
 	}
 	for _, fn := range s.AggregateFunctions {
 		for _, impl := range fn.Impls {
-			addImpl(impl.ScalarFunctionImpl)
-			if impl.Intermediate.ValueType != nil {
-				out = append(out, impl.Intermediate.ValueType)
-			}
+			addAggregateImpl(impl)
 		}
 	}
 	for _, fn := range s.WindowFunctions {
 		for _, impl := range fn.Impls {
-			addImpl(impl.ScalarFunctionImpl)
-			if impl.Intermediate.ValueType != nil {
-				out = append(out, impl.Intermediate.ValueType)
-			}
+			addAggregateImpl(impl.AggregateFunctionImpl)
 		}
 	}
 	return out
