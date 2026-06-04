@@ -30,7 +30,7 @@ func TestNonValueOutcomeString(t *testing.T) {
 
 func TestUnknownNonValueOutcomeStringPanics(t *testing.T) {
 	assert.Panics(t, func() {
-		NonValueOutcome(99).String()
+		_ = NonValueOutcome(99).String()
 	})
 }
 
