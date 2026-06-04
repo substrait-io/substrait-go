@@ -142,7 +142,6 @@ func (v *TestCaseVisitor) VisitSingleArgAggregateFuncCall(ctx *baseparser.Single
 	return &TestCase{
 		FuncName:      ctx.Identifier().GetText(),
 		AggregateArgs: []*AggregateArgument{{Argument: arg, ColumnType: arg.Type}},
-		Result:        &CaseLiteral{},
 	}
 }
 
