@@ -273,5 +273,7 @@ func collectUserDefinedTypes(t FuncDefArgType, refs *[]UserDefinedTypeReference)
 			collectUserDefinedTypes(param, refs)
 		}
 		collectUserDefinedTypes(t.Return, refs)
+	case *OutputDerivation:
+		collectUserDefinedTypes(t.FinalType, refs)
 	}
 }

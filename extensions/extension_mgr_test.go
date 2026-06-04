@@ -686,6 +686,49 @@ window_functions:
 	assert.Contains(t, err.Error(), `user-defined type "missing_type" is not declared`)
 }
 
+func TestLoadExtensionWithDeclaredUserDefinedTypeInOutputDerivation(t *testing.T) {
+	const extension = `---
+urn: extension:test:declared_type_in_derivation
+types:
+  - name: custom_type
+scalar_functions:
+  - name: derive_type
+    impls:
+      - args:
+          - name: x
+            value: i32
+        return: |
+          unused = 1
+          u!custom_type
+`
+
+	var c extensions.Collection
+	err := c.Load(strings.NewReader(extension))
+
+	assert.NoError(t, err)
+}
+
+func TestLoadExtensionRejectsUndeclaredUserDefinedTypeInOutputDerivation(t *testing.T) {
+	const extension = `---
+urn: extension:test:undeclared_type_in_derivation
+scalar_functions:
+  - name: derive_type
+    impls:
+      - args:
+          - name: x
+            value: i32
+        return: |
+          unused = 1
+          u!missing_type
+`
+
+	var c extensions.Collection
+	err := c.Load(strings.NewReader(extension))
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), `user-defined type "missing_type" is not declared`)
+}
+
 func TestCannotLoadDuplicateURN(t *testing.T) {
 	const extension = `---
 urn: extension:urn:format

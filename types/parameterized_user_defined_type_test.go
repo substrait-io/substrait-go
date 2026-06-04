@@ -79,6 +79,7 @@ func TestReferencedUserDefinedTypes(t *testing.T) {
 		{"map", &ParameterizedMapType{Key: udt("k"), Value: udt("v")}, []string{"k", "v"}},
 		{"struct", &ParameterizedStructType{Types: []FuncDefArgType{udt("s1"), udt("s2")}}, []string{"s1", "s2"}},
 		{"func", &ParameterizedFuncType{Parameters: []FuncDefArgType{udt("p")}, Return: udt("r")}, []string{"p", "r"}},
+		{"output derivation", &OutputDerivation{FinalType: udt("derived")}, []string{"derived"}},
 		{
 			"nested udt param",
 			&ParameterizedUserDefinedType{Name: "outer", TypeParameters: []UDTParameter{&DataTypeUDTParam{Type: udt("inner")}}},
