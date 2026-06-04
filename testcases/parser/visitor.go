@@ -848,9 +848,14 @@ func (v *TestCaseVisitor) VisitResult(ctx *baseparser.ResultContext) interface{}
 }
 
 func (v *TestCaseVisitor) VisitSubstraitError(ctx *baseparser.SubstraitErrorContext) interface{} {
+	if ctx.ErrorResult() != nil {
+		return NonValueError
+	}
 	if ctx.UndefineResult() != nil {
 		return NonValueUndefined
 	}
+	// This should be impossible because the grammar only allows ERROR or UNDEFINED.
+	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid non-value result %q", ctx.GetText()))
 	return NonValueError
 }
 
