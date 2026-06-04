@@ -12,7 +12,7 @@ import (
 // validateUserDefinedTypeReferences ensures every user-defined type used in a
 // function signature is declared in that same file's types section. It does
 // not check type structures or type variation parents.
-func (s SimpleExtensionFile) validateUserDefinedTypeReferences() error {
+func (s *SimpleExtensionFile) validateUserDefinedTypeReferences() error {
 	declared := make(map[string]struct{}, len(s.Types))
 	for _, t := range s.Types {
 		declared[t.Name] = struct{}{}
@@ -40,7 +40,7 @@ func (s SimpleExtensionFile) validateUserDefinedTypeReferences() error {
 }
 
 // functionTypes returns every type referenced by the file's function signatures.
-func (s SimpleExtensionFile) functionTypes() []types.FuncDefArgType {
+func (s *SimpleExtensionFile) functionTypes() []types.FuncDefArgType {
 	var out []types.FuncDefArgType
 
 	// Extension impl structs embed their shared fields in layers:
