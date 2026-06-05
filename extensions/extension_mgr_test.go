@@ -591,6 +591,164 @@ scalar_functions:
 	assert.Contains(t, err.Error(), "invalid urn")
 }
 
+func TestLoadExtensionRejectsUndeclaredTypeInScalarFunction(t *testing.T) {
+	const extension = `---
+urn: extension:test:bad_scalar
+scalar_functions:
+  - name: use_type
+    impls:
+      - args:
+          - name: x
+            value: u!missing_type
+        return: i32
+`
+
+	var c extensions.Collection
+	err := c.Load(strings.NewReader(extension))
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), `user-defined type "missing_type" is not declared`)
+}
+
+func TestLoadExtensionRejectsUndeclaredTypeInAggregateFunction(t *testing.T) {
+	const extension = `---
+urn: extension:test:bad_aggregate
+aggregate_functions:
+  - name: aggregate_use
+    impls:
+      - args:
+          - name: x
+            value: i32
+        intermediate: u!missing_type
+        return: i32
+`
+
+	var c extensions.Collection
+	err := c.Load(strings.NewReader(extension))
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), `user-defined type "missing_type" is not declared`)
+}
+
+func TestLoadExtensionRejectsUndeclaredTypeInWindowFunction(t *testing.T) {
+	const extension = `---
+urn: extension:test:bad_window
+window_functions:
+  - name: window_use
+    impls:
+      - args:
+          - name: x
+            value: i32
+        intermediate: u!missing_type
+        return: i32
+`
+
+	var c extensions.Collection
+	err := c.Load(strings.NewReader(extension))
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), `user-defined type "missing_type" is not declared`)
+}
+
+func TestLoadExtensionWithDeclaredUserDefinedType(t *testing.T) {
+	const extensionWithDeclaredType = `---
+urn: extension:test:with_declared_type
+types:
+  - name: custom_type
+scalar_functions:
+  - name: use_type
+    impls:
+      - args:
+          - name: x
+            value: u!custom_type
+        return: u!custom_type
+`
+
+	var c extensions.Collection
+	err := c.Load(strings.NewReader(extensionWithDeclaredType))
+
+	assert.NoError(t, err)
+}
+
+func TestLoadExtensionValidatesUserDefinedTypesAcrossFunctionKinds(t *testing.T) {
+	const extension = `---
+urn: extension:test:all_function_kinds
+types:
+  - name: custom_type
+scalar_functions:
+  - name: scalar_use
+    impls:
+      - args:
+          - name: t
+            type: u!custom_type
+        return: i32
+aggregate_functions:
+  - name: aggregate_use
+    impls:
+      - args:
+          - name: x
+            value: i32
+        intermediate: u!custom_type
+        return: u!custom_type
+window_functions:
+  - name: window_use
+    impls:
+      - args:
+          - name: x
+            value: u!custom_type
+        intermediate: u!custom_type
+        return: i32
+`
+
+	var c extensions.Collection
+	err := c.Load(strings.NewReader(extension))
+
+	assert.NoError(t, err)
+}
+
+func TestLoadExtensionWithDeclaredUserDefinedTypeInOutputDerivation(t *testing.T) {
+	const extension = `---
+urn: extension:test:declared_type_in_derivation
+types:
+  - name: custom_type
+scalar_functions:
+  - name: derive_type
+    impls:
+      - args:
+          - name: x
+            value: i32
+        return: |
+          unused = 1
+          u!custom_type
+`
+
+	var c extensions.Collection
+	err := c.Load(strings.NewReader(extension))
+
+	assert.NoError(t, err)
+}
+
+func TestLoadExtensionRejectsUndeclaredUserDefinedTypeInOutputDerivation(t *testing.T) {
+	const extension = `---
+urn: extension:test:undeclared_type_in_derivation
+scalar_functions:
+  - name: derive_type
+    impls:
+      - args:
+          - name: x
+            value: i32
+        return: |
+          unused = 1
+          u!missing_type
+`
+
+	var c extensions.Collection
+	err := c.Load(strings.NewReader(extension))
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), `user-defined type "missing_type" is not declared`)
+}
+
 func TestCannotLoadDuplicateURN(t *testing.T) {
 	const extension = `---
 urn: extension:urn:format

@@ -217,6 +217,10 @@ func (c *Collection) Load(r io.Reader) error {
 		return fmt.Errorf("%w:  urn %s already loaded", substraitgo.ErrKeyExists, urn)
 	}
 
+	if err := file.validateUserDefinedTypeReferences(); err != nil {
+		return err
+	}
+
 	c.urnSet[urn] = void
 
 	if file.Metadata != nil {
