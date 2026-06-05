@@ -72,6 +72,35 @@ add(120::i8, 10::i8) [overflow:ERROR] = <!ERROR>
 	}
 }
 
+func TestParseNestedFunctionCallArgs(t *testing.T) {
+	header := makeHeader("v1.0", "/extensions/functions_arithmetic.yaml")
+	tests := `# associativity
+add(1::i32, add(2::i32, 3::i32)) = add(add(1::i32, 2::i32), 3::i32)
+`
+
+	testFile, err := ParseTestCasesFromString(header + tests)
+	require.NoError(t, err)
+	require.Len(t, testFile.TestCases, 1)
+
+	tc := testFile.TestCases[0]
+	assert.Equal(t, "add(1::i32, add(2::i32, 3::i32)) = add(add(1::i32, 2::i32), 3::i32)", tc.String())
+	require.NotNil(t, tc.Args[1].FuncCall)
+	assert.Equal(t, "add", tc.Args[1].FuncCall.FuncName)
+	require.NotNil(t, tc.Result.FuncCall)
+
+	reg, funcRegistry := functions.NewExtensionAndFunctionRegistries(extensions.GetDefaultCollectionWithNoError())
+	scalarFunc, err := tc.GetScalarFunctionInvocation(&reg, funcRegistry)
+	require.NoError(t, err)
+	assert.Equal(t, extensions.ID{URN: "extension:io.substrait:functions_arithmetic", Name: "add:i32_i32"}, tc.ID())
+	require.Equal(t, 2, scalarFunc.NArgs())
+	_, ok := scalarFunc.Arg(1).(*expr.ScalarFunction)
+	assert.True(t, ok)
+	assert.Equal(t, []types.Type{
+		&types.Int32Type{Nullability: types.NullabilityRequired},
+		&types.Int32Type{Nullability: types.NullabilityRequired},
+	}, tc.GetArgTypes())
+}
+
 func TestParseDataTimeExample(t *testing.T) {
 	header := makeHeader("v1.0", "/extensions/functions_datetime.yaml")
 	tests := `#  timestamp examples using the timestamp type 
