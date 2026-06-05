@@ -39,6 +39,41 @@ func TestToProtoLiteral(t *testing.T) {
 	}
 }
 
+func TestMapLiteralToProtoLiteral(t *testing.T) {
+	mapLit := NewNestedLiteral(MapLiteralValue{
+		{
+			Key:   NewPrimitiveLiteral("foo", false),
+			Value: NewPrimitiveLiteral[int32](1, false),
+		},
+		{
+			Key:   NewPrimitiveLiteral("bar", false),
+			Value: NewPrimitiveLiteral[int32](2, false),
+		},
+	}, false)
+
+	got := mapLit.ToProtoLiteral()
+	expected := &proto.Expression_Literal{
+		LiteralType: &proto.Expression_Literal_Map_{
+			Map: &proto.Expression_Literal_Map{
+				KeyValues: []*proto.Expression_Literal_Map_KeyValue{
+					{
+						Key:   NewPrimitiveLiteral("foo", false).ToProtoLiteral(),
+						Value: NewPrimitiveLiteral[int32](1, false).ToProtoLiteral(),
+					},
+					{
+						Key:   NewPrimitiveLiteral("bar", false).ToProtoLiteral(),
+						Value: NewPrimitiveLiteral[int32](2, false).ToProtoLiteral(),
+					},
+				},
+			},
+		},
+	}
+
+	if diff := cmp.Diff(got, expected, protocmp.Transform()); diff != "" {
+		t.Errorf("proto didn't match, diff:\n%v", diff)
+	}
+}
+
 func TestLiteralFromProtoLiteral(t *testing.T) {
 	intDayToSecVal := &proto.Expression_Literal_IntervalDayToSecond{Days: 1, Seconds: 2, PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{Precision: 5}}
 	for _, tc := range []struct {
