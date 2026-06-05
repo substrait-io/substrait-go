@@ -1903,6 +1903,28 @@ func comparisonJoinKeysToProto(keys []*ComparisonJoinKey) []*proto.ComparisonJoi
 	return out
 }
 
+// legacyJoinKeysToProto returns the deprecated left_keys/right_keys
+// representation of the given join keys, but only when every key is a plain
+// SIMPLE_COMPARISON_TYPE_EQ comparison. Those are the only joins the deprecated
+// fields can express; IS_NOT_DISTINCT_FROM, MIGHT_EQUAL and custom comparisons
+// have no legacy encoding and an old consumer would silently treat them as
+// equality, so for those we emit nothing and rely on the modern keys field.
+func legacyJoinKeysToProto(keys []*ComparisonJoinKey) (leftKeys, rightKeys []*proto.Expression_FieldReference) {
+	for _, k := range keys {
+		simple, ok := k.comparison.(SimpleComparison)
+		if !ok || simple.Type != SimpleComparisonTypeEq {
+			return nil, nil
+		}
+	}
+	leftKeys = make([]*proto.Expression_FieldReference, len(keys))
+	rightKeys = make([]*proto.Expression_FieldReference, len(keys))
+	for i, k := range keys {
+		leftKeys[i] = k.left.ToProtoFieldRef()
+		rightKeys[i] = k.right.ToProtoFieldRef()
+	}
+	return leftKeys, rightKeys
+}
+
 // leftJoinKeys returns the left-hand field references of the given join keys.
 func leftJoinKeys(keys []*ComparisonJoinKey) []*expr.FieldReference {
 	out := make([]*expr.FieldReference, len(keys))
@@ -2032,12 +2054,15 @@ func (hr *HashJoinRel) SetAdvancedExtension(advExtension *extensions.AdvancedExt
 }
 
 func (hr *HashJoinRel) ToProto() *proto.Rel {
+	leftKeys, rightKeys := legacyJoinKeysToProto(hr.keys)
 	ret := &proto.Rel_HashJoin{
 		HashJoin: &proto.HashJoinRel{
 			Common:            hr.toProto(),
 			Left:              hr.left.ToProto(),
 			Right:             hr.right.ToProto(),
 			Keys:              comparisonJoinKeysToProto(hr.keys),
+			LeftKeys:          leftKeys,
+			RightKeys:         rightKeys,
 			Type:              proto.HashJoinRel_JoinType(hr.joinType),
 			AdvancedExtension: hr.advExtension,
 		},
@@ -2144,12 +2169,15 @@ func (mr *MergeJoinRel) SetAdvancedExtension(advExtension *extensions.AdvancedEx
 }
 
 func (mr *MergeJoinRel) ToProto() *proto.Rel {
+	leftKeys, rightKeys := legacyJoinKeysToProto(mr.keys)
 	ret := &proto.Rel_MergeJoin{
 		MergeJoin: &proto.MergeJoinRel{
 			Common:            mr.toProto(),
 			Left:              mr.left.ToProto(),
 			Right:             mr.right.ToProto(),
 			Keys:              comparisonJoinKeysToProto(mr.keys),
+			LeftKeys:          leftKeys,
+			RightKeys:         rightKeys,
 			Type:              proto.MergeJoinRel_JoinType(mr.joinType),
 			AdvancedExtension: mr.advExtension,
 		},

@@ -51,20 +51,58 @@ func eqKeys(t *testing.T, left, right Rel) []*ComparisonJoinKey {
 	}
 }
 
-// Producing a join must only populate the new keys field, never the deprecated ones.
-func TestJoinProducesOnlyNewKeys(t *testing.T) {
+// Producing a join always writes the new keys field, and additionally
+// mirrors the deprecated left_keys/right_keys when every key is a plain EQ
+// comparison so old consumers keep working for equality joins.
+func TestJoinWritesLegacyKeysForEqualityOnly(t *testing.T) {
 	left, right := joinInputs()
-	keys := eqKeys(t, left, right)
+	wantLeft := []*proto.Expression_FieldReference{
+		keyRef(t, left, 0).ToProtoFieldRef(), keyRef(t, left, 1).ToProtoFieldRef()}
+	wantRight := []*proto.Expression_FieldReference{
+		keyRef(t, right, 2).ToProtoFieldRef(), keyRef(t, right, 0).ToProtoFieldRef()}
 
-	hash := (&HashJoinRel{left: left, right: right, joinType: HashMergeInner, keys: keys}).ToProto().GetHashJoin()
-	assert.Len(t, hash.GetKeys(), 2)
-	assert.Empty(t, hash.GetLeftKeys())
-	assert.Empty(t, hash.GetRightKeys())
+	// All-EQ keys: new keys field plus mirrored deprecated fields.
+	t.Run("all EQ mirrors deprecated fields", func(t *testing.T) {
+		keys := eqKeys(t, left, right)
 
-	merge := (&MergeJoinRel{left: left, right: right, joinType: HashMergeInner, keys: keys}).ToProto().GetMergeJoin()
-	assert.Len(t, merge.GetKeys(), 2)
-	assert.Empty(t, merge.GetLeftKeys())
-	assert.Empty(t, merge.GetRightKeys())
+		hash := (&HashJoinRel{left: left, right: right, joinType: HashMergeInner, keys: keys}).ToProto().GetHashJoin()
+		assert.Len(t, hash.GetKeys(), 2)
+		assert.Empty(t, cmp.Diff(wantLeft, hash.GetLeftKeys(), protocmp.Transform()))
+		assert.Empty(t, cmp.Diff(wantRight, hash.GetRightKeys(), protocmp.Transform()))
+
+		merge := (&MergeJoinRel{left: left, right: right, joinType: HashMergeInner, keys: keys}).ToProto().GetMergeJoin()
+		assert.Len(t, merge.GetKeys(), 2)
+		assert.Empty(t, cmp.Diff(wantLeft, merge.GetLeftKeys(), protocmp.Transform()))
+		assert.Empty(t, cmp.Diff(wantRight, merge.GetRightKeys(), protocmp.Transform()))
+	})
+
+	// A non-EQ comparison anywhere makes the legacy fields lossy, so they are
+	// omitted entirely and only the new keys field is written.
+	for _, tc := range []struct {
+		name       string
+		comparison JoinKeyComparison
+	}{
+		{"is not distinct from", SimpleComparison{Type: SimpleComparisonTypeIsNotDistinctFrom}},
+		{"might equal", SimpleComparison{Type: SimpleComparisonTypeMightEqual}},
+		{"custom", CustomComparison{FunctionReference: 7}},
+	} {
+		t.Run("non-EQ omits deprecated fields: "+tc.name, func(t *testing.T) {
+			keys := []*ComparisonJoinKey{
+				NewEqualityJoinKey(keyRef(t, left, 0), keyRef(t, right, 2)),
+				NewComparisonJoinKey(keyRef(t, left, 1), keyRef(t, right, 0), tc.comparison),
+			}
+
+			hash := (&HashJoinRel{left: left, right: right, joinType: HashMergeInner, keys: keys}).ToProto().GetHashJoin()
+			assert.Len(t, hash.GetKeys(), 2)
+			assert.Empty(t, hash.GetLeftKeys())
+			assert.Empty(t, hash.GetRightKeys())
+
+			merge := (&MergeJoinRel{left: left, right: right, joinType: HashMergeInner, keys: keys}).ToProto().GetMergeJoin()
+			assert.Len(t, merge.GetKeys(), 2)
+			assert.Empty(t, merge.GetLeftKeys())
+			assert.Empty(t, merge.GetRightKeys())
+		})
+	}
 }
 
 // The deprecated accessors derive their values from the keys.
@@ -121,11 +159,12 @@ func TestJoinConsumesLegacyKeys(t *testing.T) {
 				assert.Equal(t, SimpleComparison{Type: SimpleComparisonTypeEq}, k.Comparison())
 			}
 
-			// Re-emitting must only set the new keys field.
+			// Re-emitting sets the new keys field and, because these are all
+			// EQ comparisons, mirrors the deprecated fields back as well.
 			hj := rel.ToProto().GetHashJoin()
 			assert.Len(t, hj.GetKeys(), 2)
-			assert.Empty(t, hj.GetLeftKeys())
-			assert.Empty(t, hj.GetRightKeys())
+			assert.Len(t, hj.GetLeftKeys(), 2)
+			assert.Len(t, hj.GetRightKeys(), 2)
 		})
 	}
 }
