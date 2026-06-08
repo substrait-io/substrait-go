@@ -62,19 +62,28 @@ func TestJoinWritesLegacyKeysForEqualityOnly(t *testing.T) {
 		keyRef(t, right, 2).ToProtoFieldRef(), keyRef(t, right, 0).ToProtoFieldRef()}
 
 	// All-EQ keys: new keys field plus mirrored deprecated fields.
-	t.Run("all EQ mirrors deprecated fields", func(t *testing.T) {
-		keys := eqKeys(t, left, right)
+	for _, tc := range []struct {
+		name string
+		keys []*ComparisonJoinKey
+	}{
+		{name: "value comparison", keys: eqKeys(t, left, right)},
+		{name: "pointer comparison", keys: []*ComparisonJoinKey{
+			NewComparisonJoinKey(keyRef(t, left, 0), keyRef(t, right, 2), &SimpleComparison{Type: SimpleComparisonTypeEq}),
+			NewComparisonJoinKey(keyRef(t, left, 1), keyRef(t, right, 0), &SimpleComparison{Type: SimpleComparisonTypeEq}),
+		}},
+	} {
+		t.Run("all EQ mirrors deprecated fields: "+tc.name, func(t *testing.T) {
+			hash := (&HashJoinRel{left: left, right: right, joinType: HashMergeInner, keys: tc.keys}).ToProto().GetHashJoin()
+			assert.Len(t, hash.GetKeys(), 2)
+			assert.Empty(t, cmp.Diff(wantLeft, hash.GetLeftKeys(), protocmp.Transform()))
+			assert.Empty(t, cmp.Diff(wantRight, hash.GetRightKeys(), protocmp.Transform()))
 
-		hash := (&HashJoinRel{left: left, right: right, joinType: HashMergeInner, keys: keys}).ToProto().GetHashJoin()
-		assert.Len(t, hash.GetKeys(), 2)
-		assert.Empty(t, cmp.Diff(wantLeft, hash.GetLeftKeys(), protocmp.Transform()))
-		assert.Empty(t, cmp.Diff(wantRight, hash.GetRightKeys(), protocmp.Transform()))
-
-		merge := (&MergeJoinRel{left: left, right: right, joinType: HashMergeInner, keys: keys}).ToProto().GetMergeJoin()
-		assert.Len(t, merge.GetKeys(), 2)
-		assert.Empty(t, cmp.Diff(wantLeft, merge.GetLeftKeys(), protocmp.Transform()))
-		assert.Empty(t, cmp.Diff(wantRight, merge.GetRightKeys(), protocmp.Transform()))
-	})
+			merge := (&MergeJoinRel{left: left, right: right, joinType: HashMergeInner, keys: tc.keys}).ToProto().GetMergeJoin()
+			assert.Len(t, merge.GetKeys(), 2)
+			assert.Empty(t, cmp.Diff(wantLeft, merge.GetLeftKeys(), protocmp.Transform()))
+			assert.Empty(t, cmp.Diff(wantRight, merge.GetRightKeys(), protocmp.Transform()))
+		})
+	}
 
 	// A non-EQ comparison anywhere makes the legacy fields lossy, so they are
 	// omitted entirely and only the new keys field is written.
@@ -192,23 +201,48 @@ func TestJoinPrefersNewKeysOverDeprecated(t *testing.T) {
 	reg := joinTestRegistry()
 	keys := eqKeys(t, left, right)
 
-	both := &proto.Rel{RelType: &proto.Rel_HashJoin{HashJoin: &proto.HashJoinRel{
-		Common: &proto.RelCommon{},
-		Left:   left.ToProto(),
-		Right:  right.ToProto(),
-		Type:   proto.HashJoinRel_JOIN_TYPE_INNER,
-		Keys:   comparisonJoinKeysToProto(keys),
-		// Bogus deprecated keys pointing at different fields than the real keys.
-		LeftKeys:  []*proto.Expression_FieldReference{keyRef(t, left, 2).ToProtoFieldRef()},
-		RightKeys: []*proto.Expression_FieldReference{keyRef(t, right, 1).ToProtoFieldRef()},
-	}}}
+	bogusLeft := []*proto.Expression_FieldReference{keyRef(t, left, 2).ToProtoFieldRef()}
+	bogusRight := []*proto.Expression_FieldReference{keyRef(t, right, 1).ToProtoFieldRef()}
 
-	rel, err := RelFromProto(both, reg)
-	require.NoError(t, err)
-	got := rel.ToProto().GetHashJoin().GetKeys()
-	if diff := cmp.Diff(comparisonJoinKeysToProto(keys), got, protocmp.Transform()); diff != "" {
-		t.Errorf("expected new keys to win, diff:\n%v", diff)
-	}
+	t.Run("hash", func(t *testing.T) {
+		both := &proto.Rel{RelType: &proto.Rel_HashJoin{HashJoin: &proto.HashJoinRel{
+			Common: &proto.RelCommon{},
+			Left:   left.ToProto(),
+			Right:  right.ToProto(),
+			Type:   proto.HashJoinRel_JOIN_TYPE_INNER,
+			Keys:   comparisonJoinKeysToProto(keys),
+			// Bogus deprecated keys pointing at different fields than the real keys.
+			LeftKeys:  bogusLeft,
+			RightKeys: bogusRight,
+		}}}
+
+		rel, err := RelFromProto(both, reg)
+		require.NoError(t, err)
+		got := rel.ToProto().GetHashJoin().GetKeys()
+		if diff := cmp.Diff(comparisonJoinKeysToProto(keys), got, protocmp.Transform()); diff != "" {
+			t.Errorf("expected new keys to win, diff:\n%v", diff)
+		}
+	})
+
+	t.Run("merge", func(t *testing.T) {
+		both := &proto.Rel{RelType: &proto.Rel_MergeJoin{MergeJoin: &proto.MergeJoinRel{
+			Common: &proto.RelCommon{},
+			Left:   left.ToProto(),
+			Right:  right.ToProto(),
+			Type:   proto.MergeJoinRel_JOIN_TYPE_INNER,
+			Keys:   comparisonJoinKeysToProto(keys),
+			// Bogus deprecated keys pointing at different fields than the real keys.
+			LeftKeys:  bogusLeft,
+			RightKeys: bogusRight,
+		}}}
+
+		rel, err := RelFromProto(both, reg)
+		require.NoError(t, err)
+		got := rel.ToProto().GetMergeJoin().GetKeys()
+		if diff := cmp.Diff(comparisonJoinKeysToProto(keys), got, protocmp.Transform()); diff != "" {
+			t.Errorf("expected new keys to win, diff:\n%v", diff)
+		}
+	})
 }
 
 // Equality, non-EQ simple comparisons and custom comparison functions all
