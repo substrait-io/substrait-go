@@ -797,38 +797,18 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			return nil, fmt.Errorf("error getting right input to HashJoin: %w", err)
 		}
 
-		if len(rel.HashJoin.LeftKeys) != len(rel.HashJoin.RightKeys) {
-			return nil, fmt.Errorf("%w: mismatched number of keys for hash join. Left: %d, Right: %d",
-				substraitgo.ErrInvalidRel, len(rel.HashJoin.LeftKeys), len(rel.HashJoin.RightKeys))
-		}
-
 		leftBase, rightBase := left.RecordType(), right.RecordType()
 
-		leftKeys := make([]*expr.FieldReference, len(rel.HashJoin.LeftKeys))
-		for i, k := range rel.HashJoin.LeftKeys {
-			leftKeys[i], err = expr.FieldReferenceFromProto(k, &leftBase, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error getting left key %d for HashJoinRel: %w", i, err)
-			}
-		}
-
-		rightKeys := make([]*expr.FieldReference, len(rel.HashJoin.RightKeys))
-		for i, k := range rel.HashJoin.RightKeys {
-			rightKeys[i], err = expr.FieldReferenceFromProto(k, &rightBase, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error getting right key %d for HashJoinRel: %w", i, err)
-			}
-		}
-
-		if len(leftKeys) != len(rightKeys) {
-			return nil, fmt.Errorf("%w: must have same number of keys in left and right keys for hash join", substraitgo.ErrInvalidRel)
+		keys, err := comparisonJoinKeysFromProto(
+			rel.HashJoin.Keys, rel.HashJoin.LeftKeys, rel.HashJoin.RightKeys, &leftBase, &rightBase, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error getting keys for HashJoinRel: %w", err)
 		}
 
 		out := &HashJoinRel{
 			left:         left,
 			right:        right,
-			leftKeys:     leftKeys,
-			rightKeys:    rightKeys,
+			keys:         keys,
 			joinType:     HashMergeJoinType(rel.HashJoin.Type),
 			advExtension: rel.HashJoin.AdvancedExtension,
 		}
@@ -851,41 +831,21 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 
 		right, err := RelFromProto(rel.MergeJoin.Right, reg)
 		if err != nil {
-			return nil, fmt.Errorf("error getting right input to HashJoin: %w", err)
-		}
-
-		if len(rel.MergeJoin.LeftKeys) != len(rel.MergeJoin.RightKeys) {
-			return nil, fmt.Errorf("%w: mismatched number of keys for merge join. Left: %d, Right: %d",
-				substraitgo.ErrInvalidRel, len(rel.MergeJoin.LeftKeys), len(rel.MergeJoin.RightKeys))
+			return nil, fmt.Errorf("error getting right input to MergeJoinRel: %w", err)
 		}
 
 		leftBase, rightBase := left.RecordType(), right.RecordType()
 
-		leftKeys := make([]*expr.FieldReference, len(rel.MergeJoin.LeftKeys))
-		for i, k := range rel.MergeJoin.LeftKeys {
-			leftKeys[i], err = expr.FieldReferenceFromProto(k, &leftBase, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error getting left key %d for MergeJoin: %w", i, err)
-			}
+		keys, err := comparisonJoinKeysFromProto(
+			rel.MergeJoin.Keys, rel.MergeJoin.LeftKeys, rel.MergeJoin.RightKeys, &leftBase, &rightBase, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error getting keys for MergeJoinRel: %w", err)
 		}
 
-		rightKeys := make([]*expr.FieldReference, len(rel.MergeJoin.RightKeys))
-		for i, k := range rel.MergeJoin.RightKeys {
-			rightKeys[i], err = expr.FieldReferenceFromProto(k, &rightBase, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error getting right key %d for MergeJoin: %w", i, err)
-			}
-		}
-
-		if len(leftKeys) != len(rightKeys) {
-			return nil, fmt.Errorf("%w: must have same number of keys in left and right keys for merge join", substraitgo.ErrInvalidRel)
-		}
-
-		out := &HashJoinRel{
+		out := &MergeJoinRel{
 			left:         left,
 			right:        right,
-			leftKeys:     leftKeys,
-			rightKeys:    rightKeys,
+			keys:         keys,
 			joinType:     HashMergeJoinType(rel.MergeJoin.Type),
 			advExtension: rel.MergeJoin.AdvancedExtension,
 		}

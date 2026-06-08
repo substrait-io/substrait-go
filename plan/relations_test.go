@@ -77,10 +77,10 @@ func TestRelations_Copy(t *testing.T) {
 	extensionMultiRel := &ExtensionMultiRel{inputs: []Rel{createVirtualTableReadRel(1), createVirtualTableReadRel(2)}}
 	fetchRel := &FetchRel{input: createVirtualTableReadRel(1), offset: 1, count: 2}
 	filterRel := &FilterRel{input: createVirtualTableReadRel(1), cond: expr.NewPrimitiveLiteral(true, false)}
-	hashJoinRel := &HashJoinRel{left: createVirtualTableReadRel(1), right: createVirtualTableReadRel(2), joinType: HashMergeInner, leftKeys: []*expr.FieldReference{}, rightKeys: []*expr.FieldReference{}, postJoinFilter: expr.NewPrimitiveLiteral(true, false)}
+	hashJoinRel := &HashJoinRel{left: createVirtualTableReadRel(1), right: createVirtualTableReadRel(2), joinType: HashMergeInner, keys: []*ComparisonJoinKey{}, postJoinFilter: expr.NewPrimitiveLiteral(true, false)}
 	joinRel := &JoinRel{left: createVirtualTableReadRel(1), right: createVirtualTableReadRel(2), joinType: JoinTypeInner, expr: expr.NewPrimitiveLiteral(true, false), postJoinFilter: expr.NewPrimitiveLiteral(true, false)}
 	localFileReadRel := &LocalFileReadRel{items: []FileOrFiles{{Path: "path"}}, baseReadRel: baseReadRel{filter: expr.NewPrimitiveLiteral(true, false), bestEffortFilter: expr.NewPrimitiveLiteral(true, false)}}
-	mergeJoinRel := &MergeJoinRel{left: createVirtualTableReadRel(1), right: createVirtualTableReadRel(2), joinType: HashMergeInner, leftKeys: []*expr.FieldReference{}, rightKeys: []*expr.FieldReference{}, postJoinFilter: expr.NewPrimitiveLiteral(true, false)}
+	mergeJoinRel := &MergeJoinRel{left: createVirtualTableReadRel(1), right: createVirtualTableReadRel(2), joinType: HashMergeInner, keys: []*ComparisonJoinKey{}, postJoinFilter: expr.NewPrimitiveLiteral(true, false)}
 	namedTableReadRel := &NamedTableReadRel{names: []string{"mytest"}, baseReadRel: baseReadRel{filter: expr.NewPrimitiveLiteral(true, false), bestEffortFilter: expr.NewPrimitiveLiteral(true, false)}}
 	projectRel := &ProjectRel{input: createVirtualTableReadRel(1), exprs: []expr.Expression{createPrimitiveFloat(1.0), createPrimitiveFloat(2.0)}}
 	setRel := &SetRel{inputs: []Rel{createVirtualTableReadRel(1), createVirtualTableReadRel(2), createVirtualTableReadRel(3)}, op: SetOpUnionAll}
@@ -208,7 +208,7 @@ func TestRelations_Copy(t *testing.T) {
 			name:        "HashJoinRel Copy with new inputs",
 			relation:    hashJoinRel,
 			newInputs:   []Rel{createVirtualTableReadRel(6), createVirtualTableReadRel(7)},
-			expectedRel: &HashJoinRel{left: createVirtualTableReadRel(6), right: createVirtualTableReadRel(7), joinType: HashMergeInner, leftKeys: []*expr.FieldReference{}, rightKeys: []*expr.FieldReference{}, postJoinFilter: expr.NewPrimitiveLiteral(true, false)},
+			expectedRel: &HashJoinRel{left: createVirtualTableReadRel(6), right: createVirtualTableReadRel(7), joinType: HashMergeInner, keys: []*ComparisonJoinKey{}, postJoinFilter: expr.NewPrimitiveLiteral(true, false)},
 		},
 		{
 			name:        "JoinRel Copy with new inputs",
@@ -247,7 +247,7 @@ func TestRelations_Copy(t *testing.T) {
 			name:        "MergeJoinRel Copy with new inputs",
 			relation:    mergeJoinRel,
 			newInputs:   []Rel{createVirtualTableReadRel(6), createVirtualTableReadRel(7)},
-			expectedRel: &MergeJoinRel{left: createVirtualTableReadRel(6), right: createVirtualTableReadRel(7), joinType: HashMergeInner, leftKeys: []*expr.FieldReference{}, rightKeys: []*expr.FieldReference{}, postJoinFilter: expr.NewPrimitiveLiteral(true, false)},
+			expectedRel: &MergeJoinRel{left: createVirtualTableReadRel(6), right: createVirtualTableReadRel(7), joinType: HashMergeInner, keys: []*ComparisonJoinKey{}, postJoinFilter: expr.NewPrimitiveLiteral(true, false)},
 		},
 		{
 			name:            "NamedTableReadRel Copy with new inputs",
@@ -459,10 +459,10 @@ func TestRelations_AdvancedExtensions(t *testing.T) {
 	extensionMultiRel := &ExtensionMultiRel{inputs: []Rel{createVirtualTableReadRel(1), createVirtualTableReadRel(2)}}
 	fetchRel := &FetchRel{input: createVirtualTableReadRel(1), offset: 1, count: 2}
 	filterRel := &FilterRel{input: createVirtualTableReadRel(1), cond: expr.NewPrimitiveLiteral(true, false)}
-	hashJoinRel := &HashJoinRel{left: createVirtualTableReadRel(1), right: createVirtualTableReadRel(2), joinType: HashMergeInner, leftKeys: []*expr.FieldReference{}, rightKeys: []*expr.FieldReference{}, postJoinFilter: expr.NewPrimitiveLiteral(true, false)}
+	hashJoinRel := &HashJoinRel{left: createVirtualTableReadRel(1), right: createVirtualTableReadRel(2), joinType: HashMergeInner, keys: []*ComparisonJoinKey{}, postJoinFilter: expr.NewPrimitiveLiteral(true, false)}
 	joinRel := &JoinRel{left: createVirtualTableReadRel(1), right: createVirtualTableReadRel(2), joinType: JoinTypeInner, expr: expr.NewPrimitiveLiteral(true, false), postJoinFilter: expr.NewPrimitiveLiteral(true, false)}
 	localFileReadRel := &LocalFileReadRel{items: []FileOrFiles{{Path: "path"}}, baseReadRel: baseReadRel{filter: expr.NewPrimitiveLiteral(true, false), bestEffortFilter: expr.NewPrimitiveLiteral(true, false)}}
-	mergeJoinRel := &MergeJoinRel{left: createVirtualTableReadRel(1), right: createVirtualTableReadRel(2), joinType: HashMergeInner, leftKeys: []*expr.FieldReference{}, rightKeys: []*expr.FieldReference{}, postJoinFilter: expr.NewPrimitiveLiteral(true, false)}
+	mergeJoinRel := &MergeJoinRel{left: createVirtualTableReadRel(1), right: createVirtualTableReadRel(2), joinType: HashMergeInner, keys: []*ComparisonJoinKey{}, postJoinFilter: expr.NewPrimitiveLiteral(true, false)}
 	namedTableReadRel := &NamedTableReadRel{names: []string{"mytest"}, baseReadRel: baseReadRel{filter: expr.NewPrimitiveLiteral(true, false), bestEffortFilter: expr.NewPrimitiveLiteral(true, false)}}
 	projectRel := &ProjectRel{input: createVirtualTableReadRel(1), exprs: []expr.Expression{createPrimitiveFloat(1.0), createPrimitiveFloat(2.0)}}
 	setRel := &SetRel{inputs: []Rel{createVirtualTableReadRel(1), createVirtualTableReadRel(2), createVirtualTableReadRel(3)}, op: SetOpUnionAll}

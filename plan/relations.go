@@ -1820,17 +1820,209 @@ const (
 	HashMergeRightAnti
 )
 
+// SimpleComparisonType describes one of the predefined comparison behaviors
+// used by a ComparisonJoinKey.
+type SimpleComparisonType = proto.ComparisonJoinKey_SimpleComparisonType
+
+const (
+	SimpleComparisonTypeUnspecified       = proto.ComparisonJoinKey_SIMPLE_COMPARISON_TYPE_UNSPECIFIED
+	SimpleComparisonTypeEq                = proto.ComparisonJoinKey_SIMPLE_COMPARISON_TYPE_EQ
+	SimpleComparisonTypeIsNotDistinctFrom = proto.ComparisonJoinKey_SIMPLE_COMPARISON_TYPE_IS_NOT_DISTINCT_FROM
+	SimpleComparisonTypeMightEqual        = proto.ComparisonJoinKey_SIMPLE_COMPARISON_TYPE_MIGHT_EQUAL
+)
+
+// JoinKeyComparison describes how the two sides of a ComparisonJoinKey are
+// compared. It is either a SimpleComparison or a CustomComparison. The
+// unexported toProto method seals it to this package.
+type JoinKeyComparison interface {
+	toProto() *proto.ComparisonJoinKey_ComparisonType
+}
+
+// SimpleComparison uses one of the predefined SimpleComparisonType behaviors.
+type SimpleComparison struct {
+	Type SimpleComparisonType
+}
+
+func (c SimpleComparison) toProto() *proto.ComparisonJoinKey_ComparisonType {
+	return &proto.ComparisonJoinKey_ComparisonType{
+		InnerType: &proto.ComparisonJoinKey_ComparisonType_Simple{Simple: c.Type},
+	}
+}
+
+// CustomComparison references a binary function with a boolean return type
+// describing a custom comparison behavior.
+type CustomComparison struct {
+	FunctionReference uint32
+}
+
+func (c CustomComparison) toProto() *proto.ComparisonJoinKey_ComparisonType {
+	return &proto.ComparisonJoinKey_ComparisonType{
+		InnerType: &proto.ComparisonJoinKey_ComparisonType_CustomFunctionReference{
+			CustomFunctionReference: c.FunctionReference,
+		},
+	}
+}
+
+// ComparisonJoinKey is a single key comparison used by HashJoinRel and
+// MergeJoinRel, pairing a left and right field reference with the comparison
+// describing how the two are matched.
+type ComparisonJoinKey struct {
+	left, right *expr.FieldReference
+	comparison  JoinKeyComparison
+}
+
+// NewComparisonJoinKey creates a join key with an explicit comparison.
+func NewComparisonJoinKey(left, right *expr.FieldReference, comparison JoinKeyComparison) *ComparisonJoinKey {
+	return &ComparisonJoinKey{left: left, right: right, comparison: comparison}
+}
+
+// NewEqualityJoinKey creates a join key using the common
+// SimpleComparisonTypeEq comparison.
+func NewEqualityJoinKey(left, right *expr.FieldReference) *ComparisonJoinKey {
+	return NewComparisonJoinKey(left, right, SimpleComparison{Type: SimpleComparisonTypeEq})
+}
+
+func (k *ComparisonJoinKey) Left() *expr.FieldReference    { return k.left }
+func (k *ComparisonJoinKey) Right() *expr.FieldReference   { return k.right }
+func (k *ComparisonJoinKey) Comparison() JoinKeyComparison { return k.comparison }
+
+func (k *ComparisonJoinKey) ToProto() *proto.ComparisonJoinKey {
+	return &proto.ComparisonJoinKey{
+		Left:       k.left.ToProtoFieldRef(),
+		Right:      k.right.ToProtoFieldRef(),
+		Comparison: k.comparison.toProto(),
+	}
+}
+
+// comparisonJoinKeysToProto converts a list of join keys to their proto form.
+func comparisonJoinKeysToProto(keys []*ComparisonJoinKey) []*proto.ComparisonJoinKey {
+	out := make([]*proto.ComparisonJoinKey, len(keys))
+	for i, k := range keys {
+		out[i] = k.ToProto()
+	}
+	return out
+}
+
+// tryEqualityJoinKeysToLegacyProto returns the deprecated left_keys/right_keys
+// representation of the given join keys with ok=true, but only when every key
+// is a plain SIMPLE_COMPARISON_TYPE_EQ comparison. Those are the only joins the
+// deprecated fields can express; IS_NOT_DISTINCT_FROM, MIGHT_EQUAL and custom
+// comparisons have no legacy encoding and an old consumer would silently treat
+// them as equality, so for those it returns ok=false and the caller should emit
+// only the modern keys field.
+func tryEqualityJoinKeysToLegacyProto(keys []*ComparisonJoinKey) (leftKeys, rightKeys []*proto.Expression_FieldReference, ok bool) {
+	for _, k := range keys {
+		switch simple := k.comparison.(type) {
+		case SimpleComparison:
+			if simple.Type != SimpleComparisonTypeEq {
+				return nil, nil, false
+			}
+		case *SimpleComparison:
+			if simple == nil || simple.Type != SimpleComparisonTypeEq {
+				return nil, nil, false
+			}
+		default:
+			return nil, nil, false
+		}
+	}
+	leftKeys = make([]*proto.Expression_FieldReference, len(keys))
+	rightKeys = make([]*proto.Expression_FieldReference, len(keys))
+	for i, k := range keys {
+		leftKeys[i] = k.left.ToProtoFieldRef()
+		rightKeys[i] = k.right.ToProtoFieldRef()
+	}
+	return leftKeys, rightKeys, true
+}
+
+// leftJoinKeys returns the left-hand field references of the given join keys.
+func leftJoinKeys(keys []*ComparisonJoinKey) []*expr.FieldReference {
+	out := make([]*expr.FieldReference, len(keys))
+	for i, k := range keys {
+		out[i] = k.left
+	}
+	return out
+}
+
+// rightJoinKeys returns the right-hand field references of the given join keys.
+func rightJoinKeys(keys []*ComparisonJoinKey) []*expr.FieldReference {
+	out := make([]*expr.FieldReference, len(keys))
+	for i, k := range keys {
+		out[i] = k.right
+	}
+	return out
+}
+
+// joinKeyComparisonFromProto converts a proto comparison into its model form.
+func joinKeyComparisonFromProto(c *proto.ComparisonJoinKey_ComparisonType) (JoinKeyComparison, error) {
+	switch it := c.GetInnerType().(type) {
+	case *proto.ComparisonJoinKey_ComparisonType_Simple:
+		return SimpleComparison{Type: it.Simple}, nil
+	case *proto.ComparisonJoinKey_ComparisonType_CustomFunctionReference:
+		return CustomComparison{FunctionReference: it.CustomFunctionReference}, nil
+	default:
+		return nil, fmt.Errorf("%w: unsupported join key comparison type %T", substraitgo.ErrInvalidRel, it)
+	}
+}
+
+// comparisonJoinKeysFromProto builds the join keys for a hash/merge join,
+// preferring the keys field. The deprecated leftKeys/rightKeys are only used
+// when keys is empty, in which case they are paired with an EQ comparison.
+func comparisonJoinKeysFromProto(
+	keys []*proto.ComparisonJoinKey,
+	leftKeys, rightKeys []*proto.Expression_FieldReference,
+	leftSchema, rightSchema *types.RecordType,
+	reg expr.ExtensionRegistry,
+) ([]*ComparisonJoinKey, error) {
+	if len(keys) > 0 {
+		out := make([]*ComparisonJoinKey, len(keys))
+		for i, k := range keys {
+			left, err := expr.FieldReferenceFromProto(k.GetLeft(), leftSchema, reg)
+			if err != nil {
+				return nil, fmt.Errorf("error getting left key %d for join: %w", i, err)
+			}
+			right, err := expr.FieldReferenceFromProto(k.GetRight(), rightSchema, reg)
+			if err != nil {
+				return nil, fmt.Errorf("error getting right key %d for join: %w", i, err)
+			}
+			comparison, err := joinKeyComparisonFromProto(k.GetComparison())
+			if err != nil {
+				return nil, err
+			}
+			out[i] = NewComparisonJoinKey(left, right, comparison)
+		}
+		return out, nil
+	}
+
+	if len(leftKeys) != len(rightKeys) {
+		return nil, fmt.Errorf("%w: mismatched number of keys for join. Left: %d, Right: %d",
+			substraitgo.ErrInvalidRel, len(leftKeys), len(rightKeys))
+	}
+	out := make([]*ComparisonJoinKey, len(leftKeys))
+	for i := range leftKeys {
+		left, err := expr.FieldReferenceFromProto(leftKeys[i], leftSchema, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error getting left key %d for join: %w", i, err)
+		}
+		right, err := expr.FieldReferenceFromProto(rightKeys[i], rightSchema, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error getting right key %d for join: %w", i, err)
+		}
+		out[i] = NewEqualityJoinKey(left, right)
+	}
+	return out, nil
+}
+
 // HashJoinRel represents a relational operator to build a hash table out
 // of the right input based on a set of join keys. It will then probe
 // the hash table for incoming inputs, finding matches.
 type HashJoinRel struct {
 	RelCommon
 
-	left, right         Rel
-	leftKeys, rightKeys []*expr.FieldReference
-	postJoinFilter      expr.Expression
-	joinType            HashMergeJoinType
-	advExtension        *extensions.AdvancedExtension
+	left, right    Rel
+	keys           []*ComparisonJoinKey
+	postJoinFilter expr.Expression
+	joinType       HashMergeJoinType
+	advExtension   *extensions.AdvancedExtension
 }
 
 func (hr *HashJoinRel) directOutputSchema() types.RecordType {
@@ -1841,10 +2033,19 @@ func (hr *HashJoinRel) RecordType() types.RecordType {
 	return hr.remap(hr.directOutputSchema())
 }
 
-func (hr *HashJoinRel) Left() Rel                         { return hr.left }
-func (hr *HashJoinRel) Right() Rel                        { return hr.right }
-func (hr *HashJoinRel) LeftKeys() []*expr.FieldReference  { return hr.leftKeys }
-func (hr *HashJoinRel) RightKeys() []*expr.FieldReference { return hr.rightKeys }
+func (hr *HashJoinRel) Left() Rel                  { return hr.left }
+func (hr *HashJoinRel) Right() Rel                 { return hr.right }
+func (hr *HashJoinRel) Keys() []*ComparisonJoinKey { return hr.keys }
+
+// LeftKeys returns the left-hand sides of the join keys.
+//
+// Deprecated: use Keys instead.
+func (hr *HashJoinRel) LeftKeys() []*expr.FieldReference { return leftJoinKeys(hr.keys) }
+
+// RightKeys returns the right-hand sides of the join keys.
+//
+// Deprecated: use Keys instead.
+func (hr *HashJoinRel) RightKeys() []*expr.FieldReference { return rightJoinKeys(hr.keys) }
 func (hr *HashJoinRel) PostJoinFilter() expr.Expression {
 	if hr.postJoinFilter == nil {
 		return defFilter
@@ -1862,25 +2063,20 @@ func (hr *HashJoinRel) SetAdvancedExtension(advExtension *extensions.AdvancedExt
 }
 
 func (hr *HashJoinRel) ToProto() *proto.Rel {
-	keysLeft := make([]*proto.Expression_FieldReference, len(hr.leftKeys))
-	for i, k := range hr.leftKeys {
-		keysLeft[i] = k.ToProtoFieldRef()
-	}
-	keysRight := make([]*proto.Expression_FieldReference, len(hr.rightKeys))
-	for i, k := range hr.rightKeys {
-		keysRight[i] = k.ToProtoFieldRef()
-	}
-
 	ret := &proto.Rel_HashJoin{
 		HashJoin: &proto.HashJoinRel{
 			Common:            hr.toProto(),
 			Left:              hr.left.ToProto(),
 			Right:             hr.right.ToProto(),
-			LeftKeys:          keysLeft,
-			RightKeys:         keysRight,
+			Keys:              comparisonJoinKeysToProto(hr.keys),
 			Type:              proto.HashJoinRel_JoinType(hr.joinType),
 			AdvancedExtension: hr.advExtension,
 		},
+	}
+
+	if leftKeys, rightKeys, ok := tryEqualityJoinKeysToLegacyProto(hr.keys); ok {
+		ret.HashJoin.LeftKeys = leftKeys
+		ret.HashJoin.RightKeys = rightKeys
 	}
 
 	if hr.postJoinFilter != nil {
@@ -1939,11 +2135,11 @@ func (hr *HashJoinRel) Remap(mapping ...int32) (Rel, error) {
 type MergeJoinRel struct {
 	RelCommon
 
-	left, right         Rel
-	leftKeys, rightKeys []*expr.FieldReference
-	postJoinFilter      expr.Expression
-	joinType            HashMergeJoinType
-	advExtension        *extensions.AdvancedExtension
+	left, right    Rel
+	keys           []*ComparisonJoinKey
+	postJoinFilter expr.Expression
+	joinType       HashMergeJoinType
+	advExtension   *extensions.AdvancedExtension
 }
 
 func (mr *MergeJoinRel) directOutputSchema() types.RecordType {
@@ -1954,10 +2150,19 @@ func (mr *MergeJoinRel) RecordType() types.RecordType {
 	return mr.remap(mr.directOutputSchema())
 }
 
-func (mr *MergeJoinRel) Left() Rel                         { return mr.left }
-func (mr *MergeJoinRel) Right() Rel                        { return mr.right }
-func (mr *MergeJoinRel) LeftKeys() []*expr.FieldReference  { return mr.leftKeys }
-func (mr *MergeJoinRel) RightKeys() []*expr.FieldReference { return mr.rightKeys }
+func (mr *MergeJoinRel) Left() Rel                  { return mr.left }
+func (mr *MergeJoinRel) Right() Rel                 { return mr.right }
+func (mr *MergeJoinRel) Keys() []*ComparisonJoinKey { return mr.keys }
+
+// LeftKeys returns the left-hand sides of the join keys.
+//
+// Deprecated: use Keys instead.
+func (mr *MergeJoinRel) LeftKeys() []*expr.FieldReference { return leftJoinKeys(mr.keys) }
+
+// RightKeys returns the right-hand sides of the join keys.
+//
+// Deprecated: use Keys instead.
+func (mr *MergeJoinRel) RightKeys() []*expr.FieldReference { return rightJoinKeys(mr.keys) }
 func (mr *MergeJoinRel) PostJoinFilter() expr.Expression {
 	if mr.postJoinFilter == nil {
 		return defFilter
@@ -1975,25 +2180,20 @@ func (mr *MergeJoinRel) SetAdvancedExtension(advExtension *extensions.AdvancedEx
 }
 
 func (mr *MergeJoinRel) ToProto() *proto.Rel {
-	keysLeft := make([]*proto.Expression_FieldReference, len(mr.leftKeys))
-	for i, k := range mr.leftKeys {
-		keysLeft[i] = k.ToProtoFieldRef()
-	}
-	keysRight := make([]*proto.Expression_FieldReference, len(mr.rightKeys))
-	for i, k := range mr.rightKeys {
-		keysRight[i] = k.ToProtoFieldRef()
-	}
-
 	ret := &proto.Rel_MergeJoin{
 		MergeJoin: &proto.MergeJoinRel{
 			Common:            mr.toProto(),
 			Left:              mr.left.ToProto(),
 			Right:             mr.right.ToProto(),
-			LeftKeys:          keysLeft,
-			RightKeys:         keysRight,
+			Keys:              comparisonJoinKeysToProto(mr.keys),
 			Type:              proto.MergeJoinRel_JoinType(mr.joinType),
 			AdvancedExtension: mr.advExtension,
 		},
+	}
+
+	if leftKeys, rightKeys, ok := tryEqualityJoinKeysToLegacyProto(mr.keys); ok {
+		ret.MergeJoin.LeftKeys = leftKeys
+		ret.MergeJoin.RightKeys = rightKeys
 	}
 
 	if mr.postJoinFilter != nil {
