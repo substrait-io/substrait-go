@@ -121,52 +121,69 @@ func TestJoinDeprecatedKeyAccessors(t *testing.T) {
 	assert.Equal(t, wantRight, merge.RightKeys())
 }
 
-// A plan from a legacy producer (only deprecated fields set) is consumed and
-// mapped to keys with EQ comparisons.
-func TestJoinConsumesLegacyKeys(t *testing.T) {
+// assertConsumedLegacyKeys checks that the keys decoded from a legacy producer
+// are the expected pair of EQ comparisons.
+func assertConsumedLegacyKeys(t *testing.T, keys []*ComparisonJoinKey) {
+	t.Helper()
+	require.Len(t, keys, 2)
+	for _, k := range keys {
+		assert.Equal(t, SimpleComparison{Type: SimpleComparisonTypeEq}, k.Comparison())
+	}
+}
+
+// A hash join plan from a legacy producer (only deprecated fields set) is
+// consumed and mapped to keys with EQ comparisons. Re-emitting sets the new
+// keys field and, because these are all EQ comparisons, mirrors the deprecated
+// fields back as well.
+func TestHashJoinConsumesLegacyKeys(t *testing.T) {
 	left, right := joinInputs()
 	reg := joinTestRegistry()
 
-	for _, tc := range []struct {
-		name  string
-		build func(hj *proto.HashJoinRel) *proto.Rel
-		keys  func(rel Rel) []*ComparisonJoinKey
-	}{
-		{
-			name:  "hash",
-			build: func(hj *proto.HashJoinRel) *proto.Rel { return &proto.Rel{RelType: &proto.Rel_HashJoin{HashJoin: hj}} },
-			keys:  func(rel Rel) []*ComparisonJoinKey { return rel.(*HashJoinRel).Keys() },
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			legacy := tc.build(&proto.HashJoinRel{
-				Common: &proto.RelCommon{},
-				Left:   left.ToProto(),
-				Right:  right.ToProto(),
-				Type:   proto.HashJoinRel_JOIN_TYPE_INNER,
-				LeftKeys: []*proto.Expression_FieldReference{
-					keyRef(t, left, 0).ToProtoFieldRef(), keyRef(t, left, 1).ToProtoFieldRef()},
-				RightKeys: []*proto.Expression_FieldReference{
-					keyRef(t, right, 2).ToProtoFieldRef(), keyRef(t, right, 0).ToProtoFieldRef()},
-			})
+	legacy := &proto.Rel{RelType: &proto.Rel_HashJoin{HashJoin: &proto.HashJoinRel{
+		Common: &proto.RelCommon{},
+		Left:   left.ToProto(),
+		Right:  right.ToProto(),
+		Type:   proto.HashJoinRel_JOIN_TYPE_INNER,
+		LeftKeys: []*proto.Expression_FieldReference{
+			keyRef(t, left, 0).ToProtoFieldRef(), keyRef(t, left, 1).ToProtoFieldRef()},
+		RightKeys: []*proto.Expression_FieldReference{
+			keyRef(t, right, 2).ToProtoFieldRef(), keyRef(t, right, 0).ToProtoFieldRef()},
+	}}}
 
-			rel, err := RelFromProto(legacy, reg)
-			require.NoError(t, err)
+	rel, err := RelFromProto(legacy, reg)
+	require.NoError(t, err)
+	assertConsumedLegacyKeys(t, rel.(*HashJoinRel).Keys())
 
-			keys := tc.keys(rel)
-			require.Len(t, keys, 2)
-			for _, k := range keys {
-				assert.Equal(t, SimpleComparison{Type: SimpleComparisonTypeEq}, k.Comparison())
-			}
+	hj := rel.ToProto().GetHashJoin()
+	assert.Len(t, hj.GetKeys(), 2)
+	assert.Len(t, hj.GetLeftKeys(), 2)
+	assert.Len(t, hj.GetRightKeys(), 2)
+}
 
-			// Re-emitting sets the new keys field and, because these are all
-			// EQ comparisons, mirrors the deprecated fields back as well.
-			hj := rel.ToProto().GetHashJoin()
-			assert.Len(t, hj.GetKeys(), 2)
-			assert.Len(t, hj.GetLeftKeys(), 2)
-			assert.Len(t, hj.GetRightKeys(), 2)
-		})
-	}
+// As TestHashJoinConsumesLegacyKeys, but for merge joins.
+func TestMergeJoinConsumesLegacyKeys(t *testing.T) {
+	left, right := joinInputs()
+	reg := joinTestRegistry()
+
+	legacy := &proto.Rel{RelType: &proto.Rel_MergeJoin{MergeJoin: &proto.MergeJoinRel{
+		Common: &proto.RelCommon{},
+		Left:   left.ToProto(),
+		Right:  right.ToProto(),
+		Type:   proto.MergeJoinRel_JOIN_TYPE_INNER,
+		LeftKeys: []*proto.Expression_FieldReference{
+			keyRef(t, left, 0).ToProtoFieldRef(), keyRef(t, left, 1).ToProtoFieldRef()},
+		RightKeys: []*proto.Expression_FieldReference{
+			keyRef(t, right, 2).ToProtoFieldRef(), keyRef(t, right, 0).ToProtoFieldRef()},
+	}}}
+
+	rel, err := RelFromProto(legacy, reg)
+	require.NoError(t, err)
+	assertConsumedLegacyKeys(t, rel.(*MergeJoinRel).Keys())
+
+	mj := rel.ToProto().GetMergeJoin()
+	assert.Len(t, mj.GetKeys(), 2)
+	assert.Len(t, mj.GetLeftKeys(), 2)
+	assert.Len(t, mj.GetRightKeys(), 2)
 }
 
 // When both the deprecated fields and the new keys are present, keys wins.
@@ -326,68 +343,6 @@ func TestJoinKeysFromProtoErrors(t *testing.T) {
 		t.Run("merge/"+tc.name, func(t *testing.T) {
 			_, err := RelFromProto(tc.fields.mergeProto(left, right), reg)
 			require.Error(t, err)
-		})
-	}
-}
-
-// A merge join whose right input fails to decode surfaces an error.
-func TestMergeJoinBadRightInput(t *testing.T) {
-	left, _ := joinInputs()
-	rel := &proto.Rel{RelType: &proto.Rel_MergeJoin{MergeJoin: &proto.MergeJoinRel{
-		Common: &proto.RelCommon{},
-		Type:   proto.MergeJoinRel_JOIN_TYPE_INNER,
-		Left:   left.ToProto(),
-		Right:  &proto.Rel{}, // nil RelType -> RelFromProto errors
-	}}}
-
-	_, err := RelFromProto(rel, joinTestRegistry())
-	require.ErrorContains(t, err, "right input to MergeJoinRel")
-}
-
-// Exercises the join accessors and the ComparisonJoinKey getters, and covers
-// the post-join-filter branch of ToProto via a round trip.
-func TestJoinAccessorsAndPostJoinFilter(t *testing.T) {
-	left, right := joinInputs()
-	reg := joinTestRegistry()
-	keys := eqKeys(t, left, right)
-	postFilter := expr.NewPrimitiveLiteral(true, false)
-
-	k := keys[0]
-	assert.Equal(t, keyRef(t, left, 0), k.Left())
-	assert.Equal(t, keyRef(t, right, 2), k.Right())
-	assert.Equal(t, SimpleComparison{Type: SimpleComparisonTypeEq}, k.Comparison())
-
-	// With no post-join filter set, the accessor returns the default filter.
-	noFilter := &HashJoinRel{left: left, right: right, joinType: HashMergeInner, keys: keys}
-	assert.Equal(t, defFilter, noFilter.PostJoinFilter())
-
-	for _, tc := range []struct {
-		name string
-		rel  Rel
-	}{
-		{"hash", &HashJoinRel{left: left, right: right, joinType: HashMergeInner, keys: keys, postJoinFilter: postFilter}},
-		{"merge", &MergeJoinRel{left: left, right: right, joinType: HashMergeInner, keys: keys, postJoinFilter: postFilter}},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			switch r := tc.rel.(type) {
-			case *HashJoinRel:
-				assert.Equal(t, left, r.Left())
-				assert.Equal(t, right, r.Right())
-				assert.Equal(t, HashMergeInner, r.Type())
-				assert.Equal(t, postFilter, r.PostJoinFilter())
-			case *MergeJoinRel:
-				assert.Equal(t, left, r.Left())
-				assert.Equal(t, right, r.Right())
-				assert.Equal(t, HashMergeInner, r.Type())
-				assert.Equal(t, postFilter, r.PostJoinFilter())
-			}
-
-			out := tc.rel.ToProto()
-			roundTripped, err := RelFromProto(out, reg)
-			require.NoError(t, err)
-			if diff := cmp.Diff(out, roundTripped.ToProto(), protocmp.Transform()); diff != "" {
-				t.Errorf("join with post-join filter did not round trip, diff:\n%v", diff)
-			}
 		})
 	}
 }

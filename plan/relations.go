@@ -1903,17 +1903,26 @@ func comparisonJoinKeysToProto(keys []*ComparisonJoinKey) []*proto.ComparisonJoi
 	return out
 }
 
-// legacyJoinKeysToProto returns the deprecated left_keys/right_keys
-// representation of the given join keys, but only when every key is a plain
-// SIMPLE_COMPARISON_TYPE_EQ comparison. Those are the only joins the deprecated
-// fields can express; IS_NOT_DISTINCT_FROM, MIGHT_EQUAL and custom comparisons
-// have no legacy encoding and an old consumer would silently treat them as
-// equality, so for those we emit nothing and rely on the modern keys field.
-func legacyJoinKeysToProto(keys []*ComparisonJoinKey) (leftKeys, rightKeys []*proto.Expression_FieldReference) {
+// tryEqualityJoinKeysToLegacyProto returns the deprecated left_keys/right_keys
+// representation of the given join keys with ok=true, but only when every key
+// is a plain SIMPLE_COMPARISON_TYPE_EQ comparison. Those are the only joins the
+// deprecated fields can express; IS_NOT_DISTINCT_FROM, MIGHT_EQUAL and custom
+// comparisons have no legacy encoding and an old consumer would silently treat
+// them as equality, so for those it returns ok=false and the caller should emit
+// only the modern keys field.
+func tryEqualityJoinKeysToLegacyProto(keys []*ComparisonJoinKey) (leftKeys, rightKeys []*proto.Expression_FieldReference, ok bool) {
 	for _, k := range keys {
-		simple, ok := k.comparison.(SimpleComparison)
-		if !ok || simple.Type != SimpleComparisonTypeEq {
-			return nil, nil
+		switch simple := k.comparison.(type) {
+		case SimpleComparison:
+			if simple.Type != SimpleComparisonTypeEq {
+				return nil, nil, false
+			}
+		case *SimpleComparison:
+			if simple == nil || simple.Type != SimpleComparisonTypeEq {
+				return nil, nil, false
+			}
+		default:
+			return nil, nil, false
 		}
 	}
 	leftKeys = make([]*proto.Expression_FieldReference, len(keys))
@@ -1922,7 +1931,7 @@ func legacyJoinKeysToProto(keys []*ComparisonJoinKey) (leftKeys, rightKeys []*pr
 		leftKeys[i] = k.left.ToProtoFieldRef()
 		rightKeys[i] = k.right.ToProtoFieldRef()
 	}
-	return leftKeys, rightKeys
+	return leftKeys, rightKeys, true
 }
 
 // leftJoinKeys returns the left-hand field references of the given join keys.
@@ -1961,17 +1970,17 @@ func joinKeyComparisonFromProto(c *proto.ComparisonJoinKey_ComparisonType) (Join
 func comparisonJoinKeysFromProto(
 	keys []*proto.ComparisonJoinKey,
 	leftKeys, rightKeys []*proto.Expression_FieldReference,
-	leftBase, rightBase *types.RecordType,
+	leftSchema, rightSchema *types.RecordType,
 	reg expr.ExtensionRegistry,
 ) ([]*ComparisonJoinKey, error) {
 	if len(keys) > 0 {
 		out := make([]*ComparisonJoinKey, len(keys))
 		for i, k := range keys {
-			left, err := expr.FieldReferenceFromProto(k.GetLeft(), leftBase, reg)
+			left, err := expr.FieldReferenceFromProto(k.GetLeft(), leftSchema, reg)
 			if err != nil {
 				return nil, fmt.Errorf("error getting left key %d for join: %w", i, err)
 			}
-			right, err := expr.FieldReferenceFromProto(k.GetRight(), rightBase, reg)
+			right, err := expr.FieldReferenceFromProto(k.GetRight(), rightSchema, reg)
 			if err != nil {
 				return nil, fmt.Errorf("error getting right key %d for join: %w", i, err)
 			}
@@ -1990,11 +1999,11 @@ func comparisonJoinKeysFromProto(
 	}
 	out := make([]*ComparisonJoinKey, len(leftKeys))
 	for i := range leftKeys {
-		left, err := expr.FieldReferenceFromProto(leftKeys[i], leftBase, reg)
+		left, err := expr.FieldReferenceFromProto(leftKeys[i], leftSchema, reg)
 		if err != nil {
 			return nil, fmt.Errorf("error getting left key %d for join: %w", i, err)
 		}
-		right, err := expr.FieldReferenceFromProto(rightKeys[i], rightBase, reg)
+		right, err := expr.FieldReferenceFromProto(rightKeys[i], rightSchema, reg)
 		if err != nil {
 			return nil, fmt.Errorf("error getting right key %d for join: %w", i, err)
 		}
@@ -2054,18 +2063,20 @@ func (hr *HashJoinRel) SetAdvancedExtension(advExtension *extensions.AdvancedExt
 }
 
 func (hr *HashJoinRel) ToProto() *proto.Rel {
-	leftKeys, rightKeys := legacyJoinKeysToProto(hr.keys)
 	ret := &proto.Rel_HashJoin{
 		HashJoin: &proto.HashJoinRel{
 			Common:            hr.toProto(),
 			Left:              hr.left.ToProto(),
 			Right:             hr.right.ToProto(),
 			Keys:              comparisonJoinKeysToProto(hr.keys),
-			LeftKeys:          leftKeys,
-			RightKeys:         rightKeys,
 			Type:              proto.HashJoinRel_JoinType(hr.joinType),
 			AdvancedExtension: hr.advExtension,
 		},
+	}
+
+	if leftKeys, rightKeys, ok := tryEqualityJoinKeysToLegacyProto(hr.keys); ok {
+		ret.HashJoin.LeftKeys = leftKeys
+		ret.HashJoin.RightKeys = rightKeys
 	}
 
 	if hr.postJoinFilter != nil {
@@ -2169,18 +2180,20 @@ func (mr *MergeJoinRel) SetAdvancedExtension(advExtension *extensions.AdvancedEx
 }
 
 func (mr *MergeJoinRel) ToProto() *proto.Rel {
-	leftKeys, rightKeys := legacyJoinKeysToProto(mr.keys)
 	ret := &proto.Rel_MergeJoin{
 		MergeJoin: &proto.MergeJoinRel{
 			Common:            mr.toProto(),
 			Left:              mr.left.ToProto(),
 			Right:             mr.right.ToProto(),
 			Keys:              comparisonJoinKeysToProto(mr.keys),
-			LeftKeys:          leftKeys,
-			RightKeys:         rightKeys,
 			Type:              proto.MergeJoinRel_JoinType(mr.joinType),
 			AdvancedExtension: mr.advExtension,
 		},
+	}
+
+	if leftKeys, rightKeys, ok := tryEqualityJoinKeysToLegacyProto(mr.keys); ok {
+		ret.MergeJoin.LeftKeys = leftKeys
+		ret.MergeJoin.RightKeys = rightKeys
 	}
 
 	if mr.postJoinFilter != nil {
