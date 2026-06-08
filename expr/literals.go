@@ -374,8 +374,10 @@ func (t *MapLiteral) ToProtoLiteral() *proto.Expression_Literal {
 	} else {
 		kv := make([]*proto.Expression_Literal_Map_KeyValue, len(t.Value))
 		for i, v := range t.Value {
-			kv[i].Key = v.Key.ToProtoLiteral()
-			kv[i].Value = v.Value.ToProtoLiteral()
+			kv[i] = &proto.Expression_Literal_Map_KeyValue{
+				Key:   v.Key.ToProtoLiteral(),
+				Value: v.Value.ToProtoLiteral(),
+			}
 		}
 
 		lit.LiteralType = &proto.Expression_Literal_Map_{
