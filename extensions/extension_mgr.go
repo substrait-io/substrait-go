@@ -233,6 +233,10 @@ func (c *Collection) Load(r io.Reader) error {
 		}
 	}
 
+	if err := file.validateUserDefinedTypeReferences(); err != nil {
+		return err
+	}
+
 	c.urnSet[urn] = void
 
 	if file.Metadata != nil {

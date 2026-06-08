@@ -130,7 +130,7 @@ func (v *TestCaseVisitor) VisitAggregateFuncTestGroup(ctx *baseparser.AggregateF
 
 func (v *TestCaseVisitor) VisitAggFuncTestCase(ctx *baseparser.AggFuncTestCaseContext) interface{} {
 	testcase := v.Visit(ctx.AggFuncCall()).(*TestCase)
-	testcase.Result = v.Visit(ctx.Result()).(*CaseLiteral)
+	testcase.Result = v.Visit(ctx.Result()).(TestCaseResult)
 	if ctx.FuncOptions() != nil {
 		testcase.Options = v.Visit(ctx.FuncOptions()).(FuncOptions)
 	}
@@ -142,7 +142,6 @@ func (v *TestCaseVisitor) VisitSingleArgAggregateFuncCall(ctx *baseparser.Single
 	return &TestCase{
 		FuncName:      ctx.Identifier().GetText(),
 		AggregateArgs: []*AggregateArgument{{Argument: arg, ColumnType: arg.Type}},
-		Result:        &CaseLiteral{SubstraitError: &SubstraitError{Error: "uninitialized"}},
 	}
 }
 
@@ -348,7 +347,7 @@ func (v *TestCaseVisitor) VisitTestCase(ctx *baseparser.TestCaseContext) interfa
 	return &TestCase{
 		FuncName: ctx.Identifier().GetText(),
 		Args:     v.Visit(ctx.Arguments()).([]*CaseLiteral),
-		Result:   v.Visit(ctx.Result()).(*CaseLiteral),
+		Result:   v.Visit(ctx.Result()).(TestCaseResult),
 		Options:  options,
 	}
 }
@@ -849,17 +848,15 @@ func (v *TestCaseVisitor) VisitResult(ctx *baseparser.ResultContext) interface{}
 }
 
 func (v *TestCaseVisitor) VisitSubstraitError(ctx *baseparser.SubstraitErrorContext) interface{} {
-	err := &SubstraitError{Error: "UNKNOWN"}
 	if ctx.ErrorResult() != nil {
-		err.Error = "ERROR"
-	} else if ctx.UndefineResult() != nil {
-		err.Error = "UNDEFINED"
+		return NonValueError
 	}
-	return &CaseLiteral{
-		Type:           nil,
-		ValueText:      ctx.GetText(),
-		SubstraitError: err,
+	if ctx.UndefineResult() != nil {
+		return NonValueUndefined
 	}
+	// This should be impossible because the grammar only allows ERROR or UNDEFINED.
+	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid non-value result %q", ctx.GetText()))
+	return NonValueError
 }
 
 func (v *TestCaseVisitor) VisitBoolean(ctx *baseparser.BooleanContext) interface{} {

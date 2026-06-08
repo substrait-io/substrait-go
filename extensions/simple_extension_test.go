@@ -47,6 +47,9 @@ types:
 func TestUnmarshalCustomScalarFunction(t *testing.T) {
 	const customDef = `
 urn: extension:test:test_ext
+types:
+  - name: customtype1
+  - name: customtype2
 scalar_functions:
   - name: "scalar1"
     impls:
