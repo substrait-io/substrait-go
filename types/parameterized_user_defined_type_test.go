@@ -28,12 +28,12 @@ func TestParameterizedUserDefinedType(t *testing.T) {
 		expectedParameterizedParams    []any
 		expectedReturnType             Type
 	}{
-		{"udt_noparam", []UDTParameter{}, []any{}, "u!udt_noparam?", "u!udt_noparam", false, nil, &UserDefinedType{Nullability: NullabilityRequired}},
-		{"concrete_udt", []UDTParameter{&DataTypeUDTParam{int8Type}}, []any{&DataTypeParameter{int8Type}}, "u!concrete_udt?<i8?>", "u!concrete_udt<i8?>", false, nil, &UserDefinedType{Nullability: NullabilityRequired, TypeParameters: []TypeParam{&DataTypeParameter{Type: int8Type}}}},
+		{"udt_noparam", []UDTParameter{}, []any{}, "u!udt_noparam?", "u!udt_noparam", false, nil, &UserDefinedType{Nullability: NullabilityRequired, ID: ExtensionTypeID{Name: "udt_noparam"}}},
+		{"concrete_udt", []UDTParameter{&DataTypeUDTParam{int8Type}}, []any{&DataTypeParameter{int8Type}}, "u!concrete_udt?<i8?>", "u!concrete_udt<i8?>", false, nil, &UserDefinedType{Nullability: NullabilityRequired, ID: ExtensionTypeID{Name: "concrete_udt"}, TypeParameters: []TypeParam{&DataTypeParameter{Type: int8Type}}}},
 		{"variable_udt", []UDTParameter{&DataTypeUDTParam{decimalType}}, []any{}, "u!variable_udt?<decimal<P,S>>", "u!variable_udt<decimal<P,S>>", true, []any{&DataTypeUDTParam{decimalType}}, nil},
-		{"udt_with_int", []UDTParameter{&IntegerUDTParam{Integer: 10}}, []any{IntegerParameter(10)}, "u!udt_with_int?<10>", "u!udt_with_int<10>", false, nil, &UserDefinedType{Nullability: NullabilityRequired, TypeParameters: []TypeParam{IntegerParameter(10)}}},
-		{"udt_with_str", []UDTParameter{&StringUDTParam{StringVal: "test"}}, []any{StringParameter("test")}, "u!udt_with_str?<test>", "u!udt_with_str<test>", false, nil, &UserDefinedType{Nullability: NullabilityRequired, TypeParameters: []TypeParam{StringParameter("test")}}},
-		{"udt_with_int_and_str", []UDTParameter{&IntegerUDTParam{Integer: 10}, &StringUDTParam{StringVal: "test"}}, []any{IntegerParameter(10), StringParameter("test")}, "u!udt_with_int_and_str?<10, test>", "u!udt_with_int_and_str<10, test>", false, nil, &UserDefinedType{Nullability: NullabilityRequired, TypeParameters: []TypeParam{IntegerParameter(10), StringParameter("test")}}},
+		{"udt_with_int", []UDTParameter{&IntegerUDTParam{Integer: 10}}, []any{IntegerParameter(10)}, "u!udt_with_int?<10>", "u!udt_with_int<10>", false, nil, &UserDefinedType{Nullability: NullabilityRequired, ID: ExtensionTypeID{Name: "udt_with_int"}, TypeParameters: []TypeParam{IntegerParameter(10)}}},
+		{"udt_with_str", []UDTParameter{&StringUDTParam{StringVal: "test"}}, []any{StringParameter("test")}, "u!udt_with_str?<test>", "u!udt_with_str<test>", false, nil, &UserDefinedType{Nullability: NullabilityRequired, ID: ExtensionTypeID{Name: "udt_with_str"}, TypeParameters: []TypeParam{StringParameter("test")}}},
+		{"udt_with_int_and_str", []UDTParameter{&IntegerUDTParam{Integer: 10}, &StringUDTParam{StringVal: "test"}}, []any{IntegerParameter(10), StringParameter("test")}, "u!udt_with_int_and_str?<10, test>", "u!udt_with_int_and_str<10, test>", false, nil, &UserDefinedType{Nullability: NullabilityRequired, ID: ExtensionTypeID{Name: "udt_with_int_and_str"}, TypeParameters: []TypeParam{IntegerParameter(10), StringParameter("test")}}},
 	} {
 		t.Run(td.name, func(t *testing.T) {
 			pd := &ParameterizedUserDefinedType{TypeParameters: td.Params, Name: td.name}

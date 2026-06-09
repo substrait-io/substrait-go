@@ -51,6 +51,9 @@ type ExprBuilder struct {
 // Literal returns a wrapped literal that can be passed as an argument
 // to any of the other expression builders such as ScalarFunc.Args.
 func (e *ExprBuilder) Literal(l Literal) exprWrapper {
+	if protoLiteral, ok := l.(*ProtoLiteral); ok {
+		protoLiteral.extSet = e.Reg.Set
+	}
 	return exprWrapper{l, nil}
 }
 

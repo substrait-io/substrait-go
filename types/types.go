@@ -404,7 +404,6 @@ func TypeFromProto(t *proto.Type) Type {
 		return &UserDefinedType{
 			Nullability:      t.UserDefined.Nullability,
 			TypeVariationRef: t.UserDefined.TypeVariationReference,
-			TypeReference:    t.UserDefined.TypeReference,
 			TypeParameters:   params,
 		}
 	}
@@ -782,7 +781,16 @@ func TypeToProto(t Type) *proto.Type {
 	case *MapType:
 		return t.ToProto()
 	case *UserDefinedType:
-		return t.ToProto()
+		params := make([]*proto.Type_Parameter, len(t.TypeParameters))
+		for i, p := range t.TypeParameters {
+			params[i] = p.ToProto()
+		}
+		return &proto.Type{Kind: &proto.Type_UserDefined_{
+			UserDefined: &proto.Type_UserDefined{
+				Nullability:            t.Nullability,
+				TypeVariationReference: t.TypeVariationRef,
+				TypeParameters:         params,
+			}}}
 	}
 	panic("unimplemented type")
 }
@@ -1587,7 +1595,7 @@ func TypeParamFromProto(p *proto.Type_Parameter) TypeParam {
 type UserDefinedType struct {
 	Nullability      Nullability
 	TypeVariationRef uint32
-	TypeReference    uint32
+	ID               ExtensionTypeID
 	TypeParameters   []TypeParam
 }
 
@@ -1617,7 +1625,7 @@ func (t *UserDefinedType) Equals(rhs Type) bool {
 			return false
 		case t.TypeVariationRef != other.TypeVariationRef:
 			return false
-		case t.TypeReference != other.TypeReference:
+		case t.ID != other.ID:
 			return false
 		case len(t.TypeParameters) != len(other.TypeParameters):
 			return false
@@ -1634,34 +1642,16 @@ func (t *UserDefinedType) Equals(rhs Type) bool {
 	return false
 }
 
-func (t *UserDefinedType) ToProto() *proto.Type {
-	params := make([]*proto.Type_Parameter, len(t.TypeParameters))
-	for i, p := range t.TypeParameters {
-		params[i] = p.ToProto()
-	}
-
-	return &proto.Type{Kind: &proto.Type_UserDefined_{
-		UserDefined: &proto.Type_UserDefined{
-			Nullability:            t.Nullability,
-			TypeVariationReference: t.TypeVariationRef,
-			TypeReference:          t.TypeReference,
-			TypeParameters:         params,
-		}}}
-}
-
 func (t *UserDefinedType) ToProtoFuncArg() *proto.FunctionArgument {
 	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Type{Type: t.ToProto()},
+		ArgType: &proto.FunctionArgument_Type{Type: TypeToProto(t)},
 	}
 }
 
-// exists for meeting the interface, but the correct short name for
-// a user defined type is "u!name" which requires looking up the
-// type first via the type reference to find the name.
-func (*UserDefinedType) ShortString() string { return "" }
+func (t *UserDefinedType) ShortString() string { return "u!" + t.ID.Name }
 
 func (t *UserDefinedType) String() string {
-	return "user_defined_type"
+	return "u!" + t.ID.Name + strFromNullability(t.Nullability)
 }
 
 func (e Enum) ToProtoFuncArg() *proto.FunctionArgument {

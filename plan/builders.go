@@ -30,8 +30,7 @@ type Builder interface {
 	GetFunctionRef(nameSpace, key string) types.FunctionRef
 
 	// Construct a user-defined type from the extension namespace and typename,
-	// along with optional type parameters. It will add the type to the internal
-	// extension set if it doesn't already exist and assign it a type reference.
+	// along with optional type parameters.
 	UserDefinedType(nameSpace, typeName string, params ...types.TypeParam) types.UserDefinedType
 	// RootFieldRef constructs a Root Field Reference to the column of the input
 	// relation indicated by the passed in index. This will ensure the output
@@ -232,10 +231,9 @@ func (b *builder) GetFunctionRef(nameSpace, key string) types.FunctionRef {
 }
 
 func (b *builder) UserDefinedType(nameSpace, typeName string, params ...types.TypeParam) types.UserDefinedType {
-	id := extensions.TypeID{URN: nameSpace, Name: typeName}
 	return types.UserDefinedType{
 		Nullability:    types.NullabilityNullable,
-		TypeReference:  b.extSet.GetTypeAnchor(id),
+		ID:             extensions.TypeID{URN: nameSpace, Name: typeName},
 		TypeParameters: params,
 	}
 }

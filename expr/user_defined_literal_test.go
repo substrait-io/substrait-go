@@ -83,7 +83,6 @@ func TestNewUserDefinedLiteralHelper(t *testing.T) {
 
 	protoLit := pointLiteral.(*expr.ProtoLiteral)
 	udt := protoLit.GetType().(*types.UserDefinedType)
-	require.Equal(t, registry.GetTypeAnchor(pointID), udt.TypeReference)
 	require.Equal(t, types.NullabilityRequired, udt.Nullability)
 }
 
@@ -119,9 +118,6 @@ func TestUserDefinedLiteralWithAnyRepresentation(t *testing.T) {
 	err := collection.Load(strings.NewReader(nestedTypesYAML))
 	require.NoError(t, err)
 
-	registry := expr.NewEmptyExtensionRegistry(collection)
-	pointID := extensions.TypeID{URN: "extension:io.substrait:test_nested_types", Name: "point"}
-
 	anyValue, err := anypb.New(wrapperspb.String("<Some UserDefined Data>"))
 	require.NoError(t, err)
 
@@ -129,7 +125,6 @@ func TestUserDefinedLiteralWithAnyRepresentation(t *testing.T) {
 		Value: &proto.Expression_Literal_UserDefined_Value{Value: anyValue},
 		Type: &types.UserDefinedType{
 			Nullability:    types.NullabilityRequired,
-			TypeReference:  registry.GetTypeAnchor(pointID),
 			TypeParameters: []types.TypeParam{},
 		},
 	}
@@ -180,9 +175,6 @@ func TestNestedUserDefinedLiteralWithAnyRepresentation(t *testing.T) {
 	err := collection.Load(strings.NewReader(nestedTypesYAML))
 	require.NoError(t, err)
 
-	registry := expr.NewEmptyExtensionRegistry(collection)
-	triangleID := extensions.TypeID{URN: "extension:io.substrait:test_nested_types", Name: "triangle"}
-
 	anyValue, err := anypb.New(wrapperspb.String("<Some UserDefined Data>"))
 	require.NoError(t, err)
 
@@ -190,7 +182,6 @@ func TestNestedUserDefinedLiteralWithAnyRepresentation(t *testing.T) {
 		Value: &proto.Expression_Literal_UserDefined_Value{Value: anyValue},
 		Type: &types.UserDefinedType{
 			Nullability:    types.NullabilityRequired,
-			TypeReference:  registry.GetTypeAnchor(triangleID),
 			TypeParameters: []types.TypeParam{},
 		},
 	}
@@ -286,7 +277,7 @@ func TestMixedRepresentationNestedUserDefinedLiteral(t *testing.T) {
 			Value: &proto.Expression_Literal_UserDefined_Value{Value: anyValue},
 			Type: &types.UserDefinedType{
 				Nullability:    types.NullabilityRequired,
-				TypeReference:  registry.GetTypeAnchor(pointID),
+				ID:             pointID,
 				TypeParameters: []types.TypeParam{},
 			},
 		}

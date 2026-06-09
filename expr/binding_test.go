@@ -12,11 +12,11 @@ import (
 )
 
 var (
-	extReg    = NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-	uPointRef = extReg.GetTypeAnchor(extensions.TypeID{
+	extReg   = NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
+	uPointID = extensions.TypeID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "extension_types",
 		Name: "point",
-	})
+	}
 
 	subID = extensions.FunctionID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
@@ -56,7 +56,7 @@ var (
 				&types.Int32Type{},
 				&types.Int32Type{Nullability: types.NullabilityRequired},
 				&types.UserDefinedType{
-					TypeReference: uPointRef,
+					ID: uPointID,
 				},
 				&types.Int64Type{},
 				&types.Float32Type{},

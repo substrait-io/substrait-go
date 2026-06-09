@@ -210,7 +210,7 @@ func (m *ParameterizedUserDefinedType) ReturnType(funcParams []FuncDefArgType, a
 		}
 		types = append(types, param)
 	}
-	return &UserDefinedType{Nullability: m.Nullability, TypeParameters: types}, nil
+	return &UserDefinedType{Nullability: m.Nullability, ID: ExtensionTypeID{Name: m.Name}, TypeParameters: types}, nil
 }
 
 func (m *ParameterizedUserDefinedType) WithParameters(params []interface{}) (Type, error) {
@@ -228,6 +228,7 @@ func (m *ParameterizedUserDefinedType) WithParameters(params []interface{}) (Typ
 	return &UserDefinedType{
 		Nullability:      m.Nullability,
 		TypeVariationRef: m.TypeVariationRef,
+		ID:               ExtensionTypeID{Name: m.Name},
 		TypeParameters:   typeParams,
 	}, nil
 }

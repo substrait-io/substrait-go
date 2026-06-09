@@ -184,8 +184,8 @@ window_functions:
 
 	fnCall := scalarProto.GetScalarFunction()
 	require.Len(t, fnCall.Arguments, 1)
-	require.Equal(t, customType2.TypeReference, fnCall.Arguments[0].GetValue().GetLiteral().GetUserDefined().GetTypeReference())
-	require.Equal(t, customType1.TypeReference, fnCall.OutputType.GetUserDefined().TypeReference)
+	require.Equal(t, planBuilder.GetExprBuilder().Reg.GetTypeAnchor(customType2.ID), fnCall.Arguments[0].GetValue().GetLiteral().GetUserDefined().GetTypeReference())
+	require.Equal(t, planBuilder.GetExprBuilder().Reg.GetTypeAnchor(customType1.ID), fnCall.OutputType.GetUserDefined().TypeReference)
 
 	// check aggregate function
 	aggr, err := planBuilder.GetExprBuilder().AggFunc(extensions.FunctionID{
@@ -198,8 +198,8 @@ window_functions:
 	aggrProto := aggr.ToProto()
 
 	require.Len(t, aggrProto.Arguments, 1)
-	require.Equal(t, customType2.TypeReference, aggrProto.Arguments[0].GetValue().GetLiteral().GetUserDefined().GetTypeReference())
-	require.Equal(t, customType3.TypeReference, aggrProto.OutputType.GetUserDefined().TypeReference)
+	require.Equal(t, planBuilder.GetExprBuilder().Reg.GetTypeAnchor(customType2.ID), aggrProto.Arguments[0].GetValue().GetLiteral().GetUserDefined().GetTypeReference())
+	require.Equal(t, planBuilder.GetExprBuilder().Reg.GetTypeAnchor(customType3.ID), aggrProto.OutputType.GetUserDefined().TypeReference)
 
 	// check window function
 	window, err := planBuilder.GetExprBuilder().WindowFunc(extensions.FunctionID{
@@ -213,8 +213,8 @@ window_functions:
 
 	windowFnCall := windowProto.GetWindowFunction()
 	require.Len(t, windowFnCall.Arguments, 1)
-	require.Equal(t, customType2.TypeReference, windowFnCall.Arguments[0].GetValue().GetLiteral().GetUserDefined().GetTypeReference())
-	require.Equal(t, customType1.TypeReference, windowFnCall.OutputType.GetUserDefined().TypeReference)
+	require.Equal(t, planBuilder.GetExprBuilder().Reg.GetTypeAnchor(customType2.ID), windowFnCall.Arguments[0].GetValue().GetLiteral().GetUserDefined().GetTypeReference())
+	require.Equal(t, planBuilder.GetExprBuilder().Reg.GetTypeAnchor(customType1.ID), windowFnCall.OutputType.GetUserDefined().TypeReference)
 
 	// build a full plan and check that user defined types are registered in the extensions
 	table, err := planBuilder.VirtualTable([]string{"col_a", "col_b"}, []expr.Literal{expr.NewPrimitiveLiteral(int64(2), false), expr.NewPrimitiveLiteral(int64(3), false)})

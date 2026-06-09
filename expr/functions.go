@@ -9,6 +9,7 @@ import (
 
 	substraitgo "github.com/substrait-io/substrait-go/v8"
 	"github.com/substrait-io/substrait-go/v8/extensions"
+	"github.com/substrait-io/substrait-go/v8/protoenc"
 	"github.com/substrait-io/substrait-go/v8/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	pb "google.golang.org/protobuf/proto"
@@ -173,6 +174,7 @@ type FunctionInvocation interface {
 type ScalarFunction struct {
 	funcRef     uint32
 	declaration *extensions.ScalarFunctionVariant
+	extSet      extensions.Set
 
 	args       []types.FuncArg
 	options    []*types.FunctionOption
@@ -198,6 +200,7 @@ func NewCustomScalarFunc(
 	return &ScalarFunction{
 		funcRef:     reg.GetFuncAnchor(v.ID()),
 		declaration: v,
+		extSet:      reg.Set,
 		options:     opts,
 		args:        args,
 		outputType:  outputType,
@@ -232,12 +235,10 @@ func resolveVariant[T variant](
 					// enum value
 					sigs[i] = extensions.EnumTypeString
 				} else if ud, ok := t.(*types.UserDefinedType); ok {
-					id, found := reg.DecodeType(ud.TypeReference)
-					if !found {
-						return nil, nil, fmt.Errorf("%w: could not find type for reference %d",
-							substraitgo.ErrNotFound, ud.TypeReference)
+					if ud.ID.Name == "" {
+						return nil, nil, fmt.Errorf("%w: user-defined type is missing extension ID", substraitgo.ErrNotFound)
 					}
-					sigs[i] = "u!" + id.Name
+					sigs[i] = "u!" + ud.ID.Name
 				} else {
 					sigs[i] = t.ShortString()
 				}
@@ -288,6 +289,7 @@ func NewScalarFunc(
 	return &ScalarFunction{
 		funcRef:     ref,
 		declaration: decl,
+		extSet:      reg.Set,
 		outputType:  outType,
 		options:     opts,
 		args:        args,
@@ -403,7 +405,7 @@ func (s *ScalarFunction) ToProto() *proto.Expression {
 			ScalarFunction: &proto.Expression_ScalarFunction{
 				FunctionReference: s.funcRef,
 				Options:           s.options,
-				OutputType:        types.TypeToProto(s.outputType),
+				OutputType:        protoenc.TypeToProto(s.outputType, s.extSet),
 				Arguments:         args,
 			},
 		},
@@ -469,6 +471,7 @@ func (s *ScalarFunction) Visit(visit VisitFunc) Expression {
 type WindowFunction struct {
 	funcRef     uint32
 	declaration *extensions.WindowFunctionVariant
+	extSet      extensions.Set
 
 	args       []types.FuncArg
 	options    []*types.FunctionOption
@@ -495,6 +498,7 @@ func NewCustomWindowFunc(
 	return &WindowFunction{
 		funcRef:     reg.GetFuncAnchor(v.ID()),
 		declaration: v,
+		extSet:      reg.Set,
 		outputType:  outputType,
 		options:     opts,
 		args:        args,
@@ -524,6 +528,7 @@ func NewWindowFunc(
 	return &WindowFunction{
 		funcRef:     ref,
 		declaration: decl,
+		extSet:      reg.Set,
 		outputType:  outType,
 		options:     opts,
 		args:        args,
@@ -714,7 +719,7 @@ func (w *WindowFunction) ToProto() *proto.Expression {
 				FunctionReference: w.funcRef,
 				Arguments:         args,
 				Options:           w.options,
-				OutputType:        types.TypeToProto(w.outputType),
+				OutputType:        protoenc.TypeToProto(w.outputType, w.extSet),
 				Phase:             w.phase,
 				Sorts:             sorts,
 				Invocation:        w.invocation,
@@ -770,6 +775,7 @@ func (w *WindowFunction) Visit(visit VisitFunc) Expression {
 type AggregateFunction struct {
 	funcRef     uint32
 	declaration *extensions.AggregateFunctionVariant
+	extSet      extensions.Set
 
 	args       []types.FuncArg
 	options    []*types.FunctionOption
@@ -796,6 +802,7 @@ func NewAggregateFunc(
 	return &AggregateFunction{
 		funcRef:     ref,
 		declaration: decl,
+		extSet:      reg.Set,
 		outputType:  outType,
 		options:     opts,
 		args:        args,
@@ -816,6 +823,7 @@ func NewCustomAggregateFunc(
 
 	return &AggregateFunction{
 		funcRef:    reg.GetFuncAnchor(v.ID()),
+		extSet:     reg.Set,
 		outputType: outputType,
 		options:    opts,
 		args:       args,
@@ -859,6 +867,7 @@ func NewAggregateFunctionFromProto(
 	return &AggregateFunction{
 		funcRef:     agg.FunctionReference,
 		declaration: decl,
+		extSet:      reg.Set,
 		args:        args,
 		options:     agg.Options,
 		outputType:  types.TypeFromProto(agg.OutputType),
@@ -968,7 +977,7 @@ func (a *AggregateFunction) ToProto() *proto.AggregateFunction {
 		FunctionReference: a.funcRef,
 		Arguments:         args,
 		Options:           a.options,
-		OutputType:        types.TypeToProto(a.outputType),
+		OutputType:        protoenc.TypeToProto(a.outputType, a.extSet),
 		Phase:             a.phase,
 		Sorts:             sorts,
 		Invocation:        a.invocation,

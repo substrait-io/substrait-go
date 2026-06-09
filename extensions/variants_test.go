@@ -3,7 +3,6 @@
 package extensions_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -170,23 +169,21 @@ func TestEvaluateTypeExpression(t *testing.T) {
 			ret:      &types.ParameterizedUserDefinedType{Nullability: types.NullabilityRequired, Name: "test_type"},
 			extArgs:  nil,
 			args:     nil,
-			expected: &types.UserDefinedType{Nullability: types.NullabilityRequired, TypeReference: 1},
+			expected: &types.UserDefinedType{Nullability: types.NullabilityRequired, ID: extensions.TypeID{URN: "extension:org:item", Name: "test_type"}},
 		},
 		{
-			name:     "any1 returning UDT with TypeReference set",
-			nulls:    extensions.MirrorNullability,
-			ret:      any1NonNull,
-			extArgs:  extensions.FuncParameterList{valArg(any1NonNull)},
-			args:     []types.Type{&types.UserDefinedType{Nullability: types.NullabilityRequired, TypeReference: 5}},
-			expected: &types.UserDefinedType{Nullability: types.NullabilityRequired, TypeReference: 5},
-		},
-		{
-			name:     "any1 returning UDT with TypeReference zero",
-			nulls:    extensions.MirrorNullability,
-			ret:      any1NonNull,
-			extArgs:  extensions.FuncParameterList{valArg(any1NonNull)},
-			args:     []types.Type{&types.UserDefinedType{Nullability: types.NullabilityRequired, TypeReference: 0}},
-			expected: &types.UserDefinedType{Nullability: types.NullabilityRequired, TypeReference: 0},
+			name:    "any1 returning UDT",
+			nulls:   extensions.MirrorNullability,
+			ret:     any1NonNull,
+			extArgs: extensions.FuncParameterList{valArg(any1NonNull)},
+			args: []types.Type{&types.UserDefinedType{
+				Nullability: types.NullabilityRequired,
+				ID:          extensions.TypeID{URN: "extension:org:item", Name: "test_type"},
+			}},
+			expected: &types.UserDefinedType{
+				Nullability: types.NullabilityRequired,
+				ID:          extensions.TypeID{URN: "extension:org:item", Name: "test_type"},
+			},
 		},
 	}
 
@@ -475,10 +472,6 @@ func TestResolveType(t *testing.T) {
 			// set up type registry
 			returnType, _ := parser.ParseType(tt.returnType)
 			registry := extensions.NewSet()
-			var expectedRef uint32
-			if tt.expectedUDT {
-				expectedRef = registry.GetTypeAnchor(extensions.TypeID{URN: "extension:org:item", Name: tt.urnAndType})
-			}
 
 			// call EvaluateTypeExpression to convert a FuncDefArgType to a Type
 			result, err := extensions.EvaluateTypeExpression(
@@ -492,16 +485,10 @@ func TestResolveType(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			// for UserDefinedType, check that the type reference matches
 			if tt.expectedUDT {
 				udResult, ok := result.(*types.UserDefinedType)
 				require.True(t, ok, "Expected UserDefinedType")
-
-				if udResult != nil {
-					name := strings.TrimPrefix(returnType.ShortString(), "u!")
-					udResult.TypeReference = registry.GetTypeAnchor(extensions.TypeID{Name: name, URN: "extension:org:item"})
-					assert.Equal(t, expectedRef, udResult.TypeReference)
-				}
+				assert.Equal(t, extensions.TypeID{URN: "test://urn", Name: tt.urnAndType}, udResult.ID)
 			} else {
 				// otherwise, just check that the string matches
 				assert.Equal(t, tt.returnType, result.String())

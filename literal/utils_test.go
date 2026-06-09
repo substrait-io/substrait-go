@@ -1022,7 +1022,7 @@ func TestNewUserDefinedLiteral(t *testing.T) {
 	require.True(t, ok)
 	udt, ok := protoLit.GetType().(*types.UserDefinedType)
 	require.True(t, ok)
-	require.Equal(t, uint32(10), udt.TypeReference)
+	require.Equal(t, types.ExtensionTypeID{}, udt.ID)
 	require.Empty(t, udt.TypeParameters)
 
 	// Test with type parameters
@@ -1042,7 +1042,7 @@ func TestNewUserDefinedLiteral(t *testing.T) {
 	require.True(t, ok)
 	udt2, ok := protoLit2.GetType().(*types.UserDefinedType)
 	require.True(t, ok)
-	require.Equal(t, uint32(20), udt2.TypeReference)
+	require.Equal(t, types.ExtensionTypeID{}, udt2.ID)
 	require.Len(t, udt2.TypeParameters, 2)
 	require.Equal(t, types.NullabilityNullable, udt2.Nullability)
 }

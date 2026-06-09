@@ -16,6 +16,7 @@ import (
 
 	"github.com/google/uuid"
 	substraitgo "github.com/substrait-io/substrait-go/v8"
+	"github.com/substrait-io/substrait-go/v8/extensions"
 	"github.com/substrait-io/substrait-go/v8/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
@@ -502,8 +503,9 @@ func (t *ByteSliceLiteral[T]) WithType(newType types.Type) (Literal, error) {
 // ProtoLiteral is a literal that is represented using its protobuf
 // message type such as a Decimal or UserDefinedType.
 type ProtoLiteral struct {
-	Value any
-	Type  types.Type
+	Value  any
+	Type   types.Type
+	extSet extensions.Set
 }
 
 func (t *ProtoLiteral) WithType(newType types.Type) (Literal, error) {
@@ -602,9 +604,12 @@ func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
 			params[i] = p.ToProto()
 		}
 
+		var typeReference uint32
+		if t.extSet != nil {
+			typeReference = t.extSet.GetTypeAnchor(literalType.ID)
+		}
 		udt := &proto.Expression_Literal_UserDefined{
-			TypeAnchorType: &proto.Expression_Literal_UserDefined_TypeReference{
-				TypeReference: literalType.TypeReference},
+			TypeAnchorType: &proto.Expression_Literal_UserDefined_TypeReference{TypeReference: typeReference},
 			TypeParameters: params,
 		}
 		switch v := t.Value.(type) {
@@ -974,7 +979,6 @@ func NewLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {
 			Value: v.Val,
 			Type: &types.UserDefinedType{
 				Nullability:    getNullability(nullable),
-				TypeReference:  v.GetTypeReference(),
 				TypeParameters: params,
 			},
 		}, nil
@@ -1225,7 +1229,6 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 			Type: &types.UserDefinedType{
 				Nullability:      nullability,
 				TypeVariationRef: l.TypeVariationReference,
-				TypeReference:    lit.UserDefined.GetTypeReference(),
 				TypeParameters:   params,
 			},
 		}

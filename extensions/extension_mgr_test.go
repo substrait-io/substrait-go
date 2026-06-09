@@ -978,7 +978,7 @@ scalar_functions:
 	result, err := fn.ResolveType([]types.Type{i64}, extensions.NewSet())
 
 	require.NoError(t, err)
-	expected := &types.UserDefinedType{Nullability: types.NullabilityRequired, TypeReference: 1, TypeParameters: []types.TypeParam{&types.DataTypeParameter{Type: i64}}}
+	expected := &types.UserDefinedType{Nullability: types.NullabilityRequired, ID: extensions.TypeID{URN: "extension:x:test", Name: "Wrapper"}, TypeParameters: []types.TypeParam{&types.DataTypeParameter{Type: i64}}}
 	assert.Equal(t, expected, result)
 }
 
