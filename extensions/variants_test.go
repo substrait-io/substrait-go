@@ -477,7 +477,7 @@ func TestResolveType(t *testing.T) {
 			registry := extensions.NewSet()
 			var expectedRef uint32
 			if tt.expectedUDT {
-				expectedRef = registry.GetTypeAnchor(extensions.ID{URN: "extension:org:item", Name: tt.urnAndType})
+				expectedRef = registry.GetTypeAnchor(extensions.TypeID{URN: "extension:org:item", Name: tt.urnAndType})
 			}
 
 			// call EvaluateTypeExpression to convert a FuncDefArgType to a Type
@@ -499,7 +499,7 @@ func TestResolveType(t *testing.T) {
 
 				if udResult != nil {
 					name := strings.TrimPrefix(returnType.ShortString(), "u!")
-					udResult.TypeReference = registry.GetTypeAnchor(extensions.ID{Name: name, URN: "extension:org:item"})
+					udResult.TypeReference = registry.GetTypeAnchor(extensions.TypeID{Name: name, URN: "extension:org:item"})
 					assert.Equal(t, expectedRef, udResult.TypeReference)
 				}
 			} else {

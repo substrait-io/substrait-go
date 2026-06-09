@@ -13,7 +13,7 @@ import (
 
 var (
 	extReg    = NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-	uPointRef = extReg.GetTypeAnchor(extensions.ID{
+	uPointRef = extReg.GetTypeAnchor(extensions.TypeID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "extension_types",
 		Name: "point",
 	})

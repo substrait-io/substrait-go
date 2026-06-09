@@ -94,7 +94,7 @@ func TestLoadExtensionCollection(t *testing.T) {
 	require.NoError(t, c.Load(strings.NewReader(sampleYAML)))
 
 	t.Run("check types", func(t *testing.T) {
-		id := extensions.ID{URN: urn}
+		id := extensions.TypeID{URN: urn}
 		id.Name = "point"
 		ty, ok := c.GetType(id)
 		assert.True(t, ok)
@@ -188,7 +188,7 @@ func TestExtensionSet(t *testing.T) {
 		assert.EqualValues(t, 2, anchor)
 
 		id.Name = "point"
-		anchor = s.GetTypeAnchor(id)
+		anchor = s.GetTypeAnchor(extensions.TypeID(id))
 		assert.EqualValues(t, 1, anchor)
 	})
 
@@ -298,7 +298,7 @@ func TestDefaultCollection(t *testing.T) {
 		})
 	}
 
-	et, ok := extensions.GetDefaultCollectionWithNoError().GetType(extensions.ID{
+	et, ok := extensions.GetDefaultCollectionWithNoError().GetType(extensions.TypeID{
 		URN: extensions.SubstraitDefaultURNPrefix + "extension_types", Name: "point"})
 	assert.True(t, ok)
 	assert.Equal(t, "point", et.Name)
@@ -1039,7 +1039,7 @@ window_functions:
 	assert.Equal(t, "example-team", fileMeta["maintainer"])
 	assert.Nil(t, c.GetFileMetadata("extension:test:nonexistent"))
 
-	typ, _ := c.GetType(extensions.ID{URN: urn, Name: "point"})
+	typ, _ := c.GetType(extensions.TypeID{URN: urn, Name: "point"})
 	assert.Equal(t, "WGS84", typ.Metadata["coordinate_system"])
 
 	sf, _ := c.GetScalarFunc(extensions.ID{URN: urn, Name: "distance:i32_i32"})

@@ -16,6 +16,7 @@ import (
 	"github.com/goccy/go-yaml"
 	"github.com/substrait-io/substrait"
 	substraitgo "github.com/substrait-io/substrait-go/v8"
+	"github.com/substrait-io/substrait-go/v8/types"
 	"github.com/substrait-io/substrait-protobuf/go/substraitpb/extensions"
 )
 
@@ -91,13 +92,10 @@ func loadExtensionFile(collection *Collection, substraitFS embed.FS, ent fs.DirE
 	return nil
 }
 
-// ID is the unique identifier for a substrait object
-type ID struct {
-	URN string
-	// Name of the object. For functions, a simple name may be used for lookups,
-	// but as a unique identifier the compound name will be used
-	Name string
-}
+// ID is the unique identifier for a Substrait extension object.
+type ID = types.ExtensionFunctionID
+type TypeID = types.ExtensionTypeID
+type TypeVariationID = types.ExtensionTypeVariationID
 
 type Collection struct {
 	urnSet map[string]struct{}
@@ -107,12 +105,12 @@ type Collection struct {
 	scalarMap        map[ID]*ScalarFunctionVariant
 	aggregateMap     map[ID]*AggregateFunctionVariant
 	windowMap        map[ID]*WindowFunctionVariant
-	typeMap          map[ID]Type
-	typeVariationMap map[ID]TypeVariation
+	typeMap          map[TypeID]Type
+	typeVariationMap map[TypeVariationID]TypeVariation
 	fileMetadataMap  map[string]map[string]any // keyed by URN
 }
 
-func (c *Collection) GetType(id ID) (t Type, ok bool) {
+func (c *Collection) GetType(id TypeID) (t Type, ok bool) {
 	t, ok = c.typeMap[id]
 	return
 }
@@ -123,7 +121,7 @@ func (c *Collection) GetFileMetadata(urn string) map[string]any {
 	return c.fileMetadataMap[urn]
 }
 
-func (c *Collection) GetTypeVariation(id ID) (tv TypeVariation, ok bool) {
+func (c *Collection) GetTypeVariation(id TypeVariationID) (tv TypeVariation, ok bool) {
 	tv, ok = c.typeVariationMap[id]
 	return
 }
@@ -191,8 +189,8 @@ func (c *Collection) init() {
 		c.scalarMap = make(map[ID]*ScalarFunctionVariant)
 		c.aggregateMap = make(map[ID]*AggregateFunctionVariant)
 		c.windowMap = make(map[ID]*WindowFunctionVariant)
-		c.typeMap = make(map[ID]Type)
-		c.typeVariationMap = make(map[ID]TypeVariation)
+		c.typeMap = make(map[TypeID]Type)
+		c.typeVariationMap = make(map[TypeVariationID]TypeVariation)
 		c.fileMetadataMap = make(map[string]map[string]any)
 	}
 }
@@ -227,16 +225,19 @@ func (c *Collection) Load(r io.Reader) error {
 		c.fileMetadataMap[urn] = file.Metadata
 	}
 
-	id := ID{URN: urn}
+	typeID := TypeID{URN: urn}
 	for _, t := range file.Types {
-		id.Name = t.Name
-		c.typeMap[id] = t
+		typeID.Name = t.Name
+		c.typeMap[typeID] = t
 	}
 
+	typeVariationID := TypeVariationID{URN: urn}
 	for _, t := range file.TypeVariations {
-		id.Name = t.Name
-		c.typeVariationMap[id] = t
+		typeVariationID.Name = t.Name
+		c.typeVariationMap[typeVariationID] = t
 	}
+
+	id := ID{URN: urn}
 
 	// if there is only one implementation for a given function
 	// it should be findable by its simple name in addition to the
@@ -322,9 +323,9 @@ func getValues[M ~map[K]V, K comparable, V any](m M) []V {
 }
 
 type Set interface {
-	DecodeTypeVariation(anchor uint32) (ID, bool)
+	DecodeTypeVariation(anchor uint32) (TypeVariationID, bool)
 	DecodeFunc(anchor uint32) (ID, bool)
-	DecodeType(anchor uint32) (ID, bool)
+	DecodeType(anchor uint32) (TypeID, bool)
 	LookupTypeVariation(anchor uint32, c *Collection) (TypeVariation, bool)
 	LookupType(anchor uint32, c *Collection) (Type, bool)
 	LookupScalarFunction(anchor uint32, c *Collection) (*ScalarFunctionVariant, bool)
@@ -332,9 +333,9 @@ type Set interface {
 	LookupWindowFunction(anchor uint32, c *Collection) (*WindowFunctionVariant, bool)
 
 	FindURN(urn string) (uint32, bool)
-	GetTypeAnchor(id ID) uint32
+	GetTypeAnchor(id TypeID) uint32
 	GetFuncAnchor(id ID) uint32
-	GetTypeVariationAnchor(id ID) uint32
+	GetTypeVariationAnchor(id TypeVariationID) uint32
 
 	ToProto(c *Collection) ([]*extensions.SimpleExtensionURN, []*extensions.SimpleExtensionDeclaration)
 }
@@ -344,21 +345,21 @@ func NewSet() Set {
 		urns:             make(map[uint32]string),
 		funcMap:          make(map[uint32]ID),
 		funcs:            make(map[ID]uint32),
-		types:            make(map[ID]uint32),
-		typesMap:         make(map[uint32]ID),
-		typeVariationMap: make(map[uint32]ID),
-		typeVariations:   make(map[ID]uint32),
+		types:            make(map[TypeID]uint32),
+		typesMap:         make(map[uint32]TypeID),
+		typeVariationMap: make(map[uint32]TypeVariationID),
+		typeVariations:   make(map[TypeVariationID]uint32),
 	}
 }
 
 type set struct {
 	urns map[uint32]string
 
-	typesMap map[uint32]ID
-	types    map[ID]uint32
+	typesMap map[uint32]TypeID
+	types    map[TypeID]uint32
 
-	typeVariationMap map[uint32]ID
-	typeVariations   map[ID]uint32
+	typeVariationMap map[uint32]TypeVariationID
+	typeVariations   map[TypeVariationID]uint32
 
 	funcMap map[uint32]ID
 	funcs   map[ID]uint32
@@ -482,7 +483,7 @@ func (e *set) LookupTypeVariation(anchor uint32, c *Collection) (tv TypeVariatio
 	return
 }
 
-func (e *set) DecodeTypeVariation(anchor uint32) (id ID, ok bool) {
+func (e *set) DecodeTypeVariation(anchor uint32) (id TypeVariationID, ok bool) {
 	id, ok = e.typeVariationMap[anchor]
 	return
 }
@@ -492,12 +493,12 @@ func (e *set) DecodeFunc(anchor uint32) (id ID, ok bool) {
 	return
 }
 
-func (e *set) DecodeType(anchor uint32) (id ID, ok bool) {
+func (e *set) DecodeType(anchor uint32) (id TypeID, ok bool) {
 	id, ok = e.typesMap[anchor]
 	return
 }
 
-func (e *set) GetTypeAnchor(id ID) uint32 {
+func (e *set) GetTypeAnchor(id TypeID) uint32 {
 	a, ok := e.types[id]
 	if !ok {
 		_, err := e.addOrGetURN(id.URN)
@@ -523,7 +524,7 @@ func (e *set) GetFuncAnchor(id ID) uint32 {
 	return a
 }
 
-func (e *set) GetTypeVariationAnchor(id ID) uint32 {
+func (e *set) GetTypeVariationAnchor(id TypeVariationID) uint32 {
 	a, ok := e.typeVariations[id]
 	if !ok {
 		_, err := e.addOrGetURN(id.URN)
@@ -539,12 +540,12 @@ func (e *set) GetTypeVariationAnchor(id ID) uint32 {
 	return a
 }
 
-func (e *set) encodeType(anchor uint32, id ID) {
+func (e *set) encodeType(anchor uint32, id TypeID) {
 	e.typesMap[anchor] = id
 	e.types[id] = anchor
 }
 
-func (e *set) encodeTypeVariation(anchor uint32, id ID) {
+func (e *set) encodeTypeVariation(anchor uint32, id TypeVariationID) {
 	e.typeVariationMap[anchor] = id
 	e.typeVariations[id] = anchor
 }
@@ -593,10 +594,10 @@ func GetExtensionSet(plan TopLevel, c *Collection) (Set, error) {
 		urns:             urns,
 		funcMap:          make(map[uint32]ID),
 		funcs:            make(map[ID]uint32),
-		typesMap:         make(map[uint32]ID),
-		types:            make(map[ID]uint32),
-		typeVariationMap: make(map[uint32]ID),
-		typeVariations:   make(map[ID]uint32),
+		typesMap:         make(map[uint32]TypeID),
+		types:            make(map[TypeID]uint32),
+		typeVariationMap: make(map[uint32]TypeVariationID),
+		typeVariations:   make(map[TypeVariationID]uint32),
 	}
 
 	resolveRefToURN := func(urnRef uint32) (string, error) {
@@ -619,7 +620,7 @@ func GetExtensionSet(plan TopLevel, c *Collection) (Set, error) {
 			if err != nil {
 				return nil, err
 			}
-			ret.encodeTypeVariation(etv.TypeVariationAnchor, ID{
+			ret.encodeTypeVariation(etv.TypeVariationAnchor, TypeVariationID{
 				URN:  urn,
 				Name: etv.Name,
 			})
@@ -629,7 +630,7 @@ func GetExtensionSet(plan TopLevel, c *Collection) (Set, error) {
 			if err != nil {
 				return nil, err
 			}
-			ret.encodeType(et.TypeAnchor, ID{
+			ret.encodeType(et.TypeAnchor, TypeID{
 				URN:  urn,
 				Name: et.Name,
 			})

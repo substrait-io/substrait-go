@@ -232,7 +232,7 @@ func (b *builder) GetFunctionRef(nameSpace, key string) types.FunctionRef {
 }
 
 func (b *builder) UserDefinedType(nameSpace, typeName string, params ...types.TypeParam) types.UserDefinedType {
-	id := extensions.ID{URN: nameSpace, Name: typeName}
+	id := extensions.TypeID{URN: nameSpace, Name: typeName}
 	return types.UserDefinedType{
 		Nullability:    types.NullabilityNullable,
 		TypeReference:  b.extSet.GetTypeAnchor(id),
