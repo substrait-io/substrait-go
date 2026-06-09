@@ -264,7 +264,7 @@ func TestAggregateRelPlan(t *testing.T) {
 
 	b := plan.NewBuilderDefault()
 	aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURNPrefix+"functions_aggregate_generic",
-		"count", nil)
+		"count:", nil)
 	require.NoError(t, err)
 	scan := b.NamedScan([]string{"test"}, baseSchema)
 	root, err := b.AggregateColumns(scan, []plan.AggRelMeasure{b.Measure(aggCount, nil)}, 0)
@@ -294,7 +294,7 @@ func TestAggregateRelPlan(t *testing.T) {
 func TestAggregateNoGrouping(t *testing.T) {
 	b := plan.NewBuilderDefault()
 	aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURNPrefix+"functions_aggregate_generic",
-		"count", nil)
+		"count:", nil)
 	require.NoError(t, err)
 	scan := b.NamedScan([]string{"test"}, baseSchema)
 
@@ -1336,11 +1336,11 @@ func TestProjectExpressions(t *testing.T) {
 	ref, err := b.RootFieldRef(scan, 1)
 	require.NoError(t, err)
 
-	abs, err := b.ScalarFn(arithmeticURN, "abs", nil, ref)
+	abs, err := b.ScalarFn(arithmeticURN, "abs:fp32", nil, ref)
 	require.NoError(t, err)
 
 	add, err := b.GetExprBuilder().ScalarFunc(
-		extensions.ID{URN: arithmeticURN, Name: "add"}, nil).Args(
+		extensions.ID{URN: arithmeticURN, Name: "add:fp32_fp32"}, nil).Args(
 		b.GetExprBuilder().Expression(abs),
 		b.GetExprBuilder().Expression(ref)).Build()
 	require.NoError(t, err)
@@ -1771,7 +1771,7 @@ func TestSetRelErrors(t *testing.T) {
 func TestAggregateRelBuilder(t *testing.T) {
 	addID := extensions.ID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
-		Name: "add"}
+		Name: "add:i32_i32"}
 
 	t.Run("AddExpression adds unique expressions", func(t *testing.T) {
 		b := plan.NewBuilderDefault()
@@ -1785,7 +1785,7 @@ func TestAggregateRelBuilder(t *testing.T) {
 			e.Wrap(expr.NewLiteral(int32(4), false))).BuildExpr()
 
 		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURNPrefix+"functions_aggregate_generic",
-			"count", nil)
+			"count:", nil)
 		require.NoError(t, err)
 		arb := b.GetRelBuilder().AggregateRel(b.NamedScan([]string{"test"}, baseSchema), []plan.AggRelMeasure{b.Measure(aggCount, nil)})
 
@@ -1816,7 +1816,7 @@ func TestAggregateRelBuilder(t *testing.T) {
 			e.Wrap(expr.NewLiteral(int32(4), false))).BuildExpr()
 
 		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURNPrefix+"functions_aggregate_generic",
-			"count", nil)
+			"count:", nil)
 		require.NoError(t, err)
 		arb := b.GetRelBuilder().AggregateRel(b.NamedScan([]string{"test"}, baseSchema), []plan.AggRelMeasure{b.Measure(aggCount, nil)})
 
@@ -1856,7 +1856,7 @@ func TestAggregateRelBuilder(t *testing.T) {
 			e.Wrap(expr.NewLiteral(int32(5), false))).BuildExpr()
 
 		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURNPrefix+"functions_aggregate_generic",
-			"count", nil)
+			"count:", nil)
 		require.NoError(t, err)
 
 		arb := b.GetRelBuilder().AggregateRel(b.NamedScan([]string{"test"}, baseSchema), []plan.AggRelMeasure{b.Measure(aggCount, nil)})
@@ -1895,7 +1895,7 @@ func TestAggregateRelBuilder(t *testing.T) {
 			e.Wrap(expr.NewLiteral(int32(5), false))).BuildExpr()
 
 		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURNPrefix+"functions_aggregate_generic",
-			"count", nil)
+			"count:", nil)
 		require.NoError(t, err)
 
 		arb := b.GetRelBuilder().AggregateRel(b.NamedScan([]string{"test"}, baseSchema), []plan.AggRelMeasure{b.Measure(aggCount, nil)})
@@ -1923,7 +1923,7 @@ func TestAggregateRelBuilder(t *testing.T) {
 			e.Wrap(expr.NewLiteral(int32(3), false)),
 			e.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
 		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURNPrefix+"functions_aggregate_generic",
-			"count", nil)
+			"count:", nil)
 		require.NoError(t, err)
 
 		arb := b.GetRelBuilder().AggregateRel(nil, []plan.AggRelMeasure{b.Measure(aggCount, nil)})
@@ -1954,7 +1954,7 @@ func TestAggregateRelBuilder(t *testing.T) {
 			e.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
 
 		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURNPrefix+"functions_aggregate_generic",
-			"count", nil)
+			"count:", nil)
 		require.NoError(t, err)
 		arb := b.GetRelBuilder().AggregateRel(b.NamedScan([]string{"test"}, baseSchema), []plan.AggRelMeasure{b.Measure(aggCount, nil)})
 		ref1 := arb.AddExpression(expr1)
@@ -1973,7 +1973,7 @@ func TestAggregateRelBuilder(t *testing.T) {
 			e.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
 
 		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURNPrefix+"functions_aggregate_generic",
-			"count", nil)
+			"count:", nil)
 		require.NoError(t, err)
 		arb := b.GetRelBuilder().AggregateRel(b.NamedScan([]string{"test"}, baseSchema), []plan.AggRelMeasure{b.Measure(aggCount, nil)})
 
@@ -1998,7 +1998,7 @@ func TestAggregateRelBuilder(t *testing.T) {
 			e.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
 
 		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURNPrefix+"functions_aggregate_generic",
-			"count", nil)
+			"count:", nil)
 		require.NoError(t, err)
 		arb := b.GetRelBuilder().AggregateRel(b.NamedScan([]string{"test"}, baseSchema), []plan.AggRelMeasure{b.Measure(aggCount, nil)})
 
@@ -2023,7 +2023,7 @@ func TestAggregateRelBuilder(t *testing.T) {
 			e.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
 
 		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURNPrefix+"functions_aggregate_generic",
-			"count", nil)
+			"count:", nil)
 		require.NoError(t, err)
 		arb := b.GetRelBuilder().AggregateRel(b.NamedScan([]string{"test"}, baseSchema), []plan.AggRelMeasure{b.Measure(aggCount, nil)})
 

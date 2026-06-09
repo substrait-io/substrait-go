@@ -20,28 +20,28 @@ var (
 
 	subID = extensions.ID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
-		Name: "subtract"}
+		Name: "subtract:i8_i8"}
 	addID = extensions.ID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
-		Name: "add"}
+		Name: "add:i8_i8"}
 	indexInID = extensions.ID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_set",
-		Name: "index_in"}
+		Name: "index_in:any_list"}
 	rankID = extensions.ID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
-		Name: "rank"}
+		Name: "rank:"}
 	firstValueID = extensions.ID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
-		Name: "first_value"}
+		Name: "first_value:any"}
 	extractID = extensions.ID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_datetime",
-		Name: "extract"}
+		Name: "extract:req_date"}
 	ntileID = extensions.ID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
-		Name: "ntile"}
+		Name: "ntile:i32"}
 	sumID = extensions.ID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
-		Name: "sum"}
+		Name: "sum:i32"}
 
 	boringSchema = types.NamedStruct{
 		Names: []string{

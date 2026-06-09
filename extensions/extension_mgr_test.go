@@ -102,12 +102,9 @@ func TestLoadExtensionCollection(t *testing.T) {
 		assert.Equal(t, map[string]interface{}{"latitude": "i32", "longitude": "i32"}, ty.Structure)
 	})
 
-	t.Run("simple and compound func signature", func(t *testing.T) {
-		add, ok := c.GetScalarFunc(extensions.ID{URN: urn, Name: "add"})
+	t.Run("compound func signature", func(t *testing.T) {
+		add, ok := c.GetScalarFunc(extensions.ID{URN: urn, Name: "add:i8_i8"})
 		assert.True(t, ok)
-		addCompound, ok := c.GetScalarFunc(extensions.ID{URN: urn, Name: "add:i8_i8"})
-		assert.True(t, ok)
-		assert.Same(t, add, addCompound)
 
 		assert.Equal(t, "add", add.Name())
 		assert.Equal(t, "add:i8_i8", add.CompoundName())
@@ -123,12 +120,12 @@ func TestLoadExtensionCollection(t *testing.T) {
 		assert.Equal(t, i8Req, ty)
 	})
 
-	t.Run("multiple impls need compound", func(t *testing.T) {
-		sub, ok := c.GetScalarFunc(extensions.ID{URN: urn, Name: "subtract"})
-		assert.Nil(t, sub)
+	t.Run("functions need compound names", func(t *testing.T) {
+		add, ok := c.GetScalarFunc(extensions.ID{URN: urn, Name: "add"})
+		assert.Nil(t, add)
 		assert.False(t, ok)
 
-		sub, ok = c.GetScalarFunc(extensions.ID{URN: urn, Name: "subtract:i16_i16"})
+		sub, ok := c.GetScalarFunc(extensions.ID{URN: urn, Name: "subtract:i16_i16"})
 		assert.True(t, ok)
 		assert.NotNil(t, sub)
 
@@ -175,7 +172,7 @@ func TestExtensionSet(t *testing.T) {
 
 	t.Run("add anchors", func(t *testing.T) {
 		id := extensions.ID{URN: urn}
-		id.Name = "add"
+		id.Name = "add:i8_i8"
 
 		anchor := s.GetFuncAnchor(id)
 		assert.EqualValues(t, 1, anchor)

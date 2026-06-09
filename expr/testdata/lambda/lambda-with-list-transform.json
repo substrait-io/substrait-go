@@ -21,7 +21,7 @@
       "extensionFunction": {
         "extensionUrnReference": 2,
         "functionAnchor": 2,
-        "name": "transform"
+        "name": "transform:list_func"
       }
     }
   ],

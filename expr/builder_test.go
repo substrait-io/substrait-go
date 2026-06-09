@@ -21,8 +21,11 @@ func TestExprBuilder(t *testing.T) {
 		Reg:        expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError()),
 		BaseSchema: types.NewRecordTypeFromStruct(boringSchema.Struct),
 	}
+	addI32ID := extensions.ID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Name: "add:i32_i32"}
+	addI64ID := extensions.ID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Name: "add:i64_i64"}
+	subI32ID := extensions.ID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Name: "subtract:i32_i32"}
 	precomputedLiteral, _ := expr.NewLiteral(int32(3), false)
-	precomputedExpression, _ := b.ScalarFunc(addID).Args(
+	precomputedExpression, _ := b.ScalarFunc(addI32ID).Args(
 		b.Wrap(expr.NewLiteral(int32(3), false)),
 		b.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
 
@@ -51,22 +54,22 @@ func TestExprBuilder(t *testing.T) {
 				b.Wrap(expr.NewLiteral(int32(5), false)),
 				b.Literal(expr.NewEmptyListLiteral(&types.Int32Type{}, false))), ""},
 		{"with cast", "subtract(.field(3) => i32, cast(.field(6) => fp32 AS i32, fail: FAILURE_BEHAVIOR_THROW_EXCEPTION)) => i32?",
-			b.ScalarFunc(subID).Args(
+			b.ScalarFunc(subI32ID).Args(
 				b.RootRef(expr.NewStructFieldRef(3)),
 				b.Cast(b.RootRef(expr.NewStructFieldRef(6)), &types.Int32Type{}).
 					FailBehavior(types.BehaviorThrowException),
 			), ""},
 		{"expression with lit", "subtract(.field(3) => i32, i32(3)) => i32",
-			b.ScalarFunc(subID).Args(b.RootRef(expr.NewStructFieldRef(3)),
+			b.ScalarFunc(subI32ID).Args(b.RootRef(expr.NewStructFieldRef(3)),
 				b.Expression(precomputedLiteral)), ""},
 		{"expression with expr", "subtract(.field(3) => i32, add(i32(3), i32(3)) => i32) => i32",
-			b.ScalarFunc(subID).Args(b.RootRef(expr.NewStructFieldRef(3)),
+			b.ScalarFunc(subI32ID).Args(b.RootRef(expr.NewStructFieldRef(3)),
 				b.Expression(precomputedExpression)), ""},
 		{"wrap expression", "subtract(.field(3) => i32, i32(3)) => i32",
-			b.ScalarFunc(subID).Args(b.RootRef(expr.NewStructFieldRef(3)),
+			b.ScalarFunc(subI32ID).Args(b.RootRef(expr.NewStructFieldRef(3)),
 				b.Wrap(expr.NewLiteral(int32(3), false))), ""},
 		{"window func", "",
-			b.WindowFunc(rankID), "invalid expression: non-decomposable window or agg function '{extension:io.substrait:functions_arithmetic rank}' must use InitialToResult phase"},
+			b.WindowFunc(rankID), "invalid expression: non-decomposable window or agg function '{extension:io.substrait:functions_arithmetic rank:}' must use InitialToResult phase"},
 		{"window func", "rank(; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_UNSPECIFIED) => i64?",
 			b.WindowFunc(rankID).Phase(types.AggPhaseInitialToResult), ""},
 		{"window func",
@@ -81,7 +84,7 @@ func TestExprBuilder(t *testing.T) {
 				Phase(types.AggPhaseInitialToResult).
 				Partitions(b.RootRef(expr.NewStructFieldRef(0))), ""},
 		{"nested funcs", "add(extract(YEAR, date(2000-01-01)) => i64, rank(; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_ALL) => i64?) => i64?",
-			b.ScalarFunc(addID).Args(
+			b.ScalarFunc(addI64ID).Args(
 				b.ScalarFunc(extractID).Args(b.Enum("YEAR"),
 					b.Wrap(expr.NewLiteral(types.Date(10957), false))),
 				b.WindowFunc(rankID).Phase(types.AggPhaseInitialToResult).Invocation(types.AggInvocationAll)), ""},
@@ -97,7 +100,7 @@ func TestExprBuilder(t *testing.T) {
 					Kind: types.SortAscNullsFirst}), ""},
 		{"window func arg error", "",
 			b.WindowFunc(ntileID).Args(b.ScalarFunc(extensions.ID{})),
-			"not found: could not find matching function for id: { :}"},
+			"not found: could not find matching function for id: { }"},
 	}
 
 	for _, tt := range tests {
@@ -175,7 +178,7 @@ window_functions:
 	// check scalar function
 	scalar, err := planBuilder.GetExprBuilder().ScalarFunc(extensions.ID{
 		URN:  "extension:test:custom",
-		Name: "custom_function",
+		Name: "custom_function:u!custom_type2",
 	}).Args(
 		customLiteral,
 	).BuildExpr()
@@ -190,7 +193,7 @@ window_functions:
 	// check aggregate function
 	aggr, err := planBuilder.GetExprBuilder().AggFunc(extensions.ID{
 		URN:  "extension:test:custom",
-		Name: "custom_aggr",
+		Name: "custom_aggr:u!custom_type2",
 	}).Args(
 		customLiteral,
 	).Build()
@@ -204,7 +207,7 @@ window_functions:
 	// check window function
 	window, err := planBuilder.GetExprBuilder().WindowFunc(extensions.ID{
 		URN:  "extension:test:custom",
-		Name: "custom_window",
+		Name: "custom_window:u!custom_type2",
 	}).Args(
 		customLiteral,
 	).Phase(types.AggPhaseInitialToResult).Build()
@@ -321,7 +324,7 @@ func TestAny1TypeParameterConsistency(t *testing.T) {
 
 	equalID := extensions.ID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_comparison",
-		Name: "equal",
+		Name: "equal:any_any",
 	}
 
 	t.Run("non-variadic any1 - invalid", func(t *testing.T) {
@@ -351,7 +354,7 @@ func TestAny1TypeParameterConsistency(t *testing.T) {
 	// coalesce(any1, any1, ...) -> any1 (min: 2 args)
 	coalesceID := extensions.ID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_comparison",
-		Name: "coalesce",
+		Name: "coalesce:any",
 	}
 
 	t.Run("variadic any1 - invalid", func(t *testing.T) {

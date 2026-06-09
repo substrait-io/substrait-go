@@ -210,8 +210,7 @@ type variant interface {
 }
 
 func resolveVariant[T variant](
-	id extensions.ID, reg ExtensionRegistry, getter func(extensions.ID) (T, bool),
-	args []types.FuncArg,
+	id extensions.ID, reg ExtensionRegistry, getter func(extensions.ID) (T, bool), args []types.FuncArg,
 ) (T, types.Type, error) {
 	argTypes := make([]types.Type, 0, len(args))
 	for _, arg := range args {
@@ -225,32 +224,8 @@ func resolveVariant[T variant](
 
 	decl, found := getter(id)
 	if !found {
-		if strings.IndexByte(id.Name, ':') == -1 {
-			sigs := make([]string, len(argTypes))
-			for i, t := range argTypes {
-				if t == types.CommonEnumType {
-					// enum value
-					sigs[i] = extensions.EnumTypeString
-				} else if ud, ok := t.(*types.UserDefinedType); ok {
-					id, found := reg.DecodeType(ud.TypeReference)
-					if !found {
-						return nil, nil, fmt.Errorf("%w: could not find type for reference %d",
-							substraitgo.ErrNotFound, ud.TypeReference)
-					}
-					sigs[i] = "u!" + id.Name
-				} else {
-					sigs[i] = t.ShortString()
-				}
-			}
-			id.Name += ":" + strings.Join(sigs, "_")
-			if decl, found = getter(id); !found {
-				return nil, nil, fmt.Errorf("%w: could not find matching function for id: %s",
-					substraitgo.ErrNotFound, id)
-			}
-		} else {
-			return nil, nil, fmt.Errorf("%w: could not find matching function for id: %s",
-				substraitgo.ErrNotFound, id)
-		}
+		return nil, nil, fmt.Errorf("%w: could not find matching function for id: %s",
+			substraitgo.ErrNotFound, id)
 	}
 
 	outType, err := decl.ResolveType(argTypes, reg.Set)
@@ -263,12 +238,6 @@ func resolveVariant[T variant](
 
 // NewScalarFunc validates that the specified ID can be found in the
 // registry via LookupScalarFunction and retrieves a function anchor to use.
-//
-// If the name in the ID is not currently a compound signature and cannot
-// be found in the registry, we'll attempt to construct the compound signature
-// based on the types of the provided arguments and look it up that way.
-// If both attempts fail to lookup the function, a substraitgo.ErrNotFound
-// will be returned.
 //
 // Currently the options are not validated against the function declaration
 // but the number of arguments and their types will be validated in order to
