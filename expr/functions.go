@@ -859,9 +859,14 @@ func NewAggregateFunctionFromProto(
 	if !ok {
 		return nil, substraitgo.ErrNotFound
 	}
+	outputType, err := protoenc.TypeFromProto(agg.OutputType, reg.Set)
+	if err != nil {
+		return nil, err
+	}
+
 	decl, ok := reg.LookupAggregateFunction(agg.FunctionReference)
 	if !ok {
-		return NewCustomAggregateFunc(reg, extensions.NewAggFuncVariant(id), types.TypeFromProto(agg.OutputType), agg.Options, agg.Invocation, agg.Phase, sorts, args...)
+		return NewCustomAggregateFunc(reg, extensions.NewAggFuncVariant(id), outputType, agg.Options, agg.Invocation, agg.Phase, sorts, args...)
 	}
 
 	return &AggregateFunction{
@@ -870,7 +875,7 @@ func NewAggregateFunctionFromProto(
 		extSet:      reg.Set,
 		args:        args,
 		options:     agg.Options,
-		outputType:  types.TypeFromProto(agg.OutputType),
+		outputType:  outputType,
 		phase:       agg.Phase,
 		invocation:  agg.Invocation,
 		Sorts:       sorts,

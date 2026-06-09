@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	substraitgo "github.com/substrait-io/substrait-go/v8"
 	"github.com/substrait-io/substrait-go/v8/extensions"
+	"github.com/substrait-io/substrait-go/v8/protoenc"
 	"github.com/substrait-io/substrait-go/v8/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
@@ -1004,6 +1005,17 @@ func NewLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {
 // LiteralFromProto constructs the appropriate Literal struct from
 // a protobuf message.
 func LiteralFromProto(l *proto.Expression_Literal) Literal {
+	return LiteralFromProtoWithRegistry(l, nil)
+}
+
+func typeFromProtoForLiteral(t *proto.Type, extSet extensions.Set) (types.Type, error) {
+	if extSet == nil {
+		return types.TypeFromProto(t), nil
+	}
+	return protoenc.TypeFromProto(t, extSet)
+}
+
+func LiteralFromProtoWithRegistry(l *proto.Expression_Literal, extSet extensions.Set) Literal {
 	nullability := getNullability(l.Nullable)
 
 	switch lit := l.LiteralType.(type) {
@@ -1159,12 +1171,16 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 				Nullability:      nullability,
 			}}
 	case *proto.Expression_Literal_Null:
-		return &NullLiteral{Type: types.TypeFromProto(lit.Null)}
+		typ, err := typeFromProtoForLiteral(lit.Null, extSet)
+		if err != nil {
+			return nil
+		}
+		return &NullLiteral{Type: typ}
 	case *proto.Expression_Literal_Struct_:
 		typeList := make([]types.Type, len(lit.Struct.Fields))
 		fields := make([]Literal, len(lit.Struct.Fields))
 		for i, f := range lit.Struct.Fields {
-			fields[i] = LiteralFromProto(f)
+			fields[i] = LiteralFromProtoWithRegistry(f, extSet)
 			typeList[i] = fields[i].GetType()
 		}
 
@@ -1178,8 +1194,8 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 	case *proto.Expression_Literal_Map_:
 		ret := make(MapLiteralValue, len(lit.Map.KeyValues))
 		for i, kv := range lit.Map.KeyValues {
-			ret[i].Key = LiteralFromProto(kv.Key)
-			ret[i].Value = LiteralFromProto(kv.Value)
+			ret[i].Key = LiteralFromProtoWithRegistry(kv.Key, extSet)
+			ret[i].Value = LiteralFromProtoWithRegistry(kv.Value, extSet)
 		}
 		return &MapLiteral{
 			Value: ret,
@@ -1192,7 +1208,7 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 	case *proto.Expression_Literal_List_:
 		ret := make(ListLiteralValue, len(lit.List.Values))
 		for i, v := range lit.List.Values {
-			ret[i] = LiteralFromProto(v)
+			ret[i] = LiteralFromProtoWithRegistry(v, extSet)
 		}
 		return &NestedLiteral[ListLiteralValue]{
 			Value: ListLiteralValue(ret),
@@ -1202,33 +1218,63 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 				Type:             ret[0].GetType(),
 			}}
 	case *proto.Expression_Literal_EmptyList:
+		typ, err := typeFromProtoForLiteral(lit.EmptyList.Type, extSet)
+		if err != nil {
+			return nil
+		}
 		return &NestedLiteral[ListLiteralValue]{
 			Value: nil,
 			Type: &types.ListType{
 				Nullability:      nullability,
 				TypeVariationRef: l.TypeVariationReference,
-				Type:             types.TypeFromProto(lit.EmptyList.Type),
+				Type:             typ,
 			}}
 	case *proto.Expression_Literal_EmptyMap:
+		key, err := typeFromProtoForLiteral(lit.EmptyMap.Key, extSet)
+		if err != nil {
+			return nil
+		}
+		value, err := typeFromProtoForLiteral(lit.EmptyMap.Value, extSet)
+		if err != nil {
+			return nil
+		}
 		return &MapLiteral{
 			Value: nil,
 			Type: &types.MapType{
 				Nullability:      nullability,
 				TypeVariationRef: l.TypeVariationReference,
-				Key:              types.TypeFromProto(lit.EmptyMap.Key),
-				Value:            types.TypeFromProto(lit.EmptyMap.Value),
+				Key:              key,
+				Value:            value,
 			}}
 	case *proto.Expression_Literal_UserDefined_:
 		params := make([]types.TypeParam, len(lit.UserDefined.TypeParameters))
 		for i, p := range lit.UserDefined.TypeParameters {
-			params[i] = types.TypeParamFromProto(p)
+			if extSet != nil {
+				var err error
+				params[i], err = protoenc.TypeParamFromProto(p, extSet)
+				if err != nil {
+					return nil
+				}
+			} else {
+				params[i] = types.TypeParamFromProto(p)
+			}
+		}
+		var id extensions.TypeID
+		if extSet != nil {
+			var ok bool
+			id, ok = extSet.DecodeType(lit.UserDefined.GetTypeReference())
+			if !ok {
+				return nil
+			}
 		}
 
 		return &ProtoLiteral{
-			Value: lit.UserDefined.Val,
+			Value:  lit.UserDefined.Val,
+			extSet: extSet,
 			Type: &types.UserDefinedType{
 				Nullability:      nullability,
 				TypeVariationRef: l.TypeVariationReference,
+				ID:               id,
 				TypeParameters:   params,
 			},
 		}
