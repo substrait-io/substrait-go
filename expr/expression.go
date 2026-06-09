@@ -9,6 +9,7 @@ import (
 
 	substraitgo "github.com/substrait-io/substrait-go/v8"
 	"github.com/substrait-io/substrait-go/v8/extensions"
+	"github.com/substrait-io/substrait-go/v8/protoenc"
 	"github.com/substrait-io/substrait-go/v8/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
@@ -45,7 +46,7 @@ func FuncArgFromProto(e *proto.FunctionArgument, baseSchema *types.RecordType, r
 	case *proto.FunctionArgument_Enum:
 		return types.Enum(et.Enum), nil
 	case *proto.FunctionArgument_Type:
-		return types.TypeFromProto(et.Type), nil
+		return protoenc.TypeFromProto(et.Type, reg.Set)
 	case *proto.FunctionArgument_Value:
 		return ExprFromProto(et.Value, baseSchema, reg)
 	}
@@ -59,7 +60,11 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 
 	switch et := e.RexType.(type) {
 	case *proto.Expression_Literal_:
-		return LiteralFromProto(et.Literal), nil
+		lit := LiteralFromProtoWithRegistry(et.Literal, reg.Set)
+		if lit == nil {
+			return nil, fmt.Errorf("%w: failed to decode literal", substraitgo.ErrInvalidExpr)
+		}
+		return lit, nil
 	case *proto.Expression_Selection:
 		return FieldReferenceFromProto(et.Selection, baseSchema, reg)
 	case *proto.Expression_ScalarFunction_:
@@ -76,17 +81,23 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 			return nil, substraitgo.ErrNotFound
 		}
 
+		outputType, err := protoenc.TypeFromProto(et.ScalarFunction.OutputType, reg.Set)
+		if err != nil {
+			return nil, err
+		}
+
 		decl, ok := reg.LookupScalarFunction(et.ScalarFunction.FunctionReference)
 		if !ok {
-			return NewCustomScalarFunc(reg, extensions.NewScalarFuncVariant(id), types.TypeFromProto(et.ScalarFunction.OutputType), et.ScalarFunction.Options, args...)
+			return NewCustomScalarFunc(reg, extensions.NewScalarFuncVariant(id), outputType, et.ScalarFunction.Options, args...)
 		}
 
 		return &ScalarFunction{
 			funcRef:     et.ScalarFunction.FunctionReference,
 			declaration: decl,
+			extSet:      reg.Set,
 			args:        args,
 			options:     et.ScalarFunction.Options,
-			outputType:  types.TypeFromProto(et.ScalarFunction.OutputType),
+			outputType:  outputType,
 		}, nil
 	case *proto.Expression_WindowFunction_:
 		var err error
@@ -115,9 +126,14 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 		if !ok {
 			return nil, substraitgo.ErrNotFound
 		}
+		outputType, err := protoenc.TypeFromProto(et.WindowFunction.OutputType, reg.Set)
+		if err != nil {
+			return nil, err
+		}
+
 		decl, ok := reg.LookupWindowFunction(et.WindowFunction.FunctionReference)
 		if !ok {
-			fn, err := NewCustomWindowFunc(reg, extensions.NewWindowFuncVariant(id), types.TypeFromProto(et.WindowFunction.OutputType),
+			fn, err := NewCustomWindowFunc(reg, extensions.NewWindowFuncVariant(id), outputType,
 				et.WindowFunction.Options, et.WindowFunction.Invocation, et.WindowFunction.Phase, args...)
 			if err != nil {
 				return nil, err
@@ -134,9 +150,10 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 		return &WindowFunction{
 			funcRef:     et.WindowFunction.FunctionReference,
 			declaration: decl,
+			extSet:      reg.Set,
 			args:        args,
 			options:     et.WindowFunction.Options,
-			outputType:  types.TypeFromProto(et.WindowFunction.OutputType),
+			outputType:  outputType,
 			phase:       et.WindowFunction.Phase,
 			invocation:  et.WindowFunction.Invocation,
 			Partitions:  parts,
@@ -245,8 +262,12 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 			return nil, err
 		}
 
+		castType, err := protoenc.TypeFromProto(et.Cast.Type, reg.Set)
+		if err != nil {
+			return nil, err
+		}
 		return &Cast{
-			Type:            types.TypeFromProto(et.Cast.Type),
+			Type:            castType,
 			Input:           input,
 			FailureBehavior: et.Cast.FailureBehavior,
 		}, nil
@@ -320,8 +341,12 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 		if et.DynamicParameter == nil {
 			return nil, fmt.Errorf("%w: dynamic parameter is nil", substraitgo.ErrInvalidExpr)
 		}
+		outputType, err := protoenc.TypeFromProto(et.DynamicParameter.Type, reg.Set)
+		if err != nil {
+			return nil, err
+		}
 		return &DynamicParameter{
-			OutputType:         types.TypeFromProto(et.DynamicParameter.Type),
+			OutputType:         outputType,
 			ParameterReference: et.DynamicParameter.ParameterReference,
 		}, nil
 	case *proto.Expression_Enum_:
@@ -340,8 +365,12 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 		}
 
 		paramTypes := make([]types.Type, len(et.Lambda.Parameters.Types))
+		var err error
 		for i, pt := range et.Lambda.Parameters.Types {
-			paramTypes[i] = types.TypeFromProto(pt)
+			paramTypes[i], err = protoenc.TypeFromProto(pt, reg.Set)
+			if err != nil {
+				return nil, err
+			}
 		}
 		params := &types.StructType{
 			Types:            paramTypes,
