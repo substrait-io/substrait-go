@@ -64,6 +64,10 @@ func ExprFromProto(e *proto.Expression, baseSchema types.Type, reg ExtensionRegi
 			}
 		}
 
+		if et.ScalarFunction.OutputType == nil {
+			return nil, fmt.Errorf("%w: scalar function missing output type", substraitgo.ErrInvalidExpr)
+		}
+
 		id, ok := reg.DecodeFunc(et.ScalarFunction.FunctionReference)
 		if !ok {
 			return nil, substraitgo.ErrNotFound
@@ -102,6 +106,10 @@ func ExprFromProto(e *proto.Expression, baseSchema types.Type, reg ExtensionRegi
 			if sorts[i], err = SortFieldFromProto(s, baseSchema, reg); err != nil {
 				return nil, err
 			}
+		}
+
+		if et.WindowFunction.OutputType == nil {
+			return nil, fmt.Errorf("%w: window function missing output type", substraitgo.ErrInvalidExpr)
 		}
 
 		id, ok := reg.DecodeFunc(et.WindowFunction.FunctionReference)
