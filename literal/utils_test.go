@@ -959,6 +959,62 @@ func TestNewList(t *testing.T) {
 	}
 }
 
+func TestNewMap(t *testing.T) {
+	i8Key1 := NewInt8(1, false)
+	i8Key2 := NewInt8(2, false)
+	i32Key1 := NewInt32(1, false)
+	strVal1 := NewString("a", false)
+	strVal2 := NewString("b", false)
+	i32Val1 := NewInt32(10, false)
+	nullStrVal := expr.NewNullLiteral(&types.StringType{Nullability: types.NullabilityNullable})
+	nullI8Key := expr.NewNullLiteral(&types.Int8Type{Nullability: types.NullabilityNullable})
+
+	int8Type := &types.Int8Type{Nullability: types.NullabilityRequired}
+	nullInt8Type := &types.Int8Type{Nullability: types.NullabilityNullable}
+	stringType := &types.StringType{Nullability: types.NullabilityRequired}
+	nullStringType := &types.StringType{Nullability: types.NullabilityNullable}
+	mapType := &types.MapType{Key: int8Type, Value: stringType, Nullability: types.NullabilityRequired}
+	nullableMapType := &types.MapType{Key: int8Type, Value: stringType, Nullability: types.NullabilityNullable}
+	// the key/value types come from the first entry, so a leading null literal
+	// keeps that column nullable
+	nullValueMapType := &types.MapType{Key: int8Type, Value: nullStringType, Nullability: types.NullabilityRequired}
+	nullKeyMapType := &types.MapType{Key: nullInt8Type, Value: stringType, Nullability: types.NullabilityRequired}
+
+	tests := []struct {
+		name       string
+		entries    expr.MapLiteralValue
+		nullable   bool
+		expSuccess bool
+		litType    types.Type
+		wantErr    assert.ErrorAssertionFunc
+	}{
+		{"empty", expr.MapLiteralValue{}, false, false, nil, assert.Error},
+		{"single", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}}, false, true, mapType, assert.NoError},
+		{"multiple", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: i8Key2, Value: strVal2}}, false, true, mapType, assert.NoError},
+		{"nullable", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}}, true, true, nullableMapType, assert.NoError},
+		{"mismatchedKeys", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: i32Key1, Value: strVal2}}, false, false, nil, assert.Error},
+		{"mismatchedValues", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: i8Key2, Value: i32Val1}}, false, false, nil, assert.Error},
+		{"nullValue", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: i8Key2, Value: nullStrVal}}, false, true, mapType, assert.NoError},
+		{"nullKey", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: nullI8Key, Value: strVal2}}, false, true, mapType, assert.NoError},
+		{"leadingNullValue", expr.MapLiteralValue{{Key: i8Key1, Value: nullStrVal}, {Key: i8Key2, Value: strVal2}}, false, true, nullValueMapType, assert.NoError},
+		{"leadingNullKey", expr.MapLiteralValue{{Key: nullI8Key, Value: strVal1}, {Key: i8Key2, Value: strVal2}}, false, true, nullKeyMapType, assert.NoError},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewMap(tt.entries, tt.nullable)
+			if !tt.wantErr(t, err, fmt.Sprintf("NewMap(%v)", tt.entries)) {
+				return
+			}
+			if tt.expSuccess {
+				want, err := expr.NewLiteral[expr.MapLiteralValue](tt.entries, tt.nullable)
+				require.NoError(t, err)
+				assert.Equalf(t, want, got, "NewMap(%v)", tt.entries)
+				assert.Equalf(t, tt.litType, got.GetType(), "NewMap(%v)", tt.entries)
+			}
+		})
+	}
+}
+
 func TestNewDateFromString(t *testing.T) {
 	tests := []struct {
 		name    string

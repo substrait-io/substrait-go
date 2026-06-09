@@ -423,6 +423,36 @@ func NewList(elements []expr.Literal, nullable bool) (expr.Literal, error) {
 	return expr.NewLiteral[expr.ListLiteralValue](elements, nullable)
 }
 
+// NewMap creates a map literal from the given key/value entries. As in NewList,
+// the keys must be of one type and the values of one type, with null literals
+// allowed in either position. For an empty map use expr.NewEmptyMapLiteral,
+// which takes the key and value types explicitly.
+func NewMap(entries expr.MapLiteralValue, nullable bool) (expr.Literal, error) {
+	if len(entries) == 0 {
+		return nil, fmt.Errorf("empty map literal")
+	}
+	nullLiteralType := reflect.TypeOf((*expr.NullLiteral)(nil))
+	keyAnchor := reflect.TypeOf(entries[0].Key)
+	valueAnchor := reflect.TypeOf(entries[0].Value)
+	for i, e := range entries {
+		switch keyType := reflect.TypeOf(e.Key); {
+		case keyType == keyAnchor || keyType == nullLiteralType:
+		case keyAnchor == nullLiteralType:
+			keyAnchor = keyType
+		default:
+			return nil, fmt.Errorf("key %d of map literal has different type", i)
+		}
+		switch valueType := reflect.TypeOf(e.Value); {
+		case valueType == valueAnchor || valueType == nullLiteralType:
+		case valueAnchor == nullLiteralType:
+			valueAnchor = valueType
+		default:
+			return nil, fmt.Errorf("value %d of map literal has different type", i)
+		}
+	}
+	return expr.NewLiteral[expr.MapLiteralValue](entries, nullable)
+}
+
 // NewUserDefinedLiteral creates a user-defined literal using the struct representation.
 // The typeRef should be obtained from an extension registry's GetTypeAnchor method.
 // The structValue contains the field values for the user-defined type.
