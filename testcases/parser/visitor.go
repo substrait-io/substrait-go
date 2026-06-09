@@ -7,6 +7,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/substrait-io/substrait-go/v8/expr"
+	"github.com/substrait-io/substrait-go/v8/extensions"
 	"github.com/substrait-io/substrait-go/v8/literal"
 	"github.com/substrait-io/substrait-go/v8/testcases/parser/baseparser"
 	"github.com/substrait-io/substrait-go/v8/types"
@@ -29,6 +30,7 @@ type TestCaseVisitor struct {
 	ErrorListener        util.VisitErrorListener
 	literalTypeInContext types.Type
 	testFuncType         TestFuncType
+	currentTypeURN       string
 }
 
 func (v *TestCaseVisitor) getLiteralTypeInContext() types.Type {
@@ -77,6 +79,7 @@ func (v *TestCaseVisitor) VisitDoc(ctx *baseparser.DocContext) interface{} {
 func (v *TestCaseVisitor) VisitHeader(ctx *baseparser.HeaderContext) interface{} {
 	header := v.Visit(ctx.Version()).(*TestFileHeader)
 	header.IncludedURI = v.Visit(ctx.Include()).(string)
+	v.currentTypeURN = extensionReferenceToURN(header.IncludedURI)
 	return header
 }
 
@@ -946,6 +949,13 @@ func (v *TestCaseVisitor) VisitDataType(ctx *baseparser.DataTypeContext) interfa
 	}
 	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid data type %v", ctx.GetText()))
 	return nil
+}
+
+func (v *TestCaseVisitor) VisitUserDefined(ctx *baseparser.UserDefinedContext) interface{} {
+	return &types.UserDefinedType{
+		Nullability: getNullability(ctx),
+		ID:          extensions.TypeID{URN: v.currentTypeURN, Name: ctx.Identifier().GetText()},
+	}
 }
 
 func (v *TestCaseVisitor) VisitParameterizedType(ctx *baseparser.ParameterizedTypeContext) interface{} {

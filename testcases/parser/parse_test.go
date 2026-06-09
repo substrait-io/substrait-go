@@ -141,6 +141,19 @@ lt('2016-12-31T13:30:15'::ts, '2017-12-31T13:30:15'::ts) = true::bool
 	assert.Equal(t, ScalarFuncType, testFile.TestCases[0].FuncType)
 }
 
+func TestParseUserDefinedNullArgPreservesTypeID(t *testing.T) {
+	header := makeHeader("v1.0", "/extensions/functions_geometry.yaml")
+
+	testFile, err := ParseTestCasesFromString(header + "# basic\nf1(null::u!geometry?) = 1::i8")
+	require.NoError(t, err)
+
+	arg := testFile.TestCases[0].Args[0]
+	udt, ok := arg.Type.(*types.UserDefinedType)
+	require.True(t, ok, "expected *types.UserDefinedType, got %T", arg.Type)
+	assert.Equal(t, extensions.TypeID{URN: extensions.SubstraitDefaultURNPrefix + "functions_geometry", Name: "geometry"}, udt.ID)
+	assert.Contains(t, arg.String(), "geometry")
+}
+
 func TestParseDecimalExample(t *testing.T) {
 	header := makeHeader("v1.0", "extensions/functions_arithmetic_decimal.yaml")
 	tests := `# basic

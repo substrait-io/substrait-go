@@ -331,17 +331,18 @@ func (tc *TestCase) CompoundFunctionName() string {
 	return tc.FuncName + ":" + tc.signatureKey()
 }
 
-func (tc *TestCase) ID() extensions.FunctionID {
-	baseURN := tc.BaseURI
-	if strings.HasPrefix(baseURN, "/") {
-		// Convert from URI path format like "/extensions/functions_arithmetic.yaml"
-		// to URN format like "extension:io.substrait:functions_arithmetic"
-		path := strings.TrimPrefix(baseURN, "/extensions/")
+func extensionReferenceToURN(ref string) string {
+	if strings.HasPrefix(ref, "/") {
+		path := strings.TrimPrefix(ref, "/extensions/")
 		path = strings.TrimSuffix(path, ".yaml")
-		baseURN = extensions.SubstraitDefaultURNPrefix + path
+		return extensions.SubstraitDefaultURNPrefix + path
 	}
+	return ref
+}
+
+func (tc *TestCase) ID() extensions.FunctionID {
 	return extensions.FunctionID{
-		URN:  baseURN,
+		URN:  extensionReferenceToURN(tc.BaseURI),
 		Name: tc.CompoundFunctionName(),
 	}
 }
