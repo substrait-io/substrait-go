@@ -959,6 +959,55 @@ func TestNewList(t *testing.T) {
 	}
 }
 
+func TestNewEmptyMap(t *testing.T) {
+	tests := []struct {
+		name      string
+		keyType   types.Type
+		valueType types.Type
+		nullable  bool
+	}{
+		{"i8ToString", &types.Int8Type{Nullability: types.NullabilityRequired}, &types.StringType{Nullability: types.NullabilityRequired}, false},
+		{"i8ToStringNullable", &types.Int8Type{Nullability: types.NullabilityRequired}, &types.StringType{Nullability: types.NullabilityRequired}, true},
+		{"stringToI32", &types.StringType{Nullability: types.NullabilityRequired}, &types.Int32Type{Nullability: types.NullabilityRequired}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NewEmptyMap(tt.keyType, tt.valueType, tt.nullable)
+			wantNullability := types.NullabilityRequired
+			if tt.nullable {
+				wantNullability = types.NullabilityNullable
+			}
+			wantType := &types.MapType{Nullability: wantNullability, Key: tt.keyType, Value: tt.valueType}
+			assert.Equalf(t, wantType, got.GetType(), "NewEmptyMap(%v, %v)", tt.keyType, tt.valueType)
+			assert.Equalf(t, expr.NewEmptyMapLiteral(tt.keyType, tt.valueType, tt.nullable), got, "NewEmptyMap(%v, %v)", tt.keyType, tt.valueType)
+		})
+	}
+}
+
+func TestNewEmptyList(t *testing.T) {
+	tests := []struct {
+		name        string
+		elementType types.Type
+		nullable    bool
+	}{
+		{"i32", &types.Int32Type{Nullability: types.NullabilityRequired}, false},
+		{"i32Nullable", &types.Int32Type{Nullability: types.NullabilityRequired}, true},
+		{"string", &types.StringType{Nullability: types.NullabilityRequired}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NewEmptyList(tt.elementType, tt.nullable)
+			wantNullability := types.NullabilityRequired
+			if tt.nullable {
+				wantNullability = types.NullabilityNullable
+			}
+			wantType := &types.ListType{Nullability: wantNullability, Type: tt.elementType}
+			assert.Equalf(t, wantType, got.GetType(), "NewEmptyList(%v)", tt.elementType)
+			assert.Equalf(t, expr.NewEmptyListLiteral(tt.elementType, tt.nullable), got, "NewEmptyList(%v)", tt.elementType)
+		})
+	}
+}
+
 func TestNewDateFromString(t *testing.T) {
 	tests := []struct {
 		name    string

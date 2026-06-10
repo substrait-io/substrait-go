@@ -423,6 +423,18 @@ func NewList(elements []expr.Literal, nullable bool) (expr.Literal, error) {
 	return expr.NewLiteral[expr.ListLiteralValue](elements, nullable)
 }
 
+// NewEmptyMap creates an empty map literal of the given key and value types,
+// marked nullable or not.
+func NewEmptyMap(keyType, valueType types.Type, nullable bool) expr.Literal {
+	return expr.NewEmptyMapLiteral(keyType, valueType, nullable)
+}
+
+// NewEmptyList creates an empty list literal of the given element type, marked
+// nullable or not.
+func NewEmptyList(elementType types.Type, nullable bool) expr.Literal {
+	return expr.NewEmptyListLiteral(elementType, nullable)
+}
+
 // NewUserDefinedLiteral creates a user-defined literal using the struct representation.
 // The typeRef should be obtained from an extension registry's GetTypeAnchor method.
 // The structValue contains the field values for the user-defined type.
