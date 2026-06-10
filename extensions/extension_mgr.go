@@ -30,11 +30,18 @@ var (
 	}
 )
 
-var urnPattern = regexp.MustCompile(`^extension:[^:]+:[^:]+$`)
+var (
+	urnPattern             = regexp.MustCompile(`^extension:[^:]+:[^:]+$`)
+	dependencyAliasPattern = regexp.MustCompile(`^[A-Za-z_$][A-Za-z0-9_$]*$`)
+)
 
 // validateURN validates that a URN follows the format "extension:<owner>:<id>"
 func validateUrn(urn string) bool {
 	return urnPattern.MatchString(urn)
+}
+
+func validateDependencyAlias(alias string) bool {
+	return dependencyAliasPattern.MatchString(alias)
 }
 
 // GetDefaultCollectionWithNoError returns a Collection that is loaded with the default Substrait extension definitions.
@@ -215,6 +222,15 @@ func (c *Collection) Load(r io.Reader) error {
 	}
 	if c.URNLoaded(urn) {
 		return fmt.Errorf("%w:  urn %s already loaded", substraitgo.ErrKeyExists, urn)
+	}
+
+	for alias, dependencyURN := range file.Dependencies {
+		if !validateDependencyAlias(alias) {
+			return fmt.Errorf("%w: invalid dependency alias %q", substraitgo.ErrInvalidSimpleExtention, alias)
+		}
+		if !c.URNLoaded(dependencyURN) {
+			return fmt.Errorf("%w: dependency urn %q for alias %q is not loaded", substraitgo.ErrNotFound, dependencyURN, alias)
+		}
 	}
 
 	if err := file.validateUserDefinedTypeReferences(); err != nil {

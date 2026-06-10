@@ -591,6 +591,74 @@ scalar_functions:
 	assert.Contains(t, err.Error(), "invalid urn")
 }
 
+func TestLoadExtensionWithDependencies(t *testing.T) {
+	const dependency = `---
+urn: extension:test:dependency
+scalar_functions:
+  - name: random_fn_doesnt_matter
+    impls:
+      - args:
+          - name: x
+            value: i32
+        return: i32
+`
+	const extensionWithDependencies = `---
+urn: extension:test:with_dependencies
+dependencies:
+  ext: extension:test:dependency
+scalar_functions:
+`
+
+	var c extensions.Collection
+	require.NoError(t, c.Load(strings.NewReader(dependency)))
+	err := c.Load(strings.NewReader(extensionWithDependencies))
+
+	assert.NoError(t, err)
+}
+
+func TestLoadExtensionWithUnloadedDependencyURN(t *testing.T) {
+	const extensionWithUnloadedDependencyURN = `---
+urn: extension:test:with_dependencies
+dependencies:
+  ext: extension:test:dependency
+scalar_functions:
+`
+
+	var c extensions.Collection
+	err := c.Load(strings.NewReader(extensionWithUnloadedDependencyURN))
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "dependency urn \"extension:test:dependency\" for alias \"ext\" is not loaded")
+}
+
+func TestLoadExtensionWithInvalidDependencyAlias(t *testing.T) {
+	tests := []struct {
+		name  string
+		alias string
+	}{
+		{name: "empty", alias: `""`},
+		{name: "starts with digit", alias: "1ext"},
+		{name: "contains hyphen", alias: "ext-name"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			yaml := `---
+urn: extension:test:with_dependencies
+dependencies:
+  ` + tt.alias + `: extension:test:dependency
+scalar_functions:
+`
+
+			var c extensions.Collection
+			err := c.Load(strings.NewReader(yaml))
+
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "invalid dependency alias")
+		})
+	}
+}
+
 func TestLoadExtensionRejectsUndeclaredTypeInScalarFunction(t *testing.T) {
 	const extension = `---
 urn: extension:test:bad_scalar
