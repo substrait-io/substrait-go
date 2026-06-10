@@ -2,7 +2,6 @@ package literal
 
 import (
 	"fmt"
-	"reflect"
 	"regexp"
 	"strconv"
 	"time"
@@ -401,54 +400,67 @@ func NewPrecisionTimestampTzFromString(precision types.TimePrecision, value stri
 	return NewPrecisionTimestampTzFromTime(precision, tm, nullable)
 }
 
+func isNullLiteral(l expr.Literal) bool {
+	_, ok := l.(*expr.NullLiteral)
+	return ok
+}
+
+// firstMismatch returns the index of the first literal whose base type differs
+// from the column's anchor (the first non-null literal), or -1 if the column is
+// uniform. Null literals are allowed in any position, and type parameters such
+// as varchar length and nullability may differ within one base type; a later
+// cast unifies those. Base types are compared by short name rather than by the
+// Go wrapper, which is too coarse: distinct types such as decimal and varchar
+// can share one wrapper.
+func firstMismatch(column []expr.Literal) int {
+	var anchor string
+	anchored := false
+	for i, l := range column {
+		if isNullLiteral(l) {
+			continue
+		}
+		short := l.GetType().ShortString()
+		if !anchored {
+			anchor, anchored = short, true
+			continue
+		}
+		if short != anchor {
+			return i
+		}
+	}
+	return -1
+}
+
 func NewList(elements []expr.Literal, nullable bool) (expr.Literal, error) {
 	if len(elements) == 0 {
-		return nil, fmt.Errorf("empty list literal")
+		return nil, fmt.Errorf("empty list literal; use NewEmptyList for an empty list")
 	}
-	anchorType := reflect.TypeOf(elements[0])
-	for i, e := range elements {
-		currentType := reflect.TypeOf(e)
-		if currentType != anchorType {
-			nullLiteralType := reflect.TypeOf((*expr.NullLiteral)(nil))
-			if currentType == nullLiteralType {
-				continue
-			}
-			if anchorType == nullLiteralType {
-				anchorType = currentType
-				continue
-			}
-			return nil, fmt.Errorf("element %d of list literal has different type", i)
-		}
+	if i := firstMismatch(elements); i >= 0 {
+		return nil, fmt.Errorf("element %d of list literal has different type", i)
 	}
 	return expr.NewLiteral[expr.ListLiteralValue](elements, nullable)
 }
 
 // NewMap creates a map literal from the given key/value entries. As in NewList,
-// the keys must be of one type and the values of one type, with null literals
-// allowed in either position. For an empty map use NewEmptyMap, which takes the
-// key and value types explicitly.
+// all keys must share one base type and all values one base type; null literals
+// are allowed in either position, and type parameters (such as varchar length)
+// and nullability may differ. The map's declared key/value types are taken from
+// the first entry. For an empty map use NewEmptyMap, which takes the key and
+// value types explicitly.
 func NewMap(entries expr.MapLiteralValue, nullable bool) (expr.Literal, error) {
 	if len(entries) == 0 {
-		return nil, fmt.Errorf("empty map literal")
+		return nil, fmt.Errorf("empty map literal; use NewEmptyMap for an empty map")
 	}
-	nullLiteralType := reflect.TypeOf((*expr.NullLiteral)(nil))
-	keyAnchor := reflect.TypeOf(entries[0].Key)
-	valueAnchor := reflect.TypeOf(entries[0].Value)
+	keys := make([]expr.Literal, len(entries))
+	values := make([]expr.Literal, len(entries))
 	for i, e := range entries {
-		switch keyType := reflect.TypeOf(e.Key); {
-		case keyType == keyAnchor || keyType == nullLiteralType:
-		case keyAnchor == nullLiteralType:
-			keyAnchor = keyType
-		default:
-			return nil, fmt.Errorf("key %d of map literal has different type", i)
-		}
-		switch valueType := reflect.TypeOf(e.Value); {
-		case valueType == valueAnchor || valueType == nullLiteralType:
-		case valueAnchor == nullLiteralType:
-			valueAnchor = valueType
-		default:
-			return nil, fmt.Errorf("value %d of map literal has different type", i)
-		}
+		keys[i], values[i] = e.Key, e.Value
+	}
+	if i := firstMismatch(keys); i >= 0 {
+		return nil, fmt.Errorf("key %d of map literal has different type", i)
+	}
+	if i := firstMismatch(values); i >= 0 {
+		return nil, fmt.Errorf("value %d of map literal has different type", i)
 	}
 	return expr.NewLiteral[expr.MapLiteralValue](entries, nullable)
 }

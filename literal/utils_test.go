@@ -923,11 +923,19 @@ func TestNewList(t *testing.T) {
 	i8Lit2 := NewInt8(2, false)
 	i32Lit1 := NewInt32(1, false)
 	i32Lit2 := NewInt32(2, false)
+	// varchar<1> and varchar<4> share a base type but differ in length, which is
+	// allowed within one list; dec1 is a decimal, a different base type that
+	// shares a Go wrapper with varchar.
+	vc1, _ := NewVarChar("a", false)
+	vc4, _ := NewVarChar("abcd", false)
+	dec1, _ := NewDecimalFromString("1.0", false)
 	listLiteral, _ := expr.NewLiteral[expr.ListLiteralValue]([]expr.Literal{i8Lit1, i8Lit2}, false)
 	int8Type := &types.Int8Type{Nullability: types.NullabilityRequired}
 	int32Type := &types.Int32Type{Nullability: types.NullabilityRequired}
+	varChar1Type := &types.VarCharType{Length: 1, Nullability: types.NullabilityRequired}
 	int8ListType := &types.ListType{Type: int8Type, Nullability: types.NullabilityRequired}
 	int32ListType := &types.ListType{Type: int32Type, Nullability: types.NullabilityRequired}
+	varCharListType := &types.ListType{Type: varChar1Type, Nullability: types.NullabilityRequired}
 	listOfListType := &types.ListType{Type: int8ListType, Nullability: types.NullabilityRequired}
 	tests := []struct {
 		name       string
@@ -942,6 +950,8 @@ func TestNewList(t *testing.T) {
 		{"listOfListSingle", []expr.Literal{listLiteral}, true, listOfListType, assert.NoError},
 		{"i8List", []expr.Literal{i8Lit1, i8Lit2}, true, int8ListType, assert.NoError},
 		{"i32List", []expr.Literal{i32Lit1, i32Lit2}, true, int32ListType, assert.NoError},
+		{"differingParams", []expr.Literal{vc1, vc4}, true, varCharListType, assert.NoError},
+		{"crossFamily", []expr.Literal{dec1, vc1}, false, nil, assert.Error},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -968,13 +978,24 @@ func TestNewMap(t *testing.T) {
 	i32Val1 := NewInt32(10, false)
 	nullStrVal := expr.NewNullLiteral(&types.StringType{Nullability: types.NullabilityNullable})
 	nullI8Key := expr.NewNullLiteral(&types.Int8Type{Nullability: types.NullabilityNullable})
+	// vc1 is varchar<1>, vc4 is varchar<4>. They share a base type but differ in
+	// the length parameter, which is allowed within one list/map. dec1 is a
+	// decimal, a different base type that nonetheless shares a Go wrapper with
+	// varchar.
+	vc1, _ := NewVarChar("a", false)
+	vc4, _ := NewVarChar("abcd", false)
+	dec1, _ := NewDecimalFromString("1.0", false)
 
 	int8Type := &types.Int8Type{Nullability: types.NullabilityRequired}
 	nullInt8Type := &types.Int8Type{Nullability: types.NullabilityNullable}
 	stringType := &types.StringType{Nullability: types.NullabilityRequired}
 	nullStringType := &types.StringType{Nullability: types.NullabilityNullable}
+	varChar1Type := &types.VarCharType{Length: 1, Nullability: types.NullabilityRequired}
 	mapType := &types.MapType{Key: int8Type, Value: stringType, Nullability: types.NullabilityRequired}
 	nullableMapType := &types.MapType{Key: int8Type, Value: stringType, Nullability: types.NullabilityNullable}
+	// differing varchar lengths keep the first entry's parameters
+	varCharValMapType := &types.MapType{Key: int8Type, Value: varChar1Type, Nullability: types.NullabilityRequired}
+	varCharKeyMapType := &types.MapType{Key: varChar1Type, Value: stringType, Nullability: types.NullabilityRequired}
 	// the key/value types come from the first entry, so a leading null literal
 	// keeps that column nullable
 	nullValueMapType := &types.MapType{Key: int8Type, Value: nullStringType, Nullability: types.NullabilityRequired}
@@ -998,6 +1019,10 @@ func TestNewMap(t *testing.T) {
 		{"nullKey", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: nullI8Key, Value: strVal2}}, false, true, mapType, assert.NoError},
 		{"leadingNullValue", expr.MapLiteralValue{{Key: i8Key1, Value: nullStrVal}, {Key: i8Key2, Value: strVal2}}, false, true, nullValueMapType, assert.NoError},
 		{"leadingNullKey", expr.MapLiteralValue{{Key: nullI8Key, Value: strVal1}, {Key: i8Key2, Value: strVal2}}, false, true, nullKeyMapType, assert.NoError},
+		{"differingValueParams", expr.MapLiteralValue{{Key: i8Key1, Value: vc1}, {Key: i8Key2, Value: vc4}}, false, true, varCharValMapType, assert.NoError},
+		{"differingKeyParams", expr.MapLiteralValue{{Key: vc1, Value: strVal1}, {Key: vc4, Value: strVal2}}, false, true, varCharKeyMapType, assert.NoError},
+		{"crossFamilyValues", expr.MapLiteralValue{{Key: i8Key1, Value: dec1}, {Key: i8Key2, Value: vc1}}, false, false, nil, assert.Error},
+		{"crossFamilyKeys", expr.MapLiteralValue{{Key: dec1, Value: strVal1}, {Key: vc1, Value: strVal2}}, false, false, nil, assert.Error},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
