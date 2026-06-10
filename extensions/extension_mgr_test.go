@@ -121,13 +121,17 @@ func TestLoadExtensionCollection(t *testing.T) {
 	})
 
 	t.Run("functions need compound names", func(t *testing.T) {
-		add, ok := c.GetScalarFunc(extensions.ID{URN: urn, Name: "add"})
+		addID := extensions.ID{URN: urn, Name: "add"}
+		add, ok := c.GetScalarFunc(addID)
 		assert.Nil(t, add)
 		assert.False(t, ok)
+		assert.False(t, c.IsRegisteredFunction(addID))
 
-		sub, ok := c.GetScalarFunc(extensions.ID{URN: urn, Name: "subtract:i16_i16"})
+		subID := extensions.ID{URN: urn, Name: "subtract:i16_i16"}
+		sub, ok := c.GetScalarFunc(subID)
 		assert.True(t, ok)
 		assert.NotNil(t, sub)
+		assert.True(t, c.IsRegisteredFunction(subID))
 
 		assert.Equal(t, "subtract", sub.Name())
 		assert.Equal(t, "subtract:i16_i16", sub.CompoundName())

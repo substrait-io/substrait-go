@@ -23,11 +23,10 @@ import (
 // This will maintain consistency across the plan for the user without them
 // having to manually do so.
 type Builder interface {
-	// GetFunctionRef retrieves the function anchor reference for a given
-	// function identified by its namespace and function name. This also
-	// ensures that any plans built from this builder will contain this
-	// function anchor in its extensions section.
-	GetFunctionRef(nameSpace, key string) types.FunctionRef
+	// GetFunctionRef retrieves the function anchor reference for a function
+	// variant. This also ensures that any plans built from this builder will
+	// contain this function anchor in its extensions section.
+	GetFunctionRef(id extensions.ID) (types.FunctionRef, error)
 
 	// Construct a user-defined type from the extension namespace and typename,
 	// along with optional type parameters. It will add the type to the internal
@@ -227,8 +226,12 @@ func (b *builder) GetExprBuilder() *expr.ExprBuilder {
 	}
 }
 
-func (b *builder) GetFunctionRef(nameSpace, key string) types.FunctionRef {
-	return types.FunctionRef(b.extSet.GetFuncAnchor(extensions.ID{URN: nameSpace, Name: key}))
+func (b *builder) GetFunctionRef(id extensions.ID) (types.FunctionRef, error) {
+	if !b.ext.IsRegisteredFunction(id) {
+		return 0, fmt.Errorf("%w: could not find matching function for id: %v", substraitgo.ErrNotFound, id)
+	}
+
+	return types.FunctionRef(b.extSet.GetFuncAnchor(id)), nil
 }
 
 func (b *builder) UserDefinedType(nameSpace, typeName string, params ...types.TypeParam) types.UserDefinedType {

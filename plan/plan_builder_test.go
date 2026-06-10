@@ -1027,7 +1027,7 @@ func TestSortRelationKeyEqual(t *testing.T) {
 				"extensionFunction": {
 					"extensionUrnReference": 1,
 					"functionAnchor": 1,
-					"name": "equal"
+					"name": "equal:any_any"
 				}
 			}
 		],
@@ -1078,13 +1078,26 @@ func TestSortRelationKeyEqual(t *testing.T) {
 	ref, err := b.RootFieldRef(scan, 0)
 	require.NoError(t, err)
 
-	sort, err := b.Sort(scan, expr.SortField{Expr: ref, Kind: b.GetFunctionRef(extensions.SubstraitDefaultURNPrefix+"functions_comparison", "equal")})
+	equalRef, err := b.GetFunctionRef(extensions.ID{URN: extensions.SubstraitDefaultURNPrefix + "functions_comparison", Name: "equal:any_any"})
+	require.NoError(t, err)
+
+	sort, err := b.Sort(scan, expr.SortField{Expr: ref, Kind: equalRef})
 	require.NoError(t, err)
 
 	p, err := b.Plan(sort, []string{"a", "b"})
 	require.NoError(t, err)
 
 	checkRoundTrip(t, expectedJSON, p)
+}
+
+func TestGetFunctionRefRequiresRegisteredFunction(t *testing.T) {
+	b := plan.NewBuilderDefault()
+	_, err := b.GetFunctionRef(extensions.ID{URN: extensions.SubstraitDefaultURNPrefix + "functions_comparison", Name: "equal"})
+	require.ErrorIs(t, err, substraitgo.ErrNotFound)
+
+	ref, err := b.GetFunctionRef(extensions.ID{URN: extensions.SubstraitDefaultURNPrefix + "functions_comparison", Name: "equal:any_any"})
+	require.NoError(t, err)
+	assert.NotZero(t, ref)
 }
 
 func TestSortRelationMultiple(t *testing.T) {

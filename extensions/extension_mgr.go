@@ -159,6 +159,17 @@ func (c *Collection) GetWindowFunc(id ID) (*WindowFunctionVariant, bool) {
 	return fn, ok
 }
 
+func (c *Collection) IsRegisteredFunction(id ID) bool {
+	if _, ok := c.scalarMap[id]; ok {
+		return true
+	}
+	if _, ok := c.aggregateMap[id]; ok {
+		return true
+	}
+	_, ok := c.windowMap[id]
+	return ok
+}
+
 func (c *Collection) init() {
 	if c.urnSet == nil {
 		c.urnSet = make(map[string]struct{})
