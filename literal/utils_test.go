@@ -969,6 +969,7 @@ func TestNewEmptyMap(t *testing.T) {
 		{"i8ToString", &types.Int8Type{Nullability: types.NullabilityRequired}, &types.StringType{Nullability: types.NullabilityRequired}, false},
 		{"i8ToStringNullable", &types.Int8Type{Nullability: types.NullabilityRequired}, &types.StringType{Nullability: types.NullabilityRequired}, true},
 		{"stringToI32", &types.StringType{Nullability: types.NullabilityRequired}, &types.Int32Type{Nullability: types.NullabilityRequired}, false},
+		{"i8ToListOfI32", &types.Int8Type{Nullability: types.NullabilityRequired}, &types.ListType{Type: &types.Int32Type{Nullability: types.NullabilityRequired}, Nullability: types.NullabilityRequired}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -993,6 +994,7 @@ func TestNewEmptyList(t *testing.T) {
 		{"i32", &types.Int32Type{Nullability: types.NullabilityRequired}, false},
 		{"i32Nullable", &types.Int32Type{Nullability: types.NullabilityRequired}, true},
 		{"string", &types.StringType{Nullability: types.NullabilityRequired}, false},
+		{"listOfI32", &types.ListType{Type: &types.Int32Type{Nullability: types.NullabilityRequired}, Nullability: types.NullabilityRequired}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
