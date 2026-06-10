@@ -406,12 +406,16 @@ func isNullLiteral(l expr.Literal) bool {
 }
 
 // firstMismatch returns the index of the first literal whose base type differs
-// from the column's anchor (the first non-null literal), or -1 if the column is
-// uniform. Null literals are allowed in any position, and type parameters such
-// as varchar length and nullability may differ within one base type; a later
-// cast unifies those. Base types are compared by short name rather than by the
-// Go wrapper, which is too coarse: distinct types such as decimal and varchar
-// can share one wrapper.
+// from the column's anchor (the first non-null literal), or -1 if every literal
+// is compatible. Null literals are allowed in any position, and type parameters
+// (such as varchar length) and nullability may differ within one base type; a
+// later cast unifies those. Base types are compared by short name rather than
+// by the Go wrapper, which is too coarse: distinct types such as decimal and
+// varchar share one wrapper. The comparison is shallow and matches the original
+// wrapper check's depth: it does not distinguish the element types of nested
+// lists, maps, or structs, nor different user-defined types (whose short name is
+// empty), so a column mixing, for example, list<i8> and list<i32> is treated as
+// uniform.
 func firstMismatch(column []expr.Literal) int {
 	var anchor string
 	anchored := false
