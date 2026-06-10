@@ -94,7 +94,11 @@ func loadExtensionFile(collection *Collection, substraitFS embed.FS, ent fs.DirE
 
 // FunctionID is the unique identifier for a Substrait extension function.
 type FunctionID = types.ExtensionFunctionID
+
+// TypeID is the unique identifier for a Substrait extension type.
 type TypeID = types.ExtensionTypeID
+
+// TypeVariationID is the unique identifier for a Substrait extension type variation.
 type TypeVariationID = types.ExtensionTypeVariationID
 
 type Collection struct {
