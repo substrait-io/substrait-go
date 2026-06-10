@@ -425,8 +425,8 @@ func NewList(elements []expr.Literal, nullable bool) (expr.Literal, error) {
 
 // NewMap creates a map literal from the given key/value entries. As in NewList,
 // the keys must be of one type and the values of one type, with null literals
-// allowed in either position. For an empty map use expr.NewEmptyMapLiteral,
-// which takes the key and value types explicitly.
+// allowed in either position. For an empty map use NewEmptyMap, which takes the
+// key and value types explicitly.
 func NewMap(entries expr.MapLiteralValue, nullable bool) (expr.Literal, error) {
 	if len(entries) == 0 {
 		return nil, fmt.Errorf("empty map literal")
@@ -451,6 +451,18 @@ func NewMap(entries expr.MapLiteralValue, nullable bool) (expr.Literal, error) {
 		}
 	}
 	return expr.NewLiteral[expr.MapLiteralValue](entries, nullable)
+}
+
+// NewEmptyMap creates an empty map literal of the given key and value types,
+// marked nullable or not.
+func NewEmptyMap(keyType, valueType types.Type, nullable bool) expr.Literal {
+	return expr.NewEmptyMapLiteral(keyType, valueType, nullable)
+}
+
+// NewEmptyList creates an empty list literal of the given element type, marked
+// nullable or not.
+func NewEmptyList(elementType types.Type, nullable bool) expr.Literal {
+	return expr.NewEmptyListLiteral(elementType, nullable)
 }
 
 // NewUserDefinedLiteral creates a user-defined literal using the struct representation.
