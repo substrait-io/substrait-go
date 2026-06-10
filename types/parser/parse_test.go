@@ -119,6 +119,9 @@ func TestParseFuncDefArgType(t *testing.T) {
 		{"u!test?<10>", "u!test?<10>", "u!test", &types.ParameterizedUserDefinedType{Name: "test", Nullability: types.NullabilityNullable, TypeParameters: []types.UDTParameter{&types.IntegerUDTParam{Integer: 10}}}},
 		{"u!test<L1>", "u!test<L1>", "u!test", &types.ParameterizedUserDefinedType{Name: "test", Nullability: types.NullabilityRequired, TypeParameters: []types.UDTParameter{&types.StringUDTParam{StringVal: "L1"}}}},
 		{"u!test<decimal<P,S>>", "u!test<decimal<P,S>>", "u!test", &types.ParameterizedUserDefinedType{Name: "test", Nullability: types.NullabilityRequired, TypeParameters: []types.UDTParameter{&types.DataTypeUDTParam{Type: &types.ParameterizedDecimalType{Precision: &variableIntP, Scale: &variableIntS, Nullability: types.NullabilityRequired}}}}},
+		{"ext.u!point", "ext.u!point", "ext.u!point", &types.ParameterizedUserDefinedType{Name: "point", DependencyAlias: "ext", Nullability: types.NullabilityRequired}},
+		{"list<$ext.u!point>", "list<$ext.u!point>", "list", &types.ParameterizedListType{Type: &types.ParameterizedUserDefinedType{Name: "point", DependencyAlias: "$ext", Nullability: types.NullabilityRequired}, Nullability: types.NullabilityRequired}},
+		{"ext.u!Wrapper<other.u!point>", "ext.u!Wrapper<other.u!point>", "ext.u!Wrapper", &types.ParameterizedUserDefinedType{Name: "Wrapper", DependencyAlias: "ext", Nullability: types.NullabilityRequired, TypeParameters: []types.UDTParameter{&types.DataTypeUDTParam{Type: &types.ParameterizedUserDefinedType{Name: "point", DependencyAlias: "other", Nullability: types.NullabilityRequired}}}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {

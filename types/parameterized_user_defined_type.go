@@ -110,6 +110,7 @@ type ParameterizedUserDefinedType struct {
 	TypeVariationRef uint32
 	TypeParameters   []UDTParameter
 	Name             string
+	DependencyAlias  string
 }
 
 func (m *ParameterizedUserDefinedType) SetNullability(n Nullability) FuncDefArgType {
@@ -129,7 +130,12 @@ func (m *ParameterizedUserDefinedType) String() string {
 		}
 		parameterString = fmt.Sprintf("<%s>", sb.String())
 	}
-	return fmt.Sprintf("u!%s%s%s", m.Name, strFromNullability(m.Nullability), parameterString)
+	name := m.Name
+	if m.DependencyAlias != "" {
+		name = m.DependencyAlias + ".u!" + name
+		return fmt.Sprintf("%s%s%s", name, strFromNullability(m.Nullability), parameterString)
+	}
+	return fmt.Sprintf("u!%s%s%s", name, strFromNullability(m.Nullability), parameterString)
 }
 
 func (m *ParameterizedUserDefinedType) HasParameterizedParam() bool {
@@ -192,6 +198,9 @@ func (m *ParameterizedUserDefinedType) GetNullability() Nullability {
 }
 
 func (m *ParameterizedUserDefinedType) ShortString() string {
+	if m.DependencyAlias != "" {
+		return fmt.Sprintf("%s.u!%s", m.DependencyAlias, m.Name)
+	}
 	return fmt.Sprintf("u!%s", m.Name)
 }
 

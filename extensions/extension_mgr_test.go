@@ -616,6 +616,57 @@ scalar_functions:
 	assert.NoError(t, err)
 }
 
+func TestLoadExtensionWithDependencyQualifiedUDT(t *testing.T) {
+	const dependency = `---
+urn: extension:test:dependency
+types:
+  - name: point
+    structure:
+      x: fp64
+      y: fp64
+`
+	const extensionWithDependencyQualifiedUDT = `---
+urn: extension:test:with_dependencies
+dependencies:
+  ext: extension:test:dependency
+  $ext: extension:test:dependency
+scalar_functions:
+  - name: distance
+    impls:
+      - args:
+          - name: a
+            value: ext.u!point
+          - name: b
+            value: list<$ext.u!point>
+        return: ext.u!point
+`
+
+	var c extensions.Collection
+	require.NoError(t, c.Load("http://localhost/dependency.yaml", strings.NewReader(dependency)))
+	err := c.Load("http://localhost/test.yaml", strings.NewReader(extensionWithDependencyQualifiedUDT))
+
+	assert.NoError(t, err)
+}
+
+func TestLoadExtensionWithUndeclaredDependencyAliasReference(t *testing.T) {
+	const extensionWithUndeclaredDependencyAlias = `---
+urn: extension:test:with_dependencies
+scalar_functions:
+  - name: distance
+    impls:
+      - args:
+          - name: a
+            value: ext.u!point
+        return: fp64
+`
+
+	var c extensions.Collection
+	err := c.Load("http://localhost/test.yaml", strings.NewReader(extensionWithUndeclaredDependencyAlias))
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "dependency alias \"ext\" is used but not declared")
+}
+
 func TestLoadExtensionWithUnloadedDependencyURN(t *testing.T) {
 	const extensionWithUnloadedDependencyURN = `---
 urn: extension:test:with_dependencies

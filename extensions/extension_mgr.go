@@ -16,6 +16,7 @@ import (
 	"github.com/goccy/go-yaml"
 	"github.com/substrait-io/substrait"
 	substraitgo "github.com/substrait-io/substrait-go/v8"
+	"github.com/substrait-io/substrait-go/v8/types"
 	"github.com/substrait-io/substrait-protobuf/go/substraitpb/extensions"
 )
 
@@ -42,6 +43,108 @@ func validateUrn(urn string) bool {
 
 func validateDependencyAlias(alias string) bool {
 	return dependencyAliasPattern.MatchString(alias)
+}
+
+func validateDependencyAliasReferences(file SimpleExtensionFile) error {
+	validateType := func(typ types.FuncDefArgType) error {
+		return validateTypeDependencyAliasReferences(typ, file.Dependencies)
+	}
+
+	for _, fn := range file.ScalarFunctions {
+		for _, impl := range fn.Impls {
+			for _, arg := range impl.Args {
+				if err := validateType(arg.GetTypeExpression()); err != nil {
+					return err
+				}
+			}
+			if impl.Return != nil {
+				if err := validateType(impl.Return.ValueType); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	for _, fn := range file.AggregateFunctions {
+		for _, impl := range fn.Impls {
+			for _, arg := range impl.Args {
+				if err := validateType(arg.GetTypeExpression()); err != nil {
+					return err
+				}
+			}
+			if impl.Return != nil {
+				if err := validateType(impl.Return.ValueType); err != nil {
+					return err
+				}
+			}
+			if err := validateType(impl.Intermediate.ValueType); err != nil {
+				return err
+			}
+		}
+	}
+
+	for _, fn := range file.WindowFunctions {
+		for _, impl := range fn.Impls {
+			for _, arg := range impl.Args {
+				if err := validateType(arg.GetTypeExpression()); err != nil {
+					return err
+				}
+			}
+			if impl.Return != nil {
+				if err := validateType(impl.Return.ValueType); err != nil {
+					return err
+				}
+			}
+			if err := validateType(impl.Intermediate.ValueType); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func validateTypeDependencyAliasReferences(typ types.FuncDefArgType, dependencies map[string]string) error {
+	if typ == nil {
+		return nil
+	}
+
+	switch t := typ.(type) {
+	case *types.ParameterizedUserDefinedType:
+		if t.DependencyAlias != "" {
+			if _, ok := dependencies[t.DependencyAlias]; !ok {
+				return fmt.Errorf("%w: dependency alias %q is used but not declared", substraitgo.ErrInvalidSimpleExtention, t.DependencyAlias)
+			}
+		}
+		for _, param := range t.TypeParameters {
+			if dataParam, ok := param.(*types.DataTypeUDTParam); ok {
+				if err := validateTypeDependencyAliasReferences(dataParam.Type, dependencies); err != nil {
+					return err
+				}
+			}
+		}
+	case *types.ParameterizedListType:
+		return validateTypeDependencyAliasReferences(t.Type, dependencies)
+	case *types.ParameterizedMapType:
+		if err := validateTypeDependencyAliasReferences(t.Key, dependencies); err != nil {
+			return err
+		}
+		return validateTypeDependencyAliasReferences(t.Value, dependencies)
+	case *types.ParameterizedStructType:
+		for _, field := range t.Types {
+			if err := validateTypeDependencyAliasReferences(field, dependencies); err != nil {
+				return err
+			}
+		}
+	case *types.ParameterizedFuncType:
+		for _, param := range t.Parameters {
+			if err := validateTypeDependencyAliasReferences(param, dependencies); err != nil {
+				return err
+			}
+		}
+		return validateTypeDependencyAliasReferences(t.Return, dependencies)
+	}
+	return nil
 }
 
 // GetDefaultCollectionWithNoError returns a Collection that is loaded with the default Substrait extension definitions.
@@ -231,6 +334,9 @@ func (c *Collection) Load(r io.Reader) error {
 		if !c.URNLoaded(dependencyURN) {
 			return fmt.Errorf("%w: dependency urn %q for alias %q is not loaded", substraitgo.ErrNotFound, dependencyURN, alias)
 		}
+	}
+	if err := validateDependencyAliasReferences(file); err != nil {
+		return err
 	}
 
 	if err := file.validateUserDefinedTypeReferences(); err != nil {
