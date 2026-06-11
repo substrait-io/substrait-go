@@ -94,7 +94,7 @@ func TestLoadExtensionCollection(t *testing.T) {
 	require.NoError(t, c.Load(strings.NewReader(sampleYAML)))
 
 	t.Run("check types", func(t *testing.T) {
-		id := extensions.ID{URN: urn}
+		id := extensions.TypeID{URN: urn}
 		id.Name = "point"
 		ty, ok := c.GetType(id)
 		assert.True(t, ok)
@@ -103,9 +103,9 @@ func TestLoadExtensionCollection(t *testing.T) {
 	})
 
 	t.Run("simple and compound func signature", func(t *testing.T) {
-		add, ok := c.GetScalarFunc(extensions.ID{URN: urn, Name: "add"})
+		add, ok := c.GetScalarFunc(extensions.FunctionID{URN: urn, Name: "add"})
 		assert.True(t, ok)
-		addCompound, ok := c.GetScalarFunc(extensions.ID{URN: urn, Name: "add:i8_i8"})
+		addCompound, ok := c.GetScalarFunc(extensions.FunctionID{URN: urn, Name: "add:i8_i8"})
 		assert.True(t, ok)
 		assert.Same(t, add, addCompound)
 
@@ -124,11 +124,11 @@ func TestLoadExtensionCollection(t *testing.T) {
 	})
 
 	t.Run("multiple impls need compound", func(t *testing.T) {
-		sub, ok := c.GetScalarFunc(extensions.ID{URN: urn, Name: "subtract"})
+		sub, ok := c.GetScalarFunc(extensions.FunctionID{URN: urn, Name: "subtract"})
 		assert.Nil(t, sub)
 		assert.False(t, ok)
 
-		sub, ok = c.GetScalarFunc(extensions.ID{URN: urn, Name: "subtract:i16_i16"})
+		sub, ok = c.GetScalarFunc(extensions.FunctionID{URN: urn, Name: "subtract:i16_i16"})
 		assert.True(t, ok)
 		assert.NotNil(t, sub)
 
@@ -142,11 +142,11 @@ func TestLoadExtensionCollection(t *testing.T) {
 	})
 
 	t.Run("same fn name different args", func(t *testing.T) {
-		ct, ok := c.GetAggregateFunc(extensions.ID{URN: urn, Name: "count:"})
+		ct, ok := c.GetAggregateFunc(extensions.FunctionID{URN: urn, Name: "count:"})
 		assert.True(t, ok)
 		assert.NotNil(t, ct)
 
-		ctArgs, ok := c.GetAggregateFunc(extensions.ID{URN: urn, Name: "count:any"})
+		ctArgs, ok := c.GetAggregateFunc(extensions.FunctionID{URN: urn, Name: "count:any"})
 		assert.True(t, ok)
 		assert.NotNil(t, ctArgs)
 
@@ -174,7 +174,7 @@ func TestExtensionSet(t *testing.T) {
 	assert.False(t, ok)
 
 	t.Run("add anchors", func(t *testing.T) {
-		id := extensions.ID{URN: urn}
+		id := extensions.FunctionID{URN: urn}
 		id.Name = "add"
 
 		anchor := s.GetFuncAnchor(id)
@@ -188,7 +188,7 @@ func TestExtensionSet(t *testing.T) {
 		assert.EqualValues(t, 2, anchor)
 
 		id.Name = "point"
-		anchor = s.GetTypeAnchor(id)
+		anchor = s.GetTypeAnchor(extensions.TypeID(id))
 		assert.EqualValues(t, 1, anchor)
 	})
 
@@ -276,7 +276,7 @@ func TestDefaultCollection(t *testing.T) {
 				variant extensions.FunctionVariant
 				ok      bool
 
-				id = extensions.ID{URN: tt.urn, Name: tt.compoundName}
+				id = extensions.FunctionID{URN: tt.urn, Name: tt.compoundName}
 			)
 			switch tt.typ {
 			case scalarFunc:
@@ -298,7 +298,7 @@ func TestDefaultCollection(t *testing.T) {
 		})
 	}
 
-	et, ok := extensions.GetDefaultCollectionWithNoError().GetType(extensions.ID{
+	et, ok := extensions.GetDefaultCollectionWithNoError().GetType(extensions.TypeID{
 		URN: extensions.SubstraitDefaultURNPrefix + "extension_types", Name: "point"})
 	assert.True(t, ok)
 	assert.Equal(t, "point", et.Name)
@@ -329,7 +329,7 @@ func TestCollection_GetAllScalarFunctions(t *testing.T) {
 		t.Run(tt.signature, func(t *testing.T) {
 			assert.True(t, tt.isScalar || tt.isAggregate || tt.isWindow)
 			if tt.isScalar {
-				sf, ok := defaultExtensions.GetScalarFunc(extensions.ID{URN: tt.urn, Name: tt.signature})
+				sf, ok := defaultExtensions.GetScalarFunc(extensions.FunctionID{URN: tt.urn, Name: tt.signature})
 				assert.True(t, ok)
 				assert.Contains(t, scalarFunctions, sf)
 				// verify that default nullability is set to MIRROR
@@ -338,12 +338,12 @@ func TestCollection_GetAllScalarFunctions(t *testing.T) {
 				assert.True(t, sf.Deterministic())
 			}
 			if tt.isAggregate {
-				af, ok := defaultExtensions.GetAggregateFunc(extensions.ID{URN: tt.urn, Name: tt.signature})
+				af, ok := defaultExtensions.GetAggregateFunc(extensions.FunctionID{URN: tt.urn, Name: tt.signature})
 				assert.True(t, ok)
 				assert.Contains(t, aggregateFunctions, af)
 			}
 			if tt.isWindow {
-				wf, ok := defaultExtensions.GetWindowFunc(extensions.ID{URN: tt.urn, Name: tt.signature})
+				wf, ok := defaultExtensions.GetWindowFunc(extensions.FunctionID{URN: tt.urn, Name: tt.signature})
 				assert.True(t, ok)
 				assert.Contains(t, windowFunctions, wf)
 			}
@@ -415,7 +415,7 @@ scalar_functions:
 				}
 			}
 
-			sf, ok := c.GetScalarFunc(extensions.ID{URN: urn, Name: "f:i8"})
+			sf, ok := c.GetScalarFunc(extensions.FunctionID{URN: urn, Name: "f:i8"})
 			require.True(t, ok)
 			assert.Equal(t, tt.expected, sf.Deterministic())
 		})
@@ -430,29 +430,29 @@ func TestAggregateToWindow(t *testing.T) {
 
 	t.Run("aggregate functions available as window functions", func(t *testing.T) {
 		// Test that the count function (with args) is available as both aggregate and window function
-		aggFunc, ok := c.GetAggregateFunc(extensions.ID{URN: urn, Name: "count:any"})
+		aggFunc, ok := c.GetAggregateFunc(extensions.FunctionID{URN: urn, Name: "count:any"})
 		require.True(t, ok)
 		require.NotNil(t, aggFunc)
 
-		winFunc, ok := c.GetWindowFunc(extensions.ID{URN: urn, Name: "count:any"})
+		winFunc, ok := c.GetWindowFunc(extensions.FunctionID{URN: urn, Name: "count:any"})
 		require.True(t, ok)
 		require.NotNil(t, winFunc)
 
 		// Test that the count function (without args) is available as both aggregate and window function
-		aggFuncNoArgs, ok := c.GetAggregateFunc(extensions.ID{URN: urn, Name: "count:"})
+		aggFuncNoArgs, ok := c.GetAggregateFunc(extensions.FunctionID{URN: urn, Name: "count:"})
 		require.True(t, ok)
 		require.NotNil(t, aggFuncNoArgs)
 
-		winFuncNoArgs, ok := c.GetWindowFunc(extensions.ID{URN: urn, Name: "count:"})
+		winFuncNoArgs, ok := c.GetWindowFunc(extensions.FunctionID{URN: urn, Name: "count:"})
 		require.True(t, ok)
 		require.NotNil(t, winFuncNoArgs)
 	})
 
 	t.Run("window functions preserve aggregate properties", func(t *testing.T) {
-		aggFunc, ok := c.GetAggregateFunc(extensions.ID{URN: urn, Name: "count:any"})
+		aggFunc, ok := c.GetAggregateFunc(extensions.FunctionID{URN: urn, Name: "count:any"})
 		require.True(t, ok)
 
-		winFunc, ok := c.GetWindowFunc(extensions.ID{URN: urn, Name: "count:any"})
+		winFunc, ok := c.GetWindowFunc(extensions.FunctionID{URN: urn, Name: "count:any"})
 		require.True(t, ok)
 
 		// Check that basic properties are preserved
@@ -481,7 +481,7 @@ func TestAggregateToWindow(t *testing.T) {
 	})
 
 	t.Run("aggregate functions used as window functions have streaming window type", func(t *testing.T) {
-		winFunc, ok := c.GetWindowFunc(extensions.ID{URN: urn, Name: "count:any"})
+		winFunc, ok := c.GetWindowFunc(extensions.FunctionID{URN: urn, Name: "count:any"})
 		require.True(t, ok)
 
 		// Check that the window type is STREAMING
@@ -489,10 +489,10 @@ func TestAggregateToWindow(t *testing.T) {
 	})
 
 	t.Run("type resolution works the same", func(t *testing.T) {
-		aggFunc, ok := c.GetAggregateFunc(extensions.ID{URN: urn, Name: "count:any"})
+		aggFunc, ok := c.GetAggregateFunc(extensions.FunctionID{URN: urn, Name: "count:any"})
 		require.True(t, ok)
 
-		winFunc, ok := c.GetWindowFunc(extensions.ID{URN: urn, Name: "count:any"})
+		winFunc, ok := c.GetWindowFunc(extensions.FunctionID{URN: urn, Name: "count:any"})
 		require.True(t, ok)
 
 		// Test type resolution with the same arguments
@@ -551,7 +551,7 @@ func TestAggregateToWindowWithDefaultCollection(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			id := extensions.ID{URN: tc.urn, Name: tc.functionName}
+			id := extensions.FunctionID{URN: tc.urn, Name: tc.functionName}
 
 			// Verify the aggregate function exists
 			aggFunc, ok := defaultExtensions.GetAggregateFunc(id)
@@ -983,7 +983,7 @@ scalar_functions:
 	var c extensions.Collection
 	require.NoError(t, c.Load(strings.NewReader(yaml)))
 
-	fn, _ := c.GetScalarFunc(extensions.ID{URN: "extension:x:test", Name: "f:any"})
+	fn, _ := c.GetScalarFunc(extensions.FunctionID{URN: "extension:x:test", Name: "f:any"})
 	i64 := &types.Int64Type{Nullability: types.NullabilityRequired}
 
 	result, err := fn.ResolveType([]types.Type{i64}, extensions.NewSet())
@@ -1010,7 +1010,7 @@ scalar_functions:
 	var c extensions.Collection
 	require.NoError(t, c.Load(strings.NewReader(yaml)))
 
-	fn, _ := c.GetScalarFunc(extensions.ID{URN: "extension:x:test", Name: "f:any_any"})
+	fn, _ := c.GetScalarFunc(extensions.FunctionID{URN: "extension:x:test", Name: "f:any_any"})
 	str := &types.StringType{Nullability: types.NullabilityRequired}
 	i64 := &types.Int64Type{Nullability: types.NullabilityRequired}
 
@@ -1040,7 +1040,7 @@ scalar_functions:
 	var c extensions.Collection
 	require.NoError(t, c.Load(strings.NewReader(yaml)))
 
-	fn, _ := c.GetScalarFunc(extensions.ID{URN: "extension:x:test", Name: "f:any"})
+	fn, _ := c.GetScalarFunc(extensions.FunctionID{URN: "extension:x:test", Name: "f:any"})
 	i64 := &types.Int64Type{Nullability: types.NullabilityRequired}
 
 	result, err := fn.ResolveType([]types.Type{i64}, extensions.NewSet())
@@ -1107,19 +1107,19 @@ window_functions:
 	assert.Equal(t, "example-team", fileMeta["maintainer"])
 	assert.Nil(t, c.GetFileMetadata("extension:test:nonexistent"))
 
-	typ, _ := c.GetType(extensions.ID{URN: urn, Name: "point"})
+	typ, _ := c.GetType(extensions.TypeID{URN: urn, Name: "point"})
 	assert.Equal(t, "WGS84", typ.Metadata["coordinate_system"])
 
-	sf, _ := c.GetScalarFunc(extensions.ID{URN: urn, Name: "distance:i32_i32"})
+	sf, _ := c.GetScalarFunc(extensions.FunctionID{URN: urn, Name: "distance:i32_i32"})
 	assert.Equal(t, "vectorized", sf.Metadata()["performance_hint"])
 
-	af, _ := c.GetAggregateFunc(extensions.ID{URN: urn, Name: "custom_sum:i32"})
+	af, _ := c.GetAggregateFunc(extensions.FunctionID{URN: urn, Name: "custom_sum:i32"})
 	assert.Equal(t, "experimental", af.Metadata()["stability"])
 
-	wf, _ := c.GetWindowFunc(extensions.ID{URN: urn, Name: "custom_rank:i32"})
+	wf, _ := c.GetWindowFunc(extensions.FunctionID{URN: urn, Name: "custom_rank:i32"})
 	assert.Equal(t, "test-team", wf.Metadata()["author"])
 
-	wfFromAgg, _ := c.GetWindowFunc(extensions.ID{URN: urn, Name: "custom_sum:i32"})
+	wfFromAgg, _ := c.GetWindowFunc(extensions.FunctionID{URN: urn, Name: "custom_sum:i32"})
 	assert.Equal(t, "experimental", wfFromAgg.Metadata()["stability"])
 }
 
@@ -1127,6 +1127,6 @@ func TestDefaultCollectionHasNoMetadata(t *testing.T) {
 	c, err := extensions.GetDefaultCollection()
 	require.NoError(t, err)
 
-	addFunc, _ := c.GetScalarFunc(extensions.ID{URN: "extension:io.substrait:functions_arithmetic", Name: "add:i32_i32"})
+	addFunc, _ := c.GetScalarFunc(extensions.FunctionID{URN: "extension:io.substrait:functions_arithmetic", Name: "add:i32_i32"})
 	assert.Nil(t, addFunc.Metadata())
 }

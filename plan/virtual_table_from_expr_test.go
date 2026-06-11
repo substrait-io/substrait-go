@@ -18,7 +18,7 @@ var (
 
 // makeAddExpr constructs expression val1 + val2.
 func makeAddExpr(t *testing.T, b plan.Builder, val1, val2 expr.Literal) expr.Expression {
-	id := extensions.ID{
+	id := extensions.FunctionID{
 		URN:  "extension:io.substrait:functions_arithmetic",
 		Name: "add:i32_i32",
 	}
