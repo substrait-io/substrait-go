@@ -175,12 +175,12 @@ func matchArguments(nullability NullabilityHandling, paramTypeList FuncParameter
 	if err != nil {
 		return false, nil
 	}
-	// loop over actualTypes and not params since actualTypes can be more than params
-	// considering variadic type
-	for argPos := range actualTypes {
-		match, err1 := matchArgumentAtCommon(actualTypes[argPos], argPos, nullability, funcDefArgList, variadicBehavior)
-		if err1 != nil {
-			return false, err1
+
+	matcher := newArgumentMatcher(nullability, funcDefArgList, variadicBehavior)
+	for argPos, actualType := range actualTypes {
+		match, err := matcher.matchArgument(actualType, argPos)
+		if err != nil {
+			return false, err
 		}
 		if !match {
 			return false, nil
@@ -190,7 +190,7 @@ func matchArguments(nullability NullabilityHandling, paramTypeList FuncParameter
 		return types.AreSyncTypeParametersMatching(funcDefArgList, actualTypes), nil
 	}
 
-	if err := ValidateConstrainedAnyTypeConsistency(funcDefArgList, actualTypes, variadicBehavior); err != nil {
+	if err := matcher.validateConstrainedAnyTypeConsistency(actualTypes); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -204,34 +204,59 @@ func matchArgumentAt(actualType types.Type, argPos int, nullability NullabilityH
 	if err != nil {
 		return false, nil
 	}
-	return matchArgumentAtCommon(actualType, argPos, nullability, funcDefArgList, variadicBehavior)
+	return newArgumentMatcher(nullability, funcDefArgList, variadicBehavior).matchArgument(actualType, argPos)
 }
 
-func matchArgumentAtCommon(actualType types.Type, argPos int, nullability NullabilityHandling, funcDefArgList []types.FuncDefArgType, variadicBehavior *VariadicBehavior) (bool, error) {
-	// check if argument out of range
-	if variadicBehavior == nil && argPos >= len(funcDefArgList) {
-		return false, nil
-	} else if variadicBehavior != nil && !variadicBehavior.IsValidArgumentPosition(argPos) {
-		// this argument position can't be more than the max allowed by the variadic behavior
+// argumentMatcher holds the state needed to compare invocation argument types against a function variant signature.
+type argumentMatcher struct {
+	nullability      NullabilityHandling
+	funcDefArgList   []types.FuncDefArgType
+	variadicBehavior *VariadicBehavior
+}
+
+// newArgumentMatcher creates a matcher for one function variant signature.
+func newArgumentMatcher(nullability NullabilityHandling, funcDefArgList []types.FuncDefArgType, variadicBehavior *VariadicBehavior) *argumentMatcher {
+	return &argumentMatcher{
+		nullability:      nullability,
+		funcDefArgList:   funcDefArgList,
+		variadicBehavior: variadicBehavior,
+	}
+}
+
+// matchArgument checks whether an argument type matches the signature parameter at the same position.
+func (m *argumentMatcher) matchArgument(actualType types.Type, argPos int) (bool, error) {
+	funcDefArg, ok := m.parameterAt(argPos)
+	if !ok {
 		return false, nil
 	}
 
-	// if argPos is >= len(funcDefArgList) than last funcDefArg type should be considered for type match
-	// already checked for parameter in range above (considering variadic) so no need to check again for variadic
-	var funcDefArg types.FuncDefArgType
-	if argPos < len(funcDefArgList) {
-		funcDefArg = funcDefArgList[argPos]
-	} else {
-		funcDefArg = funcDefArgList[len(funcDefArgList)-1]
-	}
-	switch nullability {
+	switch m.nullability {
 	case DiscreteNullability:
 		return funcDefArg.MatchWithNullability(actualType), nil
 	case MirrorNullability, DeclaredOutputNullability:
 		return funcDefArg.MatchWithoutNullability(actualType), nil
 	}
-	// unreachable case
-	return false, fmt.Errorf("invalid nullability type: %s", nullability)
+	return false, fmt.Errorf("invalid nullability type: %s", m.nullability)
+}
+
+// parameterAt returns the signature parameter for an argument position, accounting for variadic signatures.
+func (m *argumentMatcher) parameterAt(argPos int) (types.FuncDefArgType, bool) {
+	if argPos < 0 {
+		return nil, false
+	}
+	if m.variadicBehavior == nil {
+		if argPos >= len(m.funcDefArgList) {
+			return nil, false
+		}
+		return m.funcDefArgList[argPos], true
+	}
+	if !m.variadicBehavior.IsValidArgumentPosition(argPos) {
+		return nil, false
+	}
+	if argPos < len(m.funcDefArgList) {
+		return m.funcDefArgList[argPos], true
+	}
+	return m.funcDefArgList[len(m.funcDefArgList)-1], true
 }
 
 // validateVariadicBehaviorForMatch validates variadic argument counts and enforces
@@ -756,28 +781,39 @@ func validateAnyTypeBinding(paramType types.FuncDefArgType, argType types.Type, 
 // ValidateConstrainedAnyTypeConsistency validates that all uses of the same AnyN parameter
 // (e.g., any1, any2, etc.) resolve to the same concrete type across all arguments
 func ValidateConstrainedAnyTypeConsistency(funcParameters []types.FuncDefArgType, argumentTypes []types.Type, variadicBehavior *VariadicBehavior) error {
-	// For variadic functions, expand the parameter list to match actual arguments
-	expandedFuncParameters := funcParameters
-	if variadicBehavior != nil && len(argumentTypes) > len(funcParameters) {
-		numVariadicArgs := len(argumentTypes) - len(funcParameters) + 1
-		nonVariadicParams := funcParameters[:len(funcParameters)-1]
-		variadicParam := funcParameters[len(funcParameters)-1]
+	return newArgumentMatcher(MirrorNullability, funcParameters, variadicBehavior).validateConstrainedAnyTypeConsistency(argumentTypes)
+}
 
-		expandedFuncParameters = make([]types.FuncDefArgType, len(nonVariadicParams)+numVariadicArgs)
-		copy(expandedFuncParameters, nonVariadicParams)
-		for i := range numVariadicArgs {
-			expandedFuncParameters[len(nonVariadicParams)+i] = variadicParam
-		}
-	}
-
+// validateConstrainedAnyTypeConsistency checks that repeated anyN parameters bind to the same concrete type.
+func (m *argumentMatcher) validateConstrainedAnyTypeConsistency(argumentTypes []types.Type) error {
 	bindings := make(map[string]types.Type)
 
-	// Validate each argument against its parameter type
-	for i := 0; i < len(expandedFuncParameters) && i < len(argumentTypes); i++ {
-		if err := validateAnyTypeBinding(expandedFuncParameters[i], argumentTypes[i], bindings); err != nil {
+	for i, funcParameter := range m.expandedParameters(argumentTypes) {
+		if i >= len(argumentTypes) {
+			break
+		}
+		if err := validateAnyTypeBinding(funcParameter, argumentTypes[i], bindings); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+// expandedParameters repeats the variadic parameter so parameter and argument slices can be compared positionally.
+func (m *argumentMatcher) expandedParameters(argumentTypes []types.Type) []types.FuncDefArgType {
+	if m.variadicBehavior == nil || len(argumentTypes) <= len(m.funcDefArgList) {
+		return m.funcDefArgList
+	}
+
+	numVariadicArgs := len(argumentTypes) - len(m.funcDefArgList) + 1
+	nonVariadicParams := m.funcDefArgList[:len(m.funcDefArgList)-1]
+	variadicParam := m.funcDefArgList[len(m.funcDefArgList)-1]
+
+	expandedFuncParameters := make([]types.FuncDefArgType, len(nonVariadicParams)+numVariadicArgs)
+	copy(expandedFuncParameters, nonVariadicParams)
+	for i := range numVariadicArgs {
+		expandedFuncParameters[len(nonVariadicParams)+i] = variadicParam
+	}
+	return expandedFuncParameters
 }
