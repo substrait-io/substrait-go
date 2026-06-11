@@ -20,12 +20,12 @@ import (
 func TestEvaluateTypeExpression(t *testing.T) {
 	var (
 		// Function definition argument type shortcuts.
-		i64Null, _      = parser.ParseType("i64?")
-		i64NonNull, _   = parser.ParseType("i64")
-		strNull, _      = parser.ParseType("string?")
-		strNonNull, _   = parser.ParseType("string")
-		any1NonNull, _  = parser.ParseType("any1")
-		any1Nullable, _ = parser.ParseType("any1?")
+		i64Null, _      = parser.ParseType("i64?", nil)
+		i64NonNull, _   = parser.ParseType("i64", nil)
+		strNull, _      = parser.ParseType("string?", nil)
+		strNonNull, _   = parser.ParseType("string", nil)
+		any1NonNull, _  = parser.ParseType("any1", nil)
+		any1Nullable, _ = parser.ParseType("any1?", nil)
 		any1listNonNull = mkFuncArgList(any1NonNull)
 
 		// Few shortcut type definitions.
@@ -206,9 +206,9 @@ func TestEvaluateTypeExpression(t *testing.T) {
 
 func TestVariantWithVariadic(t *testing.T) {
 	var (
-		i64Null, _     = parser.ParseType("i64?")
-		i64NonNull, _  = parser.ParseType("i64")
-		varcharNull, _ = parser.ParseType("varchar?<20>")
+		i64Null, _     = parser.ParseType("i64?", nil)
+		i64NonNull, _  = parser.ParseType("i64", nil)
+		varcharNull, _ = parser.ParseType("varchar?<20>", nil)
 	)
 
 	tests := []struct {
@@ -473,7 +473,9 @@ func TestResolveType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// set up type registry
-			returnType, _ := parser.ParseType(tt.returnType)
+			returnType, _ := parser.ParseType(tt.returnType, func(name string, nullability types.Nullability, parameters []types.UDTParameter) (*types.ParameterizedUserDefinedType, error) {
+				return &types.ParameterizedUserDefinedType{Name: name, URN: "extension:org:item", Nullability: nullability, TypeParameters: parameters}, nil
+			})
 			registry := extensions.NewSet()
 			var expectedRef uint32
 			if tt.expectedUDT {
@@ -512,8 +514,10 @@ func TestResolveType(t *testing.T) {
 
 func TestResolveTypeErrorHandling(t *testing.T) {
 	// Test error propagation from EvaluateTypeExpression
-	returnType, _ := parser.ParseType("u!custom_type")
-	argType, _ := parser.ParseType("i64")
+	returnType, _ := parser.ParseType("u!custom_type", func(name string, nullability types.Nullability, parameters []types.UDTParameter) (*types.ParameterizedUserDefinedType, error) {
+		return &types.ParameterizedUserDefinedType{Name: name, URN: "extension:org:item", Nullability: nullability, TypeParameters: parameters}, nil
+	})
+	argType, _ := parser.ParseType("i64", nil)
 
 	// Create function parameter list that expects one argument
 	funcParams := extensions.FuncParameterList{valArg(argType)}

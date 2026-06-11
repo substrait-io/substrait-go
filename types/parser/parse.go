@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/antlr4-go/antlr/v4"
-	substraitgo "github.com/substrait-io/substrait-go/v8"
+	"github.com/goccy/go-yaml"
 	"github.com/substrait-io/substrait-go/v8/types"
 	baseparser2 "github.com/substrait-io/substrait-go/v8/types/parser/baseparser"
 	"github.com/substrait-io/substrait-go/v8/types/parser/util"
@@ -14,31 +14,35 @@ type TypeExpression struct {
 	ValueType types.FuncDefArgType
 }
 
+type UserDefinedTypeResolver func(name string, nullability types.Nullability, parameters []types.UDTParameter) (*types.ParameterizedUserDefinedType, error)
+
+type TypeParser struct {
+	ResolveUserDefinedType UserDefinedTypeResolver
+}
+
 func (t *TypeExpression) MarshalYAML() (interface{}, error) {
 	return t.ValueType.String(), nil
 }
 
-func (t *TypeExpression) UnmarshalYAML(fn func(interface{}) error) error {
-	type Alias any
-	var alias Alias
-	if err := fn(&alias); err != nil {
+func (t *TypeExpression) UnmarshalYAML(data []byte) error {
+	var typeString string
+	if err := yaml.Unmarshal(data, &typeString); err != nil {
 		return err
 	}
 
-	switch v := alias.(type) {
-	case string:
-		exp, err := ParseType(v)
-		if err != nil {
-			return err
-		}
-		t.ValueType = exp
-		return nil
+	exp, err := TypeParser{}.Parse(typeString)
+	if err != nil {
+		return err
 	}
-
-	return substraitgo.ErrNotImplemented
+	t.ValueType = exp
+	return nil
 }
 
-func ParseType(input string) (types.FuncDefArgType, error) {
+func ParseType(input string, resolveUserDefinedType UserDefinedTypeResolver) (types.FuncDefArgType, error) {
+	return TypeParser{ResolveUserDefinedType: resolveUserDefinedType}.Parse(input)
+}
+
+func (tp TypeParser) Parse(input string) (types.FuncDefArgType, error) {
 	is := antlr.NewInputStream(input)
 	lexer := baseparser2.NewSubstraitTypeLexer(is)
 	stream := antlr.NewCommonTokenStream(lexer, 0)
@@ -47,7 +51,7 @@ func ParseType(input string) (types.FuncDefArgType, error) {
 	p.AddErrorListener(errorListener)
 	p.GetInterpreter().SetPredictionMode(antlr.PredictionModeSLL)
 
-	visitor := &TypeVisitor{}
+	visitor := &TypeVisitor{ResolveUserDefinedType: tp.ResolveUserDefinedType, ErrorListener: errorListener}
 	ret, err := parseType(input, p, errorListener, visitor)
 	if err != nil {
 		return nil, err

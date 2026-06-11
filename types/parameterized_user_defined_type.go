@@ -110,6 +110,7 @@ type ParameterizedUserDefinedType struct {
 	TypeVariationRef uint32
 	TypeParameters   []UDTParameter
 	Name             string
+	URN              string
 }
 
 func (m *ParameterizedUserDefinedType) SetNullability(n Nullability) FuncDefArgType {

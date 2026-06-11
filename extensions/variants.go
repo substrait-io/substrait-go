@@ -148,7 +148,11 @@ func EvaluateTypeExpression(urn string, nullHandling NullabilityHandling, return
 	// For other types like AnyType, the TypeReference is already correctly set.
 	if udt, ok := outType.(*types.UserDefinedType); ok {
 		if paramUDT, ok := returnTypeExpr.(*types.ParameterizedUserDefinedType); ok {
-			udt.TypeReference = registry.GetTypeAnchor(ID{Name: paramUDT.Name, URN: urn})
+			udtURN := paramUDT.URN
+			if udtURN == "" {
+				udtURN = urn
+			}
+			udt.TypeReference = registry.GetTypeAnchor(ID{Name: paramUDT.Name, URN: udtURN})
 		}
 	}
 
@@ -277,7 +281,7 @@ func parseFuncName(compoundName string) (name string, args FuncParameterList) {
 	}
 	splitArgs := strings.Split(argsStr, "_")
 	for _, argStr := range splitArgs {
-		parsed, err := parser.ParseType(argStr)
+		parsed, err := parser.ParseType(argStr, nil)
 		if err != nil {
 			panic(err)
 		}
@@ -422,7 +426,7 @@ func NewAggFuncVariantOpts(id ID, opts AggVariantOptions) *AggregateFunctionVari
 				substraitgo.ErrInvalidExpr, id))
 		}
 
-		intermediate, err := parser.ParseType(opts.IntermediateOutputType)
+		intermediate, err := parser.ParseType(opts.IntermediateOutputType, nil)
 		if err != nil {
 			panic(err)
 		}
@@ -549,7 +553,7 @@ func NewWindowFuncVariantOpts(id ID, opts WindowVariantOpts) *WindowFunctionVari
 				substraitgo.ErrInvalidExpr, id))
 		}
 
-		intermediate, err := parser.ParseType(opts.IntermediateOutputType)
+		intermediate, err := parser.ParseType(opts.IntermediateOutputType, nil)
 		if err != nil {
 			panic(err)
 		}

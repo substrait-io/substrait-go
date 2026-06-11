@@ -4,9 +4,9 @@ package extensions
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 
+	"github.com/goccy/go-yaml"
 	substraitgo "github.com/substrait-io/substrait-go/v8"
 	"github.com/substrait-io/substrait-go/v8/types"
 	"github.com/substrait-io/substrait-go/v8/types/parser"
@@ -114,13 +114,17 @@ func (v TypeArg) GetTypeExpression() types.FuncDefArgType {
 
 type FuncParameterList []FuncParameter
 
-func (a *FuncParameterList) UnmarshalYAML(fn func(interface{}) error) error {
+func (a *FuncParameterList) UnmarshalYAML(data []byte) error {
+	return parseFuncParameterList(data, parser.TypeParser{}, a)
+}
+
+func parseFuncParameterList(data []byte, typeParser parser.TypeParser, out *FuncParameterList) error {
 	var args []map[string]any
-	if err := fn(&args); err != nil {
+	if err := yaml.Unmarshal(data, &args); err != nil {
 		return err
 	}
 
-	*a = make(FuncParameterList, len(args))
+	*out = make(FuncParameterList, len(args))
 	for i, arg := range args {
 		var (
 			name, desc string
@@ -138,7 +142,7 @@ func (a *FuncParameterList) UnmarshalYAML(fn func(interface{}) error) error {
 			for j, v := range vals {
 				values[j] = v.(string)
 			}
-			(*a)[i] = EnumArg{
+			(*out)[i] = EnumArg{
 				Name:        name,
 				Description: desc,
 				Options:     values,
@@ -149,45 +153,29 @@ func (a *FuncParameterList) UnmarshalYAML(fn func(interface{}) error) error {
 				constant = c.(bool)
 			}
 
-			arg := ValueArg{
+			valueType, err := parseTypeExpressionFromYAMLValue(typeParser, val)
+			if err != nil {
+				return fmt.Errorf("failure reading YAML %v", err)
+			}
+
+			(*out)[i] = ValueArg{
 				Name:        name,
 				Description: desc,
-				Value:       new(parser.TypeExpression),
+				Value:       &valueType,
 				Constant:    constant,
 			}
-			err := arg.Value.UnmarshalYAML(func(v any) error {
-				rv := reflect.ValueOf(v)
-				if rv.Type().Kind() != reflect.Ptr {
-					return substraitgo.ErrInvalidType
-				}
-				rv.Elem().Set(reflect.ValueOf(val))
-				return nil
-			})
-			if err != nil {
-				return fmt.Errorf("failure reading YAML %v", err)
-			}
-
-			(*a)[i] = arg
 
 		} else if typ, ok := arg["type"]; ok {
-			arg := TypeArg{
-				Name:        name,
-				Description: desc,
-				Type:        new(parser.TypeExpression),
-			}
-			err := arg.Type.UnmarshalYAML(func(v any) error {
-				rv := reflect.ValueOf(v)
-				if rv.Type().Kind() != reflect.Ptr {
-					return substraitgo.ErrInvalidType
-				}
-				rv.Elem().Set(reflect.ValueOf(typ))
-				return nil
-			})
+			typeExpr, err := parseTypeExpressionFromYAMLValue(typeParser, typ)
 			if err != nil {
 				return fmt.Errorf("failure reading YAML %v", err)
 			}
 
-			(*a)[i] = arg
+			(*out)[i] = TypeArg{
+				Name:        name,
+				Description: desc,
+				Type:        &typeExpr,
+			}
 		}
 	}
 
@@ -501,4 +489,78 @@ type SimpleExtensionFile struct {
 	ScalarFunctions    []ScalarFunction    `yaml:"scalar_functions,omitempty"`
 	AggregateFunctions []AggregateFunction `yaml:"aggregate_functions,omitempty"`
 	WindowFunctions    []WindowFunction    `yaml:"window_functions,omitempty"`
+}
+
+func (s *SimpleExtensionFile) UnmarshalYAML(data []byte) error {
+	type typeDeclarations struct {
+		Urn   string `yaml:"urn"`
+		Types []Type `yaml:"types,omitempty"`
+	}
+	var declarations typeDeclarations
+	if err := yaml.Unmarshal(data, &declarations); err != nil {
+		return err
+	}
+
+	declaredTypes := make(map[string]struct{}, len(declarations.Types))
+	for _, typ := range declarations.Types {
+		declaredTypes[typ.Name] = struct{}{}
+	}
+
+	typeParser := parser.TypeParser{
+		ResolveUserDefinedType: func(name string, nullability types.Nullability, parameters []types.UDTParameter) (*types.ParameterizedUserDefinedType, error) {
+			if _, ok := declaredTypes[name]; !ok {
+				return nil, fmt.Errorf("%w: user-defined type %q is not declared", substraitgo.ErrInvalidSimpleExtention, name)
+			}
+			return &types.ParameterizedUserDefinedType{
+				Name:           name,
+				URN:            declarations.Urn,
+				Nullability:    nullability,
+				TypeParameters: parameters,
+			}, nil
+		},
+	}
+
+	type rawFile SimpleExtensionFile
+	var raw rawFile
+	if err := yaml.UnmarshalWithOptions(
+		data,
+		&raw,
+		yaml.CustomUnmarshaler[parser.TypeExpression](func(out *parser.TypeExpression, data []byte) error {
+			parsed, err := parseTypeExpression(data, typeParser)
+			if err != nil {
+				return err
+			}
+			*out = parsed
+			return nil
+		}),
+		yaml.CustomUnmarshaler[FuncParameterList](func(out *FuncParameterList, data []byte) error {
+			return parseFuncParameterList(data, typeParser, out)
+		}),
+	); err != nil {
+		return err
+	}
+
+	*s = SimpleExtensionFile(raw)
+	return nil
+}
+
+func parseTypeExpressionFromYAMLValue(typeParser parser.TypeParser, value any) (parser.TypeExpression, error) {
+	typeString, ok := value.(string)
+	if !ok {
+		return parser.TypeExpression{}, substraitgo.ErrInvalidType
+	}
+	return parseTypeExpression([]byte(typeString), typeParser)
+}
+
+func parseTypeExpression(data []byte, typeParser parser.TypeParser) (parser.TypeExpression, error) {
+	var typeString string
+	if err := yaml.Unmarshal(data, &typeString); err != nil {
+		return parser.TypeExpression{}, err
+	}
+
+	typ, err := typeParser.Parse(typeString)
+	if err != nil {
+		return parser.TypeExpression{}, err
+	}
+	return parser.TypeExpression{ValueType: typ}, nil
 }

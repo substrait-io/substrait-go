@@ -18,7 +18,7 @@ type testcase struct {
 }
 
 func parseAndTestTypeDerivation(t *testing.T, tt *testcase) {
-	resultType, err := parser.ParseType(tt.expr)
+	resultType, err := parser.ParseType(tt.expr, nil)
 	require.NoError(t, err)
 	require.NotNil(t, resultType)
 	derivation, ok := resultType.(*types.OutputDerivation)
@@ -161,7 +161,7 @@ decimal<prec,scale>`
 		t.Run(tt.name, func(t *testing.T) {
 			funcParameters := parseFuncParameters(t, tt.parameters)
 			funcArguments := parseFuncArguments(t, tt.args)
-			resultType, err := parser.ParseType(tt.expr)
+			resultType, err := parser.ParseType(tt.expr, nil)
 			require.NoError(t, err)
 			require.NotNil(t, resultType)
 			derivation, ok := resultType.(*types.OutputDerivation)
@@ -190,7 +190,7 @@ func parseFuncParameters(t *testing.T, params []string) []types.FuncDefArgType {
 	result := make([]types.FuncDefArgType, len(params))
 	for i, p := range params {
 		var err error
-		result[i], err = parser.ParseType(p)
+		result[i], err = parser.ParseType(p, nil)
 		require.NoError(t, err)
 	}
 	return result
@@ -199,7 +199,7 @@ func parseFuncParameters(t *testing.T, params []string) []types.FuncDefArgType {
 func parseFuncArguments(t *testing.T, args []string) []types.Type {
 	result := make([]types.Type, len(args))
 	for i, a := range args {
-		funcDefArgType, err := parser.ParseType(a)
+		funcDefArgType, err := parser.ParseType(a, nil)
 		require.NoError(t, err)
 		result[i], err = funcDefArgType.WithParameters(nil)
 		require.NoError(t, err)
