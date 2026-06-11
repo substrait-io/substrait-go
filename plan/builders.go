@@ -43,14 +43,14 @@ type Builder interface {
 	// the condition or post join filter for a join relation.
 	JoinedRecordFieldRef(left, right Rel, index int32) (*expr.FieldReference, error)
 	// ScalarFn constructs a ScalarFunction from the passed in namespace and
-	// function name key. This is equivalent to calling expr.NewScalarFunc using
+	// registered function variant name. This is equivalent to calling expr.NewScalarFunc using
 	// the builder's extension registry. An error will be returned if the indicated
 	// function was not already in the extension collection the builder was created
 	// with or if the arguments of the function don't match the provided argument
 	// types.
 	ScalarFn(nameSpace, key string, opts []*types.FunctionOption, args ...types.FuncArg) (*expr.ScalarFunction, error)
 	// AggregateFn constructs an AggregateFunction from the passed in namespace and
-	// function name key. This is equivalent to calling expr.NewAggregateFunc using
+	// registered function variant name. This is equivalent to calling expr.NewAggregateFunc using
 	// the builder's extension registry. An error will be returned if the indicated
 	// function was not already in the extension collection the builder was created
 	// with or if the arguments of the function don't match the provided argument

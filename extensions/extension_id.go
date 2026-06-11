@@ -14,8 +14,7 @@ type ExtensionID struct {
 type TypeID ExtensionID
 
 // FunctionID is the unique identifier for a Substrait extension function.
-// For lookups, Name may be the simple function name. As a unique identifier,
-// Name is the compound function name.
+// Name is the registered compound function variant name.
 type FunctionID ExtensionID
 
 // TypeVariationID is the unique identifier for a Substrait extension type variation.
