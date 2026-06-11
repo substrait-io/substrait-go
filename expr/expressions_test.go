@@ -247,7 +247,7 @@ func TestExpressionsRoundtrip(t *testing.T) {
 
 func TestScalarFunctionMissingOutputTypeReturnsError(t *testing.T) {
 	registry := expr.NewEmptyExtensionRegistry(ext.GetDefaultCollectionWithNoError())
-	functionReference := registry.GetFuncAnchor(ext.ID{
+	functionReference := registry.GetFuncAnchor(ext.FunctionID{
 		URN:  "extension:io.substrait:functions_arithmetic",
 		Name: "add:i64_i64",
 	})
@@ -268,7 +268,7 @@ func TestScalarFunctionMissingOutputTypeReturnsError(t *testing.T) {
 
 func TestWindowFunctionMissingOutputTypeReturnsError(t *testing.T) {
 	registry := expr.NewEmptyExtensionRegistry(ext.GetDefaultCollectionWithNoError())
-	functionReference := registry.GetFuncAnchor(ext.ID{
+	functionReference := registry.GetFuncAnchor(ext.FunctionID{
 		URN:  "extension:io.substrait:functions_arithmetic",
 		Name: "sum:i64",
 	})
