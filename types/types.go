@@ -537,6 +537,17 @@ type (
 	}
 )
 
+// matchTypeComponentWithNullability matches a nested type component where
+// nullability is part of the structural match. AnyType is special because
+// `any1` binds to the argument type it sees, while `any1?` constrains that
+// binding to nullable arguments without changing the bound type's base shape.
+func matchTypeComponentWithNullability(param FuncDefArgType, actual Type) bool {
+	if anyType, ok := param.(*AnyType); ok {
+		return anyType.Nullability != NullabilityNullable || actual.GetNullability() == NullabilityNullable
+	}
+	return param.MatchWithNullability(actual)
+}
+
 var CommonEnumType = &EnumType{}
 
 // EnumType represents an enumeration function parameter.

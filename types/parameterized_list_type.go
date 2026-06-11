@@ -43,15 +43,14 @@ func (m *ParameterizedListType) MatchWithNullability(ot Type) bool {
 		return false
 	}
 	if olt, ok := ot.(*ListType); ok {
-		result := m.Type.MatchWithNullability(olt.Type)
-		return result
+		return matchTypeComponentWithNullability(m.Type, olt.Type)
 	}
 	return false
 }
 
 func (m *ParameterizedListType) MatchWithoutNullability(ot Type) bool {
 	if olt, ok := ot.(*ListType); ok {
-		return m.Type.MatchWithoutNullability(olt.Type)
+		return matchTypeComponentWithNullability(m.Type, olt.Type)
 	}
 	return false
 }

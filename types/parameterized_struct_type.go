@@ -64,7 +64,7 @@ func (m *ParameterizedStructType) MatchWithNullability(ot Type) bool {
 			return false
 		}
 		for i, typ := range m.Types {
-			if !typ.MatchWithNullability(omt.Types[i]) {
+			if !matchTypeComponentWithNullability(typ, omt.Types[i]) {
 				return false
 			}
 		}
@@ -79,7 +79,7 @@ func (m *ParameterizedStructType) MatchWithoutNullability(ot Type) bool {
 			return false
 		}
 		for i, typ := range m.Types {
-			if !typ.MatchWithoutNullability(omt.Types[i]) {
+			if !matchTypeComponentWithNullability(typ, omt.Types[i]) {
 				return false
 			}
 		}
