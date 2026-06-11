@@ -923,11 +923,19 @@ func TestNewList(t *testing.T) {
 	i8Lit2 := NewInt8(2, false)
 	i32Lit1 := NewInt32(1, false)
 	i32Lit2 := NewInt32(2, false)
+	// varchar<1> and varchar<4> share a base type but differ in length, which is
+	// allowed within one list; dec1 is a decimal, a different base type that
+	// shares a Go wrapper with varchar.
+	vc1, _ := NewVarChar("a", false)
+	vc4, _ := NewVarChar("abcd", false)
+	dec1, _ := NewDecimalFromString("1.0", false)
 	listLiteral, _ := expr.NewLiteral[expr.ListLiteralValue]([]expr.Literal{i8Lit1, i8Lit2}, false)
 	int8Type := &types.Int8Type{Nullability: types.NullabilityRequired}
 	int32Type := &types.Int32Type{Nullability: types.NullabilityRequired}
+	varChar1Type := &types.VarCharType{Length: 1, Nullability: types.NullabilityRequired}
 	int8ListType := &types.ListType{Type: int8Type, Nullability: types.NullabilityRequired}
 	int32ListType := &types.ListType{Type: int32Type, Nullability: types.NullabilityRequired}
+	varCharListType := &types.ListType{Type: varChar1Type, Nullability: types.NullabilityRequired}
 	listOfListType := &types.ListType{Type: int8ListType, Nullability: types.NullabilityRequired}
 	tests := []struct {
 		name       string
@@ -942,6 +950,8 @@ func TestNewList(t *testing.T) {
 		{"listOfListSingle", []expr.Literal{listLiteral}, true, listOfListType, assert.NoError},
 		{"i8List", []expr.Literal{i8Lit1, i8Lit2}, true, int8ListType, assert.NoError},
 		{"i32List", []expr.Literal{i32Lit1, i32Lit2}, true, int32ListType, assert.NoError},
+		{"differingParams", []expr.Literal{vc1, vc4}, true, varCharListType, assert.NoError},
+		{"crossFamily", []expr.Literal{dec1, vc1}, false, nil, assert.Error},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -955,6 +965,128 @@ func TestNewList(t *testing.T) {
 				assert.Equalf(t, want, got, "NewList(%v)", tt.elements)
 				assert.Equalf(t, tt.litType, got.GetType(), "NewList(%v)", tt.elements)
 			}
+		})
+	}
+}
+
+func TestNewMap(t *testing.T) {
+	i8Key1 := NewInt8(1, false)
+	i8Key2 := NewInt8(2, false)
+	i32Key1 := NewInt32(1, false)
+	strVal1 := NewString("a", false)
+	strVal2 := NewString("b", false)
+	i32Val1 := NewInt32(10, false)
+	nullStrVal := expr.NewNullLiteral(&types.StringType{Nullability: types.NullabilityNullable})
+	nullI8Key := expr.NewNullLiteral(&types.Int8Type{Nullability: types.NullabilityNullable})
+	// vc1 is varchar<1>, vc4 is varchar<4>. They share a base type but differ in
+	// the length parameter, which is allowed within one list/map. dec1 is a
+	// decimal, a different base type that nonetheless shares a Go wrapper with
+	// varchar.
+	vc1, _ := NewVarChar("a", false)
+	vc4, _ := NewVarChar("abcd", false)
+	dec1, _ := NewDecimalFromString("1.0", false)
+
+	int8Type := &types.Int8Type{Nullability: types.NullabilityRequired}
+	nullInt8Type := &types.Int8Type{Nullability: types.NullabilityNullable}
+	stringType := &types.StringType{Nullability: types.NullabilityRequired}
+	nullStringType := &types.StringType{Nullability: types.NullabilityNullable}
+	varChar1Type := &types.VarCharType{Length: 1, Nullability: types.NullabilityRequired}
+	mapType := &types.MapType{Key: int8Type, Value: stringType, Nullability: types.NullabilityRequired}
+	nullableMapType := &types.MapType{Key: int8Type, Value: stringType, Nullability: types.NullabilityNullable}
+	// differing varchar lengths keep the first entry's parameters
+	varCharValMapType := &types.MapType{Key: int8Type, Value: varChar1Type, Nullability: types.NullabilityRequired}
+	varCharKeyMapType := &types.MapType{Key: varChar1Type, Value: stringType, Nullability: types.NullabilityRequired}
+	// the key/value types come from the first entry, so a leading null literal
+	// keeps that column nullable
+	nullValueMapType := &types.MapType{Key: int8Type, Value: nullStringType, Nullability: types.NullabilityRequired}
+	nullKeyMapType := &types.MapType{Key: nullInt8Type, Value: stringType, Nullability: types.NullabilityRequired}
+
+	tests := []struct {
+		name       string
+		entries    expr.MapLiteralValue
+		nullable   bool
+		expSuccess bool
+		litType    types.Type
+		wantErr    assert.ErrorAssertionFunc
+	}{
+		{"empty", expr.MapLiteralValue{}, false, false, nil, assert.Error},
+		{"single", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}}, false, true, mapType, assert.NoError},
+		{"multiple", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: i8Key2, Value: strVal2}}, false, true, mapType, assert.NoError},
+		{"nullable", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}}, true, true, nullableMapType, assert.NoError},
+		{"mismatchedKeys", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: i32Key1, Value: strVal2}}, false, false, nil, assert.Error},
+		{"mismatchedValues", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: i8Key2, Value: i32Val1}}, false, false, nil, assert.Error},
+		{"nullValue", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: i8Key2, Value: nullStrVal}}, false, true, mapType, assert.NoError},
+		{"nullKey", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: nullI8Key, Value: strVal2}}, false, true, mapType, assert.NoError},
+		{"leadingNullValue", expr.MapLiteralValue{{Key: i8Key1, Value: nullStrVal}, {Key: i8Key2, Value: strVal2}}, false, true, nullValueMapType, assert.NoError},
+		{"leadingNullKey", expr.MapLiteralValue{{Key: nullI8Key, Value: strVal1}, {Key: i8Key2, Value: strVal2}}, false, true, nullKeyMapType, assert.NoError},
+		{"differingValueParams", expr.MapLiteralValue{{Key: i8Key1, Value: vc1}, {Key: i8Key2, Value: vc4}}, false, true, varCharValMapType, assert.NoError},
+		{"differingKeyParams", expr.MapLiteralValue{{Key: vc1, Value: strVal1}, {Key: vc4, Value: strVal2}}, false, true, varCharKeyMapType, assert.NoError},
+		{"crossFamilyValues", expr.MapLiteralValue{{Key: i8Key1, Value: dec1}, {Key: i8Key2, Value: vc1}}, false, false, nil, assert.Error},
+		{"crossFamilyKeys", expr.MapLiteralValue{{Key: dec1, Value: strVal1}, {Key: vc1, Value: strVal2}}, false, false, nil, assert.Error},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewMap(tt.entries, tt.nullable)
+			if !tt.wantErr(t, err, fmt.Sprintf("NewMap(%v)", tt.entries)) {
+				return
+			}
+			if tt.expSuccess {
+				want, err := expr.NewLiteral[expr.MapLiteralValue](tt.entries, tt.nullable)
+				require.NoError(t, err)
+				assert.Equalf(t, want, got, "NewMap(%v)", tt.entries)
+				assert.Equalf(t, tt.litType, got.GetType(), "NewMap(%v)", tt.entries)
+			}
+		})
+	}
+}
+
+func TestNewEmptyMap(t *testing.T) {
+	tests := []struct {
+		name      string
+		keyType   types.Type
+		valueType types.Type
+		nullable  bool
+	}{
+		{"i8ToString", &types.Int8Type{Nullability: types.NullabilityRequired}, &types.StringType{Nullability: types.NullabilityRequired}, false},
+		{"i8ToStringNullable", &types.Int8Type{Nullability: types.NullabilityRequired}, &types.StringType{Nullability: types.NullabilityRequired}, true},
+		{"stringToI32", &types.StringType{Nullability: types.NullabilityRequired}, &types.Int32Type{Nullability: types.NullabilityRequired}, false},
+		{"i8ToListOfI32", &types.Int8Type{Nullability: types.NullabilityRequired}, &types.ListType{Type: &types.Int32Type{Nullability: types.NullabilityRequired}, Nullability: types.NullabilityRequired}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NewEmptyMap(tt.keyType, tt.valueType, tt.nullable)
+			wantNullability := types.NullabilityRequired
+			if tt.nullable {
+				wantNullability = types.NullabilityNullable
+			}
+			wantType := &types.MapType{Nullability: wantNullability, Key: tt.keyType, Value: tt.valueType}
+			assert.Equalf(t, wantType, got.GetType(), "NewEmptyMap(%v, %v)", tt.keyType, tt.valueType)
+			assert.Equalf(t, expr.NewEmptyMapLiteral(tt.keyType, tt.valueType, tt.nullable), got, "NewEmptyMap(%v, %v)", tt.keyType, tt.valueType)
+		})
+	}
+}
+
+func TestNewEmptyList(t *testing.T) {
+	tests := []struct {
+		name        string
+		elementType types.Type
+		nullable    bool
+	}{
+		{"i32", &types.Int32Type{Nullability: types.NullabilityRequired}, false},
+		{"i32Nullable", &types.Int32Type{Nullability: types.NullabilityRequired}, true},
+		{"string", &types.StringType{Nullability: types.NullabilityRequired}, false},
+		{"listOfI32", &types.ListType{Type: &types.Int32Type{Nullability: types.NullabilityRequired}, Nullability: types.NullabilityRequired}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NewEmptyList(tt.elementType, tt.nullable)
+			wantNullability := types.NullabilityRequired
+			if tt.nullable {
+				wantNullability = types.NullabilityNullable
+			}
+			wantType := &types.ListType{Nullability: wantNullability, Type: tt.elementType}
+			assert.Equalf(t, wantType, got.GetType(), "NewEmptyList(%v)", tt.elementType)
+			assert.Equalf(t, expr.NewEmptyListLiteral(tt.elementType, tt.nullable), got, "NewEmptyList(%v)", tt.elementType)
 		})
 	}
 }

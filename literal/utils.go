@@ -2,7 +2,6 @@ package literal
 
 import (
 	"fmt"
-	"reflect"
 	"regexp"
 	"strconv"
 	"time"
@@ -401,26 +400,85 @@ func NewPrecisionTimestampTzFromString(precision types.TimePrecision, value stri
 	return NewPrecisionTimestampTzFromTime(precision, tm, nullable)
 }
 
-func NewList(elements []expr.Literal, nullable bool) (expr.Literal, error) {
-	if len(elements) == 0 {
-		return nil, fmt.Errorf("empty list literal")
-	}
-	anchorType := reflect.TypeOf(elements[0])
-	for i, e := range elements {
-		currentType := reflect.TypeOf(e)
-		if currentType != anchorType {
-			nullLiteralType := reflect.TypeOf((*expr.NullLiteral)(nil))
-			if currentType == nullLiteralType {
-				continue
-			}
-			if anchorType == nullLiteralType {
-				anchorType = currentType
-				continue
-			}
-			return nil, fmt.Errorf("element %d of list literal has different type", i)
+func isNullLiteral(l expr.Literal) bool {
+	_, ok := l.(*expr.NullLiteral)
+	return ok
+}
+
+// firstMismatch returns the index of the first literal whose base type differs
+// from the column's anchor (the first non-null literal), or -1 if every literal
+// is compatible. Null literals are allowed in any position, and type parameters
+// (such as varchar length) and nullability may differ within one base type; a
+// later cast unifies those. Base types are compared by short name rather than
+// by the Go wrapper, which is too coarse: distinct types such as decimal and
+// varchar share one wrapper. The comparison is shallow and matches the original
+// wrapper check's depth: it does not distinguish the element types of nested
+// lists, maps, or structs, nor different user-defined types (whose short name is
+// empty), so a column mixing, for example, list<i8> and list<i32> is treated as
+// uniform.
+func firstMismatch(column []expr.Literal) int {
+	var anchor string
+	anchored := false
+	for i, l := range column {
+		if isNullLiteral(l) {
+			continue
+		}
+		short := l.GetType().ShortString()
+		if !anchored {
+			anchor, anchored = short, true
+			continue
+		}
+		if short != anchor {
+			return i
 		}
 	}
+	return -1
+}
+
+func NewList(elements []expr.Literal, nullable bool) (expr.Literal, error) {
+	if len(elements) == 0 {
+		return nil, fmt.Errorf("empty list literal; use NewEmptyList for an empty list")
+	}
+	if i := firstMismatch(elements); i >= 0 {
+		return nil, fmt.Errorf("element %d of list literal has different type", i)
+	}
 	return expr.NewLiteral[expr.ListLiteralValue](elements, nullable)
+}
+
+// NewMap creates a map literal from the given key/value entries. As in NewList,
+// all keys must share one base type and all values one base type; null literals
+// are allowed in either position, and type parameters (such as varchar length)
+// and nullability may differ. The map's declared key/value types are taken from
+// the first entry. For an empty map use NewEmptyMap, which takes the key and
+// value types explicitly.
+func NewMap(entries expr.MapLiteralValue, nullable bool) (expr.Literal, error) {
+	if len(entries) == 0 {
+		return nil, fmt.Errorf("empty map literal; use NewEmptyMap for an empty map")
+	}
+	keys := make([]expr.Literal, len(entries))
+	values := make([]expr.Literal, len(entries))
+	for i, e := range entries {
+		keys[i], values[i] = e.Key, e.Value
+	}
+	if i := firstMismatch(keys); i >= 0 {
+		return nil, fmt.Errorf("key %d of map literal has different type", i)
+	}
+	if i := firstMismatch(values); i >= 0 {
+		return nil, fmt.Errorf("value %d of map literal has different type", i)
+	}
+	return expr.NewLiteral[expr.MapLiteralValue](entries, nullable)
+}
+
+// NewEmptyMap creates an empty map literal of the given key and value types,
+// marked nullable or not.
+func NewEmptyMap(keyType, valueType types.Type, nullable bool) expr.Literal {
+	return expr.NewEmptyMapLiteral(keyType, valueType, nullable)
+}
+
+// NewEmptyList creates an empty list literal of the given element type, marked
+// nullable or not.
+func NewEmptyList(elementType types.Type, nullable bool) expr.Literal {
+	return expr.NewEmptyListLiteral(elementType, nullable)
 }
 
 // NewUserDefinedLiteral creates a user-defined literal using the struct representation.
