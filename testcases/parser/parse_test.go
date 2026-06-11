@@ -98,7 +98,7 @@ add(120::i8, 10::i8) [overflow:ERROR] = <!ERROR>
 	overflowGroupDesc := "Overflow examples demonstrating overflow behavior"
 	groupDescs := []string{basicGroupDesc, basicGroupDesc, basicGroupDesc, overflowGroupDesc}
 	for i, tc := range testFile.TestCases {
-		assert.Equal(t, extensions.ID{URN: arithURN, Name: ids[i]}, tc.ID())
+		assert.Equal(t, extensions.FunctionID{URN: arithURN, Name: ids[i]}, tc.ID())
 		scalarFunc, err1 := tc.GetScalarFunctionInvocation(&reg, funcRegistry)
 		require.NoError(t, err1)
 		assert.Equal(t, tc.FuncName, scalarFunc.Name())
@@ -484,7 +484,7 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 	assert.Equal(t, AggregateFuncType, tc.FuncType)
 	_, err = tc.GetScalarFunctionInvocation(nil, nil)
 	require.Error(t, err)
-	assert.Equal(t, extensions.ID{URN: arithUrn, Name: "avg:fp32"}, tc.ID())
+	assert.Equal(t, extensions.FunctionID{URN: arithUrn, Name: "avg:fp32"}, tc.ID())
 	assert.Equal(t, "avg:fp32", tc.CompoundFunctionName())
 	aggregateFunc, err1 := tc.GetAggregateFunctionInvocation(&reg, funcRegistry)
 	require.NoError(t, err1)
@@ -526,7 +526,7 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 
 	_, err = tc.GetScalarFunctionInvocation(nil, nil)
 	require.Error(t, err)
-	assert.Equal(t, extensions.ID{URN: arithUrn, Name: "sum:i64"}, tc.ID())
+	assert.Equal(t, extensions.FunctionID{URN: arithUrn, Name: "sum:i64"}, tc.ID())
 	assert.Equal(t, "sum:i64", tc.CompoundFunctionName())
 	aggregateFunc, err1 = tc.GetAggregateFunctionInvocation(&reg, funcRegistry)
 	require.NoError(t, err1)

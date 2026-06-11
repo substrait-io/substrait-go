@@ -13,33 +13,33 @@ import (
 
 var (
 	extReg    = NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-	uPointRef = extReg.GetTypeAnchor(extensions.ID{
+	uPointRef = extReg.GetTypeAnchor(extensions.TypeID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "extension_types",
 		Name: "point",
 	})
 
-	subID = extensions.ID{
+	subID = extensions.FunctionID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
 		Name: "subtract"}
-	addID = extensions.ID{
+	addID = extensions.FunctionID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
 		Name: "add"}
-	indexInID = extensions.ID{
+	indexInID = extensions.FunctionID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_set",
 		Name: "index_in"}
-	rankID = extensions.ID{
+	rankID = extensions.FunctionID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
 		Name: "rank"}
-	firstValueID = extensions.ID{
+	firstValueID = extensions.FunctionID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
 		Name: "first_value"}
-	extractID = extensions.ID{
+	extractID = extensions.FunctionID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_datetime",
 		Name: "extract"}
-	ntileID = extensions.ID{
+	ntileID = extensions.FunctionID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
 		Name: "ntile"}
-	sumID = extensions.ID{
+	sumID = extensions.FunctionID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
 		Name: "sum"}
 
