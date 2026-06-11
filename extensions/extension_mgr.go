@@ -159,6 +159,7 @@ func (c *Collection) GetWindowFunc(id ID) (*WindowFunctionVariant, bool) {
 	return fn, ok
 }
 
+// IsRegisteredFunction reports whether id resolves to a registered function variant.
 func (c *Collection) IsRegisteredFunction(id ID) bool {
 	if _, ok := c.scalarMap[id]; ok {
 		return true
