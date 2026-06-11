@@ -16,7 +16,6 @@ import (
 	"github.com/goccy/go-yaml"
 	"github.com/substrait-io/substrait"
 	substraitgo "github.com/substrait-io/substrait-go/v8"
-	"github.com/substrait-io/substrait-go/v8/types"
 	"github.com/substrait-io/substrait-protobuf/go/substraitpb/extensions"
 )
 
@@ -91,15 +90,6 @@ func loadExtensionFile(collection *Collection, substraitFS embed.FS, ent fs.DirE
 	}
 	return nil
 }
-
-// FunctionID is the unique identifier for a Substrait extension function.
-type FunctionID = types.ExtensionFunctionID
-
-// TypeID is the unique identifier for a Substrait extension type.
-type TypeID = types.ExtensionTypeID
-
-// TypeVariationID is the unique identifier for a Substrait extension type variation.
-type TypeVariationID = types.ExtensionTypeVariationID
 
 type Collection struct {
 	urnSet map[string]struct{}
