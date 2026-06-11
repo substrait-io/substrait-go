@@ -104,12 +104,11 @@ lt('2016-12-31T13:30:15'::ts, '2017-12-31T13:30:15'::ts) = true::bool
 // Regression for #237: a `null::u!<identifier>[?]` argument used to panic
 // in `VisitNullArg` because `TestCaseVisitor` had no `VisitUserDefined`
 // method, so dispatch fell through to the base visitor's `VisitChildren`
-// (which returns nil for the terminal `UserDefinedContext` node). The new
-// `VisitUserDefined` returns a `*types.UserDefinedType` so the null
-// literal can be constructed without panic. (`VisitNullArg` then forces
-// the `CaseLiteral.Type`'s nullability to `Nullable` regardless of the
-// parsed `?`, so we don't assert on that, we only assert the arg type
-// is a `UserDefinedType` and the value is a `NullLiteral`.)
+// (which returns nil for the terminal `UserDefinedContext` node) and the
+// nil was force-asserted to `types.Type`. The testcases/parser layer has
+// no registry to resolve the identifier, so a user-defined null argument
+// is now reported as a clean parse error instead of panicking or leaking
+// an unresolved placeholder type.
 func TestParseUserDefinedNullArg(t *testing.T) {
 	header := makeHeader("v1.0", "/extensions/functions_arithmetic.yaml")
 	groupDesc := "# user-defined null arg parsing (issue #237)\n"
@@ -120,19 +119,9 @@ func TestParseUserDefinedNullArg(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc, func(t *testing.T) {
 			testFile, err := ParseTestCasesFromString(header + groupDesc + tc)
-			require.NoError(t, err, "parse must not panic / error on user-defined null arg")
-			require.NotNil(t, testFile)
-			require.Len(t, testFile.TestCases, 1)
-			require.Len(t, testFile.TestCases[0].Args, 1)
-
-			arg := testFile.TestCases[0].Args[0]
-			_, ok := arg.Type.(*types.UserDefinedType)
-			require.True(t, ok, "expected *types.UserDefinedType, got %T", arg.Type)
-
-			lit, ok := arg.Value.(*expr.NullLiteral)
-			require.True(t, ok, "expected *expr.NullLiteral, got %T", arg.Value)
-			_, ok = lit.GetType().(*types.UserDefinedType)
-			assert.True(t, ok, "NullLiteral.GetType() should be *types.UserDefinedType, got %T", lit.GetType())
+			require.Error(t, err, "user-defined null arg should be a parse error, not a panic")
+			assert.Contains(t, err.Error(), "user-defined type")
+			assert.Nil(t, testFile)
 		})
 	}
 }
