@@ -55,7 +55,7 @@ func createPrimitiveBool(value bool) expr.Expression {
 
 func TestRelations_Copy(t *testing.T) {
 	extReg := expr.NewExtensionRegistry(extensions.NewSet(), extensions.GetDefaultCollectionWithNoError())
-	aggregateFnID := extensions.ID{
+	aggregateFnID := extensions.FunctionID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
 		Name: "avg:fp64",
 	}
@@ -441,7 +441,7 @@ func TestRelations_Copy(t *testing.T) {
 
 func TestRelations_AdvancedExtensions(t *testing.T) {
 	extReg := expr.NewExtensionRegistry(extensions.NewSet(), extensions.GetDefaultCollectionWithNoError())
-	aggregateFnID := extensions.ID{
+	aggregateFnID := extensions.FunctionID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
 		Name: "avg:fp64",
 	}
@@ -534,7 +534,7 @@ func TestRelations_AdvancedExtensions(t *testing.T) {
 
 func TestAggregateRelToBuilder(t *testing.T) {
 	extReg := expr.NewExtensionRegistry(extensions.NewSet(), extensions.GetDefaultCollectionWithNoError())
-	aggregateFnID := extensions.ID{
+	aggregateFnID := extensions.FunctionID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
 		Name: "avg:fp64",
 	}

@@ -21,9 +21,9 @@ func TestExprBuilder(t *testing.T) {
 		Reg:        expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError()),
 		BaseSchema: types.NewRecordTypeFromStruct(boringSchema.Struct),
 	}
-	addI32ID := extensions.ID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Name: "add:i32_i32"}
-	addI64ID := extensions.ID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Name: "add:i64_i64"}
-	subI32ID := extensions.ID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Name: "subtract:i32_i32"}
+	addI32ID := extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Name: "add:i32_i32"}
+	addI64ID := extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Name: "add:i64_i64"}
+	subI32ID := extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Name: "subtract:i32_i32"}
 	precomputedLiteral, _ := expr.NewLiteral(int32(3), false)
 	precomputedExpression, _ := b.ScalarFunc(addI32ID).Args(
 		b.Wrap(expr.NewLiteral(int32(3), false)),
@@ -99,7 +99,7 @@ func TestExprBuilder(t *testing.T) {
 					Expr: expr.MustExpr(b.RootRef(expr.NewStructFieldRef(1)).Build()),
 					Kind: types.SortAscNullsFirst}), ""},
 		{"window func arg error", "",
-			b.WindowFunc(ntileID).Args(b.ScalarFunc(extensions.ID{})),
+			b.WindowFunc(ntileID).Args(b.ScalarFunc(extensions.FunctionID{})),
 			"not found: could not find matching function for id: { }"},
 	}
 
@@ -176,7 +176,7 @@ window_functions:
 	})
 
 	// check scalar function
-	scalar, err := planBuilder.GetExprBuilder().ScalarFunc(extensions.ID{
+	scalar, err := planBuilder.GetExprBuilder().ScalarFunc(extensions.FunctionID{
 		URN:  "extension:test:custom",
 		Name: "custom_function:u!custom_type2",
 	}).Args(
@@ -191,7 +191,7 @@ window_functions:
 	require.Equal(t, customType1.TypeReference, fnCall.OutputType.GetUserDefined().TypeReference)
 
 	// check aggregate function
-	aggr, err := planBuilder.GetExprBuilder().AggFunc(extensions.ID{
+	aggr, err := planBuilder.GetExprBuilder().AggFunc(extensions.FunctionID{
 		URN:  "extension:test:custom",
 		Name: "custom_aggr:u!custom_type2",
 	}).Args(
@@ -205,7 +205,7 @@ window_functions:
 	require.Equal(t, customType3.TypeReference, aggrProto.OutputType.GetUserDefined().TypeReference)
 
 	// check window function
-	window, err := planBuilder.GetExprBuilder().WindowFunc(extensions.ID{
+	window, err := planBuilder.GetExprBuilder().WindowFunc(extensions.FunctionID{
 		URN:  "extension:test:custom",
 		Name: "custom_window:u!custom_type2",
 	}).Args(
@@ -322,7 +322,7 @@ func TestAny1TypeParameterConsistency(t *testing.T) {
 	// equal(any1, any1) -> boolean
 	reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
 
-	equalID := extensions.ID{
+	equalID := extensions.FunctionID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_comparison",
 		Name: "equal:any_any",
 	}
@@ -352,7 +352,7 @@ func TestAny1TypeParameterConsistency(t *testing.T) {
 	})
 
 	// coalesce(any1, any1, ...) -> any1 (min: 2 args)
-	coalesceID := extensions.ID{
+	coalesceID := extensions.FunctionID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_comparison",
 		Name: "coalesce:any",
 	}

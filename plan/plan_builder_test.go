@@ -1078,7 +1078,7 @@ func TestSortRelationKeyEqual(t *testing.T) {
 	ref, err := b.RootFieldRef(scan, 0)
 	require.NoError(t, err)
 
-	equalRef, err := b.GetFunctionRef(extensions.ID{URN: extensions.SubstraitDefaultURNPrefix + "functions_comparison", Name: "equal:any_any"})
+	equalRef, err := b.GetFunctionRef(extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + "functions_comparison", Name: "equal:any_any"})
 	require.NoError(t, err)
 
 	sort, err := b.Sort(scan, expr.SortField{Expr: ref, Kind: equalRef})
@@ -1092,10 +1092,10 @@ func TestSortRelationKeyEqual(t *testing.T) {
 
 func TestGetFunctionRefRequiresRegisteredFunction(t *testing.T) {
 	b := plan.NewBuilderDefault()
-	_, err := b.GetFunctionRef(extensions.ID{URN: extensions.SubstraitDefaultURNPrefix + "functions_comparison", Name: "equal"})
+	_, err := b.GetFunctionRef(extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + "functions_comparison", Name: "equal"})
 	require.ErrorIs(t, err, substraitgo.ErrNotFound)
 
-	ref, err := b.GetFunctionRef(extensions.ID{URN: extensions.SubstraitDefaultURNPrefix + "functions_comparison", Name: "equal:any_any"})
+	ref, err := b.GetFunctionRef(extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + "functions_comparison", Name: "equal:any_any"})
 	require.NoError(t, err)
 	assert.NotZero(t, ref)
 }
@@ -1353,7 +1353,7 @@ func TestProjectExpressions(t *testing.T) {
 	require.NoError(t, err)
 
 	add, err := b.GetExprBuilder().ScalarFunc(
-		extensions.ID{URN: arithmeticURN, Name: "add:fp32_fp32"}, nil).Args(
+		extensions.FunctionID{URN: arithmeticURN, Name: "add:fp32_fp32"}, nil).Args(
 		b.GetExprBuilder().Expression(abs),
 		b.GetExprBuilder().Expression(ref)).Build()
 	require.NoError(t, err)
@@ -1782,7 +1782,7 @@ func TestSetRelErrors(t *testing.T) {
 }
 
 func TestAggregateRelBuilder(t *testing.T) {
-	addID := extensions.ID{
+	addID := extensions.FunctionID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
 		Name: "add:i32_i32"}
 

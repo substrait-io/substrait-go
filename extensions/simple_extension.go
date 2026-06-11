@@ -494,6 +494,7 @@ func (s *WindowFunction) ResolveURN(urn string) []FunctionVariant {
 
 type SimpleExtensionFile struct {
 	Urn                string              `yaml:"urn"`
+	Dependencies       map[string]string   `yaml:"dependencies,omitempty"`
 	Metadata           map[string]any      `yaml:"metadata,omitempty"`
 	Types              []Type              `yaml:"types,omitempty"`
 	TypeVariations     []TypeVariation     `yaml:"type_variations,omitempty"`

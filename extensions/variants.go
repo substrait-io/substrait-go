@@ -148,7 +148,7 @@ func EvaluateTypeExpression(urn string, nullHandling NullabilityHandling, return
 	// For other types like AnyType, the TypeReference is already correctly set.
 	if udt, ok := outType.(*types.UserDefinedType); ok {
 		if paramUDT, ok := returnTypeExpr.(*types.ParameterizedUserDefinedType); ok {
-			udt.TypeReference = registry.GetTypeAnchor(ID{Name: paramUDT.Name, URN: urn})
+			udt.TypeReference = registry.GetTypeAnchor(TypeID{Name: paramUDT.Name, URN: urn})
 		}
 	}
 
@@ -308,7 +308,7 @@ func maxArgumentCount(paramTypeList FuncParameterList, variadicBehavior *Variadi
 // Return expressions aren't included here as using this variant to construct
 // an expression requires an output type argument. This is for creating an
 // on-the-fly function variant that will not be registered as an extension.
-func NewScalarFuncVariant(id ID) *ScalarFunctionVariant {
+func NewScalarFuncVariant(id FunctionID) *ScalarFunctionVariant {
 	simpleName, args := parseFuncName(id.Name)
 	return &ScalarFunctionVariant{
 		name: simpleName,
@@ -320,7 +320,7 @@ func NewScalarFuncVariant(id ID) *ScalarFunctionVariant {
 // NewScalarFuncVariantWithProps is the same as NewScalarFuncVariant but allows
 // setting the values for the SessionDependant, Variadic Behavior and Deterministic
 // properties.
-func NewScalarFuncVariantWithProps(id ID, variadic *VariadicBehavior, sessionDependant, deterministic bool) *ScalarFunctionVariant {
+func NewScalarFuncVariantWithProps(id FunctionID, variadic *VariadicBehavior, sessionDependant, deterministic bool) *ScalarFunctionVariant {
 	simpleName, args := parseFuncName(id.Name)
 	return &ScalarFunctionVariant{
 		name: simpleName,
@@ -358,8 +358,8 @@ func (s *ScalarFunctionVariant) ResolveType(argumentTypes []types.Type, registry
 func (s *ScalarFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
 }
-func (s *ScalarFunctionVariant) ID() ID {
-	return ID{URN: s.urn, Name: s.CompoundName()}
+func (s *ScalarFunctionVariant) ID() FunctionID {
+	return FunctionID{URN: s.urn, Name: s.CompoundName()}
 }
 
 func (s *ScalarFunctionVariant) Match(argumentTypes []types.Type) (bool, error) {
@@ -384,7 +384,7 @@ func (s *ScalarFunctionVariant) MaxArgumentCount() int {
 // Return expressions aren't included here as using this variant to construct
 // an expression requires an output type argument. This is for creating an
 // on-the-fly function variant that will not be registered as an extension.
-func NewAggFuncVariant(id ID) *AggregateFunctionVariant {
+func NewAggFuncVariant(id FunctionID) *AggregateFunctionVariant {
 	simpleName, args := parseFuncName(id.Name)
 	return &AggregateFunctionVariant{
 		name: simpleName,
@@ -411,7 +411,7 @@ type AggVariantOptions struct {
 	IntermediateOutputType string
 }
 
-func NewAggFuncVariantOpts(id ID, opts AggVariantOptions) *AggregateFunctionVariant {
+func NewAggFuncVariantOpts(id FunctionID, opts AggVariantOptions) *AggregateFunctionVariant {
 	var aggIntermediate parser.TypeExpression
 	if opts.Decomposable == "" {
 		opts.Decomposable = DecomposeNone
@@ -472,8 +472,8 @@ func (s *AggregateFunctionVariant) ResolveType(argumentTypes []types.Type, regis
 func (s *AggregateFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
 }
-func (s *AggregateFunctionVariant) ID() ID {
-	return ID{URN: s.urn, Name: s.CompoundName()}
+func (s *AggregateFunctionVariant) ID() FunctionID {
+	return FunctionID{URN: s.urn, Name: s.CompoundName()}
 }
 func (s *AggregateFunctionVariant) Decomposability() DecomposeType { return s.impl.Decomposable }
 func (s *AggregateFunctionVariant) Intermediate() (types.FuncDefArgType, error) {
@@ -506,7 +506,7 @@ type WindowFunctionVariant struct {
 	metadata    map[string]any
 }
 
-func NewWindowFuncVariant(id ID) *WindowFunctionVariant {
+func NewWindowFuncVariant(id FunctionID) *WindowFunctionVariant {
 	simpleName, args := parseFuncName(id.Name)
 	return &WindowFunctionVariant{
 		name: simpleName,
@@ -535,7 +535,7 @@ type WindowVariantOpts struct {
 	WindowType             WindowType
 }
 
-func NewWindowFuncVariantOpts(id ID, opts WindowVariantOpts) *WindowFunctionVariant {
+func NewWindowFuncVariantOpts(id FunctionID, opts WindowVariantOpts) *WindowFunctionVariant {
 	var aggIntermediate parser.TypeExpression
 	if opts.Decomposable == "" {
 		opts.Decomposable = DecomposeNone
@@ -594,8 +594,8 @@ func (s *WindowFunctionVariant) ResolveType(argumentTypes []types.Type, registry
 func (s *WindowFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
 }
-func (s *WindowFunctionVariant) ID() ID {
-	return ID{URN: s.urn, Name: s.CompoundName()}
+func (s *WindowFunctionVariant) ID() FunctionID {
+	return FunctionID{URN: s.urn, Name: s.CompoundName()}
 }
 func (s *WindowFunctionVariant) Decomposability() DecomposeType { return s.impl.Decomposable }
 func (s *WindowFunctionVariant) Intermediate() (types.FuncDefArgType, error) {

@@ -26,7 +26,7 @@ type Builder interface {
 	// GetFunctionRef retrieves the function anchor reference for a function
 	// variant. This also ensures that any plans built from this builder will
 	// contain this function anchor in its extensions section.
-	GetFunctionRef(id extensions.ID) (types.FunctionRef, error)
+	GetFunctionRef(id extensions.FunctionID) (types.FunctionRef, error)
 
 	// Construct a user-defined type from the extension namespace and typename,
 	// along with optional type parameters. It will add the type to the internal
@@ -226,7 +226,7 @@ func (b *builder) GetExprBuilder() *expr.ExprBuilder {
 	}
 }
 
-func (b *builder) GetFunctionRef(id extensions.ID) (types.FunctionRef, error) {
+func (b *builder) GetFunctionRef(id extensions.FunctionID) (types.FunctionRef, error) {
 	if !b.ext.IsRegisteredFunction(id) {
 		return 0, fmt.Errorf("%w: could not find matching function for id: %v", substraitgo.ErrNotFound, id)
 	}
@@ -235,7 +235,7 @@ func (b *builder) GetFunctionRef(id extensions.ID) (types.FunctionRef, error) {
 }
 
 func (b *builder) UserDefinedType(nameSpace, typeName string, params ...types.TypeParam) types.UserDefinedType {
-	id := extensions.ID{URN: nameSpace, Name: typeName}
+	id := extensions.TypeID{URN: nameSpace, Name: typeName}
 	return types.UserDefinedType{
 		Nullability:    types.NullabilityNullable,
 		TypeReference:  b.extSet.GetTypeAnchor(id),
@@ -264,12 +264,12 @@ func (b *builder) RootFieldRef(input Rel, index int32) (*expr.FieldReference, er
 }
 
 func (b *builder) ScalarFn(nameSpace, key string, opts []*types.FunctionOption, args ...types.FuncArg) (*expr.ScalarFunction, error) {
-	id := extensions.ID{URN: nameSpace, Name: key}
+	id := extensions.FunctionID{URN: nameSpace, Name: key}
 	return expr.NewScalarFunc(b.reg, id, opts, args...)
 }
 
 func (b *builder) AggregateFn(nameSpace, key string, opts []*types.FunctionOption, args ...types.FuncArg) (*expr.AggregateFunction, error) {
-	id := extensions.ID{URN: nameSpace, Name: key}
+	id := extensions.FunctionID{URN: nameSpace, Name: key}
 	return expr.NewAggregateFunc(b.reg, id, opts,
 		types.AggInvocationAll, types.AggPhaseInitialToResult, nil, args...)
 }

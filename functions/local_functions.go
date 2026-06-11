@@ -17,13 +17,13 @@ type localFunctionRegistryImpl struct {
 
 	allFunctions []extensions.FunctionVariant
 
-	idToLocalFunctionMap map[extensions.ID]localFunctionVariant
+	idToLocalFunctionMap map[extensions.FunctionID]localFunctionVariant
 	localTypeRegistry    LocalTypeRegistry
 	funcRegistry         FunctionRegistry
 }
 
-func makeLocalFunctionVariantsMap(functions []extensions.FunctionVariant) map[extensions.ID]localFunctionVariant {
-	localFunctionVariants := make(map[extensions.ID]localFunctionVariant)
+func makeLocalFunctionVariantsMap(functions []extensions.FunctionVariant) map[extensions.FunctionID]localFunctionVariant {
+	localFunctionVariants := make(map[extensions.FunctionID]localFunctionVariant)
 	for _, f := range functions {
 		switch variant := f.(type) {
 		case *LocalScalarFunctionVariant:
