@@ -165,7 +165,7 @@ func BoundFromProto(b *proto.Expression_WindowFunction_Bound) Bound {
 
 type FunctionInvocation interface {
 	CompoundName() string
-	ID() extensions.ID
+	ID() extensions.FunctionID
 	GetOptions() []*types.FunctionOption
 	GetArgTypes() []types.Type
 }
@@ -210,7 +210,7 @@ type variant interface {
 }
 
 func resolveVariant[T variant](
-	id extensions.ID, reg ExtensionRegistry, getter func(extensions.ID) (T, bool),
+	id extensions.FunctionID, reg ExtensionRegistry, getter func(extensions.FunctionID) (T, bool),
 	args []types.FuncArg,
 ) (T, types.Type, error) {
 	argTypes := make([]types.Type, 0, len(args))
@@ -274,7 +274,7 @@ func resolveVariant[T variant](
 // but the number of arguments and their types will be validated in order to
 // resolve the output type.
 func NewScalarFunc(
-	reg ExtensionRegistry, id extensions.ID, opts []*types.FunctionOption, args ...types.FuncArg,
+	reg ExtensionRegistry, id extensions.FunctionID, opts []*types.FunctionOption, args ...types.FuncArg,
 ) (*ScalarFunction, error) {
 	decl, outType, err := resolveVariant(id, reg, reg.c.GetScalarFunc, args)
 	if err != nil {
@@ -296,7 +296,7 @@ func NewScalarFunc(
 
 func (s *ScalarFunction) Name() string                           { return s.declaration.Name() }
 func (s *ScalarFunction) CompoundName() string                   { return s.declaration.CompoundName() }
-func (s *ScalarFunction) ID() extensions.ID                      { return s.declaration.ID() }
+func (s *ScalarFunction) ID() extensions.FunctionID              { return s.declaration.ID() }
 func (s *ScalarFunction) Variadic() *extensions.VariadicBehavior { return s.declaration.Variadic() }
 func (s *ScalarFunction) SessionDependant() bool                 { return s.declaration.SessionDependent() }
 func (s *ScalarFunction) Deterministic() bool                    { return s.declaration.Deterministic() }
@@ -504,7 +504,7 @@ func NewCustomWindowFunc(
 }
 
 func NewWindowFunc(
-	reg ExtensionRegistry, id extensions.ID, opts []*types.FunctionOption,
+	reg ExtensionRegistry, id extensions.FunctionID, opts []*types.FunctionOption,
 	invoke types.AggregationInvocation, phase types.AggregationPhase, args ...types.FuncArg,
 ) (*WindowFunction, error) {
 	decl, outType, err := resolveVariant(id, reg, reg.c.GetWindowFunc, args)
@@ -534,7 +534,7 @@ func NewWindowFunc(
 
 func (w *WindowFunction) Name() string                            { return w.declaration.Name() }
 func (w *WindowFunction) CompoundName() string                    { return w.declaration.CompoundName() }
-func (w *WindowFunction) ID() extensions.ID                       { return w.declaration.ID() }
+func (w *WindowFunction) ID() extensions.FunctionID               { return w.declaration.ID() }
 func (w *WindowFunction) Variadic() *extensions.VariadicBehavior  { return w.declaration.Variadic() }
 func (w *WindowFunction) SessionDependant() bool                  { return w.declaration.SessionDependent() }
 func (w *WindowFunction) Deterministic() bool                     { return w.declaration.Deterministic() }
@@ -780,7 +780,7 @@ type AggregateFunction struct {
 }
 
 func NewAggregateFunc(
-	reg ExtensionRegistry, id extensions.ID, opts []*types.FunctionOption,
+	reg ExtensionRegistry, id extensions.FunctionID, opts []*types.FunctionOption,
 	invoke types.AggregationInvocation, phase types.AggregationPhase, sorts []SortField,
 	args ...types.FuncArg,
 ) (*AggregateFunction, error) {
@@ -870,7 +870,7 @@ func NewAggregateFunctionFromProto(
 
 func (a *AggregateFunction) Name() string                            { return a.declaration.Name() }
 func (a *AggregateFunction) CompoundName() string                    { return a.declaration.CompoundName() }
-func (a *AggregateFunction) ID() extensions.ID                       { return a.declaration.ID() }
+func (a *AggregateFunction) ID() extensions.FunctionID               { return a.declaration.ID() }
 func (a *AggregateFunction) Variadic() *extensions.VariadicBehavior  { return a.declaration.Variadic() }
 func (a *AggregateFunction) SessionDependant() bool                  { return a.declaration.SessionDependent() }
 func (a *AggregateFunction) Deterministic() bool                     { return a.declaration.Deterministic() }

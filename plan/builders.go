@@ -228,11 +228,11 @@ func (b *builder) GetExprBuilder() *expr.ExprBuilder {
 }
 
 func (b *builder) GetFunctionRef(nameSpace, key string) types.FunctionRef {
-	return types.FunctionRef(b.extSet.GetFuncAnchor(extensions.ID{URN: nameSpace, Name: key}))
+	return types.FunctionRef(b.extSet.GetFuncAnchor(extensions.FunctionID{URN: nameSpace, Name: key}))
 }
 
 func (b *builder) UserDefinedType(nameSpace, typeName string, params ...types.TypeParam) types.UserDefinedType {
-	id := extensions.ID{URN: nameSpace, Name: typeName}
+	id := extensions.TypeID{URN: nameSpace, Name: typeName}
 	return types.UserDefinedType{
 		Nullability:    types.NullabilityNullable,
 		TypeReference:  b.extSet.GetTypeAnchor(id),
@@ -261,12 +261,12 @@ func (b *builder) RootFieldRef(input Rel, index int32) (*expr.FieldReference, er
 }
 
 func (b *builder) ScalarFn(nameSpace, key string, opts []*types.FunctionOption, args ...types.FuncArg) (*expr.ScalarFunction, error) {
-	id := extensions.ID{URN: nameSpace, Name: key}
+	id := extensions.FunctionID{URN: nameSpace, Name: key}
 	return expr.NewScalarFunc(b.reg, id, opts, args...)
 }
 
 func (b *builder) AggregateFn(nameSpace, key string, opts []*types.FunctionOption, args ...types.FuncArg) (*expr.AggregateFunction, error) {
-	id := extensions.ID{URN: nameSpace, Name: key}
+	id := extensions.FunctionID{URN: nameSpace, Name: key}
 	return expr.NewAggregateFunc(b.reg, id, opts,
 		types.AggInvocationAll, types.AggPhaseInitialToResult, nil, args...)
 }

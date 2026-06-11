@@ -135,13 +135,13 @@ func TestDynamicParameterTypeMismatchInFunction(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		funcID extensions.ID
+		funcID extensions.FunctionID
 		dpType types.Type
 		lit    func() (expr.Literal, error)
 	}{
 		{
 			name:   "i32 where i8 expected",
-			funcID: extensions.ID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Name: "add:i8_i8"},
+			funcID: extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Name: "add:i8_i8"},
 			dpType: &types.Int32Type{Nullability: types.NullabilityRequired},
 			lit:    func() (expr.Literal, error) { return expr.NewLiteral(int8(5), false) },
 		},

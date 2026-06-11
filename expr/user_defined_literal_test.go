@@ -31,7 +31,7 @@ types:
 func TestUserDefinedLiteralRoundTrip(t *testing.T) {
 	collection := &extensions.Collection{}
 	err := collection.Load(strings.NewReader(testExtensionYAML))
-	pointID := extensions.ID{
+	pointID := extensions.TypeID{
 		URN:  "extension:test:point_type",
 		Name: "point",
 	}
@@ -66,7 +66,7 @@ func TestNewUserDefinedLiteralHelper(t *testing.T) {
 	require.NoError(t, err)
 
 	registry := expr.NewEmptyExtensionRegistry(collection)
-	pointID := extensions.ID{URN: "extension:test:point_type", Name: "point"}
+	pointID := extensions.TypeID{URN: "extension:test:point_type", Name: "point"}
 
 	pointLiteral, err := literal.NewUserDefinedLiteral(
 		registry.GetTypeAnchor(pointID),
@@ -120,7 +120,7 @@ func TestUserDefinedLiteralWithAnyRepresentation(t *testing.T) {
 	require.NoError(t, err)
 
 	registry := expr.NewEmptyExtensionRegistry(collection)
-	pointID := extensions.ID{URN: "extension:io.substrait:test_nested_types", Name: "point"}
+	pointID := extensions.TypeID{URN: "extension:io.substrait:test_nested_types", Name: "point"}
 
 	anyValue, err := anypb.New(wrapperspb.String("<Some UserDefined Data>"))
 	require.NoError(t, err)
@@ -150,7 +150,7 @@ func TestUserDefinedLiteralWithStructRepresentation(t *testing.T) {
 	require.NoError(t, err)
 
 	registry := expr.NewEmptyExtensionRegistry(collection)
-	pointID := extensions.ID{URN: "extension:io.substrait:test_nested_types", Name: "point"}
+	pointID := extensions.TypeID{URN: "extension:io.substrait:test_nested_types", Name: "point"}
 
 	pointLiteral, err := literal.NewUserDefinedLiteral(
 		registry.GetTypeAnchor(pointID),
@@ -181,7 +181,7 @@ func TestNestedUserDefinedLiteralWithAnyRepresentation(t *testing.T) {
 	require.NoError(t, err)
 
 	registry := expr.NewEmptyExtensionRegistry(collection)
-	triangleID := extensions.ID{URN: "extension:io.substrait:test_nested_types", Name: "triangle"}
+	triangleID := extensions.TypeID{URN: "extension:io.substrait:test_nested_types", Name: "triangle"}
 
 	anyValue, err := anypb.New(wrapperspb.String("<Some UserDefined Data>"))
 	require.NoError(t, err)
@@ -212,8 +212,8 @@ func TestNestedUserDefinedLiteralWithStructRepresentation(t *testing.T) {
 	require.NoError(t, err)
 
 	registry := expr.NewEmptyExtensionRegistry(collection)
-	pointID := extensions.ID{URN: "extension:io.substrait:test_nested_types", Name: "point"}
-	triangleID := extensions.ID{URN: "extension:io.substrait:test_nested_types", Name: "triangle"}
+	pointID := extensions.TypeID{URN: "extension:io.substrait:test_nested_types", Name: "point"}
+	triangleID := extensions.TypeID{URN: "extension:io.substrait:test_nested_types", Name: "triangle"}
 
 	p1, err := literal.NewUserDefinedLiteral(
 		registry.GetTypeAnchor(pointID),
@@ -273,8 +273,8 @@ func TestMixedRepresentationNestedUserDefinedLiteral(t *testing.T) {
 	require.NoError(t, err)
 
 	registry := expr.NewEmptyExtensionRegistry(collection)
-	pointID := extensions.ID{URN: "extension:io.substrait:test_nested_types", Name: "point"}
-	triangleID := extensions.ID{URN: "extension:io.substrait:test_nested_types", Name: "triangle"}
+	pointID := extensions.TypeID{URN: "extension:io.substrait:test_nested_types", Name: "point"}
+	triangleID := extensions.TypeID{URN: "extension:io.substrait:test_nested_types", Name: "triangle"}
 
 	// Helper function to create a point UDT with Any representation (user-managed)
 	// The Any value is completely opaque - it can be any proto message.
@@ -318,7 +318,7 @@ func TestParameterizedVectorUDTRoundtrip(t *testing.T) {
 	require.NoError(t, err)
 
 	registry := expr.NewEmptyExtensionRegistry(collection)
-	vectorID := extensions.ID{URN: "extension:io.substrait:test_nested_types", Name: "vector"}
+	vectorID := extensions.TypeID{URN: "extension:io.substrait:test_nested_types", Name: "vector"}
 
 	// Create a vector<i32> instance with fields (x: 1, y: 2, z: 3)
 	vectorI32, err := literal.NewUserDefinedLiteral(

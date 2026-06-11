@@ -98,28 +98,20 @@ func loadExtensionFile(collection *Collection, substraitFS embed.FS, ent fs.DirE
 	return nil
 }
 
-// ID is the unique identifier for a substrait object
-type ID struct {
-	URN string
-	// Name of the object. For functions, a simple name may be used for lookups,
-	// but as a unique identifier the compound name will be used
-	Name string
-}
-
 type Collection struct {
 	urnSet map[string]struct{}
 
-	simpleNameMap map[ID]string
+	simpleNameMap map[FunctionID]string
 
-	scalarMap        map[ID]*ScalarFunctionVariant
-	aggregateMap     map[ID]*AggregateFunctionVariant
-	windowMap        map[ID]*WindowFunctionVariant
-	typeMap          map[ID]Type
-	typeVariationMap map[ID]TypeVariation
+	scalarMap        map[FunctionID]*ScalarFunctionVariant
+	aggregateMap     map[FunctionID]*AggregateFunctionVariant
+	windowMap        map[FunctionID]*WindowFunctionVariant
+	typeMap          map[TypeID]Type
+	typeVariationMap map[TypeVariationID]TypeVariation
 	fileMetadataMap  map[string]map[string]any // keyed by URN
 }
 
-func (c *Collection) GetType(id ID) (t Type, ok bool) {
+func (c *Collection) GetType(id TypeID) (t Type, ok bool) {
 	t, ok = c.typeMap[id]
 	return
 }
@@ -130,7 +122,7 @@ func (c *Collection) GetFileMetadata(urn string) map[string]any {
 	return c.fileMetadataMap[urn]
 }
 
-func (c *Collection) GetTypeVariation(id ID) (tv TypeVariation, ok bool) {
+func (c *Collection) GetTypeVariation(id TypeVariationID) (tv TypeVariation, ok bool) {
 	tv, ok = c.typeVariationMap[id]
 	return
 }
@@ -143,7 +135,7 @@ type variants interface {
 	CompoundName() string
 }
 
-func checkMaps[T variants](id ID, m map[ID]T, simpleNames map[ID]string) (T, bool) {
+func checkMaps[T variants](id FunctionID, m map[FunctionID]T, simpleNames map[FunctionID]string) (T, bool) {
 	if sv, ok := m[id]; ok {
 		return sv, true
 	}
@@ -162,7 +154,7 @@ type extFn[T variants] interface {
 	GetVariants(urn string) []T
 }
 
-func addToMaps[T variants](id ID, fn extFn[T], m map[ID]T, simpleMap map[string]string) {
+func addToMaps[T variants](id FunctionID, fn extFn[T], m map[FunctionID]T, simpleMap map[string]string) {
 	variants := fn.GetVariants(id.URN)
 	for _, v := range variants {
 		id.Name = v.CompoundName()
@@ -179,27 +171,27 @@ func addToMaps[T variants](id ID, fn extFn[T], m map[ID]T, simpleMap map[string]
 	}
 }
 
-func (c *Collection) GetScalarFunc(id ID) (*ScalarFunctionVariant, bool) {
+func (c *Collection) GetScalarFunc(id FunctionID) (*ScalarFunctionVariant, bool) {
 	return checkMaps(id, c.scalarMap, c.simpleNameMap)
 }
 
-func (c *Collection) GetAggregateFunc(id ID) (*AggregateFunctionVariant, bool) {
+func (c *Collection) GetAggregateFunc(id FunctionID) (*AggregateFunctionVariant, bool) {
 	return checkMaps(id, c.aggregateMap, c.simpleNameMap)
 }
 
-func (c *Collection) GetWindowFunc(id ID) (*WindowFunctionVariant, bool) {
+func (c *Collection) GetWindowFunc(id FunctionID) (*WindowFunctionVariant, bool) {
 	return checkMaps(id, c.windowMap, c.simpleNameMap)
 }
 
 func (c *Collection) init() {
 	if c.urnSet == nil {
 		c.urnSet = make(map[string]struct{})
-		c.simpleNameMap = make(map[ID]string)
-		c.scalarMap = make(map[ID]*ScalarFunctionVariant)
-		c.aggregateMap = make(map[ID]*AggregateFunctionVariant)
-		c.windowMap = make(map[ID]*WindowFunctionVariant)
-		c.typeMap = make(map[ID]Type)
-		c.typeVariationMap = make(map[ID]TypeVariation)
+		c.simpleNameMap = make(map[FunctionID]string)
+		c.scalarMap = make(map[FunctionID]*ScalarFunctionVariant)
+		c.aggregateMap = make(map[FunctionID]*AggregateFunctionVariant)
+		c.windowMap = make(map[FunctionID]*WindowFunctionVariant)
+		c.typeMap = make(map[TypeID]Type)
+		c.typeVariationMap = make(map[TypeVariationID]TypeVariation)
 		c.fileMetadataMap = make(map[string]map[string]any)
 	}
 }
@@ -243,16 +235,19 @@ func (c *Collection) Load(r io.Reader) error {
 		c.fileMetadataMap[urn] = file.Metadata
 	}
 
-	id := ID{URN: urn}
+	typeID := TypeID{URN: urn}
 	for _, t := range file.Types {
-		id.Name = t.Name
-		c.typeMap[id] = t
+		typeID.Name = t.Name
+		c.typeMap[typeID] = t
 	}
 
+	typeVariationID := TypeVariationID{URN: urn}
 	for _, t := range file.TypeVariations {
-		id.Name = t.Name
-		c.typeVariationMap[id] = t
+		typeVariationID.Name = t.Name
+		c.typeVariationMap[typeVariationID] = t
 	}
+
+	id := FunctionID{URN: urn}
 
 	// if there is only one implementation for a given function
 	// it should be findable by its simple name in addition to the
@@ -338,9 +333,9 @@ func getValues[M ~map[K]V, K comparable, V any](m M) []V {
 }
 
 type Set interface {
-	DecodeTypeVariation(anchor uint32) (ID, bool)
-	DecodeFunc(anchor uint32) (ID, bool)
-	DecodeType(anchor uint32) (ID, bool)
+	DecodeTypeVariation(anchor uint32) (TypeVariationID, bool)
+	DecodeFunc(anchor uint32) (FunctionID, bool)
+	DecodeType(anchor uint32) (TypeID, bool)
 	LookupTypeVariation(anchor uint32, c *Collection) (TypeVariation, bool)
 	LookupType(anchor uint32, c *Collection) (Type, bool)
 	LookupScalarFunction(anchor uint32, c *Collection) (*ScalarFunctionVariant, bool)
@@ -348,9 +343,9 @@ type Set interface {
 	LookupWindowFunction(anchor uint32, c *Collection) (*WindowFunctionVariant, bool)
 
 	FindURN(urn string) (uint32, bool)
-	GetTypeAnchor(id ID) uint32
-	GetFuncAnchor(id ID) uint32
-	GetTypeVariationAnchor(id ID) uint32
+	GetTypeAnchor(id TypeID) uint32
+	GetFuncAnchor(id FunctionID) uint32
+	GetTypeVariationAnchor(id TypeVariationID) uint32
 
 	ToProto(c *Collection) ([]*extensions.SimpleExtensionURN, []*extensions.SimpleExtensionDeclaration)
 }
@@ -358,26 +353,26 @@ type Set interface {
 func NewSet() Set {
 	return &set{
 		urns:             make(map[uint32]string),
-		funcMap:          make(map[uint32]ID),
-		funcs:            make(map[ID]uint32),
-		types:            make(map[ID]uint32),
-		typesMap:         make(map[uint32]ID),
-		typeVariationMap: make(map[uint32]ID),
-		typeVariations:   make(map[ID]uint32),
+		funcMap:          make(map[uint32]FunctionID),
+		funcs:            make(map[FunctionID]uint32),
+		types:            make(map[TypeID]uint32),
+		typesMap:         make(map[uint32]TypeID),
+		typeVariationMap: make(map[uint32]TypeVariationID),
+		typeVariations:   make(map[TypeVariationID]uint32),
 	}
 }
 
 type set struct {
 	urns map[uint32]string
 
-	typesMap map[uint32]ID
-	types    map[ID]uint32
+	typesMap map[uint32]TypeID
+	types    map[TypeID]uint32
 
-	typeVariationMap map[uint32]ID
-	typeVariations   map[ID]uint32
+	typeVariationMap map[uint32]TypeVariationID
+	typeVariations   map[TypeVariationID]uint32
 
-	funcMap map[uint32]ID
-	funcs   map[ID]uint32
+	funcMap map[uint32]FunctionID
+	funcs   map[FunctionID]uint32
 }
 
 func (e *set) ToProto(c *Collection) ([]*extensions.SimpleExtensionURN, []*extensions.SimpleExtensionDeclaration) {
@@ -498,22 +493,22 @@ func (e *set) LookupTypeVariation(anchor uint32, c *Collection) (tv TypeVariatio
 	return
 }
 
-func (e *set) DecodeTypeVariation(anchor uint32) (id ID, ok bool) {
+func (e *set) DecodeTypeVariation(anchor uint32) (id TypeVariationID, ok bool) {
 	id, ok = e.typeVariationMap[anchor]
 	return
 }
 
-func (e *set) DecodeFunc(anchor uint32) (id ID, ok bool) {
+func (e *set) DecodeFunc(anchor uint32) (id FunctionID, ok bool) {
 	id, ok = e.funcMap[anchor]
 	return
 }
 
-func (e *set) DecodeType(anchor uint32) (id ID, ok bool) {
+func (e *set) DecodeType(anchor uint32) (id TypeID, ok bool) {
 	id, ok = e.typesMap[anchor]
 	return
 }
 
-func (e *set) GetTypeAnchor(id ID) uint32 {
+func (e *set) GetTypeAnchor(id TypeID) uint32 {
 	a, ok := e.types[id]
 	if !ok {
 		_, err := e.addOrGetURN(id.URN)
@@ -526,7 +521,7 @@ func (e *set) GetTypeAnchor(id ID) uint32 {
 	return a
 }
 
-func (e *set) GetFuncAnchor(id ID) uint32 {
+func (e *set) GetFuncAnchor(id FunctionID) uint32 {
 	a, ok := e.funcs[id]
 	if !ok {
 		_, err := e.addOrGetURN(id.URN)
@@ -539,7 +534,7 @@ func (e *set) GetFuncAnchor(id ID) uint32 {
 	return a
 }
 
-func (e *set) GetTypeVariationAnchor(id ID) uint32 {
+func (e *set) GetTypeVariationAnchor(id TypeVariationID) uint32 {
 	a, ok := e.typeVariations[id]
 	if !ok {
 		_, err := e.addOrGetURN(id.URN)
@@ -555,17 +550,17 @@ func (e *set) GetTypeVariationAnchor(id ID) uint32 {
 	return a
 }
 
-func (e *set) encodeType(anchor uint32, id ID) {
+func (e *set) encodeType(anchor uint32, id TypeID) {
 	e.typesMap[anchor] = id
 	e.types[id] = anchor
 }
 
-func (e *set) encodeTypeVariation(anchor uint32, id ID) {
+func (e *set) encodeTypeVariation(anchor uint32, id TypeVariationID) {
 	e.typeVariationMap[anchor] = id
 	e.typeVariations[id] = anchor
 }
 
-func (e *set) encodeFunc(anchor uint32, id ID) {
+func (e *set) encodeFunc(anchor uint32, id FunctionID) {
 	e.funcMap[anchor] = id
 	e.funcs[id] = anchor
 }
@@ -607,12 +602,12 @@ func GetExtensionSet(plan TopLevel, c *Collection) (Set, error) {
 
 	ret := &set{
 		urns:             urns,
-		funcMap:          make(map[uint32]ID),
-		funcs:            make(map[ID]uint32),
-		typesMap:         make(map[uint32]ID),
-		types:            make(map[ID]uint32),
-		typeVariationMap: make(map[uint32]ID),
-		typeVariations:   make(map[ID]uint32),
+		funcMap:          make(map[uint32]FunctionID),
+		funcs:            make(map[FunctionID]uint32),
+		typesMap:         make(map[uint32]TypeID),
+		types:            make(map[TypeID]uint32),
+		typeVariationMap: make(map[uint32]TypeVariationID),
+		typeVariations:   make(map[TypeVariationID]uint32),
 	}
 
 	resolveRefToURN := func(urnRef uint32) (string, error) {
@@ -635,7 +630,7 @@ func GetExtensionSet(plan TopLevel, c *Collection) (Set, error) {
 			if err != nil {
 				return nil, err
 			}
-			ret.encodeTypeVariation(etv.TypeVariationAnchor, ID{
+			ret.encodeTypeVariation(etv.TypeVariationAnchor, TypeVariationID{
 				URN:  urn,
 				Name: etv.Name,
 			})
@@ -645,7 +640,7 @@ func GetExtensionSet(plan TopLevel, c *Collection) (Set, error) {
 			if err != nil {
 				return nil, err
 			}
-			ret.encodeType(et.TypeAnchor, ID{
+			ret.encodeType(et.TypeAnchor, TypeID{
 				URN:  urn,
 				Name: et.Name,
 			})
@@ -655,7 +650,7 @@ func GetExtensionSet(plan TopLevel, c *Collection) (Set, error) {
 			if err != nil {
 				return nil, err
 			}
-			ret.encodeFunc(ef.FunctionAnchor, ID{
+			ret.encodeFunc(ef.FunctionAnchor, FunctionID{
 				URN:  urn,
 				Name: ef.Name,
 			})

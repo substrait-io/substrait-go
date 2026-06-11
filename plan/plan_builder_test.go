@@ -1340,7 +1340,7 @@ func TestProjectExpressions(t *testing.T) {
 	require.NoError(t, err)
 
 	add, err := b.GetExprBuilder().ScalarFunc(
-		extensions.ID{URN: arithmeticURN, Name: "add"}, nil).Args(
+		extensions.FunctionID{URN: arithmeticURN, Name: "add"}, nil).Args(
 		b.GetExprBuilder().Expression(abs),
 		b.GetExprBuilder().Expression(ref)).Build()
 	require.NoError(t, err)
@@ -1769,7 +1769,7 @@ func TestSetRelErrors(t *testing.T) {
 }
 
 func TestAggregateRelBuilder(t *testing.T) {
-	addID := extensions.ID{
+	addID := extensions.FunctionID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
 		Name: "add"}
 

@@ -83,7 +83,7 @@ func (e *ExprBuilder) Enum(val string) enumWrapper { return enumWrapper(val) }
 // extension identified by the ID is loaded into the registry *before*
 // `Build` is called.
 func (e *ExprBuilder) ScalarFunc(
-	id extensions.ID, opts ...*types.FunctionOption,
+	id extensions.FunctionID, opts ...*types.FunctionOption,
 ) *scalarFuncBuilder {
 	return &scalarFuncBuilder{
 		b:    e,
@@ -106,7 +106,7 @@ func (e *ExprBuilder) ScalarFunc(
 // extension identified by the ID is loaded into the registry *before*
 // `Build` is called.
 func (e *ExprBuilder) WindowFunc(
-	id extensions.ID, opts ...*types.FunctionOption,
+	id extensions.FunctionID, opts ...*types.FunctionOption,
 ) *windowFuncBuilder {
 	return &windowFuncBuilder{
 		b:    e,
@@ -129,7 +129,7 @@ func (e *ExprBuilder) WindowFunc(
 // extension identified by the ID is loaded into the registry *before*
 // `Build` is called.
 func (e *ExprBuilder) AggFunc(
-	id extensions.ID, opts ...*types.FunctionOption,
+	id extensions.FunctionID, opts ...*types.FunctionOption,
 ) *aggregateFuncBuilder {
 	return &aggregateFuncBuilder{
 		b:    e,
@@ -331,7 +331,7 @@ func (dpb *dynamicParamBuilder) BuildFuncArg() (types.FuncArg, error) { return d
 type scalarFuncBuilder struct {
 	b *ExprBuilder
 
-	id   extensions.ID
+	id   extensions.FunctionID
 	opts []*types.FunctionOption
 	args []FuncArgBuilder
 }
@@ -366,7 +366,7 @@ func (sb *scalarFuncBuilder) Args(args ...FuncArgBuilder) *scalarFuncBuilder {
 type windowFuncBuilder struct {
 	b *ExprBuilder
 
-	id   extensions.ID
+	id   extensions.FunctionID
 	opts []*types.FunctionOption
 	args []FuncArgBuilder
 
@@ -470,7 +470,7 @@ func (wb *windowFuncBuilder) BoundsType(bt types.BoundsType) *windowFuncBuilder 
 type aggregateFuncBuilder struct {
 	b *ExprBuilder
 
-	id   extensions.ID
+	id   extensions.FunctionID
 	opts []*types.FunctionOption
 	args []FuncArgBuilder
 

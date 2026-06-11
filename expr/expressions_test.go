@@ -112,7 +112,7 @@ func ExampleExpression_scalarFunction() {
 	// having to construct the protobuf
 	const substraitext = `extension:io.substrait:functions_arithmetic`
 
-	var addVariant = ext.NewScalarFuncVariant(ext.ID{URN: substraitext, Name: "add:i32_i32"})
+	var addVariant = ext.NewScalarFuncVariant(ext.FunctionID{URN: substraitext, Name: "add:i32_i32"})
 
 	var ex expr.Expression
 	refArg, _ := expr.NewRootFieldRef(expr.NewStructFieldRef(0), types.NewRecordTypeFromTypes([]types.Type{&types.Int32Type{}}))
@@ -145,9 +145,9 @@ func ExampleExpression_scalarFunction() {
 
 func sampleNestedExpr(reg expr.ExtensionRegistry, substraitExtURN string) expr.Expression {
 	var (
-		add = ext.NewScalarFuncVariant(ext.ID{URN: substraitExtURN, Name: "add"})
-		sub = ext.NewScalarFuncVariant(ext.ID{URN: substraitExtURN, Name: "subtract"})
-		mul = ext.NewScalarFuncVariant(ext.ID{URN: substraitExtURN, Name: "multiply"})
+		add = ext.NewScalarFuncVariant(ext.FunctionID{URN: substraitExtURN, Name: "add"})
+		sub = ext.NewScalarFuncVariant(ext.FunctionID{URN: substraitExtURN, Name: "subtract"})
+		mul = ext.NewScalarFuncVariant(ext.FunctionID{URN: substraitExtURN, Name: "multiply"})
 	)
 
 	baseSchema := types.NewRecordTypeFromTypes(

@@ -22,7 +22,7 @@ func LoadDialect(name string, r io.Reader) (Dialect, error) {
 }
 
 type dialectFunctionInfo struct {
-	ID        extensions.ID
+	ID        extensions.FunctionID
 	Name      string
 	LocalName string
 	Options   map[string]extensions.Option
@@ -35,9 +35,9 @@ type dialectImpl struct {
 
 	toLocalTypeMap map[string]dialectTypeInfo // substrait short type name to dialectTypeInfo
 
-	localScalarFunctions    map[extensions.ID]*dialectFunctionInfo
-	localAggregateFunctions map[extensions.ID]*dialectFunctionInfo
-	localWindowFunctions    map[extensions.ID]*dialectFunctionInfo
+	localScalarFunctions    map[extensions.FunctionID]*dialectFunctionInfo
+	localAggregateFunctions map[extensions.FunctionID]*dialectFunctionInfo
+	localWindowFunctions    map[extensions.FunctionID]*dialectFunctionInfo
 
 	localTypeRegistry LocalTypeRegistry
 }
@@ -89,7 +89,7 @@ func (d *dialectImpl) LocalizeFunctionRegistry(registry FunctionRegistry) (Local
 }
 
 type withID interface {
-	ID() extensions.ID
+	ID() extensions.FunctionID
 }
 
 type mapAndSlice[V extensions.FunctionVariant] struct {
@@ -103,10 +103,10 @@ type mapAndSlice[V extensions.FunctionVariant] struct {
 // 1. a mapAndSlice of LocalFunctionVariants
 // 2. an error if a function variant is not found for a dialect function
 func makeLocalFunctionVariantMapAndSlice[T withID, V localFunctionVariant](
-	dialectFunctionInfos map[extensions.ID]*dialectFunctionInfo, getFunctionVariants func(string) []T,
+	dialectFunctionInfos map[extensions.FunctionID]*dialectFunctionInfo, getFunctionVariants func(string) []T,
 	createLocalVariant func(T, *dialectFunctionInfo) V) (*mapAndSlice[V], error) {
 
-	processedFunctions := make(map[extensions.ID]bool)
+	processedFunctions := make(map[extensions.FunctionID]bool)
 	variantsMap := make(map[FunctionName][]V)
 	variantsSlice := make([]V, 0)
 	for _, dfi := range dialectFunctionInfos {
@@ -211,8 +211,8 @@ func (d *dialectImpl) Load(reader io.Reader) error {
 	return nil
 }
 
-func (d *dialectImpl) buildFunctionInfoMap(functions []dialectFunction) map[extensions.ID]*dialectFunctionInfo {
-	funcMap := make(map[extensions.ID]*dialectFunctionInfo)
+func (d *dialectImpl) buildFunctionInfoMap(functions []dialectFunction) map[extensions.FunctionID]*dialectFunctionInfo {
+	funcMap := make(map[extensions.FunctionID]*dialectFunctionInfo)
 	for _, f := range functions {
 		urn, name := d.file.getUrnAndFunctionName(&f)
 		for _, kernel := range f.SupportedKernels {
@@ -220,7 +220,7 @@ func (d *dialectImpl) buildFunctionInfoMap(functions []dialectFunction) map[exte
 			if len(localName) == 0 {
 				localName = name
 			}
-			id := extensions.ID{URN: urn, Name: name + ":" + kernel}
+			id := extensions.FunctionID{URN: urn, Name: name + ":" + kernel}
 			localFunction := dialectFunctionInfo{
 				ID:        id,
 				Name:      name,
