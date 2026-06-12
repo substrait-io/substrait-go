@@ -271,6 +271,22 @@ func ResolveScalarFunctionVariant(
 	return resolveFunctionVariant(reg, urn, name, args, reg.c.GetAllScalarFunctions())
 }
 
+// ResolveAggregateFunctionVariant resolves a simple aggregate function name and arguments
+// to the ID of a registered function variant.
+func ResolveAggregateFunctionVariant(
+	reg ExtensionRegistry, urn string, name string, args ...types.FuncArg,
+) (extensions.FunctionID, error) {
+	return resolveFunctionVariant(reg, urn, name, args, reg.c.GetAllAggregateFunctions())
+}
+
+// ResolveWindowFunctionVariant resolves a simple window function name and arguments
+// to the ID of a registered function variant.
+func ResolveWindowFunctionVariant(
+	reg ExtensionRegistry, urn string, name string, args ...types.FuncArg,
+) (extensions.FunctionID, error) {
+	return resolveFunctionVariant(reg, urn, name, args, reg.c.GetAllWindowFunctions())
+}
+
 func resolveVariant[T variant](
 	id extensions.FunctionID, reg ExtensionRegistry, getter func(extensions.FunctionID) (T, bool),
 	args []types.FuncArg,

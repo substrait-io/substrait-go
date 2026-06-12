@@ -318,7 +318,7 @@ func TestBoundFromProto(t *testing.T) {
 	}
 }
 
-func TestResolveScalarFunctionVariant(t *testing.T) {
+func TestResolveFunctionVariant(t *testing.T) {
 	reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
 
 	addID, err := expr.ResolveScalarFunctionVariant(reg,
@@ -340,6 +340,22 @@ func TestResolveScalarFunctionVariant(t *testing.T) {
 		URN:       extensions.SubstraitDefaultURNPrefix + "functions_comparison",
 		Signature: "equal:any_any",
 	}, equalID)
+
+	countID, err := expr.ResolveAggregateFunctionVariant(reg,
+		extensions.SubstraitDefaultURNPrefix+"functions_aggregate_generic", "count")
+	require.NoError(t, err)
+	assert.Equal(t, extensions.FunctionID{
+		URN:       extensions.SubstraitDefaultURNPrefix + "functions_aggregate_generic",
+		Signature: "count:",
+	}, countID)
+
+	rankID, err := expr.ResolveWindowFunctionVariant(reg,
+		extensions.SubstraitDefaultURNPrefix+"functions_arithmetic", "rank")
+	require.NoError(t, err)
+	assert.Equal(t, extensions.FunctionID{
+		URN:       extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
+		Signature: "rank:",
+	}, rankID)
 }
 
 func TestAny1TypeParameterConsistency(t *testing.T) {
