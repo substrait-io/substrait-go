@@ -318,6 +318,30 @@ func TestBoundFromProto(t *testing.T) {
 	}
 }
 
+func TestResolveScalarFunctionVariant(t *testing.T) {
+	reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
+
+	addID, err := expr.ResolveScalarFunctionVariant(reg,
+		extensions.SubstraitDefaultURNPrefix+"functions_arithmetic", "add",
+		expr.NewPrimitiveLiteral(int32(1), false),
+		expr.NewPrimitiveLiteral(int32(2), false))
+	require.NoError(t, err)
+	assert.Equal(t, extensions.FunctionID{
+		URN:       extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
+		Signature: "add:i32_i32",
+	}, addID)
+
+	equalID, err := expr.ResolveScalarFunctionVariant(reg,
+		extensions.SubstraitDefaultURNPrefix+"functions_comparison", "equal",
+		expr.NewPrimitiveLiteral(int32(1), false),
+		expr.NewPrimitiveLiteral(int32(2), false))
+	require.NoError(t, err)
+	assert.Equal(t, extensions.FunctionID{
+		URN:       extensions.SubstraitDefaultURNPrefix + "functions_comparison",
+		Signature: "equal:any_any",
+	}, equalID)
+}
+
 func TestAny1TypeParameterConsistency(t *testing.T) {
 	// equal(any1, any1) -> boolean
 	reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())

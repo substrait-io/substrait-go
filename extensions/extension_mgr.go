@@ -130,7 +130,7 @@ var void = struct{}{}
 type variants interface {
 	*ScalarFunctionVariant | *AggregateFunctionVariant | *WindowFunctionVariant
 	Name() string
-	CompoundName() string
+	Signature() string
 }
 
 type extFn[T variants] interface {
@@ -139,7 +139,7 @@ type extFn[T variants] interface {
 
 func addToMaps[T variants](id FunctionID, fn extFn[T], m map[FunctionID]T) {
 	for _, v := range fn.GetVariants(id.URN) {
-		id.Signature = v.CompoundName()
+		id.Signature = v.Signature()
 		m[id] = v
 	}
 }

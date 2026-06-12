@@ -164,7 +164,7 @@ func BoundFromProto(b *proto.Expression_WindowFunction_Bound) Bound {
 }
 
 type FunctionInvocation interface {
-	CompoundName() string
+	Signature() string
 	ID() extensions.FunctionID
 	GetOptions() []*types.FunctionOption
 	GetArgTypes() []types.Type
@@ -206,7 +206,69 @@ func NewCustomScalarFunc(
 
 type variant interface {
 	*extensions.ScalarFunctionVariant | *extensions.AggregateFunctionVariant | *extensions.WindowFunctionVariant
+	Name() string
+	Signature() string
+	ID() extensions.FunctionID
 	ResolveType([]types.Type, extensions.Set) (types.Type, error)
+}
+
+func exactVariantSignature(name string, argTypes []types.Type, reg ExtensionRegistry) (string, error) {
+	signatures := make([]string, len(argTypes))
+	for i, argType := range argTypes {
+		if argType == types.CommonEnumType {
+			signatures[i] = extensions.EnumTypeString
+		} else if userDefinedType, ok := argType.(*types.UserDefinedType); ok {
+			id, found := reg.DecodeType(userDefinedType.TypeReference)
+			if !found {
+				return "", fmt.Errorf("%w: could not find type for reference %d",
+					substraitgo.ErrNotFound, userDefinedType.TypeReference)
+			}
+			signatures[i] = "u!" + id.Name
+		} else {
+			signatures[i] = argType.ShortString()
+		}
+	}
+	return name + ":" + strings.Join(signatures, "_"), nil
+}
+
+func resolveFunctionVariant[T variant](
+	reg ExtensionRegistry, urn string, name string, args []types.FuncArg, variants []T,
+) (extensions.FunctionID, error) {
+	argTypes := getArgTypes(args)
+	exactSignature, err := exactVariantSignature(name, argTypes, reg)
+	if err != nil {
+		return extensions.FunctionID{}, err
+	}
+
+	var matches []T
+	for _, variant := range variants {
+		if variant.ID().URN != urn || variant.Name() != name {
+			continue
+		}
+		if _, err := variant.ResolveType(argTypes, reg.Set); err != nil {
+			continue
+		}
+		if variant.Signature() == exactSignature {
+			return variant.ID(), nil
+		}
+		matches = append(matches, variant)
+	}
+
+	if len(matches) == 0 {
+		return extensions.FunctionID{}, fmt.Errorf("%w: could not find matching function for name: %s", substraitgo.ErrNotFound, name)
+	}
+	if len(matches) > 1 {
+		return extensions.FunctionID{}, fmt.Errorf("%w: found multiple matching function variants for name: %s", substraitgo.ErrInvalidExpr, name)
+	}
+	return matches[0].ID(), nil
+}
+
+// ResolveScalarFunctionVariant resolves a simple scalar function name and arguments
+// to the ID of a registered function variant.
+func ResolveScalarFunctionVariant(
+	reg ExtensionRegistry, urn string, name string, args ...types.FuncArg,
+) (extensions.FunctionID, error) {
+	return resolveFunctionVariant(reg, urn, name, args, reg.c.GetAllScalarFunctions())
 }
 
 func resolveVariant[T variant](
@@ -264,8 +326,11 @@ func NewScalarFunc(
 	}, nil
 }
 
-func (s *ScalarFunction) Name() string                           { return s.declaration.Name() }
-func (s *ScalarFunction) CompoundName() string                   { return s.declaration.CompoundName() }
+func (s *ScalarFunction) Name() string { return s.declaration.Name() }
+func (s *ScalarFunction) Signature() string {
+	return s.declaration.Signature()
+}
+
 func (s *ScalarFunction) ID() extensions.FunctionID              { return s.declaration.ID() }
 func (s *ScalarFunction) Variadic() *extensions.VariadicBehavior { return s.declaration.Variadic() }
 func (s *ScalarFunction) SessionDependant() bool                 { return s.declaration.SessionDependent() }
@@ -502,8 +567,11 @@ func NewWindowFunc(
 	}, nil
 }
 
-func (w *WindowFunction) Name() string                            { return w.declaration.Name() }
-func (w *WindowFunction) CompoundName() string                    { return w.declaration.CompoundName() }
+func (w *WindowFunction) Name() string { return w.declaration.Name() }
+func (w *WindowFunction) Signature() string {
+	return w.declaration.Signature()
+}
+
 func (w *WindowFunction) ID() extensions.FunctionID               { return w.declaration.ID() }
 func (w *WindowFunction) Variadic() *extensions.VariadicBehavior  { return w.declaration.Variadic() }
 func (w *WindowFunction) SessionDependant() bool                  { return w.declaration.SessionDependent() }
@@ -838,8 +906,11 @@ func NewAggregateFunctionFromProto(
 	}, nil
 }
 
-func (a *AggregateFunction) Name() string                            { return a.declaration.Name() }
-func (a *AggregateFunction) CompoundName() string                    { return a.declaration.CompoundName() }
+func (a *AggregateFunction) Name() string { return a.declaration.Name() }
+func (a *AggregateFunction) Signature() string {
+	return a.declaration.Signature()
+}
+
 func (a *AggregateFunction) ID() extensions.FunctionID               { return a.declaration.ID() }
 func (a *AggregateFunction) Variadic() *extensions.VariadicBehavior  { return a.declaration.Variadic() }
 func (a *AggregateFunction) SessionDependant() bool                  { return a.declaration.SessionDependent() }
