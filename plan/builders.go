@@ -23,11 +23,10 @@ import (
 // This will maintain consistency across the plan for the user without them
 // having to manually do so.
 type Builder interface {
-	// GetFunctionRef retrieves the function anchor reference for a given
-	// function identified by its namespace and function name. This also
-	// ensures that any plans built from this builder will contain this
-	// function anchor in its extensions section.
-	GetFunctionRef(nameSpace, key string) types.FunctionRef
+	// GetFunctionRef retrieves the function anchor reference for a function
+	// variant. This also ensures that any plans built from this builder will
+	// contain this function anchor in its extensions section.
+	GetFunctionRef(id extensions.FunctionID) (types.FunctionRef, error)
 
 	// Construct a user-defined type from the extension namespace and typename,
 	// along with optional type parameters. It will add the type to the internal
@@ -44,14 +43,14 @@ type Builder interface {
 	// the condition or post join filter for a join relation.
 	JoinedRecordFieldRef(left, right Rel, index int32) (*expr.FieldReference, error)
 	// ScalarFn constructs a ScalarFunction from the passed in namespace and
-	// function name key. This is equivalent to calling expr.NewScalarFunc using
+	// registered function variant name. This is equivalent to calling expr.NewScalarFunc using
 	// the builder's extension registry. An error will be returned if the indicated
 	// function was not already in the extension collection the builder was created
 	// with or if the arguments of the function don't match the provided argument
 	// types.
 	ScalarFn(nameSpace, key string, opts []*types.FunctionOption, args ...types.FuncArg) (*expr.ScalarFunction, error)
 	// AggregateFn constructs an AggregateFunction from the passed in namespace and
-	// function name key. This is equivalent to calling expr.NewAggregateFunc using
+	// registered function variant name. This is equivalent to calling expr.NewAggregateFunc using
 	// the builder's extension registry. An error will be returned if the indicated
 	// function was not already in the extension collection the builder was created
 	// with or if the arguments of the function don't match the provided argument
@@ -227,8 +226,12 @@ func (b *builder) GetExprBuilder() *expr.ExprBuilder {
 	}
 }
 
-func (b *builder) GetFunctionRef(nameSpace, key string) types.FunctionRef {
-	return types.FunctionRef(b.extSet.GetFuncAnchor(extensions.FunctionID{URN: nameSpace, Name: key}))
+func (b *builder) GetFunctionRef(id extensions.FunctionID) (types.FunctionRef, error) {
+	if !b.ext.IsRegisteredFunction(id) {
+		return 0, fmt.Errorf("%w: could not find matching function for id: %v", substraitgo.ErrNotFound, id)
+	}
+
+	return types.FunctionRef(b.extSet.GetFuncAnchor(id)), nil
 }
 
 func (b *builder) UserDefinedType(nameSpace, typeName string, params ...types.TypeParam) types.UserDefinedType {
@@ -261,12 +264,12 @@ func (b *builder) RootFieldRef(input Rel, index int32) (*expr.FieldReference, er
 }
 
 func (b *builder) ScalarFn(nameSpace, key string, opts []*types.FunctionOption, args ...types.FuncArg) (*expr.ScalarFunction, error) {
-	id := extensions.FunctionID{URN: nameSpace, Name: key}
+	id := extensions.FunctionID{URN: nameSpace, Signature: key}
 	return expr.NewScalarFunc(b.reg, id, opts, args...)
 }
 
 func (b *builder) AggregateFn(nameSpace, key string, opts []*types.FunctionOption, args ...types.FuncArg) (*expr.AggregateFunction, error) {
-	id := extensions.FunctionID{URN: nameSpace, Name: key}
+	id := extensions.FunctionID{URN: nameSpace, Signature: key}
 	return expr.NewAggregateFunc(b.reg, id, opts,
 		types.AggInvocationAll, types.AggPhaseInitialToResult, nil, args...)
 }

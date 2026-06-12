@@ -206,7 +206,85 @@ func NewCustomScalarFunc(
 
 type variant interface {
 	*extensions.ScalarFunctionVariant | *extensions.AggregateFunctionVariant | *extensions.WindowFunctionVariant
+	Name() string
+	CompoundName() string
+	ID() extensions.FunctionID
 	ResolveType([]types.Type, extensions.Set) (types.Type, error)
+}
+
+func exactVariantSignature(name string, argTypes []types.Type, reg ExtensionRegistry) (string, error) {
+	signatures := make([]string, len(argTypes))
+	for i, argType := range argTypes {
+		if argType == types.CommonEnumType {
+			signatures[i] = extensions.EnumTypeString
+		} else if userDefinedType, ok := argType.(*types.UserDefinedType); ok {
+			id, found := reg.DecodeType(userDefinedType.TypeReference)
+			if !found {
+				return "", fmt.Errorf("%w: could not find type for reference %d",
+					substraitgo.ErrNotFound, userDefinedType.TypeReference)
+			}
+			signatures[i] = "u!" + id.Name
+		} else {
+			signatures[i] = argType.ShortString()
+		}
+	}
+	return name + ":" + strings.Join(signatures, "_"), nil
+}
+
+func resolveFunctionVariant[T variant](
+	reg ExtensionRegistry, urn string, name string, args []types.FuncArg, variants []T,
+) (extensions.FunctionID, error) {
+	argTypes := getArgTypes(args)
+	exactSignature, err := exactVariantSignature(name, argTypes, reg)
+	if err != nil {
+		return extensions.FunctionID{}, err
+	}
+
+	var matches []T
+	for _, variant := range variants {
+		if variant.ID().URN != urn || variant.Name() != name {
+			continue
+		}
+		if _, err := variant.ResolveType(argTypes, reg.Set); err != nil {
+			continue
+		}
+		if variant.CompoundName() == exactSignature {
+			return variant.ID(), nil
+		}
+		matches = append(matches, variant)
+	}
+
+	if len(matches) == 0 {
+		return extensions.FunctionID{}, fmt.Errorf("%w: could not find matching function for name: %s", substraitgo.ErrNotFound, name)
+	}
+	if len(matches) > 1 {
+		return extensions.FunctionID{}, fmt.Errorf("%w: found multiple matching function variants for name: %s", substraitgo.ErrInvalidExpr, name)
+	}
+	return matches[0].ID(), nil
+}
+
+// ResolveScalarFunctionVariant resolves a simple scalar function name and arguments
+// to the ID of a registered function variant.
+func ResolveScalarFunctionVariant(
+	reg ExtensionRegistry, urn string, name string, args ...types.FuncArg,
+) (extensions.FunctionID, error) {
+	return resolveFunctionVariant(reg, urn, name, args, reg.c.GetAllScalarFunctions())
+}
+
+// ResolveAggregateFunctionVariant resolves a simple aggregate function name and arguments
+// to the ID of a registered function variant.
+func ResolveAggregateFunctionVariant(
+	reg ExtensionRegistry, urn string, name string, args ...types.FuncArg,
+) (extensions.FunctionID, error) {
+	return resolveFunctionVariant(reg, urn, name, args, reg.c.GetAllAggregateFunctions())
+}
+
+// ResolveWindowFunctionVariant resolves a simple window function name and arguments
+// to the ID of a registered function variant.
+func ResolveWindowFunctionVariant(
+	reg ExtensionRegistry, urn string, name string, args ...types.FuncArg,
+) (extensions.FunctionID, error) {
+	return resolveFunctionVariant(reg, urn, name, args, reg.c.GetAllWindowFunctions())
 }
 
 func resolveVariant[T variant](
@@ -225,32 +303,8 @@ func resolveVariant[T variant](
 
 	decl, found := getter(id)
 	if !found {
-		if strings.IndexByte(id.Name, ':') == -1 {
-			sigs := make([]string, len(argTypes))
-			for i, t := range argTypes {
-				if t == types.CommonEnumType {
-					// enum value
-					sigs[i] = extensions.EnumTypeString
-				} else if ud, ok := t.(*types.UserDefinedType); ok {
-					id, found := reg.DecodeType(ud.TypeReference)
-					if !found {
-						return nil, nil, fmt.Errorf("%w: could not find type for reference %d",
-							substraitgo.ErrNotFound, ud.TypeReference)
-					}
-					sigs[i] = "u!" + id.Name
-				} else {
-					sigs[i] = t.ShortString()
-				}
-			}
-			id.Name += ":" + strings.Join(sigs, "_")
-			if decl, found = getter(id); !found {
-				return nil, nil, fmt.Errorf("%w: could not find matching function for id: %s",
-					substraitgo.ErrNotFound, id)
-			}
-		} else {
-			return nil, nil, fmt.Errorf("%w: could not find matching function for id: %s",
-				substraitgo.ErrNotFound, id)
-		}
+		return nil, nil, fmt.Errorf("%w: could not find matching function for id: %s",
+			substraitgo.ErrNotFound, id)
 	}
 
 	outType, err := decl.ResolveType(argTypes, reg.Set)
@@ -263,12 +317,6 @@ func resolveVariant[T variant](
 
 // NewScalarFunc validates that the specified ID can be found in the
 // registry via LookupScalarFunction and retrieves a function anchor to use.
-//
-// If the name in the ID is not currently a compound signature and cannot
-// be found in the registry, we'll attempt to construct the compound signature
-// based on the types of the provided arguments and look it up that way.
-// If both attempts fail to lookup the function, a substraitgo.ErrNotFound
-// will be returned.
 //
 // Currently the options are not validated against the function declaration
 // but the number of arguments and their types will be validated in order to
