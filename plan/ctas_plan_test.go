@@ -83,14 +83,14 @@ func makeNamedTableReadRel(b plan.Builder, tableNames []string, tableSchema type
 // makeConditionExprForLike constructs a LIKE condition expression for the specified column and value.
 func makeConditionExprForLike(t *testing.T, b plan.Builder, scan plan.Rel, colId int, valueLiteral expr.Literal) expr.Expression {
 	id := extensions.FunctionID{
-		URN:  "extension:io.substrait:functions_string",
-		Name: "contains:str_str",
+		URN:       "extension:io.substrait:functions_string",
+		Signature: "contains:str_str",
 	}
 	_, err := b.GetFunctionRef(id)
 	require.NoError(t, err)
 	colIdRef, err := b.RootFieldRef(scan, int32(colId))
 	require.NoError(t, err)
-	scalarExpr, err := b.ScalarFn(id.URN, id.Name, nil, colIdRef, valueLiteral)
+	scalarExpr, err := b.ScalarFn(id.URN, id.Signature, nil, colIdRef, valueLiteral)
 	require.NoError(t, err)
 	return scalarExpr
 }

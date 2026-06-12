@@ -341,8 +341,8 @@ func (tc *TestCase) ID() extensions.FunctionID {
 		baseURN = extensions.SubstraitDefaultURNPrefix + path
 	}
 	return extensions.FunctionID{
-		URN:  baseURN,
-		Name: tc.CompoundFunctionName(),
+		URN:       baseURN,
+		Signature: tc.CompoundFunctionName(),
 	}
 }
 

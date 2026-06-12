@@ -16,7 +16,7 @@ func TestWindowFunctionBoundsType(t *testing.T) {
 	col := extensions.GetDefaultCollectionWithNoError()
 	reg := expr.NewEmptyExtensionRegistry(col)
 
-	sumID := extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Name: "sum:i64"}
+	sumID := extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Signature: "sum:i64"}
 
 	schema := types.NewRecordTypeFromTypes([]types.Type{
 		&types.Int64Type{Nullability: types.NullabilityRequired},
@@ -70,7 +70,7 @@ func TestWindowFunctionBoundsTypeDefault(t *testing.T) {
 	col := extensions.GetDefaultCollectionWithNoError()
 	reg := expr.NewEmptyExtensionRegistry(col)
 
-	sumID := extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Name: "sum:i64"}
+	sumID := extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Signature: "sum:i64"}
 
 	schema := types.NewRecordTypeFromTypes([]types.Type{
 		&types.Int64Type{Nullability: types.NullabilityRequired},
@@ -101,7 +101,7 @@ func TestWindowFunctionRANGERequiresSingleSort(t *testing.T) {
 	col := extensions.GetDefaultCollectionWithNoError()
 	reg := expr.NewEmptyExtensionRegistry(col)
 
-	sumID := extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Name: "sum:i64"}
+	sumID := extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Signature: "sum:i64"}
 
 	schema := types.NewRecordTypeFromTypes([]types.Type{
 		&types.Int64Type{Nullability: types.NullabilityRequired},

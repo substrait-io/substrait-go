@@ -139,7 +139,7 @@ type extFn[T variants] interface {
 
 func addToMaps[T variants](id FunctionID, fn extFn[T], m map[FunctionID]T) {
 	for _, v := range fn.GetVariants(id.URN) {
-		id.Name = v.CompoundName()
+		id.Signature = v.CompoundName()
 		m[id] = v
 	}
 }
@@ -408,7 +408,7 @@ func (e *set) ToProto(c *Collection) ([]*extensions.SimpleExtensionURN, []*exten
 				ExtensionFunction: &extensions.SimpleExtensionDeclaration_ExtensionFunction{
 					ExtensionUrnReference: urnBackRef[id.URN],
 					FunctionAnchor:        anchor,
-					Name:                  id.Name,
+					Name:                  id.Signature,
 				},
 			},
 		})
@@ -627,8 +627,8 @@ func GetExtensionSet(plan TopLevel, c *Collection) (Set, error) {
 				return nil, err
 			}
 			ret.encodeFunc(ef.FunctionAnchor, FunctionID{
-				URN:  urn,
-				Name: ef.Name,
+				URN:       urn,
+				Signature: ef.Name,
 			})
 		}
 	}

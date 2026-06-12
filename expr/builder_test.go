@@ -21,9 +21,9 @@ func TestExprBuilder(t *testing.T) {
 		Reg:        expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError()),
 		BaseSchema: types.NewRecordTypeFromStruct(boringSchema.Struct),
 	}
-	addI32ID := extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Name: "add:i32_i32"}
-	addI64ID := extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Name: "add:i64_i64"}
-	subI32ID := extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Name: "subtract:i32_i32"}
+	addI32ID := extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Signature: "add:i32_i32"}
+	addI64ID := extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Signature: "add:i64_i64"}
+	subI32ID := extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Signature: "subtract:i32_i32"}
 	precomputedLiteral, _ := expr.NewLiteral(int32(3), false)
 	precomputedExpression, _ := b.ScalarFunc(addI32ID).Args(
 		b.Wrap(expr.NewLiteral(int32(3), false)),
@@ -177,8 +177,8 @@ window_functions:
 
 	// check scalar function
 	scalar, err := planBuilder.GetExprBuilder().ScalarFunc(extensions.FunctionID{
-		URN:  "extension:test:custom",
-		Name: "custom_function:u!custom_type2",
+		URN:       "extension:test:custom",
+		Signature: "custom_function:u!custom_type2",
 	}).Args(
 		customLiteral,
 	).BuildExpr()
@@ -192,8 +192,8 @@ window_functions:
 
 	// check aggregate function
 	aggr, err := planBuilder.GetExprBuilder().AggFunc(extensions.FunctionID{
-		URN:  "extension:test:custom",
-		Name: "custom_aggr:u!custom_type2",
+		URN:       "extension:test:custom",
+		Signature: "custom_aggr:u!custom_type2",
 	}).Args(
 		customLiteral,
 	).Build()
@@ -206,8 +206,8 @@ window_functions:
 
 	// check window function
 	window, err := planBuilder.GetExprBuilder().WindowFunc(extensions.FunctionID{
-		URN:  "extension:test:custom",
-		Name: "custom_window:u!custom_type2",
+		URN:       "extension:test:custom",
+		Signature: "custom_window:u!custom_type2",
 	}).Args(
 		customLiteral,
 	).Phase(types.AggPhaseInitialToResult).Build()
@@ -323,8 +323,8 @@ func TestAny1TypeParameterConsistency(t *testing.T) {
 	reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
 
 	equalID := extensions.FunctionID{
-		URN:  extensions.SubstraitDefaultURNPrefix + "functions_comparison",
-		Name: "equal:any_any",
+		URN:       extensions.SubstraitDefaultURNPrefix + "functions_comparison",
+		Signature: "equal:any_any",
 	}
 
 	t.Run("non-variadic any1 - invalid", func(t *testing.T) {
@@ -353,8 +353,8 @@ func TestAny1TypeParameterConsistency(t *testing.T) {
 
 	// coalesce(any1, any1, ...) -> any1 (min: 2 args)
 	coalesceID := extensions.FunctionID{
-		URN:  extensions.SubstraitDefaultURNPrefix + "functions_comparison",
-		Name: "coalesce:any",
+		URN:       extensions.SubstraitDefaultURNPrefix + "functions_comparison",
+		Signature: "coalesce:any",
 	}
 
 	t.Run("variadic any1 - invalid", func(t *testing.T) {

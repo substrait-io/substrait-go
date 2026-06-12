@@ -264,12 +264,12 @@ func (b *builder) RootFieldRef(input Rel, index int32) (*expr.FieldReference, er
 }
 
 func (b *builder) ScalarFn(nameSpace, key string, opts []*types.FunctionOption, args ...types.FuncArg) (*expr.ScalarFunction, error) {
-	id := extensions.FunctionID{URN: nameSpace, Name: key}
+	id := extensions.FunctionID{URN: nameSpace, Signature: key}
 	return expr.NewScalarFunc(b.reg, id, opts, args...)
 }
 
 func (b *builder) AggregateFn(nameSpace, key string, opts []*types.FunctionOption, args ...types.FuncArg) (*expr.AggregateFunction, error) {
-	id := extensions.FunctionID{URN: nameSpace, Name: key}
+	id := extensions.FunctionID{URN: nameSpace, Signature: key}
 	return expr.NewAggregateFunc(b.reg, id, opts,
 		types.AggInvocationAll, types.AggPhaseInitialToResult, nil, args...)
 }

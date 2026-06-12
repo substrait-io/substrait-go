@@ -309,7 +309,7 @@ func maxArgumentCount(paramTypeList FuncParameterList, variadicBehavior *Variadi
 // an expression requires an output type argument. This is for creating an
 // on-the-fly function variant that will not be registered as an extension.
 func NewScalarFuncVariant(id FunctionID) *ScalarFunctionVariant {
-	simpleName, args := parseFuncName(id.Name)
+	simpleName, args := parseFuncName(id.Signature)
 	return &ScalarFunctionVariant{
 		name: simpleName,
 		urn:  id.URN,
@@ -321,7 +321,7 @@ func NewScalarFuncVariant(id FunctionID) *ScalarFunctionVariant {
 // setting the values for the SessionDependant, Variadic Behavior and Deterministic
 // properties.
 func NewScalarFuncVariantWithProps(id FunctionID, variadic *VariadicBehavior, sessionDependant, deterministic bool) *ScalarFunctionVariant {
-	simpleName, args := parseFuncName(id.Name)
+	simpleName, args := parseFuncName(id.Signature)
 	return &ScalarFunctionVariant{
 		name: simpleName,
 		urn:  id.URN,
@@ -359,7 +359,7 @@ func (s *ScalarFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
 }
 func (s *ScalarFunctionVariant) ID() FunctionID {
-	return FunctionID{URN: s.urn, Name: s.CompoundName()}
+	return FunctionID{URN: s.urn, Signature: s.CompoundName()}
 }
 
 func (s *ScalarFunctionVariant) Match(argumentTypes []types.Type) (bool, error) {
@@ -385,7 +385,7 @@ func (s *ScalarFunctionVariant) MaxArgumentCount() int {
 // an expression requires an output type argument. This is for creating an
 // on-the-fly function variant that will not be registered as an extension.
 func NewAggFuncVariant(id FunctionID) *AggregateFunctionVariant {
-	simpleName, args := parseFuncName(id.Name)
+	simpleName, args := parseFuncName(id.Signature)
 	return &AggregateFunctionVariant{
 		name: simpleName,
 		urn:  id.URN,
@@ -429,7 +429,7 @@ func NewAggFuncVariantOpts(id FunctionID, opts AggVariantOptions) *AggregateFunc
 		aggIntermediate.ValueType = intermediate
 	}
 
-	simpleName, args := parseFuncName(id.Name)
+	simpleName, args := parseFuncName(id.Signature)
 	return &AggregateFunctionVariant{
 		name: simpleName,
 		urn:  id.URN,
@@ -473,7 +473,7 @@ func (s *AggregateFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
 }
 func (s *AggregateFunctionVariant) ID() FunctionID {
-	return FunctionID{URN: s.urn, Name: s.CompoundName()}
+	return FunctionID{URN: s.urn, Signature: s.CompoundName()}
 }
 func (s *AggregateFunctionVariant) Decomposability() DecomposeType { return s.impl.Decomposable }
 func (s *AggregateFunctionVariant) Intermediate() (types.FuncDefArgType, error) {
@@ -507,7 +507,7 @@ type WindowFunctionVariant struct {
 }
 
 func NewWindowFuncVariant(id FunctionID) *WindowFunctionVariant {
-	simpleName, args := parseFuncName(id.Name)
+	simpleName, args := parseFuncName(id.Signature)
 	return &WindowFunctionVariant{
 		name: simpleName,
 		urn:  id.URN,
@@ -556,7 +556,7 @@ func NewWindowFuncVariantOpts(id FunctionID, opts WindowVariantOpts) *WindowFunc
 		aggIntermediate.ValueType = intermediate
 	}
 
-	simpleName, args := parseFuncName(id.Name)
+	simpleName, args := parseFuncName(id.Signature)
 	return &WindowFunctionVariant{
 		name: simpleName,
 		urn:  id.URN,
@@ -595,7 +595,7 @@ func (s *WindowFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
 }
 func (s *WindowFunctionVariant) ID() FunctionID {
-	return FunctionID{URN: s.urn, Name: s.CompoundName()}
+	return FunctionID{URN: s.urn, Signature: s.CompoundName()}
 }
 func (s *WindowFunctionVariant) Decomposability() DecomposeType { return s.impl.Decomposable }
 func (s *WindowFunctionVariant) Intermediate() (types.FuncDefArgType, error) {

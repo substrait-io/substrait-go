@@ -19,29 +19,29 @@ var (
 	})
 
 	subID = extensions.FunctionID{
-		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
-		Name: "subtract:i8_i8"}
+		URN:       extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
+		Signature: "subtract:i8_i8"}
 	addID = extensions.FunctionID{
-		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
-		Name: "add:i8_i8"}
+		URN:       extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
+		Signature: "add:i8_i8"}
 	indexInID = extensions.FunctionID{
-		URN:  extensions.SubstraitDefaultURNPrefix + "functions_set",
-		Name: "index_in:any_list"}
+		URN:       extensions.SubstraitDefaultURNPrefix + "functions_set",
+		Signature: "index_in:any_list"}
 	rankID = extensions.FunctionID{
-		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
-		Name: "rank:"}
+		URN:       extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
+		Signature: "rank:"}
 	firstValueID = extensions.FunctionID{
-		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
-		Name: "first_value:any"}
+		URN:       extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
+		Signature: "first_value:any"}
 	extractID = extensions.FunctionID{
-		URN:  extensions.SubstraitDefaultURNPrefix + "functions_datetime",
-		Name: "extract:req_date"}
+		URN:       extensions.SubstraitDefaultURNPrefix + "functions_datetime",
+		Signature: "extract:req_date"}
 	ntileID = extensions.FunctionID{
-		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
-		Name: "ntile:i32"}
+		URN:       extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
+		Signature: "ntile:i32"}
 	sumID = extensions.FunctionID{
-		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
-		Name: "sum:i32"}
+		URN:       extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
+		Signature: "sum:i32"}
 
 	boringSchema = types.NamedStruct{
 		Names: []string{
