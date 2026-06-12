@@ -107,7 +107,7 @@ func TestLoadExtensionCollection(t *testing.T) {
 		assert.True(t, ok)
 
 		assert.Equal(t, "add", add.Name())
-		assert.Equal(t, "add:i8_i8", add.Signature())
+		assert.Equal(t, "add:i8_i8", add.CompoundName())
 		assert.Equal(t, "Add two values.", add.Description())
 		assert.Equal(t, urn, add.URN())
 		assert.Equal(t, map[string]extensions.Option{"overflow": {
@@ -134,7 +134,7 @@ func TestLoadExtensionCollection(t *testing.T) {
 		assert.True(t, c.IsRegisteredFunction(subID))
 
 		assert.Equal(t, "subtract", sub.Name())
-		assert.Equal(t, "subtract:i16_i16", sub.Signature())
+		assert.Equal(t, "subtract:i16_i16", sub.CompoundName())
 
 		i16Req := &types.Int16Type{Nullability: types.NullabilityRequired}
 		ty, err := sub.ResolveType([]types.Type{i16Req, i16Req}, extensions.NewSet())
@@ -291,7 +291,7 @@ func TestDefaultCollection(t *testing.T) {
 			require.NotNil(t, variant)
 
 			assert.Equal(t, tt.name, variant.Name())
-			assert.Equal(t, tt.signature, variant.Signature())
+			assert.Equal(t, tt.signature, variant.CompoundName())
 			assert.Equal(t, tt.options, variant.Options())
 			assert.Equal(t, tt.urn, variant.URN())
 			assert.Len(t, variant.Args(), tt.nargs)
@@ -457,7 +457,7 @@ func TestAggregateToWindow(t *testing.T) {
 
 		// Check that basic properties are preserved
 		assert.Equal(t, aggFunc.Name(), winFunc.Name())
-		assert.Equal(t, aggFunc.Signature(), winFunc.Signature())
+		assert.Equal(t, aggFunc.CompoundName(), winFunc.CompoundName())
 		assert.Equal(t, aggFunc.Description(), winFunc.Description())
 		assert.Equal(t, aggFunc.URN(), winFunc.URN())
 		assert.Equal(t, aggFunc.Args(), winFunc.Args())

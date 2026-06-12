@@ -365,14 +365,14 @@ scalar_functions:
 			assert.Equal(t, tt.expectedNotation, fv[0].Notation())
 			assert.Equal(t, tt.isOverflowError, fv[0].IsOptionSupported("overflow", "ERROR"))
 			assert.False(t, fv[0].IsOptionSupported("overflow", "SILENT"))
-			checkSignatures(t, getScalarSignatures(fv), tt.expectedNames)
+			checkCompoundNames(t, getScalarCompoundNames(fv), tt.expectedNames)
 
 			fv = localRegistry.GetScalarFunctions(SubstraitFunctionName(tt.substraitName), tt.numArgs)
 			assert.Greater(t, len(fv), 0)
 			assert.Equal(t, tt.expectedUrn, fv[0].URN())
 			assert.Equal(t, tt.localName, fv[0].LocalName())
 			assert.Equal(t, tt.substraitName, fv[0].Name())
-			checkSignatures(t, getScalarSignatures(fv), tt.expectedNames)
+			checkCompoundNames(t, getScalarCompoundNames(fv), tt.expectedNames)
 
 			scalarFunctions := gFunctionRegistry.GetScalarFunctions(tt.substraitName, tt.numArgs)
 			assert.Greater(t, len(scalarFunctions), 0)
@@ -448,13 +448,13 @@ aggregate_functions:
 			assert.Equal(t, tt.localName, av[0].LocalName())
 			assert.Equal(t, tt.expectedNotation, av[0].Notation())
 			assert.False(t, av[0].IsOptionSupported("overflow", "ERROR"))
-			checkSignatures(t, getAggregateSignatures(av), tt.expectedNames)
+			checkCompoundNames(t, getAggregateCompoundNames(av), tt.expectedNames)
 
 			av = localRegistry.GetAggregateFunctions(SubstraitFunctionName(tt.substraitName), 1)
 			assert.Greater(t, len(av), 0)
 			assert.Equal(t, tt.expectedUrn, av[0].URN())
 			assert.Equal(t, tt.substraitName, av[0].LocalName())
-			checkSignatures(t, getAggregateSignatures(av), tt.expectedNames)
+			checkCompoundNames(t, getAggregateCompoundNames(av), tt.expectedNames)
 
 			winFunctions := gFunctionRegistry.GetAggregateFunctions(tt.substraitName, tt.numArgs)
 			assert.Greater(t, len(winFunctions), 0)
@@ -515,13 +515,13 @@ window_functions:
 			assert.Equal(t, tt.localName, wf[0].LocalName())
 			assert.Equal(t, tt.expectedNotation, wf[0].Notation())
 			assert.False(t, wf[0].IsOptionSupported("overflow", "ERROR"))
-			checkSignatures(t, getWindowSignatures(wf), tt.expectedNames)
+			checkCompoundNames(t, getWindowCompoundNames(wf), tt.expectedNames)
 
 			wf = localRegistry.GetWindowFunctions(SubstraitFunctionName(tt.substraitName), tt.numArgs)
 			assert.Greater(t, len(wf), 0)
 			assert.Equal(t, tt.expectedUrn, wf[0].URN())
 			assert.Equal(t, tt.substraitName, wf[0].LocalName())
-			checkSignatures(t, getWindowSignatures(wf), tt.expectedNames)
+			checkCompoundNames(t, getWindowCompoundNames(wf), tt.expectedNames)
 
 			winFunctions := gFunctionRegistry.GetWindowFunctions(tt.substraitName, tt.numArgs)
 			assert.Greater(t, len(winFunctions), 0)
@@ -537,33 +537,33 @@ window_functions:
 	}
 }
 
-func getScalarSignatures(fv []*LocalScalarFunctionVariant) []string {
-	var signatures []string
+func getScalarCompoundNames(fv []*LocalScalarFunctionVariant) []string {
+	var compoundNames []string
 	for _, f := range fv {
-		signatures = append(signatures, f.Signature())
+		compoundNames = append(compoundNames, f.CompoundName())
 	}
-	return signatures
+	return compoundNames
 }
 
-func getAggregateSignatures(av []*LocalAggregateFunctionVariant) []string {
-	var signatures []string
+func getAggregateCompoundNames(av []*LocalAggregateFunctionVariant) []string {
+	var compoundNames []string
 	for _, f := range av {
-		signatures = append(signatures, f.Signature())
+		compoundNames = append(compoundNames, f.CompoundName())
 	}
-	return signatures
+	return compoundNames
 }
 
-func getWindowSignatures(wv []*LocalWindowFunctionVariant) []string {
-	var signatures []string
+func getWindowCompoundNames(wv []*LocalWindowFunctionVariant) []string {
+	var compoundNames []string
 	for _, f := range wv {
-		signatures = append(signatures, f.Signature())
+		compoundNames = append(compoundNames, f.CompoundName())
 	}
-	return signatures
+	return compoundNames
 }
 
-func checkSignatures(t *testing.T, signatures []string, expectedNames []string) {
+func checkCompoundNames(t *testing.T, compoundNames []string, expectedNames []string) {
 	for _, name := range expectedNames {
-		assert.Contains(t, signatures, name)
+		assert.Contains(t, compoundNames, name)
 	}
 }
 
@@ -1441,7 +1441,7 @@ scalar_functions:
 			assert.Equal(t, tt.expectedNotation, fv[0].Notation())
 			assert.Equal(t, tt.isOverflowError, fv[0].IsOptionSupported("overflow", "ERROR"))
 			assert.False(t, fv[0].IsOptionSupported("overflow", "SILENT"))
-			checkSignatures(t, getScalarSignatures(fv), tt.expectedNames)
+			checkCompoundNames(t, getScalarCompoundNames(fv), tt.expectedNames)
 			retType, err := fv[0].ResolveType(tt.args, extensions.NewSet())
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedReturnType, retType)
@@ -1450,7 +1450,7 @@ scalar_functions:
 			assert.Equal(t, tt.expectedUrn, fv[0].URN())
 			assert.Equal(t, tt.localName, fv[0].LocalName())
 			assert.Equal(t, tt.substraitName, fv[0].Name())
-			checkSignatures(t, getScalarSignatures(fv), tt.expectedNames)
+			checkCompoundNames(t, getScalarCompoundNames(fv), tt.expectedNames)
 
 			scalarFunctions := gFunctionRegistry.GetScalarFunctions(tt.substraitName, tt.numArgs)
 			assert.Greater(t, len(scalarFunctions), 0)
@@ -1523,7 +1523,7 @@ scalar_functions:
 			assert.Equal(t, tt.expectedUrn, fv[0].URN())
 			assert.Equal(t, tt.localName, fv[0].LocalName())
 			assert.False(t, fv[0].IsOptionSupported("overflow", "SILENT"))
-			checkSignatures(t, getScalarSignatures(fv), tt.expectedNames)
+			checkCompoundNames(t, getScalarCompoundNames(fv), tt.expectedNames)
 			retType, err := fv[0].ResolveType(tt.args, extensions.NewSet())
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedReturnType, retType)
@@ -1532,7 +1532,7 @@ scalar_functions:
 			assert.Equal(t, tt.expectedUrn, fv[0].URN())
 			assert.Equal(t, tt.localName, fv[0].LocalName())
 			assert.Equal(t, tt.substraitName, fv[0].Name())
-			checkSignatures(t, getScalarSignatures(fv), tt.expectedNames)
+			checkCompoundNames(t, getScalarCompoundNames(fv), tt.expectedNames)
 
 			scalarFunctions := gFunctionRegistry.GetScalarFunctions(tt.substraitName, tt.numArgs)
 			assert.Greater(t, len(scalarFunctions), 0)
@@ -1651,7 +1651,7 @@ scalar_functions:
 		assert.Contains(t, expectedUrns, f.URN())
 		urnsFound[f.URN()] = true
 	}
-	checkSignatures(t, getScalarSignatures(fv), expectedNames)
+	checkCompoundNames(t, getScalarCompoundNames(fv), expectedNames)
 	assert.Len(t, urnsFound, len(expectedUrns))
 	for k := range urnsFound {
 		assert.Contains(t, expectedUrns, k)
@@ -1667,7 +1667,7 @@ scalar_functions:
 		urnsFound[f.URN()] = true
 	}
 	assert.Len(t, urnsFound, len(expectedUrns))
-	checkSignatures(t, getScalarSignatures(fv), []string{})
+	checkCompoundNames(t, getScalarCompoundNames(fv), []string{})
 
 	scalarFunctions := funcRegistry.GetScalarFunctions("sqrt", 1)
 	assert.Greater(t, len(scalarFunctions), 0)
@@ -1795,14 +1795,14 @@ aggregate_functions:
 			assert.Equal(t, decimalUrn, fv[0].URN())
 			assert.Equal(t, tt.localName, fv[0].LocalName())
 			assert.Equal(t, tt.substraitName, fv[0].Name())
-			checkSignatures(t, getAggregateSignatures(fv), []string{tt.signature})
+			checkCompoundNames(t, getAggregateCompoundNames(fv), []string{tt.signature})
 
 			fv = localRegistry.GetAggregateFunctions(SubstraitFunctionName(tt.substraitName), tt.numArgs)
 			require.Greater(t, len(fv), 0)
 			assert.Equal(t, decimalUrn, fv[0].URN())
 			assert.Equal(t, tt.localName, fv[0].LocalName())
 			assert.Equal(t, tt.substraitName, fv[0].Name())
-			checkSignatures(t, getAggregateSignatures(fv), []string{tt.signature})
+			checkCompoundNames(t, getAggregateCompoundNames(fv), []string{tt.signature})
 
 			aggregateFunctions := funcRegistry.GetAggregateFunctions(tt.substraitName, tt.numArgs)
 			assert.Equal(t, tt.numSubstraitFunctions, len(aggregateFunctions))

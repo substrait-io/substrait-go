@@ -83,13 +83,13 @@ func getFunctionVariantByInvocation[V localFunctionVariant](invocation expr.Func
 	for i, argType := range argTypes {
 		_, err := registry.localTypeRegistry.GetLocalTypeFromSubstraitType(argType)
 		if err != nil {
-			return zeroV, fmt.Errorf("unsupported substrait type: %v as argument %d in %s", argType, i, invocation.Signature())
+			return zeroV, fmt.Errorf("unsupported substrait type: %v as argument %d in %s", argType, i, invocation.CompoundName())
 		}
 	}
 	for _, option := range invocation.GetOptions() {
 		for _, value := range option.Preference {
 			if !f.IsOptionSupported(option.Name, value) {
-				return zeroV, fmt.Errorf("unsupported option [%s:%s] in function %s", option.Name, value, invocation.Signature())
+				return zeroV, fmt.Errorf("unsupported option [%s:%s] in function %s", option.Name, value, invocation.CompoundName())
 			}
 		}
 	}

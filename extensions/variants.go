@@ -15,8 +15,9 @@ import (
 type FunctionVariant interface {
 	// Name returns the simple function name without argument types.
 	Name() string
-	// Signature returns the registered compound function variant signature.
-	Signature() string
+	// CompoundName returns the registered compound function variant signature.
+	// TODO: Rename this to Signature in a future breaking change.
+	CompoundName() string
 	Description() string
 	Args() FuncParameterList
 	Options() map[string]Option
@@ -360,14 +361,15 @@ func (s *ScalarFunctionVariant) ResolveType(argumentTypes []types.Type, registry
 	return EvaluateTypeExpression(s.urn, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
 }
 
-// Signature returns the registered compound function variant signature.
-func (s *ScalarFunctionVariant) Signature() string {
+// CompoundName returns the registered compound function variant signature.
+// TODO: Rename this to Signature in a future breaking change.
+func (s *ScalarFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
 }
 
 // ID returns the unique ID for this function variant.
 func (s *ScalarFunctionVariant) ID() FunctionID {
-	return FunctionID{URN: s.urn, Signature: s.Signature()}
+	return FunctionID{URN: s.urn, Signature: s.CompoundName()}
 }
 
 func (s *ScalarFunctionVariant) Match(argumentTypes []types.Type) (bool, error) {
@@ -480,14 +482,15 @@ func (s *AggregateFunctionVariant) ResolveType(argumentTypes []types.Type, regis
 	return EvaluateTypeExpression(s.urn, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
 }
 
-// Signature returns the registered compound function variant signature.
-func (s *AggregateFunctionVariant) Signature() string {
+// CompoundName returns the registered compound function variant signature.
+// TODO: Rename this to Signature in a future breaking change.
+func (s *AggregateFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
 }
 
 // ID returns the unique ID for this function variant.
 func (s *AggregateFunctionVariant) ID() FunctionID {
-	return FunctionID{URN: s.urn, Signature: s.Signature()}
+	return FunctionID{URN: s.urn, Signature: s.CompoundName()}
 }
 func (s *AggregateFunctionVariant) Decomposability() DecomposeType { return s.impl.Decomposable }
 func (s *AggregateFunctionVariant) Intermediate() (types.FuncDefArgType, error) {
@@ -608,14 +611,15 @@ func (s *WindowFunctionVariant) ResolveType(argumentTypes []types.Type, registry
 	return EvaluateTypeExpression(s.urn, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
 }
 
-// Signature returns the registered compound function variant signature.
-func (s *WindowFunctionVariant) Signature() string {
+// CompoundName returns the registered compound function variant signature.
+// TODO: Rename this to Signature in a future breaking change.
+func (s *WindowFunctionVariant) CompoundName() string {
 	return s.name + ":" + s.impl.signatureKey()
 }
 
 // ID returns the unique ID for this function variant.
 func (s *WindowFunctionVariant) ID() FunctionID {
-	return FunctionID{URN: s.urn, Signature: s.Signature()}
+	return FunctionID{URN: s.urn, Signature: s.CompoundName()}
 }
 func (s *WindowFunctionVariant) Decomposability() DecomposeType { return s.impl.Decomposable }
 func (s *WindowFunctionVariant) Intermediate() (types.FuncDefArgType, error) {
