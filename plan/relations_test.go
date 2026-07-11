@@ -655,6 +655,34 @@ func TestProjectRecordType(t *testing.T) {
 	assert.Equal(t, expected, result)
 }
 
+func TestRightJoinRecordType(t *testing.T) {
+	left := &fakeRel{outputType: *types.NewRecordTypeFromTypes(
+		[]types.Type{&types.Int64Type{Nullability: types.NullabilityRequired}})}
+	right := &fakeRel{outputType: *types.NewRecordTypeFromTypes(
+		[]types.Type{&types.StringType{Nullability: types.NullabilityRequired}})}
+
+	tests := []struct {
+		name     string
+		joinType JoinType
+		expected types.RecordType
+	}{
+		{"right semi", JoinTypeRightSemi, right.RecordType()},
+		{"right anti", JoinTypeRightAnti, right.RecordType()},
+		{"right single", JoinTypeRightSingle, *types.NewRecordTypeFromTypes([]types.Type{
+			&types.Int64Type{Nullability: types.NullabilityNullable},
+			&types.StringType{Nullability: types.NullabilityRequired},
+		})},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rel := &JoinRel{left: left, right: right, joinType: tt.joinType}
+			assert.Equal(t, tt.expected, rel.RecordType())
+			assert.True(t, isRecordTypeSupported(rel))
+		})
+	}
+}
+
 func TestExtensionSingleRecordType(t *testing.T) {
 	var rel ExtensionSingleRel
 	rel.input = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
