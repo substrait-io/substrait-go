@@ -239,6 +239,7 @@ func FromProto(plan *proto.Plan, c *extensions.Collection) (*Plan, error) {
 	}
 
 	ret.reg = expr.NewExtensionRegistry(ret.extensions, c)
+	ret.reg.SetSubqueryConverter(&ExpressionConverter{ExtensionRegistry: ret.reg})
 	for i, r := range plan.Relations {
 		if err := ret.relations[i].FromProto(r, ret.reg); err != nil {
 			return nil, err

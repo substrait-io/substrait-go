@@ -132,6 +132,109 @@ func TestRejectsMismatchedRootNames(t *testing.T) {
 	assert.ErrorContains(t, err, "1 output name(s) but the output schema requires 2")
 }
 
+func TestFromProtoWithSubqueries(t *testing.T) {
+	c := extensions.GetDefaultCollectionWithNoError()
+
+	// Build a named-scan relation proto to embed as subquery input.
+	scanProto := &proto.Rel{
+		RelType: &proto.Rel_Read{
+			Read: &proto.ReadRel{
+				Common: &proto.RelCommon{EmitKind: &proto.RelCommon_Direct_{Direct: &proto.RelCommon_Direct{}}},
+				BaseSchema: &proto.NamedStruct{
+					Names: []string{"col1"},
+					Struct: &proto.Type_Struct{
+						Nullability: proto.Type_NULLABILITY_REQUIRED,
+						Types:       []*proto.Type{{Kind: &proto.Type_I32_{I32: &proto.Type_I32{Nullability: proto.Type_NULLABILITY_REQUIRED}}}},
+					},
+				},
+				ReadType: &proto.ReadRel_NamedTable_{NamedTable: &proto.ReadRel_NamedTable{Names: []string{"t"}}},
+			},
+		},
+	}
+
+	makePlan := func(subquery *proto.Expression_Subquery) *proto.Plan {
+		return &proto.Plan{
+			Relations: []*proto.PlanRel{
+				{
+					RelType: &proto.PlanRel_Root{
+						Root: &proto.RelRoot{
+							Names: []string{"out"},
+							Input: &proto.Rel{
+								RelType: &proto.Rel_Filter{
+									Filter: &proto.FilterRel{
+										Common: &proto.RelCommon{EmitKind: &proto.RelCommon_Direct_{Direct: &proto.RelCommon_Direct{}}},
+										Input:  scanProto,
+										Condition: &proto.Expression{
+											RexType: &proto.Expression_Subquery_{Subquery: subquery},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	t.Run("ScalarSubquery", func(t *testing.T) {
+		p := makePlan(&proto.Expression_Subquery{
+			SubqueryType: &proto.Expression_Subquery_Scalar_{
+				Scalar: &proto.Expression_Subquery_Scalar{Input: scanProto},
+			},
+		})
+		result, err := FromProto(p, c)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+	})
+
+	t.Run("InPredicateSubquery", func(t *testing.T) {
+		needle := expr.NewPrimitiveLiteral(int32(1), false).ToProto()
+		p := makePlan(&proto.Expression_Subquery{
+			SubqueryType: &proto.Expression_Subquery_InPredicate_{
+				InPredicate: &proto.Expression_Subquery_InPredicate{
+					Needles:  []*proto.Expression{needle},
+					Haystack: scanProto,
+				},
+			},
+		})
+		result, err := FromProto(p, c)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+	})
+
+	t.Run("SetPredicateSubquery", func(t *testing.T) {
+		p := makePlan(&proto.Expression_Subquery{
+			SubqueryType: &proto.Expression_Subquery_SetPredicate_{
+				SetPredicate: &proto.Expression_Subquery_SetPredicate{
+					PredicateOp: proto.Expression_Subquery_SetPredicate_PREDICATE_OP_EXISTS,
+					Tuples:      scanProto,
+				},
+			},
+		})
+		result, err := FromProto(p, c)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+	})
+
+	t.Run("SetComparisonSubquery", func(t *testing.T) {
+		left := expr.NewPrimitiveLiteral(int32(1), false).ToProto()
+		p := makePlan(&proto.Expression_Subquery{
+			SubqueryType: &proto.Expression_Subquery_SetComparison_{
+				SetComparison: &proto.Expression_Subquery_SetComparison{
+					ReductionOp:  proto.Expression_Subquery_SetComparison_REDUCTION_OP_ANY,
+					ComparisonOp: proto.Expression_Subquery_SetComparison_COMPARISON_OP_EQ,
+					Left:         left,
+					Right:        scanProto,
+				},
+			},
+		})
+		result, err := FromProto(p, c)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+	})
+}
+
 func TestFromProtoRightSemiJoinRootNames(t *testing.T) {
 	// Regression: validateRootNamesFromProto must not panic on JoinRel
 	// with RIGHT_SEMI (directOutputSchema panics for unsupported join types).
