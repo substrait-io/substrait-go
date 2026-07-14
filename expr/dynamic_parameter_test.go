@@ -121,7 +121,7 @@ func TestDynamicParameterBuilderAsFuncArg(t *testing.T) {
 
 	e, err := b.ScalarFunc(addID).Args(
 		dpBuilder,
-		b.Wrap(expr.NewLiteral(int8(5), false)),
+		b.Literal(expr.NewPrimitiveLiteral(int8(5), false)),
 	).BuildExpr()
 	require.NoError(t, err)
 	assert.Contains(t, e.String(), "$0:i8")
@@ -137,19 +137,19 @@ func TestDynamicParameterTypeMismatchInFunction(t *testing.T) {
 		name   string
 		funcID extensions.FunctionID
 		dpType types.Type
-		lit    func() (expr.Literal, error)
+		lit func() expr.Literal
 	}{
 		{
 			name:   "i32 where i8 expected",
 			funcID: extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Name: "add:i8_i8"},
 			dpType: &types.Int32Type{Nullability: types.NullabilityRequired},
-			lit:    func() (expr.Literal, error) { return expr.NewLiteral(int8(5), false) },
+			lit:    func() expr.Literal { return expr.NewPrimitiveLiteral(int8(5), false) },
 		},
 		{
 			name:   "string where numeric expected",
 			funcID: addID,
 			dpType: &types.StringType{Nullability: types.NullabilityRequired},
-			lit:    func() (expr.Literal, error) { return expr.NewLiteral(int32(5), false) },
+			lit:    func() expr.Literal { return expr.NewPrimitiveLiteral(int32(5), false) },
 		},
 	}
 
@@ -157,7 +157,7 @@ func TestDynamicParameterTypeMismatchInFunction(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := b.ScalarFunc(tt.funcID).Args(
 				b.DynamicParam(tt.dpType, 0),
-				b.Wrap(tt.lit()),
+				b.Literal(tt.lit()),
 			).BuildExpr()
 			require.Error(t, err)
 		})

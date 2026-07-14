@@ -1778,11 +1778,11 @@ func TestAggregateRelBuilder(t *testing.T) {
 
 		e := b.GetExprBuilder()
 		expr1, _ := e.ScalarFunc(addID).Args(
-			e.Wrap(expr.NewLiteral(int32(3), false)),
-			e.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false)),
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false))).BuildExpr()
 		expr2, _ := e.ScalarFunc(addID).Args(
-			e.Wrap(expr.NewLiteral(int32(3), false)),
-			e.Wrap(expr.NewLiteral(int32(4), false))).BuildExpr()
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false)),
+			e.Literal(expr.NewPrimitiveLiteral(int32(4), false))).BuildExpr()
 
 		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURNPrefix+"functions_aggregate_generic",
 			"count", nil)
@@ -1806,14 +1806,14 @@ func TestAggregateRelBuilder(t *testing.T) {
 
 		e := b.GetExprBuilder()
 		expr1, _ := e.ScalarFunc(addID).Args(
-			e.Wrap(expr.NewLiteral(int32(3), false)),
-			e.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false)),
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false))).BuildExpr()
 		expr2, _ := e.ScalarFunc(addID).Args(
-			e.Wrap(expr.NewLiteral(int32(3), false)),
-			e.Wrap(expr.NewLiteral(int32(4), false))).BuildExpr()
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false)),
+			e.Literal(expr.NewPrimitiveLiteral(int32(4), false))).BuildExpr()
 		expr3, _ := e.ScalarFunc(addID).Args(
-			e.Wrap(expr.NewLiteral(int32(3), false)),
-			e.Wrap(expr.NewLiteral(int32(4), false))).BuildExpr()
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false)),
+			e.Literal(expr.NewPrimitiveLiteral(int32(4), false))).BuildExpr()
 
 		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURNPrefix+"functions_aggregate_generic",
 			"count", nil)
@@ -1846,14 +1846,14 @@ func TestAggregateRelBuilder(t *testing.T) {
 
 		// Create sample expressions
 		expr1, _ := e.ScalarFunc(addID).Args(
-			e.Wrap(expr.NewLiteral(int32(3), false)),
-			e.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false)),
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false))).BuildExpr()
 		expr2, _ := e.ScalarFunc(addID).Args(
-			e.Wrap(expr.NewLiteral(int32(3), false)),
-			e.Wrap(expr.NewLiteral(int32(4), false))).BuildExpr()
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false)),
+			e.Literal(expr.NewPrimitiveLiteral(int32(4), false))).BuildExpr()
 		expr3, _ := e.ScalarFunc(addID).Args(
-			e.Wrap(expr.NewLiteral(int32(3), false)),
-			e.Wrap(expr.NewLiteral(int32(5), false))).BuildExpr()
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false)),
+			e.Literal(expr.NewPrimitiveLiteral(int32(5), false))).BuildExpr()
 
 		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURNPrefix+"functions_aggregate_generic",
 			"count", nil)
@@ -1885,14 +1885,14 @@ func TestAggregateRelBuilder(t *testing.T) {
 
 		// Create sample expressions
 		expr1, _ := e.ScalarFunc(addID).Args(
-			e.Wrap(expr.NewLiteral(int32(3), false)),
-			e.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false)),
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false))).BuildExpr()
 		expr2, _ := e.ScalarFunc(addID).Args(
-			e.Wrap(expr.NewLiteral(int32(3), false)),
-			e.Wrap(expr.NewLiteral(int32(4), false))).BuildExpr()
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false)),
+			e.Literal(expr.NewPrimitiveLiteral(int32(4), false))).BuildExpr()
 		expr3, _ := e.ScalarFunc(addID).Args(
-			e.Wrap(expr.NewLiteral(int32(3), false)),
-			e.Wrap(expr.NewLiteral(int32(5), false))).BuildExpr()
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false)),
+			e.Literal(expr.NewPrimitiveLiteral(int32(5), false))).BuildExpr()
 
 		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURNPrefix+"functions_aggregate_generic",
 			"count", nil)
@@ -1920,8 +1920,8 @@ func TestAggregateRelBuilder(t *testing.T) {
 		b := plan.NewBuilderDefault()
 		e := b.GetExprBuilder()
 		expr1, _ := e.ScalarFunc(addID).Args(
-			e.Wrap(expr.NewLiteral(int32(3), false)),
-			e.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false)),
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false))).BuildExpr()
 		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURNPrefix+"functions_aggregate_generic",
 			"count", nil)
 		require.NoError(t, err)
@@ -1937,8 +1937,8 @@ func TestAggregateRelBuilder(t *testing.T) {
 		b := plan.NewBuilderDefault()
 		e := b.GetExprBuilder()
 		expr1, _ := e.ScalarFunc(addID).Args(
-			e.Wrap(expr.NewLiteral(int32(3), false)),
-			e.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false)),
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false))).BuildExpr()
 
 		arb := b.GetRelBuilder().AggregateRel(b.NamedScan([]string{"test"}, baseSchema), nil)
 		_ = arb.AddExpression(expr1)
@@ -1950,8 +1950,8 @@ func TestAggregateRelBuilder(t *testing.T) {
 		b := plan.NewBuilderDefault()
 		e := b.GetExprBuilder()
 		expr1, _ := e.ScalarFunc(addID).Args(
-			e.Wrap(expr.NewLiteral(int32(3), false)),
-			e.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false)),
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false))).BuildExpr()
 
 		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURNPrefix+"functions_aggregate_generic",
 			"count", nil)
@@ -1969,8 +1969,8 @@ func TestAggregateRelBuilder(t *testing.T) {
 
 		e := b.GetExprBuilder()
 		expr1, _ := e.ScalarFunc(addID).Args(
-			e.Wrap(expr.NewLiteral(int32(3), false)),
-			e.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false)),
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false))).BuildExpr()
 
 		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURNPrefix+"functions_aggregate_generic",
 			"count", nil)
@@ -1994,8 +1994,8 @@ func TestAggregateRelBuilder(t *testing.T) {
 
 		e := b.GetExprBuilder()
 		expr1, _ := e.ScalarFunc(addID).Args(
-			e.Wrap(expr.NewLiteral(int32(3), false)),
-			e.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false)),
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false))).BuildExpr()
 
 		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURNPrefix+"functions_aggregate_generic",
 			"count", nil)
@@ -2019,8 +2019,8 @@ func TestAggregateRelBuilder(t *testing.T) {
 
 		e := b.GetExprBuilder()
 		expr1, _ := e.ScalarFunc(addID).Args(
-			e.Wrap(expr.NewLiteral(int32(3), false)),
-			e.Wrap(expr.NewLiteral(int32(3), false))).BuildExpr()
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false)),
+			e.Literal(expr.NewPrimitiveLiteral(int32(3), false))).BuildExpr()
 
 		aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURNPrefix+"functions_aggregate_generic",
 			"count", nil)

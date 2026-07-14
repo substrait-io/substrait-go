@@ -496,8 +496,8 @@ func TestRoundTripExtendedExpression(t *testing.T) {
 
 func TestCastVisit(t *testing.T) {
 	var builder = plan.NewBuilderDefault()
-	castExpr := expr.MustExpr(builder.GetExprBuilder().Cast(builder.GetExprBuilder().Wrap(
-		expr.NewLiteral[float64](12.0, true)),
+	castExpr := expr.MustExpr(builder.GetExprBuilder().Cast(builder.GetExprBuilder().Literal(
+		expr.NewPrimitiveLiteral(float64(12.0), true)),
 		&types.Float64Type{Nullability: types.NullabilityRequired}).FailBehavior(
 		types.BehaviorThrowException).BuildExpr())
 
@@ -509,8 +509,7 @@ func TestCastVisit(t *testing.T) {
 	testCases := []relationTestCase{
 		{"no change", func(ex expr.Expression) expr.Expression { return ex }, 12},
 		{"changed", func(ex expr.Expression) expr.Expression {
-			lit, err := expr.NewLiteral[float64](16.0, true)
-			require.NoError(t, err)
+			lit := expr.NewPrimitiveLiteral(float64(16.0), true)
 			return lit
 		}, 16},
 	}

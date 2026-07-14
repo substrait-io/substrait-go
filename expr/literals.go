@@ -707,7 +707,7 @@ func newDecimalWithType(literal *ProtoLiteral, decType *types.DecimalType) (Lite
 	if err != nil {
 		return nil, err
 	}
-	return NewLiteral[*types.Decimal](&types.Decimal{Value: decimalBytes[:16], Precision: precision, Scale: scale}, decType.GetNullability() == types.NullabilityNullable)
+	return newLiteral[*types.Decimal](&types.Decimal{Value: decimalBytes[:16], Precision: precision, Scale: scale}, decType.GetNullability() == types.NullabilityNullable)
 }
 
 func newVarCharWithType(literal *ProtoLiteral, vcharType *types.VarCharType) (Literal, error) {
@@ -897,7 +897,9 @@ type allLiteralTypes interface {
 		*types.PrecisionTime | *types.PrecisionTimestamp | *types.PrecisionTimestampTz
 }
 
-func NewLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {
+// newLiteral is the internal generic constructor. External callers should use
+// the typed constructors in the literal package instead.
+func newLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {
 	switch v := any(val).(type) {
 	case bool:
 		return NewPrimitiveLiteral(v, nullable), nil

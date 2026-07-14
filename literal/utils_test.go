@@ -929,7 +929,7 @@ func TestNewList(t *testing.T) {
 	vc4, _ := NewVarChar("abcd", false)
 	dec1, _ := NewDecimalFromString("1.0", false)
 	nullStr := expr.NewNullLiteral(&types.StringType{Nullability: types.NullabilityNullable})
-	listLiteral, _ := expr.NewLiteral[expr.ListLiteralValue]([]expr.Literal{i8Lit1, i8Lit2}, false)
+	listLiteral := expr.NewNestedLiteral(expr.ListLiteralValue{i8Lit1, i8Lit2}, false)
 	listWithNilElementType := expr.NewEmptyListLiteral(nil, false)
 	i32ListLiteral, _ := NewList([]expr.Literal{i32Lit1, i32Lit2}, false)
 	vc1ListLiteral, _ := NewList([]expr.Literal{vc1}, false)
@@ -1009,8 +1009,7 @@ func TestNewList(t *testing.T) {
 				return
 			}
 			if tt.expSuccess {
-				want, err := expr.NewLiteral[expr.ListLiteralValue](tt.elements, false)
-				require.NoError(t, err)
+				want := expr.NewNestedLiteral(expr.ListLiteralValue(tt.elements), false)
 				assert.Equalf(t, want, got, "NewList(%v)", tt.elements)
 				assert.Equalf(t, tt.litType, got.GetType(), "NewList(%v)", tt.elements)
 			}

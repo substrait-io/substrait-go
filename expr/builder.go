@@ -38,7 +38,7 @@ type Builder interface {
 //	    e, err := b.ScalarFunc(fnID, options...).Args(
 //	        b.RootRef(expr.NewStructFieldRef(1)),
 //	        b.ScalarFunc(fn2ID, options2...).Args(
-//	            b.Wrap(expr.NewLiteral(int32(5), false /* nullable type */)),
+//	            b.Literal(expr.NewPrimitiveLiteral(int32(5), false)),
 //	            b.RootRef(expr.NewStructFieldRef(2))))
 //
 // See the unit tests for additional examples / constructs.
@@ -61,8 +61,8 @@ func (e *ExprBuilder) Expression(expr Expression) exprWrapper {
 }
 
 // Wrap is like Literal or Expression but allows propagating an error
-// (such as when calling expr.NewLiteral) that will bubble up when attempting
-// to build an expression so it doesn't get swallowed or force a panic.
+// that will bubble up when attempting to build an expression so it
+// doesn't get swallowed or force a panic.
 func (e *ExprBuilder) Wrap(l Literal, err error) exprWrapper {
 	return exprWrapper{l, err}
 }
