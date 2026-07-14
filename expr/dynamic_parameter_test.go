@@ -137,7 +137,7 @@ func TestDynamicParameterTypeMismatchInFunction(t *testing.T) {
 		name   string
 		funcID extensions.FunctionID
 		dpType types.Type
-		lit func() expr.Literal
+		lit    func() expr.Literal
 	}{
 		{
 			name:   "i32 where i8 expected",
