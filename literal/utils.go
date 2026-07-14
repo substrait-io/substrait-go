@@ -560,11 +560,6 @@ func NewEmptyList(elementType types.Type, nullable bool) (expr.Literal, error) {
 func NewUserDefinedLiteral(typeRef uint32, structValue expr.StructLiteralValue, nullable bool, typeParams []types.TypeParam) (expr.Literal, error) {
 	structProto := structValue.ToProto()
 
-	protoParams := make([]*proto.Type_Parameter, len(typeParams))
-	for i, p := range typeParams {
-		protoParams[i] = p.ToProto()
-	}
-
 	params := make([]types.TypeParam, len(typeParams))
 	copy(params, typeParams)
 
