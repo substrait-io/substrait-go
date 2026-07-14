@@ -502,6 +502,18 @@ func (v *TestCaseVisitor) getLiteralFromString(ctx antlr.ParserRuleContext, valu
 			return nil
 		}
 		return typed
+	case *types.FixedBinaryType:
+		fixedBinary, err := literal.NewFixedBinary([]byte(value), elementType.GetNullability() == types.NullabilityNullable)
+		if err != nil {
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid fixedbinary arg %v", err))
+			return nil
+		}
+		typed, err := fixedBinary.(expr.WithTypeLiteral).WithType(elementType)
+		if err != nil {
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid fixedbinary arg %v", err))
+			return nil
+		}
+		return typed
 	case *types.VarCharType:
 		varChar, err := literal.NewVarChar(value, elementType.GetNullability() == types.NullabilityNullable)
 		if err != nil {
