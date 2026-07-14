@@ -329,7 +329,7 @@ func TestFromProtoWithSubqueries(t *testing.T) {
 func TestBuilderPlanRegistryWithSubqueries(t *testing.T) {
 	b := NewBuilderDefault()
 	scan := b.NamedScan([]string{"t"}, types.NamedStruct{
-		Names: []string{"col1"},
+		Names:  []string{"col1"},
 		Struct: types.StructType{Types: []types.Type{&types.Int32Type{}}},
 	})
 	p, err := b.Plan(scan, []string{"col1"})
