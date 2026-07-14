@@ -400,47 +400,40 @@ func NewPrecisionTimestampTzFromString(precision types.TimePrecision, value stri
 	return NewPrecisionTimestampTzFromTime(precision, tm, nullable)
 }
 
-func isNullLiteral(l expr.Literal) bool {
-	_, ok := l.(*expr.NullLiteral)
-	return ok
-}
-
-// firstMismatch returns the index of the first literal whose base type differs
-// from the column's anchor (the first non-null literal), or -1 if every literal
-// is compatible. Null literals are allowed in any position, and type parameters
-// (such as varchar length) and nullability may differ within one base type; a
-// later cast unifies those. Base types are compared by short name rather than
-// by the Go wrapper, which is too coarse: distinct types such as decimal and
-// varchar share one wrapper. The comparison is shallow and matches the original
-// wrapper check's depth: it does not distinguish the element types of nested
-// lists, maps, or structs, nor different user-defined types (whose short name is
-// empty), so a column mixing, for example, list<i8> and list<i32> is treated as
-// uniform.
-func firstMismatch(column []expr.Literal) int {
-	var anchor string
-	anchored := false
-	for i, l := range column {
-		if isNullLiteral(l) {
-			continue
+// firstMismatch returns the index of the first nil literal or literal whose base
+// type differs from the column's anchor (the first literal), or false if every
+// literal is compatible. Null literals are allowed in any position when their
+// typed base matches the anchor. Type parameters (such as varchar length) and
+// nullability may differ within one base type; a later cast unifies those. Base
+// types are compared by short name rather than by the Go wrapper, which is too
+// coarse: distinct types such as decimal and varchar share one wrapper. The
+// comparison is shallow and matches the original wrapper check's depth: it does
+// not distinguish the element types of nested lists, maps, or structs, nor
+// different user-defined types (whose short name is empty), so a column mixing,
+// for example, list<i8> and list<i32> is treated as uniform.
+func firstMismatch(column []expr.Literal) (int, bool) {
+	if column[0] == nil {
+		return 0, true
+	}
+	anchor := column[0].GetType().ShortString()
+	for i, l := range column[1:] {
+		if l == nil {
+			return i + 1, true
 		}
 		short := l.GetType().ShortString()
-		if !anchored {
-			anchor, anchored = short, true
-			continue
-		}
 		if short != anchor {
-			return i
+			return i + 1, true
 		}
 	}
-	return -1
+	return 0, false
 }
 
 func NewList(elements []expr.Literal, nullable bool) (expr.Literal, error) {
 	if len(elements) == 0 {
 		return nil, fmt.Errorf("empty list literal; use NewEmptyList for an empty list")
 	}
-	if i := firstMismatch(elements); i >= 0 {
-		return nil, fmt.Errorf("element %d of list literal has different type", i)
+	if i, ok := firstMismatch(elements); ok {
+		return nil, fmt.Errorf("element %d of list literal has invalid or different type", i)
 	}
 	return expr.NewLiteral[expr.ListLiteralValue](elements, nullable)
 }
@@ -460,25 +453,34 @@ func NewMap(entries expr.MapLiteralValue, nullable bool) (expr.Literal, error) {
 	for i, e := range entries {
 		keys[i], values[i] = e.Key, e.Value
 	}
-	if i := firstMismatch(keys); i >= 0 {
-		return nil, fmt.Errorf("key %d of map literal has different type", i)
+	if i, ok := firstMismatch(keys); ok {
+		return nil, fmt.Errorf("key %d of map literal has invalid or different type", i)
 	}
-	if i := firstMismatch(values); i >= 0 {
-		return nil, fmt.Errorf("value %d of map literal has different type", i)
+	if i, ok := firstMismatch(values); ok {
+		return nil, fmt.Errorf("value %d of map literal has invalid or different type", i)
 	}
 	return expr.NewLiteral[expr.MapLiteralValue](entries, nullable)
 }
 
 // NewEmptyMap creates an empty map literal of the given key and value types,
 // marked nullable or not.
-func NewEmptyMap(keyType, valueType types.Type, nullable bool) expr.Literal {
-	return expr.NewEmptyMapLiteral(keyType, valueType, nullable)
+func NewEmptyMap(keyType, valueType types.Type, nullable bool) (expr.Literal, error) {
+	if keyType == nil {
+		return nil, fmt.Errorf("empty map literal key type cannot be nil")
+	}
+	if valueType == nil {
+		return nil, fmt.Errorf("empty map literal value type cannot be nil")
+	}
+	return expr.NewEmptyMapLiteral(keyType, valueType, nullable), nil
 }
 
 // NewEmptyList creates an empty list literal of the given element type, marked
 // nullable or not.
-func NewEmptyList(elementType types.Type, nullable bool) expr.Literal {
-	return expr.NewEmptyListLiteral(elementType, nullable)
+func NewEmptyList(elementType types.Type, nullable bool) (expr.Literal, error) {
+	if elementType == nil {
+		return nil, fmt.Errorf("empty list literal element type cannot be nil")
+	}
+	return expr.NewEmptyListLiteral(elementType, nullable), nil
 }
 
 // NewUserDefinedLiteral creates a user-defined literal using the struct representation.

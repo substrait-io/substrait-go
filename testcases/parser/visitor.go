@@ -490,6 +490,30 @@ func (v *TestCaseVisitor) getLiteralFromString(ctx antlr.ParserRuleContext, valu
 			return nil
 		}
 		return typed
+	case *types.FixedCharType:
+		fixedChar, err := literal.NewFixedChar(value, elementType.GetNullability() == types.NullabilityNullable)
+		if err != nil {
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid fixedchar arg %v", err))
+			return nil
+		}
+		typed, err := fixedChar.(expr.WithTypeLiteral).WithType(elementType)
+		if err != nil {
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid fixedchar arg %v", err))
+			return nil
+		}
+		return typed
+	case *types.VarCharType:
+		varChar, err := literal.NewVarChar(value, elementType.GetNullability() == types.NullabilityNullable)
+		if err != nil {
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid varchar arg %v", err))
+			return nil
+		}
+		typed, err := varChar.(expr.WithTypeLiteral).WithType(elementType)
+		if err != nil {
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid varchar arg %v", err))
+			return nil
+		}
+		return typed
 	default:
 		return nil
 	}
@@ -820,8 +844,12 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 
 	if ctx.StringLiteral() != nil {
 		valueStr := getRawStringFromStringLiteral(ctx.GetText())
-		value := literal.NewString(valueStr, false)
-		return value
+		if literalType := v.getLiteralTypeInContext(); literalType != nil {
+			if value := v.getLiteralFromString(ctx, valueStr, literalType); value != nil {
+				return value
+			}
+		}
+		return literal.NewString(valueStr, false)
 	}
 
 	if ctx.NullLiteral() != nil {
