@@ -118,6 +118,106 @@ func TestPlanRoundTripWithExtensions(t *testing.T) {
 		protojson.Format(original), protojson.Format(roundTripped))
 }
 
+func TestPlanRoundTripWithSubqueries(t *testing.T) {
+	c := extensions.GetDefaultCollectionWithNoError()
+	scanProto := &proto.Rel{
+		RelType: &proto.Rel_Read{
+			Read: &proto.ReadRel{
+				Common: &proto.RelCommon{EmitKind: &proto.RelCommon_Direct_{Direct: &proto.RelCommon_Direct{}}},
+				BaseSchema: &proto.NamedStruct{
+					Names: []string{"col1"},
+					Struct: &proto.Type_Struct{
+						Nullability: proto.Type_NULLABILITY_REQUIRED,
+						Types:       []*proto.Type{{Kind: &proto.Type_I32_{I32: &proto.Type_I32{Nullability: proto.Type_NULLABILITY_REQUIRED}}}},
+					},
+				},
+				ReadType: &proto.ReadRel_NamedTable_{NamedTable: &proto.ReadRel_NamedTable{Names: []string{"t"}}},
+			},
+		},
+	}
+	needle := expr.NewPrimitiveLiteral(int32(1), false).ToProto()
+
+	tests := []struct {
+		name     string
+		subquery *proto.Expression_Subquery
+	}{
+		{
+			name: "ScalarSubquery",
+			subquery: &proto.Expression_Subquery{
+				SubqueryType: &proto.Expression_Subquery_Scalar_{
+					Scalar: &proto.Expression_Subquery_Scalar{Input: scanProto},
+				},
+			},
+		},
+		{
+			name: "InPredicateSubquery",
+			subquery: &proto.Expression_Subquery{
+				SubqueryType: &proto.Expression_Subquery_InPredicate_{
+					InPredicate: &proto.Expression_Subquery_InPredicate{
+						Needles:  []*proto.Expression{needle},
+						Haystack: scanProto,
+					},
+				},
+			},
+		},
+		{
+			name: "SetPredicateSubquery",
+			subquery: &proto.Expression_Subquery{
+				SubqueryType: &proto.Expression_Subquery_SetPredicate_{
+					SetPredicate: &proto.Expression_Subquery_SetPredicate{
+						PredicateOp: proto.Expression_Subquery_SetPredicate_PREDICATE_OP_EXISTS,
+						Tuples:      scanProto,
+					},
+				},
+			},
+		},
+		{
+			name: "SetComparisonSubquery",
+			subquery: &proto.Expression_Subquery{
+				SubqueryType: &proto.Expression_Subquery_SetComparison_{
+					SetComparison: &proto.Expression_Subquery_SetComparison{
+						ReductionOp:  proto.Expression_Subquery_SetComparison_REDUCTION_OP_ANY,
+						ComparisonOp: proto.Expression_Subquery_SetComparison_COMPARISON_OP_EQ,
+						Left:         needle,
+						Right:        scanProto,
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			original := &proto.Plan{
+				Relations: []*proto.PlanRel{{
+					RelType: &proto.PlanRel_Root{
+						Root: &proto.RelRoot{
+							Names: []string{"out"},
+							Input: &proto.Rel{
+								RelType: &proto.Rel_Filter{
+									Filter: &proto.FilterRel{
+										Common:    &proto.RelCommon{EmitKind: &proto.RelCommon_Direct_{Direct: &proto.RelCommon_Direct{}}},
+										Input:     scanProto,
+										Condition: &proto.Expression{RexType: &proto.Expression_Subquery_{Subquery: tc.subquery}},
+									},
+								},
+							},
+						},
+					},
+				}},
+			}
+			p, err := FromProto(original, c)
+			require.NoError(t, err)
+			roundTripped, err := p.ToProto()
+			require.NoError(t, err)
+			// Use cmp.Diff instead of protojson for comparison: protojson output is non-deterministic.
+			if diff := cmp.Diff(original, roundTripped, protocmp.Transform()); diff != "" {
+				t.Errorf("plan round-trip mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestRejectsMismatchedRootNames(t *testing.T) {
 	b := NewBuilderDefault()
 	scan := b.NamedScan([]string{"test"}, types.NamedStruct{
@@ -130,6 +230,139 @@ func TestRejectsMismatchedRootNames(t *testing.T) {
 	_, err := b.Plan(scan, []string{"only_one"})
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "1 output name(s) but the output schema requires 2")
+}
+
+func TestFromProtoWithSubqueries(t *testing.T) {
+	c := extensions.GetDefaultCollectionWithNoError()
+	scanProto := &proto.Rel{
+		RelType: &proto.Rel_Read{
+			Read: &proto.ReadRel{
+				Common: &proto.RelCommon{EmitKind: &proto.RelCommon_Direct_{Direct: &proto.RelCommon_Direct{}}},
+				BaseSchema: &proto.NamedStruct{
+					Names: []string{"col1"},
+					Struct: &proto.Type_Struct{
+						Nullability: proto.Type_NULLABILITY_REQUIRED,
+						Types:       []*proto.Type{{Kind: &proto.Type_I32_{I32: &proto.Type_I32{Nullability: proto.Type_NULLABILITY_REQUIRED}}}},
+					},
+				},
+				ReadType: &proto.ReadRel_NamedTable_{NamedTable: &proto.ReadRel_NamedTable{Names: []string{"t"}}},
+			},
+		},
+	}
+	needle := expr.NewPrimitiveLiteral(int32(1), false).ToProto()
+	tests := []struct {
+		name     string
+		subquery *proto.Expression_Subquery
+	}{
+		{
+			name: "ScalarSubquery",
+			subquery: &proto.Expression_Subquery{
+				SubqueryType: &proto.Expression_Subquery_Scalar_{
+					Scalar: &proto.Expression_Subquery_Scalar{Input: scanProto},
+				},
+			},
+		},
+		{
+			name: "InPredicateSubquery",
+			subquery: &proto.Expression_Subquery{
+				SubqueryType: &proto.Expression_Subquery_InPredicate_{
+					InPredicate: &proto.Expression_Subquery_InPredicate{
+						Needles:  []*proto.Expression{needle},
+						Haystack: scanProto,
+					},
+				},
+			},
+		},
+		{
+			name: "SetPredicateSubquery",
+			subquery: &proto.Expression_Subquery{
+				SubqueryType: &proto.Expression_Subquery_SetPredicate_{
+					SetPredicate: &proto.Expression_Subquery_SetPredicate{
+						PredicateOp: proto.Expression_Subquery_SetPredicate_PREDICATE_OP_EXISTS,
+						Tuples:      scanProto,
+					},
+				},
+			},
+		},
+		{
+			name: "SetComparisonSubquery",
+			subquery: &proto.Expression_Subquery{
+				SubqueryType: &proto.Expression_Subquery_SetComparison_{
+					SetComparison: &proto.Expression_Subquery_SetComparison{
+						ReductionOp:  proto.Expression_Subquery_SetComparison_REDUCTION_OP_ANY,
+						ComparisonOp: proto.Expression_Subquery_SetComparison_COMPARISON_OP_EQ,
+						Left:         needle,
+						Right:        scanProto,
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			p := &proto.Plan{
+				Relations: []*proto.PlanRel{{
+					RelType: &proto.PlanRel_Root{
+						Root: &proto.RelRoot{
+							Names: []string{"out"},
+							Input: &proto.Rel{
+								RelType: &proto.Rel_Filter{
+									Filter: &proto.FilterRel{
+										Common:    &proto.RelCommon{EmitKind: &proto.RelCommon_Direct_{Direct: &proto.RelCommon_Direct{}}},
+										Input:     scanProto,
+										Condition: &proto.Expression{RexType: &proto.Expression_Subquery_{Subquery: tc.subquery}},
+									},
+								},
+							},
+						},
+					},
+				}},
+			}
+			result, err := FromProto(p, c)
+			require.NoError(t, err)
+			require.NotNil(t, result)
+		})
+	}
+}
+
+func TestBuilderPlanRegistryWithSubqueries(t *testing.T) {
+	b := NewBuilderDefault()
+	scan := b.NamedScan([]string{"t"}, types.NamedStruct{
+		Names:  []string{"col1"},
+		Struct: types.StructType{Types: []types.Type{&types.Int32Type{}}},
+	})
+	p, err := b.Plan(scan, []string{"col1"})
+	require.NoError(t, err)
+
+	scanProto := &proto.Rel{
+		RelType: &proto.Rel_Read{
+			Read: &proto.ReadRel{
+				Common: &proto.RelCommon{EmitKind: &proto.RelCommon_Direct_{Direct: &proto.RelCommon_Direct{}}},
+				BaseSchema: &proto.NamedStruct{
+					Names: []string{"col1"},
+					Struct: &proto.Type_Struct{
+						Nullability: proto.Type_NULLABILITY_REQUIRED,
+						Types:       []*proto.Type{{Kind: &proto.Type_I32_{I32: &proto.Type_I32{Nullability: proto.Type_NULLABILITY_REQUIRED}}}},
+					},
+				},
+				ReadType: &proto.ReadRel_NamedTable_{NamedTable: &proto.ReadRel_NamedTable{Names: []string{"t"}}},
+			},
+		},
+	}
+	subqueryExprProto := &proto.Expression{
+		RexType: &proto.Expression_Subquery_{
+			Subquery: &proto.Expression_Subquery{
+				SubqueryType: &proto.Expression_Subquery_Scalar_{
+					Scalar: &proto.Expression_Subquery_Scalar{Input: scanProto},
+				},
+			},
+		},
+	}
+
+	result, err := expr.ExprFromProto(subqueryExprProto, &types.RecordType{}, p.ExtensionRegistry())
+	require.NoError(t, err)
+	require.NotNil(t, result)
 }
 
 func TestFromProtoRightSemiJoinRootNames(t *testing.T) {
