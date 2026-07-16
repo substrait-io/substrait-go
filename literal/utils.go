@@ -405,27 +405,91 @@ func NewPrecisionTimestampTzFromString(precision types.TimePrecision, value stri
 // literal is compatible. Null literals are allowed in any position when their
 // typed base matches the anchor. Type parameters (such as varchar length) and
 // nullability may differ within one base type; a later cast unifies those. Base
-// types are compared by short name rather than by the Go wrapper, which is too
-// coarse: distinct types such as decimal and varchar share one wrapper. The
-// comparison is shallow and matches the original wrapper check's depth: it does
-// not distinguish the element types of nested lists, maps, or structs, nor
-// different user-defined types (whose short name is empty), so a column mixing,
-// for example, list<i8> and list<i32> is treated as uniform.
+// types are compared recursively rather than by Go wrapper, which is too coarse:
+// distinct types such as decimal and varchar share one wrapper, and nested types
+// such as list<i8> and list<i32> must remain distinct.
 func firstMismatch(column []expr.Literal) (int, bool) {
 	if column[0] == nil {
 		return 0, true
 	}
-	anchor := column[0].GetType().ShortString()
+	anchor := column[0].GetType()
 	for i, l := range column[1:] {
 		if l == nil {
 			return i + 1, true
 		}
-		short := l.GetType().ShortString()
-		if short != anchor {
+		if !sameBaseType(anchor, l.GetType()) {
 			return i + 1, true
 		}
 	}
 	return 0, false
+}
+
+func sameBaseType(left, right types.Type) bool {
+	if left == nil || right == nil {
+		return false
+	}
+	if left.ShortString() != right.ShortString() {
+		return false
+	}
+
+	switch left := left.(type) {
+	case *types.ListType:
+		right, ok := right.(*types.ListType)
+		return ok && sameBaseType(left.Type, right.Type)
+	case *types.MapType:
+		right, ok := right.(*types.MapType)
+		return ok && sameBaseType(left.Key, right.Key) && sameBaseType(left.Value, right.Value)
+	case *types.StructType:
+		right, ok := right.(*types.StructType)
+		if !ok || len(left.Types) != len(right.Types) {
+			return false
+		}
+		for i := range left.Types {
+			if !sameBaseType(left.Types[i], right.Types[i]) {
+				return false
+			}
+		}
+		return true
+	case *types.FuncType:
+		right, ok := right.(*types.FuncType)
+		if !ok || len(left.ParameterTypes) != len(right.ParameterTypes) {
+			return false
+		}
+		if !sameBaseType(left.ReturnType, right.ReturnType) {
+			return false
+		}
+		for i := range left.ParameterTypes {
+			if !sameBaseType(left.ParameterTypes[i], right.ParameterTypes[i]) {
+				return false
+			}
+		}
+		return true
+	case *types.UserDefinedType:
+		right, ok := right.(*types.UserDefinedType)
+		if !ok || left.TypeReference != right.TypeReference || len(left.TypeParameters) != len(right.TypeParameters) {
+			return false
+		}
+		for i := range left.TypeParameters {
+			if !sameBaseTypeParam(left.TypeParameters[i], right.TypeParameters[i]) {
+				return false
+			}
+		}
+		return true
+	default:
+		return true
+	}
+}
+
+func sameBaseTypeParam(left, right types.TypeParam) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	leftData, leftIsData := left.(*types.DataTypeParameter)
+	rightData, rightIsData := right.(*types.DataTypeParameter)
+	if leftIsData || rightIsData {
+		return leftIsData && rightIsData && sameBaseType(leftData.Type, rightData.Type)
+	}
+	return left.Equals(right)
 }
 
 func NewList(elements []expr.Literal, nullable bool) (expr.Literal, error) {

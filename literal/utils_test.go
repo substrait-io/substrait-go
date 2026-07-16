@@ -931,13 +931,47 @@ func TestNewList(t *testing.T) {
 	dec1, _ := NewDecimalFromString("1.0", false)
 	nullStr := expr.NewNullLiteral(&types.StringType{Nullability: types.NullabilityNullable})
 	listLiteral, _ := expr.NewLiteral[expr.ListLiteralValue]([]expr.Literal{i8Lit1, i8Lit2}, false)
+	i32ListLiteral, _ := NewList([]expr.Literal{i32Lit1, i32Lit2}, false)
+	vc1ListLiteral, _ := NewList([]expr.Literal{vc1}, false)
+	vc4ListLiteral, _ := NewList([]expr.Literal{vc4}, false)
 	int8Type := &types.Int8Type{Nullability: types.NullabilityRequired}
 	int32Type := &types.Int32Type{Nullability: types.NullabilityRequired}
 	varChar1Type := &types.VarCharType{Length: 1, Nullability: types.NullabilityRequired}
+	varChar4Type := &types.VarCharType{Length: 4, Nullability: types.NullabilityRequired}
 	int8ListType := &types.ListType{Type: int8Type, Nullability: types.NullabilityRequired}
 	int32ListType := &types.ListType{Type: int32Type, Nullability: types.NullabilityRequired}
 	varCharListType := &types.ListType{Type: varChar1Type, Nullability: types.NullabilityRequired}
+	varChar4ListType := &types.ListType{Type: varChar4Type, Nullability: types.NullabilityRequired}
 	listOfListType := &types.ListType{Type: int8ListType, Nullability: types.NullabilityRequired}
+	varCharListOfListType := &types.ListType{Type: varCharListType, Nullability: types.NullabilityRequired}
+
+	udtStruct := expr.StructLiteralValue{NewInt32(42, false)}
+	udtVarcharListParam, err := NewUserDefinedLiteral(42, udtStruct, false, []types.TypeParam{
+		&types.DataTypeParameter{Type: varCharListType},
+	})
+	require.NoError(t, err)
+	udtVarchar4ListParam, err := NewUserDefinedLiteral(42, udtStruct, false, []types.TypeParam{
+		&types.DataTypeParameter{Type: varChar4ListType},
+	})
+	require.NoError(t, err)
+	udtInt8ListParam, err := NewUserDefinedLiteral(42, udtStruct, false, []types.TypeParam{
+		&types.DataTypeParameter{Type: int8ListType},
+	})
+	require.NoError(t, err)
+	udtInt32ListParam, err := NewUserDefinedLiteral(42, udtStruct, false, []types.TypeParam{
+		&types.DataTypeParameter{Type: int32ListType},
+	})
+	require.NoError(t, err)
+	udtStringParamA, err := NewUserDefinedLiteral(42, udtStruct, false, []types.TypeParam{
+		types.StringParameter("a"),
+	})
+	require.NoError(t, err)
+	udtStringParamB, err := NewUserDefinedLiteral(42, udtStruct, false, []types.TypeParam{
+		types.StringParameter("b"),
+	})
+	require.NoError(t, err)
+	udtListType := &types.ListType{Type: udtVarcharListParam.GetType(), Nullability: types.NullabilityRequired}
+
 	tests := []struct {
 		name       string
 		elements   []expr.Literal
@@ -954,6 +988,11 @@ func TestNewList(t *testing.T) {
 		{"i8List", []expr.Literal{i8Lit1, i8Lit2}, true, int8ListType, assert.NoError},
 		{"i32List", []expr.Literal{i32Lit1, i32Lit2}, true, int32ListType, assert.NoError},
 		{"differingParams", []expr.Literal{vc1, vc4}, true, varCharListType, assert.NoError},
+		{"nestedDifferingParams", []expr.Literal{vc1ListLiteral, vc4ListLiteral}, true, varCharListOfListType, assert.NoError},
+		{"nestedMismatch", []expr.Literal{listLiteral, i32ListLiteral}, false, nil, assert.Error},
+		{"udtNestedDataParamDifferingLeafParams", []expr.Literal{udtVarcharListParam, udtVarchar4ListParam}, true, udtListType, assert.NoError},
+		{"udtNestedDataParamMismatch", []expr.Literal{udtInt8ListParam, udtInt32ListParam}, false, nil, assert.Error},
+		{"udtScalarParamMismatch", []expr.Literal{udtStringParamA, udtStringParamB}, false, nil, assert.Error},
 		{"typedNullMismatch", []expr.Literal{nullStr, i8Lit1}, false, nil, assert.Error},
 		{"crossFamily", []expr.Literal{dec1, vc1}, false, nil, assert.Error},
 	}
@@ -990,6 +1029,8 @@ func TestNewMap(t *testing.T) {
 	vc1, _ := NewVarChar("a", false)
 	vc4, _ := NewVarChar("abcd", false)
 	dec1, _ := NewDecimalFromString("1.0", false)
+	i8ListVal, _ := NewList([]expr.Literal{i8Key1}, false)
+	i32ListVal, _ := NewList([]expr.Literal{i32Val1}, false)
 
 	int8Type := &types.Int8Type{Nullability: types.NullabilityRequired}
 	nullInt8Type := &types.Int8Type{Nullability: types.NullabilityNullable}
@@ -1043,6 +1084,7 @@ func TestNewMap(t *testing.T) {
 		{"mismatchedValues", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: i8Key2, Value: i32Val1}}},
 		{"typedNullMismatchedKey", expr.MapLiteralValue{{Key: nullStrKey, Value: strVal1}, {Key: i8Key1, Value: strVal2}}},
 		{"typedNullMismatchedValue", expr.MapLiteralValue{{Key: i8Key1, Value: nullStrVal}, {Key: i8Key2, Value: i32Val1}}},
+		{"nestedMismatchedValues", expr.MapLiteralValue{{Key: i8Key1, Value: i8ListVal}, {Key: i8Key2, Value: i32ListVal}}},
 		{"crossFamilyValues", expr.MapLiteralValue{{Key: i8Key1, Value: dec1}, {Key: i8Key2, Value: vc1}}},
 		{"crossFamilyKeys", expr.MapLiteralValue{{Key: dec1, Value: strVal1}, {Key: vc1, Value: strVal2}}},
 	}
