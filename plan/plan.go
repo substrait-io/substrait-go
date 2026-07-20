@@ -415,6 +415,26 @@ type Rel interface {
 	CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error)
 }
 
+// decodeExtensionDef uses the registry's ExtensionRelDecoder (if any) to
+// produce a typed ExtensionRelDefinition for the given detail. Falls back to
+// UndecodedExtension when no decoder is registered or the decoder declines.
+func decodeExtensionDef(reg expr.ExtensionRegistry, detail *anypb.Any) (ExtensionRelDefinition, error) {
+	if dec := reg.ExtensionRelDecoderFor(); dec != nil {
+		raw, err := dec.DecodeExtensionRel(detail)
+		if err != nil {
+			return nil, err
+		}
+		if raw != nil {
+			def, ok := raw.(ExtensionRelDefinition)
+			if !ok {
+				return nil, fmt.Errorf("ExtensionRelDecoder returned %T which does not implement ExtensionRelDefinition", raw)
+			}
+			return def, nil
+		}
+	}
+	return &UndecodedExtension{detail: detail}, nil
+}
+
 func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 	switch rel := rel.RelType.(type) {
 	case *proto.Rel_Read:
@@ -731,11 +751,13 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			return nil, fmt.Errorf("error getting input to ExtensionSingle: %w", err)
 		}
 
-		// TODO: we should probably be adding Extension relations to the ExtensionRegistry,
-		// look up extensions from there, and have a way to decode *anypb.Any to ExtensionRelDefinitions
+		definition, err := decodeExtensionDef(reg, rel.ExtensionSingle.Detail)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding ExtensionSingle detail: %w", err)
+		}
 		out := &ExtensionSingleRel{
 			input:      input,
-			definition: &UndecodedExtension{detail: rel.ExtensionSingle.Detail},
+			definition: definition,
 		}
 		out.fromProtoCommon(rel.ExtensionSingle.Common)
 
@@ -750,21 +772,24 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			}
 		}
 
-		// TODO: we should probably be adding Extension relations to the ExtensionRegistry,
-		// look up extensions from there, and have a way to decode *anypb.Any to ExtensionRelDefinitions
+		definition, err := decodeExtensionDef(reg, rel.ExtensionMulti.Detail)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding ExtensionMulti detail: %w", err)
+		}
 		out := &ExtensionMultiRel{
 			inputs:     inputs,
-			definition: &UndecodedExtension{detail: rel.ExtensionMulti.Detail},
+			definition: definition,
 		}
 		out.fromProtoCommon(rel.ExtensionMulti.Common)
 
 		return out, nil
 	case *proto.Rel_ExtensionLeaf:
-
-		// TODO: we should probably be adding Extension relations to the ExtensionRegistry,
-		// look up extensions from there, and have a way to decode *anypb.Any to ExtensionRelDefinitions
+		definition, err := decodeExtensionDef(reg, rel.ExtensionLeaf.Detail)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding ExtensionLeaf detail: %w", err)
+		}
 		out := &ExtensionLeafRel{
-			definition: &UndecodedExtension{detail: rel.ExtensionLeaf.Detail},
+			definition: definition,
 		}
 		out.fromProtoCommon(rel.ExtensionLeaf.Common)
 

@@ -7,7 +7,23 @@ import (
 	"github.com/substrait-io/substrait-go/v8/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	extensionspb "github.com/substrait-io/substrait-protobuf/go/substraitpb/extensions"
+	"google.golang.org/protobuf/types/known/anypb"
 )
+
+// ExtensionRelDecoder decodes an extension relation's Any detail into an
+// ExtensionRelDefinition that knows its output schema and expressions.
+// It is called by RelFromProto instead of falling back to UndecodedExtension
+// when a decoder is registered for the detail's type URL.
+//
+// The Rel type is intentionally left as an interface{} here to avoid an import
+// cycle between the expr and plan packages; the plan package casts it to plan.Rel
+// via the ExtensionRelDecoderFunc type alias defined there.
+type ExtensionRelDecoder interface {
+	// DecodeExtensionRel attempts to decode detail into an ExtensionRelDefinition.
+	// Returns (nil, nil) to signal that this decoder does not handle the given detail,
+	// allowing fallback to UndecodedExtension.
+	DecodeExtensionRel(detail *anypb.Any) (any, error)
+}
 
 // ExtensionRegistry provides functionality to resolve extension references and handle subquery expressions.
 // It combines an extensions.Set for looking up extension definitions with a Collection for extension metadata.
@@ -18,6 +34,10 @@ type ExtensionRegistry struct {
 	// subqueryConverter is injected by the plan package to handle subquery expressions
 	// TODO: We may want to consider refactoring to make a cleaner interface here
 	subqueryConverter
+
+	// extensionRelDecoder is optionally set to decode extension relation details
+	// into typed ExtensionRelDefinitions during RelFromProto.
+	extensionRelDecoder ExtensionRelDecoder
 }
 
 // subqueryConverter converts subqueries and the Relations within from the native
@@ -38,6 +58,19 @@ type subqueryConverter interface {
 // This is an internal function used to break the dependency cycle between expr and plan packages.
 func (e *ExtensionRegistry) SetSubqueryConverter(converter subqueryConverter) {
 	e.subqueryConverter = converter
+}
+
+// SetExtensionRelDecoder registers a decoder that RelFromProto will call for
+// each ExtensionSingle/ExtensionMulti/ExtensionLeaf relation. If the decoder
+// returns a non-nil value it is used as the ExtensionRelDefinition; if it
+// returns (nil, nil) RelFromProto falls back to UndecodedExtension.
+func (e *ExtensionRegistry) SetExtensionRelDecoder(decoder ExtensionRelDecoder) {
+	e.extensionRelDecoder = decoder
+}
+
+// ExtensionRelDecoderFor returns the registered decoder, or nil if none was set.
+func (e *ExtensionRegistry) ExtensionRelDecoderFor() ExtensionRelDecoder {
+	return e.extensionRelDecoder
 }
 
 // NewExtensionRegistry creates a new registry.  If you have an existing plan you can use GetExtensionSet() to
