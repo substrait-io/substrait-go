@@ -918,6 +918,121 @@ func TestNewTimestampTZFromString(t *testing.T) {
 	}
 }
 
+func TestSameBaseType(t *testing.T) {
+	i8Type := &types.Int8Type{Nullability: types.NullabilityRequired}
+	i32Type := &types.Int32Type{Nullability: types.NullabilityRequired}
+	i64Type := &types.Int64Type{Nullability: types.NullabilityRequired}
+	stringType := &types.StringType{Nullability: types.NullabilityRequired}
+	vc1Type := &types.VarCharType{Length: 1, Nullability: types.NullabilityRequired}
+	vc4Type := &types.VarCharType{Length: 4, Nullability: types.NullabilityRequired}
+
+	tests := []struct {
+		name  string
+		left  types.Type
+		right types.Type
+		want  bool
+	}{
+		{"nilType", nil, i8Type, false},
+		{"scalarMismatch", i8Type, stringType, false},
+		{
+			"mapMatch",
+			&types.MapType{Key: stringType, Value: i8Type},
+			&types.MapType{Key: stringType, Value: i8Type},
+			true,
+		},
+		{
+			"mapKeyMismatch",
+			&types.MapType{Key: stringType, Value: i8Type},
+			&types.MapType{Key: i8Type, Value: i8Type},
+			false,
+		},
+		{
+			"mapValueMismatch",
+			&types.MapType{Key: stringType, Value: i8Type},
+			&types.MapType{Key: stringType, Value: i32Type},
+			false,
+		},
+		{
+			"structMatch",
+			&types.StructType{Types: []types.Type{i8Type, stringType}},
+			&types.StructType{Types: []types.Type{i8Type, stringType}},
+			true,
+		},
+		{
+			"structLengthMismatch",
+			&types.StructType{Types: []types.Type{i8Type, stringType}},
+			&types.StructType{Types: []types.Type{i8Type}},
+			false,
+		},
+		{
+			"structFieldMismatch",
+			&types.StructType{Types: []types.Type{i8Type, stringType}},
+			&types.StructType{Types: []types.Type{i8Type, i32Type}},
+			false,
+		},
+		{
+			"funcMatch",
+			&types.FuncType{ParameterTypes: []types.Type{i8Type, stringType}, ReturnType: i64Type},
+			&types.FuncType{ParameterTypes: []types.Type{i8Type, stringType}, ReturnType: i64Type},
+			true,
+		},
+		{
+			"funcParamLengthMismatch",
+			&types.FuncType{ParameterTypes: []types.Type{i8Type, stringType}, ReturnType: i64Type},
+			&types.FuncType{ParameterTypes: []types.Type{i8Type}, ReturnType: i64Type},
+			false,
+		},
+		{
+			"funcReturnMismatch",
+			&types.FuncType{ParameterTypes: []types.Type{i8Type}, ReturnType: i64Type},
+			&types.FuncType{ParameterTypes: []types.Type{i8Type}, ReturnType: i32Type},
+			false,
+		},
+		{
+			"funcParamMismatch",
+			&types.FuncType{ParameterTypes: []types.Type{i8Type}, ReturnType: i64Type},
+			&types.FuncType{ParameterTypes: []types.Type{i32Type}, ReturnType: i64Type},
+			false,
+		},
+		{
+			"udtTypeReferenceMismatch",
+			&types.UserDefinedType{TypeReference: 1},
+			&types.UserDefinedType{TypeReference: 2},
+			false,
+		},
+		{
+			"udtTypeParamLengthMismatch",
+			&types.UserDefinedType{TypeReference: 1, TypeParameters: []types.TypeParam{types.IntegerParameter(1)}},
+			&types.UserDefinedType{TypeReference: 1},
+			false,
+		},
+		{
+			"udtNilTypeParamMatch",
+			&types.UserDefinedType{TypeReference: 1, TypeParameters: []types.TypeParam{nil}},
+			&types.UserDefinedType{TypeReference: 1, TypeParameters: []types.TypeParam{nil}},
+			true,
+		},
+		{
+			"udtNilTypeParamMismatch",
+			&types.UserDefinedType{TypeReference: 1, TypeParameters: []types.TypeParam{nil}},
+			&types.UserDefinedType{TypeReference: 1, TypeParameters: []types.TypeParam{types.IntegerParameter(1)}},
+			false,
+		},
+		{
+			"udtDataTypeParamDifferingLeafParams",
+			&types.UserDefinedType{TypeReference: 1, TypeParameters: []types.TypeParam{&types.DataTypeParameter{Type: vc1Type}}},
+			&types.UserDefinedType{TypeReference: 1, TypeParameters: []types.TypeParam{&types.DataTypeParameter{Type: vc4Type}}},
+			true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, sameBaseType(tt.left, tt.right))
+		})
+	}
+}
+
 func TestNewList(t *testing.T) {
 	i8Lit1 := NewInt8(1, false)
 	i8Lit2 := NewInt8(2, false)
