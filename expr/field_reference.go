@@ -757,6 +757,13 @@ func (f *FieldReference) Visit(v VisitFunc) Expression {
 	return f
 }
 
+func (f *FieldReference) GetExprs() []Expression {
+	if e, ok := f.Root.(Expression); ok {
+		return []Expression{e}
+	}
+	return nil
+}
+
 func (*FieldReference) IsScalar() bool { return true }
 
 func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema *types.RecordType, reg ExtensionRegistry) (*FieldReference, error) {
