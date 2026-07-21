@@ -410,6 +410,9 @@ type Rel interface {
 	// GetInputs returns a list of zero or more inputs for this relation
 	GetInputs() []Rel
 
+	// GetExprs returns the immediate child expressions of this Relation
+	GetExprs() []expr.Expression
+
 	// CopyWithExpressionRewrite rewrites all expression trees in this Rel. Returns original Rel
 	// if no changes were made, otherwise a newly created rel that includes the given expressions
 	CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error)

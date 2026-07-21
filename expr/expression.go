@@ -434,7 +434,7 @@ type Expression interface {
 	//   }
 	//   newExpr := preOrderVisit(oldExpr)
 	Visit(VisitFunc) Expression
-	// GetExprs returns the immediate child expressions of this expression node.
+	// GetExprs returns the immediate child expressions of this Expression.
 	// Leaf expressions (literals, DynamicParameter) return nil.
 	// Does not cross subquery boundaries.
 	GetExprs() []Expression
