@@ -609,8 +609,8 @@ type customExtDef struct {
 	typeURL string
 }
 
-func (d *customExtDef) Schema(inputs []Rel) types.RecordType { return d.schema }
-func (d *customExtDef) Build(_ []Rel) *anypb.Any            { return d.detail }
+func (d *customExtDef) Schema(inputs []Rel) types.RecordType  { return d.schema }
+func (d *customExtDef) Build(_ []Rel) *anypb.Any              { return d.detail }
 func (d *customExtDef) Expressions(_ []Rel) []expr.Expression { return nil }
 
 // customDecoder returns a customExtDef for a specific typeURL and nil for everything else.
@@ -823,9 +823,9 @@ func TestExtensionRelDecoder_Multi(t *testing.T) {
 
 	// Two identical one-column inputs; the extension combines them into 2 cols.
 	rel := &proto.Rel{RelType: &proto.Rel_ExtensionMulti{ExtensionMulti: &proto.ExtensionMultiRel{
-		Common:  emit01,
-		Inputs:  []*proto.Rel{oneColInputRel, oneColInputRel},
-		Detail:  detail,
+		Common: emit01,
+		Inputs: []*proto.Rel{oneColInputRel, oneColInputRel},
+		Detail: detail,
 	}}}
 
 	t.Run("without decoder panics on emit OOB", func(t *testing.T) {
