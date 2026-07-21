@@ -39,7 +39,11 @@ func ValidateParameterBindings(root Rel, bindings []DynamicParameterBinding) err
 
 	// Collect all DynamicParameter output types keyed by anchor.
 	paramTypes := make(map[uint32]types.Type)
-	collectDynamicParams(root, paramTypes)
+	WalkRels(root, nil, func(e expr.Expression) {
+		if dp, ok := e.(*expr.DynamicParameter); ok {
+			paramTypes[dp.ParameterReference] = dp.OutputType
+		}
+	})
 
 	for _, b := range bindings {
 		declaredType, ok := paramTypes[b.ParameterAnchor]
@@ -62,60 +66,6 @@ func ValidateParameterBindings(root Rel, bindings []DynamicParameterBinding) err
 	return nil
 }
 
-// collectDynamicParams walks a relation tree and records the OutputType
-// of every DynamicParameter expression it encounters.
-func collectDynamicParams(rel Rel, out map[uint32]types.Type) {
-	if rel == nil {
-		return
-	}
-
-	// Walk child relations first.
-	for _, child := range rel.GetInputs() {
-		collectDynamicParams(child, out)
-	}
-
-	// Walk expressions owned by this relation.
-	walkRelExprs(rel, func(e expr.Expression) {
-		walkExpr(e, func(inner expr.Expression) {
-			if dp, ok := inner.(*expr.DynamicParameter); ok {
-				out[dp.ParameterReference] = dp.OutputType
-			}
-		})
-	})
-}
-
-// walkRelExprs invokes fn for every top-level expression in a relation.
-func walkRelExprs(rel Rel, fn func(expr.Expression)) {
-	switch r := rel.(type) {
-	case *FilterRel:
-		fn(r.Condition())
-	case *ProjectRel:
-		for _, e := range r.Expressions() {
-			fn(e)
-		}
-	case *JoinRel:
-		fn(r.Expr())
-		if pjf := r.PostJoinFilter(); pjf != nil {
-			fn(pjf)
-		}
-	case *SortRel:
-		for _, sf := range r.Sorts() {
-			fn(sf.Expr)
-		}
-	}
-}
-
-// walkExpr recursively visits every node in an expression tree.
-func walkExpr(e expr.Expression, fn func(expr.Expression)) {
-	if e == nil {
-		return
-	}
-	fn(e)
-	e.Visit(func(child expr.Expression) expr.Expression {
-		walkExpr(child, fn)
-		return child
-	})
-}
 
 type (
 	Hint              = proto.RelCommon_Hint
