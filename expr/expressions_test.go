@@ -5,6 +5,7 @@ package expr_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -14,6 +15,7 @@ import (
 	"github.com/goccy/go-yaml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	substraitgo "github.com/substrait-io/substrait-go/v8"
 	"github.com/substrait-io/substrait-go/v8/expr"
 	ext "github.com/substrait-io/substrait-go/v8/extensions"
 	"github.com/substrait-io/substrait-go/v8/plan"
@@ -22,6 +24,7 @@ import (
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/encoding/protojson"
 	pb "google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 const sampleYAML = `---
@@ -694,4 +697,70 @@ func TestSubqueryExpressionRoundtrip(t *testing.T) {
 			// comment in plan/subquery.go
 		})
 	}
+}
+
+func TestExtensionRegistrySetAndGetDecoder(t *testing.T) {
+	c := ext.GetDefaultCollectionWithNoError()
+
+	t.Run("nil before set", func(t *testing.T) {
+		reg := expr.NewEmptyExtensionRegistry(c)
+		require.Nil(t, reg.ExtensionRelDecoderFor())
+	})
+
+	t.Run("returns decoder after set", func(t *testing.T) {
+		reg := expr.NewEmptyExtensionRegistry(c)
+		dec := &stubRelDecoder{}
+		reg.SetExtensionRelDecoder(dec)
+		require.Equal(t, dec, reg.ExtensionRelDecoderFor())
+	})
+
+	t.Run("overwrite replaces decoder", func(t *testing.T) {
+		reg := expr.NewEmptyExtensionRegistry(c)
+		first := &stubRelDecoder{}
+		second := &stubRelDecoder{}
+		reg.SetExtensionRelDecoder(first)
+		reg.SetExtensionRelDecoder(second)
+		require.Equal(t, second, reg.ExtensionRelDecoderFor())
+	})
+}
+
+// stubRelDecoder is a minimal ExtensionRelDecoder that always returns an error.
+type stubRelDecoder struct{}
+
+func (s *stubRelDecoder) DecodeExtensionRel(_ *anypb.Any) (any, error) {
+	return nil, errors.New("stub")
+}
+
+func TestStructFieldRefGetTypeBounds(t *testing.T) {
+	st := &types.StructType{
+		Types: []types.Type{
+			&types.Int64Type{Nullability: types.NullabilityRequired},
+			&types.Int32Type{Nullability: types.NullabilityRequired},
+		},
+	}
+
+	t.Run("valid index returns type", func(t *testing.T) {
+		ref := &expr.StructFieldRef{Field: 0}
+		got, err := ref.GetType(st)
+		require.NoError(t, err)
+		assert.IsType(t, &types.Int64Type{}, got)
+	})
+
+	t.Run("negative index returns error", func(t *testing.T) {
+		ref := &expr.StructFieldRef{Field: -1}
+		_, err := ref.GetType(st)
+		require.ErrorIs(t, err, substraitgo.ErrInvalidType)
+	})
+
+	t.Run("index equal to len returns error", func(t *testing.T) {
+		ref := &expr.StructFieldRef{Field: int32(len(st.Types))}
+		_, err := ref.GetType(st)
+		require.ErrorIs(t, err, substraitgo.ErrInvalidType)
+	})
+
+	t.Run("index beyond len returns error", func(t *testing.T) {
+		ref := &expr.StructFieldRef{Field: int32(len(st.Types) + 1)}
+		_, err := ref.GetType(st)
+		require.ErrorIs(t, err, substraitgo.ErrInvalidType)
+	})
 }

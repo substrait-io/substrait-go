@@ -1,6 +1,7 @@
 package plan
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -625,6 +626,16 @@ func (cd *customDecoder) DecodeExtensionRel(detail *anypb.Any) (any, error) {
 	return &customExtDef{detail: detail, schema: cd.schema, typeURL: cd.typeURL}, nil
 }
 
+// errorDecoder always returns a non-nil error from DecodeExtensionRel.
+type errorDecoder struct{ err error }
+
+func (d *errorDecoder) DecodeExtensionRel(_ *anypb.Any) (any, error) { return nil, d.err }
+
+// wrongTypeDecoder returns a value that does not implement ExtensionRelDefinition.
+type wrongTypeDecoder struct{}
+
+func (d *wrongTypeDecoder) DecodeExtensionRel(_ *anypb.Any) (any, error) { return "not-a-def", nil }
+
 // extSchema2col is a 2-column RecordType used across extension decoder tests.
 var extSchema2col = *types.NewRecordTypeFromTypes([]types.Type{
 	&types.Int64Type{Nullability: types.NullabilityRequired},
@@ -716,6 +727,21 @@ func TestExtensionRelDecoder_Single(t *testing.T) {
 			_ = out.RecordType()
 		})
 	})
+
+	t.Run("decoder returning error propagates to RelFromProto", func(t *testing.T) {
+		reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
+		sentinel := errors.New("decode failed")
+		reg.SetExtensionRelDecoder(&errorDecoder{err: sentinel})
+		_, err := RelFromProto(rel, reg)
+		require.ErrorContains(t, err, "decode failed")
+	})
+
+	t.Run("decoder returning wrong type errors", func(t *testing.T) {
+		reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
+		reg.SetExtensionRelDecoder(&wrongTypeDecoder{})
+		_, err := RelFromProto(rel, reg)
+		require.ErrorContains(t, err, "does not implement ExtensionRelDefinition")
+	})
 }
 
 // TestExtensionRelDecoder_Leaf verifies the decoder hook for ExtensionLeafRel.
@@ -770,6 +796,20 @@ func TestExtensionRelDecoder_Leaf(t *testing.T) {
 			require.NoError(t, err)
 			_ = out.RecordType()
 		})
+	})
+
+	t.Run("decoder returning error propagates to RelFromProto", func(t *testing.T) {
+		reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
+		reg.SetExtensionRelDecoder(&errorDecoder{err: errors.New("decode failed")})
+		_, err := RelFromProto(rel, reg)
+		require.ErrorContains(t, err, "decode failed")
+	})
+
+	t.Run("decoder returning wrong type errors", func(t *testing.T) {
+		reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
+		reg.SetExtensionRelDecoder(&wrongTypeDecoder{})
+		_, err := RelFromProto(rel, reg)
+		require.ErrorContains(t, err, "does not implement ExtensionRelDefinition")
 	})
 }
 
@@ -826,6 +866,20 @@ func TestExtensionRelDecoder_Multi(t *testing.T) {
 			require.NoError(t, err)
 			_ = out.RecordType()
 		})
+	})
+
+	t.Run("decoder returning error propagates to RelFromProto", func(t *testing.T) {
+		reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
+		reg.SetExtensionRelDecoder(&errorDecoder{err: errors.New("decode failed")})
+		_, err := RelFromProto(rel, reg)
+		require.ErrorContains(t, err, "decode failed")
+	})
+
+	t.Run("decoder returning wrong type errors", func(t *testing.T) {
+		reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
+		reg.SetExtensionRelDecoder(&wrongTypeDecoder{})
+		_, err := RelFromProto(rel, reg)
+		require.ErrorContains(t, err, "does not implement ExtensionRelDefinition")
 	})
 }
 
