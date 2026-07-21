@@ -122,21 +122,15 @@ func TestPlanRoundTripWithExtensions(t *testing.T) {
 
 func TestPlanRoundTripWithSubqueries(t *testing.T) {
 	c := extensions.GetDefaultCollectionWithNoError()
-
-	i32Type := &proto.Type{Kind: &proto.Type_I32_{I32: &proto.Type_I32{Nullability: proto.Type_NULLABILITY_REQUIRED}}}
-	i64Type := &proto.Type{Kind: &proto.Type_I64_{I64: &proto.Type_I64{Nullability: proto.Type_NULLABILITY_REQUIRED}}}
-	strType := &proto.Type{Kind: &proto.Type_String_{String_: &proto.Type_String{Nullability: proto.Type_NULLABILITY_REQUIRED}}}
-
-	// 3-column scan: col1 i32, col2 i64, col3 string
 	scanProto := &proto.Rel{
 		RelType: &proto.Rel_Read{
 			Read: &proto.ReadRel{
 				Common: &proto.RelCommon{EmitKind: &proto.RelCommon_Direct_{Direct: &proto.RelCommon_Direct{}}},
 				BaseSchema: &proto.NamedStruct{
-					Names: []string{"col1", "col2", "col3"},
+					Names: []string{"col1"},
 					Struct: &proto.Type_Struct{
 						Nullability: proto.Type_NULLABILITY_REQUIRED,
-						Types:       []*proto.Type{i32Type, i64Type, strType},
+						Types:       []*proto.Type{{Kind: &proto.Type_I32_{I32: &proto.Type_I32{Nullability: proto.Type_NULLABILITY_REQUIRED}}}},
 					},
 				},
 				ReadType: &proto.ReadRel_NamedTable_{NamedTable: &proto.ReadRel_NamedTable{Names: []string{"t"}}},
@@ -145,7 +139,7 @@ func TestPlanRoundTripWithSubqueries(t *testing.T) {
 	}
 	needle := expr.NewPrimitiveLiteral(int32(1), false).ToProto()
 
-	subqueries := []struct {
+	tests := []struct {
 		name     string
 		subquery *proto.Expression_Subquery
 	}{
@@ -194,58 +188,35 @@ func TestPlanRoundTripWithSubqueries(t *testing.T) {
 		},
 	}
 
-	commons := []struct {
-		name   string
-		common *proto.RelCommon
-		// rootNames must match the number of output columns after the emit mapping
-		rootNames []string
-	}{
-		{
-			name:      "Direct",
-			common:    &proto.RelCommon{EmitKind: &proto.RelCommon_Direct_{Direct: &proto.RelCommon_Direct{}}},
-			rootNames: []string{"col1", "col2", "col3"},
-		},
-		{
-			// out-of-order emit: col3, col1, col2 → output mapping [2, 0, 1]
-			name: "Emit",
-			common: &proto.RelCommon{EmitKind: &proto.RelCommon_Emit_{
-				Emit: &proto.RelCommon_Emit{OutputMapping: []int32{2, 0, 1}},
-			}},
-			rootNames: []string{"col3", "col1", "col2"},
-		},
-	}
-
-	for _, sq := range subqueries {
-		for _, cm := range commons {
-			t.Run(sq.name+"/"+cm.name, func(t *testing.T) {
-				original := &proto.Plan{
-					Relations: []*proto.PlanRel{{
-						RelType: &proto.PlanRel_Root{
-							Root: &proto.RelRoot{
-								Names: cm.rootNames,
-								Input: &proto.Rel{
-									RelType: &proto.Rel_Filter{
-										Filter: &proto.FilterRel{
-											Common:    cm.common,
-											Input:     scanProto,
-											Condition: &proto.Expression{RexType: &proto.Expression_Subquery_{Subquery: sq.subquery}},
-										},
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			original := &proto.Plan{
+				Relations: []*proto.PlanRel{{
+					RelType: &proto.PlanRel_Root{
+						Root: &proto.RelRoot{
+							Names: []string{"out"},
+							Input: &proto.Rel{
+								RelType: &proto.Rel_Filter{
+									Filter: &proto.FilterRel{
+										Common:    &proto.RelCommon{EmitKind: &proto.RelCommon_Direct_{Direct: &proto.RelCommon_Direct{}}},
+										Input:     scanProto,
+										Condition: &proto.Expression{RexType: &proto.Expression_Subquery_{Subquery: tc.subquery}},
 									},
 								},
 							},
 						},
-					}},
-				}
-				p, err := FromProto(original, c)
-				require.NoError(t, err)
-				roundTripped, err := p.ToProto()
-				require.NoError(t, err)
-				// Use cmp.Diff instead of protojson for comparison: protojson output is non-deterministic.
-				if diff := cmp.Diff(original, roundTripped, protocmp.Transform()); diff != "" {
-					t.Errorf("plan round-trip mismatch (-want +got):\n%s", diff)
-				}
-			})
-		}
+					},
+				}},
+			}
+			p, err := FromProto(original, c)
+			require.NoError(t, err)
+			roundTripped, err := p.ToProto()
+			require.NoError(t, err)
+			// Use cmp.Diff instead of protojson for comparison: protojson output is non-deterministic.
+			if diff := cmp.Diff(original, roundTripped, protocmp.Transform()); diff != "" {
+				t.Errorf("plan round-trip mismatch (-want +got):\n%s", diff)
+			}
+		})
 	}
 }
 
@@ -494,11 +465,11 @@ func TestProjectSetStyleDecoder(t *testing.T) {
 	require.NoError(t, err)
 	projectSetDetail := &anypb.Any{TypeUrl: projectSetTypeURL, Value: nestedBytes}
 
-	// Build the input rel proto. directCommon is set so ToProto() round-trips exactly.
+	// Build the input rel proto. direct common is set so ToProto() round-trips exactly.
 	inputRelProto := &proto.Rel{
 		RelType: &proto.Rel_Read{
 			Read: &proto.ReadRel{
-				Common: directCommon,
+				Common: &proto.RelCommon{EmitKind: &proto.RelCommon_Direct_{Direct: &proto.RelCommon_Direct{}}},
 				BaseSchema: &proto.NamedStruct{
 					Names: []string{"a"},
 					Struct: &proto.Type_Struct{
@@ -515,8 +486,11 @@ func TestProjectSetStyleDecoder(t *testing.T) {
 	// ExtensionSingleRel with emit [0, 1]:
 	//   col 0 = passthrough input col "a" (i64)
 	//   col 1 = SRF output col (i32, from the literal expression)
+	emitDirect01 := &proto.RelCommon{EmitKind: &proto.RelCommon_Emit_{
+		Emit: &proto.RelCommon_Emit{OutputMapping: []int32{0, 1}},
+	}}
 	extSingleProto := &proto.ExtensionSingleRel{
-		Common: emit01,
+		Common: emitDirect01,
 		Input:  inputRelProto,
 		Detail: projectSetDetail,
 	}
@@ -636,249 +610,151 @@ type wrongTypeDecoder struct{}
 
 func (d *wrongTypeDecoder) DecodeExtensionRel(_ *anypb.Any) (any, error) { return "not-a-def", nil }
 
-// extSchema2col is a 2-column RecordType used across extension decoder tests.
-var extSchema2col = *types.NewRecordTypeFromTypes([]types.Type{
-	&types.Int64Type{Nullability: types.NullabilityRequired},
-	&types.Int32Type{Nullability: types.NullabilityRequired},
-})
-
-// emit01 is a RelCommon with output mapping [0, 1], sufficient to trigger remap OOB.
-var emit01 = &proto.RelCommon{
-	EmitKind: &proto.RelCommon_Emit_{
-		Emit: &proto.RelCommon_Emit{OutputMapping: []int32{0, 1}},
-	},
-}
-
-// directCommon is a RelCommon with no emit (direct pass-through), which is what
-// substrait-go serialises back out on ToProto() when no mapping is set.
-var directCommon = &proto.RelCommon{EmitKind: &proto.RelCommon_Direct_{Direct: &proto.RelCommon_Direct{}}}
-
-// oneColInputRel is a VirtualTable ReadRel with a single i64 column.
-var oneColInputRel = &proto.Rel{
-	RelType: &proto.Rel_Read{
-		Read: &proto.ReadRel{
-			Common: directCommon,
-			BaseSchema: &proto.NamedStruct{
-				Names: []string{"a"},
-				Struct: &proto.Type_Struct{
-					Types: []*proto.Type{
-						{Kind: &proto.Type_I64_{I64: &proto.Type_I64{Nullability: proto.Type_NULLABILITY_REQUIRED}}},
-					},
-				},
-			},
-			ReadType: &proto.ReadRel_VirtualTable_{VirtualTable: &proto.ReadRel_VirtualTable{}},
-		},
-	},
-}
-
-// TestExtensionRelDecoder_Single verifies the decoder hook for ExtensionSingleRel.
-//
-// ExtensionSingleRel wraps one input; UndecodedExtension.Schema returns the
-// input schema unchanged, so an emit mapping that references an extra column
-// added by the extension will panic on RecordType(). A registered decoder
-// provides the correct wider schema, preventing the panic.
-func TestExtensionRelDecoder_Single(t *testing.T) {
+// TestExtensionRelDecoder verifies the decoder hook for all three extension rel types.
+// Without a decoder, UndecodedExtension returns a schema too narrow for the emit
+// mapping, causing a panic on RecordType(). A registered decoder provides the correct
+// wider schema.
+func TestExtensionRelDecoder(t *testing.T) {
 	const typeURL = "type.googleapis.com/test.MyExtension"
 	detail := &anypb.Any{TypeUrl: typeURL, Value: []byte("irrelevant")}
 
-	// ExtensionSingleRel: emit [0,1] — index 1 is the extension's extra column.
-	rel := &proto.Rel{RelType: &proto.Rel_ExtensionSingle{ExtensionSingle: &proto.ExtensionSingleRel{
-		Common: emit01,
-		Input:  oneColInputRel,
-		Detail: detail,
+	// extSchema is the 3-column output schema the decoder claims for the extension.
+	// It is wider than oneColInput, so emit [2,0,1] would OOB without a decoder.
+	extSchema := *types.NewRecordTypeFromTypes([]types.Type{
+		&types.Int64Type{Nullability: types.NullabilityRequired},
+		&types.Int32Type{Nullability: types.NullabilityRequired},
+		&types.StringType{Nullability: types.NullabilityRequired},
+	})
+
+	// direct is a pass-through RelCommon; emit201 exercises out-of-order reordering.
+	// Both are tested to cover the two common real-world mapping shapes.
+	direct := &proto.RelCommon{EmitKind: &proto.RelCommon_Direct_{Direct: &proto.RelCommon_Direct{}}}
+	emit201 := &proto.RelCommon{EmitKind: &proto.RelCommon_Emit_{Emit: &proto.RelCommon_Emit{OutputMapping: []int32{2, 0, 1}}}}
+
+	// oneColInput is the single-column input fed into Single/Multi extension rels.
+	// The extension decoder claims a wider schema, so OOB only occurs without it.
+	oneColInput := &proto.Rel{RelType: &proto.Rel_Read{Read: &proto.ReadRel{
+		Common: direct,
+		BaseSchema: &proto.NamedStruct{
+			Names: []string{"a"},
+			Struct: &proto.Type_Struct{
+				Types: []*proto.Type{{Kind: &proto.Type_I64_{I64: &proto.Type_I64{Nullability: proto.Type_NULLABILITY_REQUIRED}}}},
+			},
+		},
+		ReadType: &proto.ReadRel_VirtualTable_{VirtualTable: &proto.ReadRel_VirtualTable{}},
 	}}}
 
-	t.Run("without decoder panics on emit OOB", func(t *testing.T) {
-		reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-		require.Panics(t, func() {
-			out, err := RelFromProto(rel, reg)
-			require.NoError(t, err)
-			_ = out.RecordType()
+	// rels covers all three extension rel types × direct and out-of-order emit mappings.
+	// Direct tests the no-remap path; Emit tests the OOB-without-decoder path.
+	rels := []struct {
+		name                 string
+		rel                  *proto.Rel
+		panicsWithoutDecoder bool // true when emit mapping exceeds UndecodedExtension schema
+	}{
+		{
+			name: "Single/Direct",
+			rel: &proto.Rel{RelType: &proto.Rel_ExtensionSingle{ExtensionSingle: &proto.ExtensionSingleRel{
+				Common: direct, Input: oneColInput, Detail: detail,
+			}}},
+		},
+		{
+			name:                 "Single/Emit",
+			panicsWithoutDecoder: true,
+			rel: &proto.Rel{RelType: &proto.Rel_ExtensionSingle{ExtensionSingle: &proto.ExtensionSingleRel{
+				Common: emit201, Input: oneColInput, Detail: detail,
+			}}},
+		},
+		{
+			name: "Leaf/Direct",
+			rel: &proto.Rel{RelType: &proto.Rel_ExtensionLeaf{ExtensionLeaf: &proto.ExtensionLeafRel{
+				Common: direct, Detail: detail,
+			}}},
+		},
+		{
+			name:                 "Leaf/Emit",
+			panicsWithoutDecoder: true,
+			rel: &proto.Rel{RelType: &proto.Rel_ExtensionLeaf{ExtensionLeaf: &proto.ExtensionLeafRel{
+				Common: emit201, Detail: detail,
+			}}},
+		},
+		{
+			name: "Multi/Direct",
+			rel: &proto.Rel{RelType: &proto.Rel_ExtensionMulti{ExtensionMulti: &proto.ExtensionMultiRel{
+				Common: direct, Inputs: []*proto.Rel{oneColInput, oneColInput}, Detail: detail,
+			}}},
+		},
+		{
+			name:                 "Multi/Emit",
+			panicsWithoutDecoder: true,
+			rel: &proto.Rel{RelType: &proto.Rel_ExtensionMulti{ExtensionMulti: &proto.ExtensionMultiRel{
+				Common: emit201, Inputs: []*proto.Rel{oneColInput, oneColInput}, Detail: detail,
+			}}},
+		},
+	}
+
+	for _, tc := range rels {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.panicsWithoutDecoder {
+				// Without a decoder, UndecodedExtension returns a schema narrower than the
+				// emit mapping, so RecordType() panics on OOB access.
+				t.Run("without decoder panics on emit OOB", func(t *testing.T) {
+					reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
+					require.Panics(t, func() {
+						out, err := RelFromProto(tc.rel, reg)
+						require.NoError(t, err)
+						_ = out.RecordType()
+					})
+				})
+
+				// A decoder returning (nil, nil) signals it doesn't handle this detail,
+				// so RelFromProto falls back to UndecodedExtension and panics on OOB.
+				t.Run("decoder returning nil falls back to UndecodedExtension", func(t *testing.T) {
+					reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
+					reg.SetExtensionRelDecoder(&customDecoder{typeURL: "type.googleapis.com/other.Type"})
+					require.Panics(t, func() {
+						out, err := RelFromProto(tc.rel, reg)
+						require.NoError(t, err)
+						_ = out.RecordType()
+					})
+				})
+			}
+
+			// With a decoder, the custom schema is used and RecordType() returns all 3 cols.
+			t.Run("with decoder uses custom schema", func(t *testing.T) {
+				reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
+				reg.SetExtensionRelDecoder(&customDecoder{typeURL: typeURL, schema: extSchema})
+				out, err := RelFromProto(tc.rel, reg)
+				require.NoError(t, err)
+				require.Equal(t, int32(3), out.RecordType().FieldCount())
+			})
+
+			// ToProto must reproduce the original proto exactly for downstream consumers.
+			t.Run("round-trip ToProto matches original", func(t *testing.T) {
+				reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
+				reg.SetExtensionRelDecoder(&customDecoder{typeURL: typeURL, schema: extSchema})
+				out, err := RelFromProto(tc.rel, reg)
+				require.NoError(t, err)
+				if diff := cmp.Diff(tc.rel, out.ToProto(), protocmp.Transform()); diff != "" {
+					t.Errorf("round-trip mismatch (-want +got):\n%s", diff)
+				}
+			})
+
+			// A decoder error is propagated directly to the RelFromProto caller.
+			t.Run("decoder returning error propagates to RelFromProto", func(t *testing.T) {
+				reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
+				reg.SetExtensionRelDecoder(&errorDecoder{err: errors.New("decode failed")})
+				_, err := RelFromProto(tc.rel, reg)
+				require.ErrorContains(t, err, "decode failed")
+			})
+
+			// DecodeExtensionRel returns any; returning a non-ExtensionRelDefinition
+			// value is caught at cast time and surfaced as an error.
+			t.Run("DecodeExtensionRel returns the wrong type errors", func(t *testing.T) {
+				reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
+				reg.SetExtensionRelDecoder(&wrongTypeDecoder{})
+				_, err := RelFromProto(tc.rel, reg)
+				require.ErrorContains(t, err, "does not implement ExtensionRelDefinition")
+			})
 		})
-	})
-
-	t.Run("with decoder uses custom schema", func(t *testing.T) {
-		reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-		reg.SetExtensionRelDecoder(&customDecoder{typeURL: typeURL, schema: extSchema2col})
-
-		out, err := RelFromProto(rel, reg)
-		require.NoError(t, err)
-		require.Equal(t, int32(2), out.RecordType().FieldCount())
-	})
-
-	t.Run("round-trip ToProto matches original", func(t *testing.T) {
-		reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-		reg.SetExtensionRelDecoder(&customDecoder{typeURL: typeURL, schema: extSchema2col})
-
-		out, err := RelFromProto(rel, reg)
-		require.NoError(t, err)
-
-		if diff := cmp.Diff(rel, out.ToProto(), protocmp.Transform()); diff != "" {
-			t.Errorf("round-trip mismatch (-want +got):\n%s", diff)
-		}
-	})
-
-	t.Run("decoder returning nil falls back to UndecodedExtension", func(t *testing.T) {
-		reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-		reg.SetExtensionRelDecoder(&customDecoder{typeURL: "type.googleapis.com/other.Type"})
-		require.Panics(t, func() {
-			out, err := RelFromProto(rel, reg)
-			require.NoError(t, err)
-			_ = out.RecordType()
-		})
-	})
-
-	t.Run("decoder returning error propagates to RelFromProto", func(t *testing.T) {
-		reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-		sentinel := errors.New("decode failed")
-		reg.SetExtensionRelDecoder(&errorDecoder{err: sentinel})
-		_, err := RelFromProto(rel, reg)
-		require.ErrorContains(t, err, "decode failed")
-	})
-
-	t.Run("decoder returning wrong type errors", func(t *testing.T) {
-		reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-		reg.SetExtensionRelDecoder(&wrongTypeDecoder{})
-		_, err := RelFromProto(rel, reg)
-		require.ErrorContains(t, err, "does not implement ExtensionRelDefinition")
-	})
-}
-
-// TestExtensionRelDecoder_Leaf verifies the decoder hook for ExtensionLeafRel.
-//
-// ExtensionLeafRel has no inputs; UndecodedExtension.Schema always returns an
-// empty RecordType, so any non-empty emit mapping panics on RecordType().
-func TestExtensionRelDecoder_Leaf(t *testing.T) {
-	const typeURL = "type.googleapis.com/test.MyLeafExtension"
-	detail := &anypb.Any{TypeUrl: typeURL, Value: []byte("irrelevant")}
-
-	// ExtensionLeafRel: emit [0,1] — both columns come from the extension schema.
-	rel := &proto.Rel{RelType: &proto.Rel_ExtensionLeaf{ExtensionLeaf: &proto.ExtensionLeafRel{
-		Common: emit01,
-		Detail: detail,
-	}}}
-
-	t.Run("without decoder panics on emit OOB", func(t *testing.T) {
-		reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-		require.Panics(t, func() {
-			out, err := RelFromProto(rel, reg)
-			require.NoError(t, err)
-			_ = out.RecordType()
-		})
-	})
-
-	t.Run("with decoder uses custom schema", func(t *testing.T) {
-		reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-		reg.SetExtensionRelDecoder(&customDecoder{typeURL: typeURL, schema: extSchema2col})
-
-		out, err := RelFromProto(rel, reg)
-		require.NoError(t, err)
-		require.Equal(t, int32(2), out.RecordType().FieldCount())
-	})
-
-	t.Run("round-trip ToProto matches original", func(t *testing.T) {
-		reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-		reg.SetExtensionRelDecoder(&customDecoder{typeURL: typeURL, schema: extSchema2col})
-
-		out, err := RelFromProto(rel, reg)
-		require.NoError(t, err)
-
-		if diff := cmp.Diff(rel, out.ToProto(), protocmp.Transform()); diff != "" {
-			t.Errorf("round-trip mismatch (-want +got):\n%s", diff)
-		}
-	})
-
-	t.Run("decoder returning nil falls back to UndecodedExtension", func(t *testing.T) {
-		reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-		reg.SetExtensionRelDecoder(&customDecoder{typeURL: "type.googleapis.com/other.Type"})
-		require.Panics(t, func() {
-			out, err := RelFromProto(rel, reg)
-			require.NoError(t, err)
-			_ = out.RecordType()
-		})
-	})
-
-	t.Run("decoder returning error propagates to RelFromProto", func(t *testing.T) {
-		reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-		reg.SetExtensionRelDecoder(&errorDecoder{err: errors.New("decode failed")})
-		_, err := RelFromProto(rel, reg)
-		require.ErrorContains(t, err, "decode failed")
-	})
-
-	t.Run("decoder returning wrong type errors", func(t *testing.T) {
-		reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-		reg.SetExtensionRelDecoder(&wrongTypeDecoder{})
-		_, err := RelFromProto(rel, reg)
-		require.ErrorContains(t, err, "does not implement ExtensionRelDefinition")
-	})
-}
-
-// TestExtensionRelDecoder_Multi verifies the decoder hook for ExtensionMultiRel.
-//
-// ExtensionMultiRel has multiple inputs; UndecodedExtension.Schema returns an
-// empty RecordType (len(inputs) != 1), so any non-empty emit mapping panics.
-func TestExtensionRelDecoder_Multi(t *testing.T) {
-	const typeURL = "type.googleapis.com/test.MyMultiExtension"
-	detail := &anypb.Any{TypeUrl: typeURL, Value: []byte("irrelevant")}
-
-	// Two identical one-column inputs; the extension combines them into 2 cols.
-	rel := &proto.Rel{RelType: &proto.Rel_ExtensionMulti{ExtensionMulti: &proto.ExtensionMultiRel{
-		Common: emit01,
-		Inputs: []*proto.Rel{oneColInputRel, oneColInputRel},
-		Detail: detail,
-	}}}
-
-	t.Run("without decoder panics on emit OOB", func(t *testing.T) {
-		reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-		require.Panics(t, func() {
-			out, err := RelFromProto(rel, reg)
-			require.NoError(t, err)
-			_ = out.RecordType()
-		})
-	})
-
-	t.Run("with decoder uses custom schema", func(t *testing.T) {
-		reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-		reg.SetExtensionRelDecoder(&customDecoder{typeURL: typeURL, schema: extSchema2col})
-
-		out, err := RelFromProto(rel, reg)
-		require.NoError(t, err)
-		require.Equal(t, int32(2), out.RecordType().FieldCount())
-	})
-
-	t.Run("round-trip ToProto matches original", func(t *testing.T) {
-		reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-		reg.SetExtensionRelDecoder(&customDecoder{typeURL: typeURL, schema: extSchema2col})
-
-		out, err := RelFromProto(rel, reg)
-		require.NoError(t, err)
-
-		if diff := cmp.Diff(rel, out.ToProto(), protocmp.Transform()); diff != "" {
-			t.Errorf("round-trip mismatch (-want +got):\n%s", diff)
-		}
-	})
-
-	t.Run("decoder returning nil falls back to UndecodedExtension", func(t *testing.T) {
-		reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-		reg.SetExtensionRelDecoder(&customDecoder{typeURL: "type.googleapis.com/other.Type"})
-		require.Panics(t, func() {
-			out, err := RelFromProto(rel, reg)
-			require.NoError(t, err)
-			_ = out.RecordType()
-		})
-	})
-
-	t.Run("decoder returning error propagates to RelFromProto", func(t *testing.T) {
-		reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-		reg.SetExtensionRelDecoder(&errorDecoder{err: errors.New("decode failed")})
-		_, err := RelFromProto(rel, reg)
-		require.ErrorContains(t, err, "decode failed")
-	})
-
-	t.Run("decoder returning wrong type errors", func(t *testing.T) {
-		reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-		reg.SetExtensionRelDecoder(&wrongTypeDecoder{})
-		_, err := RelFromProto(rel, reg)
-		require.ErrorContains(t, err, "does not implement ExtensionRelDefinition")
-	})
+	}
 }

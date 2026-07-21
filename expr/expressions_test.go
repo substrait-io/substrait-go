@@ -729,4 +729,3 @@ type stubRelDecoder struct{}
 func (s *stubRelDecoder) DecodeExtensionRel(_ *anypb.Any) (any, error) {
 	return nil, errors.New("stub")
 }
-

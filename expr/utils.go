@@ -15,11 +15,12 @@ import (
 // It is called by RelFromProto instead of falling back to UndecodedExtension
 // when a decoder is registered for the detail's type URL.
 //
-// The Rel type is intentionally left as an interface{} here to avoid an import
-// cycle between the expr and plan packages; the plan package casts it to plan.Rel
-// via the ExtensionRelDecoderFunc type alias defined there.
+// The return type is intentionally left as any to avoid an import cycle between
+// the expr and plan packages; callers cast it to the appropriate concrete type.
 type ExtensionRelDecoder interface {
-	// DecodeExtensionRel attempts to decode detail into an ExtensionRelDefinition.
+	// DecodeExtensionRel attempts to decode detail into a plan.ExtensionRelDefinition.
+	// The return type is any because ExtensionRelDefinition is defined in the plan
+	// package, and importing it here would create a cycle with the expr package.
 	// Returns (nil, nil) to signal that this decoder does not handle the given detail,
 	// allowing fallback to UndecodedExtension.
 	DecodeExtensionRel(detail *anypb.Any) (any, error)
