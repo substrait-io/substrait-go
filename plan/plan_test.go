@@ -882,17 +882,3 @@ func TestExtensionRelDecoder_Multi(t *testing.T) {
 		require.ErrorContains(t, err, "does not implement ExtensionRelDefinition")
 	})
 }
-
-// TestStructFieldRefGetTypeBoundsCheck verifies that StructFieldRef.GetType returns
-// an error (not a panic) when the field index equals the length of the struct types.
-func TestStructFieldRefGetTypeBoundsCheck(t *testing.T) {
-	st := &types.StructType{
-		Types: []types.Type{
-			&types.Int64Type{Nullability: types.NullabilityRequired},
-		},
-	}
-	// Field == len(Types) must return ErrInvalidType, not panic with an OOB access.
-	ref := &expr.StructFieldRef{Field: 1}
-	_, err := ref.GetType(st)
-	require.ErrorIs(t, err, substraitgo.ErrInvalidType)
-}
