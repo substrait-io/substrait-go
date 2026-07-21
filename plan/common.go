@@ -66,7 +66,6 @@ func ValidateParameterBindings(root Rel, bindings []DynamicParameterBinding) err
 	return nil
 }
 
-
 type (
 	Hint              = proto.RelCommon_Hint
 	Stats             = proto.RelCommon_Hint_Stats
