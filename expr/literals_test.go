@@ -58,7 +58,7 @@ func TestNewLiteralWithDecimalBytes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := expr.NewLiteral(&types.Decimal{Value: tt.value, Precision: tt.precision, Scale: tt.scale}, false)
+			_, err := literal.NewDecimalFromTwosComplement(tt.value, tt.precision, tt.scale, false)
 			if tt.expectedToFail {
 				require.Error(t, err)
 			} else {

@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	substraitgo "github.com/substrait-io/substrait-go/v8"
 	"github.com/substrait-io/substrait-go/v8/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
@@ -707,7 +706,14 @@ func newDecimalWithType(literal *ProtoLiteral, decType *types.DecimalType) (Lite
 	if err != nil {
 		return nil, err
 	}
-	return NewLiteral[*types.Decimal](&types.Decimal{Value: decimalBytes[:16], Precision: precision, Scale: scale}, decType.GetNullability() == types.NullabilityNullable)
+	return &ProtoLiteral{
+		Value: decimalBytes[:16],
+		Type: &types.DecimalType{
+			Nullability: decType.GetNullability(),
+			Precision:   precision,
+			Scale:       scale,
+		},
+	}, nil
 }
 
 func newVarCharWithType(literal *ProtoLiteral, vcharType *types.VarCharType) (Literal, error) {
@@ -888,113 +894,6 @@ func NewFixedBinaryLiteral(val types.FixedBinary, nullable bool) *ByteSliceLiter
 			Nullability: getNullability(nullable),
 		},
 	}
-}
-
-type allLiteralTypes interface {
-	PrimitiveLiteralValue | nestedLiteral | MapLiteralValue |
-		[]byte | types.UUID | types.FixedBinary | *types.IntervalYearToMonth |
-		*types.IntervalDayToSecond | *types.VarChar | *types.Decimal | *types.UserDefinedLiteral |
-		*types.PrecisionTime | *types.PrecisionTimestamp | *types.PrecisionTimestampTz
-}
-
-func NewLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {
-	switch v := any(val).(type) {
-	case bool:
-		return NewPrimitiveLiteral(v, nullable), nil
-	case int8:
-		return NewPrimitiveLiteral(v, nullable), nil
-	case int16:
-		return NewPrimitiveLiteral(v, nullable), nil
-	case int32:
-		return NewPrimitiveLiteral(v, nullable), nil
-	case int64:
-		return NewPrimitiveLiteral(v, nullable), nil
-	case float32:
-		return NewPrimitiveLiteral(v, nullable), nil
-	case float64:
-		return NewPrimitiveLiteral(v, nullable), nil
-	case string:
-		return NewPrimitiveLiteral(v, nullable), nil
-	case types.Timestamp:
-		return NewPrimitiveLiteral(v, nullable), nil
-	case types.TimestampTz:
-		return NewPrimitiveLiteral(v, nullable), nil
-	case types.Date:
-		return NewPrimitiveLiteral(v, nullable), nil
-	case types.Time:
-		return NewPrimitiveLiteral(v, nullable), nil
-	case types.FixedChar:
-		return NewFixedCharLiteral(v, nullable), nil
-	case types.UUID:
-		return NewByteSliceLiteral(v, nullable), nil
-	case []byte:
-		return NewByteSliceLiteral(v, nullable), nil
-	case types.FixedBinary:
-		return NewFixedBinaryLiteral(v, nullable), nil
-	case StructLiteralValue:
-		return NewNestedLiteral(v, nullable), nil
-	case ListLiteralValue:
-		return NewNestedLiteral(v, nullable), nil
-	case MapLiteralValue:
-		return NewNestedLiteral(v, nullable), nil
-	case *types.IntervalYearToMonth:
-		return &ProtoLiteral{
-			Value: v,
-			Type: &types.IntervalYearType{
-				Nullability: getNullability(nullable),
-			},
-		}, nil
-	case *types.IntervalDayToSecond:
-		return &ProtoLiteral{
-			Value: v,
-			Type: &types.IntervalDayType{
-				Nullability: getNullability(nullable),
-				Precision:   types.TimePrecision(v.GetPrecision()),
-			},
-		}, nil
-	case *types.Decimal:
-		if len(v.Value) != 16 {
-			return nil, fmt.Errorf("decimal value must be 16 bytes")
-		}
-		return &ProtoLiteral{
-			Value: v.Value,
-			Type: &types.DecimalType{
-				Nullability: getNullability(nullable),
-				Precision:   v.Precision,
-				Scale:       v.Scale,
-			},
-		}, nil
-	case *types.UserDefinedLiteral:
-		params := make([]types.TypeParam, len(v.TypeParameters))
-		for i, p := range v.TypeParameters {
-			params[i] = types.TypeParamFromProto(p)
-		}
-
-		return &ProtoLiteral{
-			Value: v.Val,
-			Type: &types.UserDefinedType{
-				Nullability:    getNullability(nullable),
-				TypeReference:  v.GetTypeReference(),
-				TypeParameters: params,
-			},
-		}, nil
-	case *types.VarChar:
-		return &ProtoLiteral{
-			Value: v.Value,
-			Type: &types.VarCharType{
-				Nullability: getNullability(nullable),
-				Length:      int32(v.Length),
-			},
-		}, nil
-	case *types.PrecisionTime:
-		return NewPrecisionTimeLiteral(v.Value, types.TimePrecision(v.Precision), getNullability(nullable)), nil
-	case *types.PrecisionTimestamp:
-		return NewPrecisionTimestampLiteral(v.PrecisionTimestamp.Value, types.TimePrecision(v.PrecisionTimestamp.Precision), getNullability(nullable)), nil
-	case *types.PrecisionTimestampTz:
-		return NewPrecisionTimestampTzLiteral(v.PrecisionTimestampTz.Value, types.TimePrecision(v.PrecisionTimestampTz.Precision), getNullability(nullable)), nil
-	}
-
-	return nil, substraitgo.ErrNotImplemented
 }
 
 // LiteralFromProto constructs the appropriate Literal struct from
