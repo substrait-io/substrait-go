@@ -375,6 +375,23 @@ some_func([[1, null, 2], [3, 4]]::list<list<i32?>>) = true::bool
 	assert.Equal(t, expected, testFile.TestCases[0].Args[0].Value)
 }
 
+func TestParseNullablePrimitiveListLiterals(t *testing.T) {
+	header := makeHeader("v1.0", "/extensions/functions_list.yaml")
+	tests := `# nullable primitive lists
+some_func([true, null]::list<bool?>) = true::bool
+some_func(['1991-01-01', null]::list<date?>) = true::bool
+some_func(['13:01:01.234', null]::list<time?>) = true::bool
+some_func(['1991-01-01T01:02:03.456', null]::list<timestamp?>) = true::bool
+some_func(['1991-01-01T01:02:03.456+00:00', null]::list<timestamp_tz?>) = true::bool
+some_func(['P10Y5M', null]::list<interval_year?>) = true::bool
+some_func(['P10DT5H6M7S', null]::list<interval_day?>) = true::bool
+`
+
+	testFile, err := ParseTestCasesFromString(header + tests)
+	require.NoError(t, err)
+	assert.Len(t, testFile.TestCases, 7)
+}
+
 func TestParseTriplyNestedListLiteral(t *testing.T) {
 	header := makeHeader("v1.0", "/extensions/functions_list.yaml")
 	tests := `# basic

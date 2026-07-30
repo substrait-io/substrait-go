@@ -793,13 +793,17 @@ func (v *TestCaseVisitor) VisitListElement(ctx *baseparser.ListElementContext) i
 }
 
 func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface{} {
+	nullable := false
+	if literalType := v.getLiteralTypeInContext(); literalType != nil {
+		nullable = literalType.GetNullability() == types.NullabilityNullable
+	}
 	if ctx.BooleanLiteral() != nil {
 		flag := strings.ToLower(ctx.BooleanLiteral().GetText()) == "true"
-		return literal.NewBool(flag, false)
+		return literal.NewBool(flag, nullable)
 	}
 	if ctx.DateLiteral() != nil {
 		dateStr := getRawStringFromStringLiteral(ctx.DateLiteral().GetText())
-		value, err := literal.NewDateFromString(dateStr, false)
+		value, err := literal.NewDateFromString(dateStr, nullable)
 		if err != nil {
 			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid date arg %v", err))
 		}
@@ -807,7 +811,7 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 	}
 	if ctx.TimeLiteral() != nil {
 		timeStr := getRawStringFromStringLiteral(ctx.TimeLiteral().GetText())
-		value, err := literal.NewTimeFromString(timeStr, false)
+		value, err := literal.NewTimeFromString(timeStr, nullable)
 		if err != nil {
 			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid time arg %v", err))
 		}
@@ -815,7 +819,7 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 	}
 	if ctx.TimestampLiteral() != nil {
 		timestampStr := getRawStringFromStringLiteral(ctx.TimestampLiteral().GetText())
-		value, err := literal.NewTimestampFromString(timestampStr, false)
+		value, err := literal.NewTimestampFromString(timestampStr, nullable)
 		if err != nil {
 			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid timestampTZ arg %v", err))
 		}
@@ -823,7 +827,7 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 	}
 	if ctx.TimestampTzLiteral() != nil {
 		timestampStr := getRawStringFromStringLiteral(ctx.TimestampTzLiteral().GetText())
-		value, err := literal.NewTimestampTZFromString(timestampStr, false)
+		value, err := literal.NewTimestampTZFromString(timestampStr, nullable)
 		if err != nil {
 			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid timestampTZ arg %v", err))
 		}
@@ -831,7 +835,7 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 	}
 	if ctx.IntervalYearLiteral() != nil {
 		iyearStr := getRawStringFromStringLiteral(ctx.IntervalYearLiteral().GetText())
-		value, err := literal.NewIntervalYearsToMonthFromString(iyearStr, false)
+		value, err := literal.NewIntervalYearsToMonthFromString(iyearStr, nullable)
 		if err != nil {
 			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid interval year arg %v", err))
 		}
@@ -839,9 +843,16 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 	}
 	if ctx.IntervalDayLiteral() != nil {
 		idayStr := getRawStringFromStringLiteral(ctx.IntervalDayLiteral().GetText())
-		value, err := literal.NewIntervalDaysToSecondFromString(idayStr, false)
+		value, err := literal.NewIntervalDaysToSecondFromString(idayStr, nullable)
 		if err != nil {
 			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid interval day arg %v", err))
+			return value
+		}
+		if intervalType, ok := v.getLiteralTypeInContext().(*types.IntervalDayType); ok {
+			value, err = value.(expr.WithTypeLiteral).WithType(intervalType)
+			if err != nil {
+				v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid interval day arg %v", err))
+			}
 		}
 		return value
 	}

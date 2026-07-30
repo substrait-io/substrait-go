@@ -930,6 +930,7 @@ func TestNewList(t *testing.T) {
 	dec1, _ := NewDecimalFromString("1.0", false)
 	nullStr := expr.NewNullLiteral(&types.StringType{Nullability: types.NullabilityNullable})
 	listLiteral, _ := expr.NewLiteral[expr.ListLiteralValue]([]expr.Literal{i8Lit1, i8Lit2}, false)
+	listWithNilElementType := expr.NewEmptyListLiteral(nil, false)
 	i32ListLiteral, _ := NewList([]expr.Literal{i32Lit1, i32Lit2}, false)
 	vc1ListLiteral, _ := NewList([]expr.Literal{vc1}, false)
 	vc4ListLiteral, _ := NewList([]expr.Literal{vc4}, false)
@@ -981,6 +982,7 @@ func TestNewList(t *testing.T) {
 		{"empty", []expr.Literal{}, false, nil, assert.Error},
 		{"nilFirstElement", []expr.Literal{nil, i8Lit1}, false, nil, assert.Error},
 		{"nilElement", []expr.Literal{i8Lit1, nil}, false, nil, assert.Error},
+		{"nilNestedType", []expr.Literal{listWithNilElementType, listWithNilElementType}, false, nil, assert.Error},
 		{"i32List", []expr.Literal{i8Lit1, i32Lit2}, false, nil, assert.Error},
 		{"i8ListSingle", []expr.Literal{i8Lit1}, true, int8ListType, assert.NoError},
 		{"listOfListSingle", []expr.Literal{listLiteral}, true, listOfListType, assert.NoError},

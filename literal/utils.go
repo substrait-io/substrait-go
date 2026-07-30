@@ -2,6 +2,7 @@ package literal
 
 import (
 	"fmt"
+	"reflect"
 	"regexp"
 	"strconv"
 	"time"
@@ -408,7 +409,7 @@ func firstMismatch(column []expr.Literal) (int, bool) {
 		return 0, true
 	}
 	anchor := column[0].GetType()
-	if anchor == nil {
+	if !validType(anchor) {
 		return 0, true
 	}
 	for i, l := range column[1:] {
@@ -416,11 +417,51 @@ func firstMismatch(column []expr.Literal) (int, bool) {
 			return i + 1, true
 		}
 		current := l.GetType()
-		if current == nil || !anchor.Equals(current) {
+		if !validType(current) || !anchor.Equals(current) {
 			return i + 1, true
 		}
 	}
 	return 0, false
+}
+
+// validType checks nested type components before calling Type.Equals, whose
+// implementations assume that collection and user-defined types are complete.
+func validType(t types.Type) bool {
+	if isNil(t) {
+		return false
+	}
+	for _, param := range t.GetParameters() {
+		switch param := param.(type) {
+		case types.Type:
+			if !validType(param) {
+				return false
+			}
+		case *types.DataTypeParameter:
+			if isNil(param) || !validType(param.Type) {
+				return false
+			}
+		case types.TypeParam:
+			if isNil(param) {
+				return false
+			}
+		case nil:
+			return false
+		}
+	}
+	return true
+}
+
+func isNil(value any) bool {
+	if value == nil {
+		return true
+	}
+	v := reflect.ValueOf(value)
+	switch v.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
+		return v.IsNil()
+	default:
+		return false
+	}
 }
 
 func NewList(elements []expr.Literal, nullable bool) (expr.Literal, error) {
