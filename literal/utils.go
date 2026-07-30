@@ -2,7 +2,6 @@ package literal
 
 import (
 	"fmt"
-	"reflect"
 	"regexp"
 	"strconv"
 	"time"
@@ -401,74 +400,28 @@ func NewPrecisionTimestampTzFromString(precision types.TimePrecision, value stri
 	return NewPrecisionTimestampTzFromTime(precision, tm, nullable)
 }
 
-// firstMismatch returns the index of the first nil literal or literal whose type
-// differs from the column's anchor (the first literal), or false if every
-// literal has the same type.
-func firstMismatch(column []expr.Literal) (int, bool) {
-	if column[0] == nil {
+// hasTypeMismatch returns the index of the first nil literal or literal whose
+// type differs from the first literal, or false if every literal has the same
+// type.
+func hasTypeMismatch(literals []expr.Literal) (int, bool) {
+	if literals[0] == nil {
 		return 0, true
 	}
-	anchor := column[0].GetType()
-	if !validType(anchor) {
-		return 0, true
-	}
-	for i, l := range column[1:] {
-		if l == nil {
-			return i + 1, true
-		}
-		current := l.GetType()
-		if !validType(current) || !anchor.Equals(current) {
+
+	expectedType := literals[0].GetType()
+	for i, literal := range literals[1:] {
+		if literal == nil || !expectedType.Equals(literal.GetType()) {
 			return i + 1, true
 		}
 	}
 	return 0, false
 }
 
-// validType checks nested type components before calling Type.Equals, whose
-// implementations assume that collection and user-defined types are complete.
-func validType(t types.Type) bool {
-	if isNil(t) {
-		return false
-	}
-	for _, param := range t.GetParameters() {
-		switch param := param.(type) {
-		case types.Type:
-			if !validType(param) {
-				return false
-			}
-		case *types.DataTypeParameter:
-			if isNil(param) || !validType(param.Type) {
-				return false
-			}
-		case types.TypeParam:
-			if isNil(param) {
-				return false
-			}
-		case nil:
-			return false
-		}
-	}
-	return true
-}
-
-func isNil(value any) bool {
-	if value == nil {
-		return true
-	}
-	v := reflect.ValueOf(value)
-	switch v.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
-		return v.IsNil()
-	default:
-		return false
-	}
-}
-
 func NewList(elements []expr.Literal, nullable bool) (expr.Literal, error) {
 	if len(elements) == 0 {
 		return nil, fmt.Errorf("empty list literal; use NewEmptyList for an empty list")
 	}
-	if i, ok := firstMismatch(elements); ok {
+	if i, ok := hasTypeMismatch(elements); ok {
 		return nil, fmt.Errorf("element %d of list literal has invalid or different type", i)
 	}
 	return expr.NewLiteral[expr.ListLiteralValue](elements, nullable)
@@ -486,10 +439,10 @@ func NewMap(entries expr.MapLiteralValue, nullable bool) (expr.Literal, error) {
 	for i, e := range entries {
 		keys[i], values[i] = e.Key, e.Value
 	}
-	if i, ok := firstMismatch(keys); ok {
+	if i, ok := hasTypeMismatch(keys); ok {
 		return nil, fmt.Errorf("key %d of map literal has invalid or different type", i)
 	}
-	if i, ok := firstMismatch(values); ok {
+	if i, ok := hasTypeMismatch(values); ok {
 		return nil, fmt.Errorf("value %d of map literal has invalid or different type", i)
 	}
 	return expr.NewLiteral[expr.MapLiteralValue](entries, nullable)
