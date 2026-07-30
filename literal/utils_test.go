@@ -918,129 +918,13 @@ func TestNewTimestampTZFromString(t *testing.T) {
 	}
 }
 
-func TestSameBaseType(t *testing.T) {
-	i8Type := &types.Int8Type{Nullability: types.NullabilityRequired}
-	i32Type := &types.Int32Type{Nullability: types.NullabilityRequired}
-	i64Type := &types.Int64Type{Nullability: types.NullabilityRequired}
-	stringType := &types.StringType{Nullability: types.NullabilityRequired}
-	vc1Type := &types.VarCharType{Length: 1, Nullability: types.NullabilityRequired}
-	vc4Type := &types.VarCharType{Length: 4, Nullability: types.NullabilityRequired}
-
-	tests := []struct {
-		name  string
-		left  types.Type
-		right types.Type
-		want  bool
-	}{
-		{"nilType", nil, i8Type, false},
-		{"scalarMismatch", i8Type, stringType, false},
-		{
-			"mapMatch",
-			&types.MapType{Key: stringType, Value: i8Type},
-			&types.MapType{Key: stringType, Value: i8Type},
-			true,
-		},
-		{
-			"mapKeyMismatch",
-			&types.MapType{Key: stringType, Value: i8Type},
-			&types.MapType{Key: i8Type, Value: i8Type},
-			false,
-		},
-		{
-			"mapValueMismatch",
-			&types.MapType{Key: stringType, Value: i8Type},
-			&types.MapType{Key: stringType, Value: i32Type},
-			false,
-		},
-		{
-			"structMatch",
-			&types.StructType{Types: []types.Type{i8Type, stringType}},
-			&types.StructType{Types: []types.Type{i8Type, stringType}},
-			true,
-		},
-		{
-			"structLengthMismatch",
-			&types.StructType{Types: []types.Type{i8Type, stringType}},
-			&types.StructType{Types: []types.Type{i8Type}},
-			false,
-		},
-		{
-			"structFieldMismatch",
-			&types.StructType{Types: []types.Type{i8Type, stringType}},
-			&types.StructType{Types: []types.Type{i8Type, i32Type}},
-			false,
-		},
-		{
-			"funcMatch",
-			&types.FuncType{ParameterTypes: []types.Type{i8Type, stringType}, ReturnType: i64Type},
-			&types.FuncType{ParameterTypes: []types.Type{i8Type, stringType}, ReturnType: i64Type},
-			true,
-		},
-		{
-			"funcParamLengthMismatch",
-			&types.FuncType{ParameterTypes: []types.Type{i8Type, stringType}, ReturnType: i64Type},
-			&types.FuncType{ParameterTypes: []types.Type{i8Type}, ReturnType: i64Type},
-			false,
-		},
-		{
-			"funcReturnMismatch",
-			&types.FuncType{ParameterTypes: []types.Type{i8Type}, ReturnType: i64Type},
-			&types.FuncType{ParameterTypes: []types.Type{i8Type}, ReturnType: i32Type},
-			false,
-		},
-		{
-			"funcParamMismatch",
-			&types.FuncType{ParameterTypes: []types.Type{i8Type}, ReturnType: i64Type},
-			&types.FuncType{ParameterTypes: []types.Type{i32Type}, ReturnType: i64Type},
-			false,
-		},
-		{
-			"udtTypeReferenceMismatch",
-			&types.UserDefinedType{TypeReference: 1},
-			&types.UserDefinedType{TypeReference: 2},
-			false,
-		},
-		{
-			"udtTypeParamLengthMismatch",
-			&types.UserDefinedType{TypeReference: 1, TypeParameters: []types.TypeParam{types.IntegerParameter(1)}},
-			&types.UserDefinedType{TypeReference: 1},
-			false,
-		},
-		{
-			"udtNilTypeParamMatch",
-			&types.UserDefinedType{TypeReference: 1, TypeParameters: []types.TypeParam{nil}},
-			&types.UserDefinedType{TypeReference: 1, TypeParameters: []types.TypeParam{nil}},
-			true,
-		},
-		{
-			"udtNilTypeParamMismatch",
-			&types.UserDefinedType{TypeReference: 1, TypeParameters: []types.TypeParam{nil}},
-			&types.UserDefinedType{TypeReference: 1, TypeParameters: []types.TypeParam{types.IntegerParameter(1)}},
-			false,
-		},
-		{
-			"udtDataTypeParamDifferingLeafParams",
-			&types.UserDefinedType{TypeReference: 1, TypeParameters: []types.TypeParam{&types.DataTypeParameter{Type: vc1Type}}},
-			&types.UserDefinedType{TypeReference: 1, TypeParameters: []types.TypeParam{&types.DataTypeParameter{Type: vc4Type}}},
-			true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, sameBaseType(tt.left, tt.right))
-		})
-	}
-}
-
 func TestNewList(t *testing.T) {
 	i8Lit1 := NewInt8(1, false)
 	i8Lit2 := NewInt8(2, false)
 	i32Lit1 := NewInt32(1, false)
 	i32Lit2 := NewInt32(2, false)
-	// varchar<1> and varchar<4> share a base type but differ in length, which is
-	// allowed within one list; dec1 is a decimal, a different base type that
-	// shares a Go wrapper with varchar.
+	nullableI8Lit := NewInt8(3, true)
+	nullI8 := expr.NewNullLiteral(&types.Int8Type{Nullability: types.NullabilityNullable})
 	vc1, _ := NewVarChar("a", false)
 	vc4, _ := NewVarChar("abcd", false)
 	dec1, _ := NewDecimalFromString("1.0", false)
@@ -1050,15 +934,16 @@ func TestNewList(t *testing.T) {
 	vc1ListLiteral, _ := NewList([]expr.Literal{vc1}, false)
 	vc4ListLiteral, _ := NewList([]expr.Literal{vc4}, false)
 	int8Type := &types.Int8Type{Nullability: types.NullabilityRequired}
+	nullableInt8Type := &types.Int8Type{Nullability: types.NullabilityNullable}
 	int32Type := &types.Int32Type{Nullability: types.NullabilityRequired}
 	varChar1Type := &types.VarCharType{Length: 1, Nullability: types.NullabilityRequired}
 	varChar4Type := &types.VarCharType{Length: 4, Nullability: types.NullabilityRequired}
 	int8ListType := &types.ListType{Type: int8Type, Nullability: types.NullabilityRequired}
+	nullableInt8ListType := &types.ListType{Type: nullableInt8Type, Nullability: types.NullabilityRequired}
 	int32ListType := &types.ListType{Type: int32Type, Nullability: types.NullabilityRequired}
 	varCharListType := &types.ListType{Type: varChar1Type, Nullability: types.NullabilityRequired}
 	varChar4ListType := &types.ListType{Type: varChar4Type, Nullability: types.NullabilityRequired}
 	listOfListType := &types.ListType{Type: int8ListType, Nullability: types.NullabilityRequired}
-	varCharListOfListType := &types.ListType{Type: varCharListType, Nullability: types.NullabilityRequired}
 
 	udtStruct := expr.StructLiteralValue{NewInt32(42, false)}
 	udtVarcharListParam, err := NewUserDefinedLiteral(42, udtStruct, false, []types.TypeParam{
@@ -1085,7 +970,6 @@ func TestNewList(t *testing.T) {
 		types.StringParameter("b"),
 	})
 	require.NoError(t, err)
-	udtListType := &types.ListType{Type: udtVarcharListParam.GetType(), Nullability: types.NullabilityRequired}
 
 	tests := []struct {
 		name       string
@@ -1101,13 +985,18 @@ func TestNewList(t *testing.T) {
 		{"i8ListSingle", []expr.Literal{i8Lit1}, true, int8ListType, assert.NoError},
 		{"listOfListSingle", []expr.Literal{listLiteral}, true, listOfListType, assert.NoError},
 		{"i8List", []expr.Literal{i8Lit1, i8Lit2}, true, int8ListType, assert.NoError},
+		{"nullableI8WithNull", []expr.Literal{nullableI8Lit, nullI8}, true, nullableInt8ListType, assert.NoError},
 		{"i32List", []expr.Literal{i32Lit1, i32Lit2}, true, int32ListType, assert.NoError},
-		{"differingParams", []expr.Literal{vc1, vc4}, true, varCharListType, assert.NoError},
-		{"nestedDifferingParams", []expr.Literal{vc1ListLiteral, vc4ListLiteral}, true, varCharListOfListType, assert.NoError},
+		{"differingParams", []expr.Literal{vc1, vc4}, false, nil, assert.Error},
+		{"nestedDifferingParams", []expr.Literal{vc1ListLiteral, vc4ListLiteral}, false, nil, assert.Error},
 		{"nestedMismatch", []expr.Literal{listLiteral, i32ListLiteral}, false, nil, assert.Error},
-		{"udtNestedDataParamDifferingLeafParams", []expr.Literal{udtVarcharListParam, udtVarchar4ListParam}, true, udtListType, assert.NoError},
+		{"udtNestedDataParamDifferingLeafParams", []expr.Literal{udtVarcharListParam, udtVarchar4ListParam}, false, nil, assert.Error},
 		{"udtNestedDataParamMismatch", []expr.Literal{udtInt8ListParam, udtInt32ListParam}, false, nil, assert.Error},
 		{"udtScalarParamMismatch", []expr.Literal{udtStringParamA, udtStringParamB}, false, nil, assert.Error},
+		{"requiredThenNullable", []expr.Literal{i8Lit1, nullableI8Lit}, false, nil, assert.Error},
+		{"nullableThenRequired", []expr.Literal{nullableI8Lit, i8Lit1}, false, nil, assert.Error},
+		{"requiredThenNull", []expr.Literal{i8Lit1, nullI8}, false, nil, assert.Error},
+		{"nullThenRequired", []expr.Literal{nullI8, i8Lit1}, false, nil, assert.Error},
 		{"typedNullMismatch", []expr.Literal{nullStr, i8Lit1}, false, nil, assert.Error},
 		{"crossFamily", []expr.Literal{dec1, vc1}, false, nil, assert.Error},
 	}
@@ -1131,16 +1020,14 @@ func TestNewMap(t *testing.T) {
 	i8Key1 := NewInt8(1, false)
 	i8Key2 := NewInt8(2, false)
 	i32Key1 := NewInt32(1, false)
+	nullableI8Key := NewInt8(3, true)
 	strVal1 := NewString("a", false)
 	strVal2 := NewString("b", false)
+	nullableStrVal := NewString("c", true)
 	i32Val1 := NewInt32(10, false)
 	nullStrVal := expr.NewNullLiteral(&types.StringType{Nullability: types.NullabilityNullable})
 	nullI8Key := expr.NewNullLiteral(&types.Int8Type{Nullability: types.NullabilityNullable})
 	nullStrKey := expr.NewNullLiteral(&types.StringType{Nullability: types.NullabilityNullable})
-	// vc1 is varchar<1>, vc4 is varchar<4>. They share a base type but differ in
-	// the length parameter, which is allowed within one list/map. dec1 is a
-	// decimal, a different base type that nonetheless shares a Go wrapper with
-	// varchar.
 	vc1, _ := NewVarChar("a", false)
 	vc4, _ := NewVarChar("abcd", false)
 	dec1, _ := NewDecimalFromString("1.0", false)
@@ -1151,16 +1038,9 @@ func TestNewMap(t *testing.T) {
 	nullInt8Type := &types.Int8Type{Nullability: types.NullabilityNullable}
 	stringType := &types.StringType{Nullability: types.NullabilityRequired}
 	nullStringType := &types.StringType{Nullability: types.NullabilityNullable}
-	varChar1Type := &types.VarCharType{Length: 1, Nullability: types.NullabilityRequired}
 	mapType := &types.MapType{Key: int8Type, Value: stringType, Nullability: types.NullabilityRequired}
 	nullableMapType := &types.MapType{Key: int8Type, Value: stringType, Nullability: types.NullabilityNullable}
-	// differing varchar lengths keep the first entry's parameters
-	varCharValMapType := &types.MapType{Key: int8Type, Value: varChar1Type, Nullability: types.NullabilityRequired}
-	varCharKeyMapType := &types.MapType{Key: varChar1Type, Value: stringType, Nullability: types.NullabilityRequired}
-	// the key/value types come from the first entry, so a leading null literal
-	// keeps that column nullable
-	nullValueMapType := &types.MapType{Key: int8Type, Value: nullStringType, Nullability: types.NullabilityRequired}
-	nullKeyMapType := &types.MapType{Key: nullInt8Type, Value: stringType, Nullability: types.NullabilityRequired}
+	nullableEntriesMapType := &types.MapType{Key: nullInt8Type, Value: nullStringType, Nullability: types.NullabilityRequired}
 
 	successTests := []struct {
 		name     string
@@ -1171,12 +1051,15 @@ func TestNewMap(t *testing.T) {
 		{"single", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}}, false, mapType},
 		{"multiple", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: i8Key2, Value: strVal2}}, false, mapType},
 		{"nullable", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}}, true, nullableMapType},
-		{"nullValue", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: i8Key2, Value: nullStrVal}}, false, mapType},
-		{"nullKey", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: nullI8Key, Value: strVal2}}, false, mapType},
-		{"leadingNullValue", expr.MapLiteralValue{{Key: i8Key1, Value: nullStrVal}, {Key: i8Key2, Value: strVal2}}, false, nullValueMapType},
-		{"leadingNullKey", expr.MapLiteralValue{{Key: nullI8Key, Value: strVal1}, {Key: i8Key2, Value: strVal2}}, false, nullKeyMapType},
-		{"differingValueParams", expr.MapLiteralValue{{Key: i8Key1, Value: vc1}, {Key: i8Key2, Value: vc4}}, false, varCharValMapType},
-		{"differingKeyParams", expr.MapLiteralValue{{Key: vc1, Value: strVal1}, {Key: vc4, Value: strVal2}}, false, varCharKeyMapType},
+		{
+			"nullableEntries",
+			expr.MapLiteralValue{
+				{Key: nullableI8Key, Value: nullableStrVal},
+				{Key: nullI8Key, Value: nullStrVal},
+			},
+			false,
+			nullableEntriesMapType,
+		},
 	}
 	for _, tt := range successTests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1197,6 +1080,12 @@ func TestNewMap(t *testing.T) {
 		{"nilValue", expr.MapLiteralValue{{Key: i8Key1, Value: nil}}},
 		{"mismatchedKeys", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: i32Key1, Value: strVal2}}},
 		{"mismatchedValues", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: i8Key2, Value: i32Val1}}},
+		{"nullValue", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: i8Key2, Value: nullStrVal}}},
+		{"nullKey", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: nullI8Key, Value: strVal2}}},
+		{"leadingNullValue", expr.MapLiteralValue{{Key: i8Key1, Value: nullStrVal}, {Key: i8Key2, Value: strVal2}}},
+		{"leadingNullKey", expr.MapLiteralValue{{Key: nullI8Key, Value: strVal1}, {Key: i8Key2, Value: strVal2}}},
+		{"differingValueParams", expr.MapLiteralValue{{Key: i8Key1, Value: vc1}, {Key: i8Key2, Value: vc4}}},
+		{"differingKeyParams", expr.MapLiteralValue{{Key: vc1, Value: strVal1}, {Key: vc4, Value: strVal2}}},
 		{"typedNullMismatchedKey", expr.MapLiteralValue{{Key: nullStrKey, Value: strVal1}, {Key: i8Key1, Value: strVal2}}},
 		{"typedNullMismatchedValue", expr.MapLiteralValue{{Key: i8Key1, Value: nullStrVal}, {Key: i8Key2, Value: i32Val1}}},
 		{"nestedMismatchedValues", expr.MapLiteralValue{{Key: i8Key1, Value: i8ListVal}, {Key: i8Key2, Value: i32ListVal}}},

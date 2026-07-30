@@ -256,22 +256,23 @@ func (v *TestCaseVisitor) VisitDataColumn(ctx *baseparser.DataColumnContext) int
 	v.setLiteralTypeInContext(columnType)
 	defer v.clearLiteralTypeInContext()
 	columnValues := v.Visit(ctx.ColumnValues()).([]expr.Literal)
-	var err error
-	var column expr.Literal
-	if len(columnValues) == 0 {
-		column = expr.NewEmptyListLiteral(columnType, false)
-	} else {
-		v.setLiteralTypeInContext(columnType)
-		defer v.clearLiteralTypeInContext()
-		column, err = literal.NewList(columnValues, false)
-		if err != nil {
-			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid column values %v", err))
-		}
-	}
 	for _, value := range columnValues {
 		if _, ok := value.(*expr.NullLiteral); ok {
 			columnType = columnType.WithNullability(types.NullabilityNullable)
 			break
+		}
+	}
+	var column expr.Literal
+	if len(columnValues) == 0 {
+		column = expr.NewEmptyListLiteral(columnType, false)
+	} else {
+		// A declared column may contain both required values and typed nulls.
+		column = &expr.ListLiteral{
+			Value: columnValues,
+			Type: &types.ListType{
+				Type:        columnType,
+				Nullability: types.NullabilityRequired,
+			},
 		}
 	}
 	return &CaseLiteral{

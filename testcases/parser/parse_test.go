@@ -479,6 +479,12 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 	lit, ok := tc.AggregateArgs[0].Argument.Value.(expr.Literal)
 	require.True(t, ok, "aggregate arg should be a literal, got %T", tc.AggregateArgs[0].Argument.Value)
 	assert.Equal(t, listType, lit.GetType())
+	nullableLit, ok := testFile.TestCases[1].AggregateArgs[0].Argument.Value.(expr.Literal)
+	require.True(t, ok, "aggregate arg should be a literal, got %T", testFile.TestCases[1].AggregateArgs[0].Argument.Value)
+	assert.Equal(t, &types.ListType{
+		Type:        &types.Float32Type{Nullability: types.NullabilityNullable},
+		Nullability: types.NullabilityRequired,
+	}, nullableLit.GetType())
 	assert.Equal(t, "fp64", resultLiteral(t, tc.Result).Type.String())
 	assert.Equal(t, literal.NewFloat64(2, false), resultLiteral(t, tc.Result).Value)
 	assert.Equal(t, AggregateFuncType, tc.FuncType)
@@ -861,7 +867,7 @@ func TestParseTestWithBadAggregateTests(t *testing.T) {
 		errorMsg    string
 	}{
 		{"max((-12, +5)::i8) = -7.0::i8", "no viable alternative at input '-7.0::i8'"},
-		{"max((-12, 'arg')::i32) = -7::i8", "invalid column values"},
+		{"max((-12, 'arg')::i32) = -7::i8", "invalid int arg"},
 		{"max((4.53, 2.2)::dec<38, 1>) = 4.0::dec<38, 1>", "invalid decimal arg"},
 		{
 			`DEFINE t1(fp32, fp32) = ((20, 20), (-3, -3), (1, 1), (10,10), (5,5))
