@@ -699,27 +699,26 @@ func TestSubqueryExpressionRoundtrip(t *testing.T) {
 }
 
 func TestExtensionRegistrySetAndGetDecoder(t *testing.T) {
+	const typeURL = "type.googleapis.com/test.Ext"
 	c := ext.GetDefaultCollectionWithNoError()
 
 	t.Run("nil before set", func(t *testing.T) {
 		reg := expr.NewEmptyExtensionRegistry(c)
-		require.Nil(t, reg.ExtensionRelDecoderFor())
+		require.Nil(t, reg.ExtensionRelDecoderFor(typeURL))
 	})
 
 	t.Run("returns decoder after set", func(t *testing.T) {
 		reg := expr.NewEmptyExtensionRegistry(c)
 		dec := &stubRelDecoder{}
-		reg.SetExtensionRelDecoder(dec)
-		require.Equal(t, dec, reg.ExtensionRelDecoderFor())
+		require.NoError(t, reg.SetExtensionRelDecoder(typeURL, dec))
+		require.Equal(t, dec, reg.ExtensionRelDecoderFor(typeURL))
 	})
 
-	t.Run("overwrite replaces decoder", func(t *testing.T) {
+	t.Run("duplicate typeURL returns error", func(t *testing.T) {
 		reg := expr.NewEmptyExtensionRegistry(c)
-		first := &stubRelDecoder{}
-		second := &stubRelDecoder{}
-		reg.SetExtensionRelDecoder(first)
-		reg.SetExtensionRelDecoder(second)
-		require.Equal(t, second, reg.ExtensionRelDecoderFor())
+		require.NoError(t, reg.SetExtensionRelDecoder(typeURL, &stubRelDecoder{}))
+		err := reg.SetExtensionRelDecoder(typeURL, &stubRelDecoder{})
+		require.ErrorContains(t, err, typeURL)
 	})
 }
 

@@ -226,6 +226,13 @@ func (p *Plan) ParameterBindings() []DynamicParameterBinding {
 }
 
 func FromProto(plan *proto.Plan, c *extensions.Collection) (*Plan, error) {
+	return FromProtoWithDecoder(plan, c, nil)
+}
+
+// FromProtoWithDecoder is like FromProto but registers per-typeURL ExtensionRelDecoders
+// on the registry before parsing relations, allowing extension rels to be
+// decoded into typed ExtensionRelDefinitions rather than UndecodedExtension.
+func FromProtoWithDecoder(plan *proto.Plan, c *extensions.Collection, decoders map[string]expr.ExtensionRelDecoder) (*Plan, error) {
 	extSet, err := extensions.GetExtensionSet(plan, c)
 	if err != nil {
 		return nil, err
@@ -240,6 +247,11 @@ func FromProto(plan *proto.Plan, c *extensions.Collection) (*Plan, error) {
 
 	ret.reg = expr.NewExtensionRegistry(ret.extensions, c)
 	ret.reg.SetSubqueryConverter(&ExpressionConverter{ExtensionRegistry: ret.reg})
+	for typeURL, dec := range decoders {
+		if err := ret.reg.SetExtensionRelDecoder(typeURL, dec); err != nil {
+			return nil, err
+		}
+	}
 	for i, r := range plan.Relations {
 		if err := ret.relations[i].FromProto(r, ret.reg); err != nil {
 			return nil, err
@@ -415,22 +427,19 @@ type Rel interface {
 	CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error)
 }
 
-// decodeExtensionDef uses the registry's ExtensionRelDecoder (if any) to
-// produce a typed ExtensionRelDefinition for the given detail. Falls back to
-// UndecodedExtension when no decoder is registered or the decoder declines.
+// decodeExtensionDef dispatches to the decoder registered for detail's type URL (if any).
+// Falls back to UndecodedExtension for unregistered type URLs.
 func decodeExtensionDef(reg expr.ExtensionRegistry, detail *anypb.Any) (ExtensionRelDefinition, error) {
-	if dec := reg.ExtensionRelDecoderFor(); dec != nil {
+	if dec := reg.ExtensionRelDecoderFor(detail.GetTypeUrl()); dec != nil {
 		raw, err := dec.DecodeExtensionRel(detail)
 		if err != nil {
 			return nil, err
 		}
-		if raw != nil {
-			def, ok := raw.(ExtensionRelDefinition)
-			if !ok {
-				return nil, fmt.Errorf("ExtensionRelDecoder returned %T which does not implement ExtensionRelDefinition", raw)
-			}
-			return def, nil
+		def, ok := raw.(ExtensionRelDefinition)
+		if !ok {
+			return nil, fmt.Errorf("ExtensionRelDecoder returned %T which does not implement ExtensionRelDefinition", raw)
 		}
+		return def, nil
 	}
 	return &UndecodedExtension{detail: detail}, nil
 }
