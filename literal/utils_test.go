@@ -921,102 +921,45 @@ func TestNewTimestampTZFromString(t *testing.T) {
 func TestNewList(t *testing.T) {
 	i8Lit1 := NewInt8(1, false)
 	i8Lit2 := NewInt8(2, false)
-	i32Lit := NewInt32(1, false)
+	i32Lit1 := NewInt32(1, false)
 	i32Lit2 := NewInt32(2, false)
+	listLiteral, _ := expr.NewLiteral[expr.ListLiteralValue]([]expr.Literal{i8Lit1, i8Lit2}, false)
+	i32ListLiteral, _ := expr.NewLiteral[expr.ListLiteralValue]([]expr.Literal{i32Lit1, i32Lit2}, false)
 	int8Type := &types.Int8Type{Nullability: types.NullabilityRequired}
 	int32Type := &types.Int32Type{Nullability: types.NullabilityRequired}
-
-	t.Run("empty", func(t *testing.T) {
-		got, err := NewList(nil, false)
-		require.Error(t, err)
-		assert.Nil(t, got)
-	})
-
-	t.Run("singleScalarElement", func(t *testing.T) {
-		elements := []expr.Literal{i8Lit1}
-		got, err := NewList(elements, false)
-		require.NoError(t, err)
-
-		want := &expr.NestedLiteral[expr.ListLiteralValue]{
-			Value: elements,
-			Type: &types.ListType{
-				Type:        int8Type,
-				Nullability: types.NullabilityRequired,
-			},
-		}
-		assert.Equal(t, want, got)
-	})
-
-	t.Run("singleNestedListElement", func(t *testing.T) {
-		inner, err := NewList([]expr.Literal{i8Lit1, i8Lit2}, false)
-		require.NoError(t, err)
-		elements := []expr.Literal{inner}
-
-		got, err := NewList(elements, false)
-		require.NoError(t, err)
-
-		want := &expr.NestedLiteral[expr.ListLiteralValue]{
-			Value: elements,
-			Type: &types.ListType{
-				Type:        inner.GetType(),
-				Nullability: types.NullabilityRequired,
-			},
-		}
-		assert.Equal(t, want, got)
-	})
-
-	t.Run("homogeneousInt32Elements", func(t *testing.T) {
-		elements := []expr.Literal{i32Lit, i32Lit2}
-		got, err := NewList(elements, false)
-		require.NoError(t, err)
-
-		want := &expr.NestedLiteral[expr.ListLiteralValue]{
-			Value: elements,
-			Type: &types.ListType{
-				Type:        int32Type,
-				Nullability: types.NullabilityRequired,
-			},
-		}
-		assert.Equal(t, want, got)
-	})
-
-	t.Run("nilElement", func(t *testing.T) {
-		got, err := NewList([]expr.Literal{i8Lit1, nil}, false)
-		require.Error(t, err)
-		assert.Nil(t, got)
-	})
-
-	t.Run("differentTypes", func(t *testing.T) {
-		got, err := NewList([]expr.Literal{i8Lit1, i32Lit}, false)
-		require.Error(t, err)
-		assert.Nil(t, got)
-	})
-
-	t.Run("sameTypeDifferentValues", func(t *testing.T) {
-		elements := []expr.Literal{i8Lit1, i8Lit2}
-		got, err := NewList(elements, false)
-		require.NoError(t, err)
-
-		want := &expr.NestedLiteral[expr.ListLiteralValue]{
-			Value: elements,
-			Type: &types.ListType{
-				Type:        int8Type,
-				Nullability: types.NullabilityRequired,
-			},
-		}
-		assert.Equal(t, want, got)
-	})
-
-	t.Run("sameBaseTypeDifferentNestedType", func(t *testing.T) {
-		i8List, err := NewList([]expr.Literal{i8Lit1}, false)
-		require.NoError(t, err)
-		i32List, err := NewList([]expr.Literal{i32Lit}, false)
-		require.NoError(t, err)
-
-		got, err := NewList([]expr.Literal{i8List, i32List}, false)
-		require.Error(t, err)
-		assert.Nil(t, got)
-	})
+	int8ListType := &types.ListType{Type: int8Type, Nullability: types.NullabilityRequired}
+	int32ListType := &types.ListType{Type: int32Type, Nullability: types.NullabilityRequired}
+	listOfListType := &types.ListType{Type: int8ListType, Nullability: types.NullabilityRequired}
+	tests := []struct {
+		name       string
+		elements   []expr.Literal
+		expSuccess bool
+		litType    types.Type
+		wantErr    assert.ErrorAssertionFunc
+	}{
+		{"empty", []expr.Literal{}, false, nil, assert.Error},
+		{"nilElement", []expr.Literal{i8Lit1, nil}, false, nil, assert.Error},
+		{"i32List", []expr.Literal{i8Lit1, i32Lit2}, false, nil, assert.Error},
+		{"listDifferentNestedTypes", []expr.Literal{listLiteral, i32ListLiteral}, false, nil, assert.Error},
+		{"i8ListSingle", []expr.Literal{i8Lit1}, true, int8ListType, assert.NoError},
+		{"listOfListSingle", []expr.Literal{listLiteral}, true, listOfListType, assert.NoError},
+		{"i8List", []expr.Literal{i8Lit1, i8Lit2}, true, int8ListType, assert.NoError},
+		{"i32List", []expr.Literal{i32Lit1, i32Lit2}, true, int32ListType, assert.NoError},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewList(tt.elements, false)
+			if !tt.wantErr(t, err, fmt.Sprintf("NewList(%v)", tt.elements)) {
+				return
+			}
+			if tt.expSuccess {
+				want, err := expr.NewLiteral[expr.ListLiteralValue](tt.elements, false)
+				require.NoError(t, err)
+				assert.Equalf(t, want, got, "NewList(%v)", tt.elements)
+				assert.Equalf(t, tt.litType, got.GetType(), "NewList(%v)", tt.elements)
+			}
+		})
+	}
 }
 
 func TestNewMap(t *testing.T) {
