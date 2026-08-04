@@ -422,62 +422,15 @@ func TestFromProtoRightSemiJoinRootNames(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// TestProjectSetStyleDecoder verifies that psStyleDecoder correctly resolves SRF
-// expression types from the detail payload and appends them to the input schema.
-// The input has one i64 column; the SRF adds one i32 column, producing a 2-column output.
-func TestProjectSetStyleDecoder(t *testing.T) {
-	const projectSetTypeURL = "type.googleapis.com/test.ProjectSetRel"
-
-	inputSchema := *types.NewRecordTypeFromTypes([]types.Type{
-		&types.Int64Type{Nullability: types.NullabilityRequired},
-	})
-
-	srfExprProto := &proto.Expression{RexType: &proto.Expression_Literal_{
-		Literal: &proto.Expression_Literal{LiteralType: &proto.Expression_Literal_I32{I32: 42}},
-	}}
-	nestedBytes, err := protobuf.Marshal(&proto.Expression_Nested_Struct{Fields: []*proto.Expression{srfExprProto}})
-	require.NoError(t, err)
-	projectSetDetail := &anypb.Any{TypeUrl: projectSetTypeURL, Value: nestedBytes}
-
-	inputRelProto := &proto.Rel{RelType: &proto.Rel_Read{Read: &proto.ReadRel{
-		Common: &proto.RelCommon{EmitKind: &proto.RelCommon_Direct_{Direct: &proto.RelCommon_Direct{}}},
-		BaseSchema: &proto.NamedStruct{
-			Names: []string{"a"},
-			Struct: &proto.Type_Struct{
-				Types: []*proto.Type{{Kind: &proto.Type_I64_{I64: &proto.Type_I64{Nullability: proto.Type_NULLABILITY_REQUIRED}}}},
-			},
-		},
-		ReadType: &proto.ReadRel_VirtualTable_{VirtualTable: &proto.ReadRel_VirtualTable{}},
-	}}}
-
-	rel := &proto.Rel{RelType: &proto.Rel_ExtensionSingle{ExtensionSingle: &proto.ExtensionSingleRel{
-		Common: &proto.RelCommon{EmitKind: &proto.RelCommon_Emit_{Emit: &proto.RelCommon_Emit{OutputMapping: []int32{0, 1}}}},
-		Input:  inputRelProto,
-		Detail: projectSetDetail,
-	}}}
-
-	reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-	require.NoError(t, reg.SetExtensionRelDecoder(projectSetTypeURL, projectSetDecoderFor(inputSchema, reg)))
-
-	out, err := RelFromProto(rel, reg)
-	require.NoError(t, err)
-
-	// psStyleDecoder resolves types from the SRF expressions: i64 passthrough + i32 SRF output.
-	got := out.RecordType()
-	require.Equal(t, int32(2), got.FieldCount())
-	assert.IsType(t, &types.Int64Type{}, got.GetFieldRef(0))
-	assert.IsType(t, &types.Int32Type{}, got.GetFieldRef(1))
-}
-
-// TestFromProtoWithDecoder is an integration test for FromProtoWithDecoder.
-// It verifies decoder wiring, schema resolution, and round-trip fidelity across
-// all three extension rel types and both direct and emit mappings.
+// TestFromProtoWithDecoder is a full-plan integration test for FromProtoWithDecoder.
+// It verifies decoder wiring and round-trip fidelity for all three extension rel types.
+// Relation-level decoder error cases are covered by TestExtensionRelDecoder below.
 func TestFromProtoWithDecoder(t *testing.T) {
 	const typeURL = "type.googleapis.com/test.MyExtension"
 	c := extensions.GetDefaultCollectionWithNoError()
 
-	direct := &proto.RelCommon{EmitKind: &proto.RelCommon_Direct_{Direct: &proto.RelCommon_Direct{}}}
 	emit201 := &proto.RelCommon{EmitKind: &proto.RelCommon_Emit_{Emit: &proto.RelCommon_Emit{OutputMapping: []int32{2, 0, 1}}}}
+	direct := &proto.RelCommon{EmitKind: &proto.RelCommon_Direct_{Direct: &proto.RelCommon_Direct{}}}
 	detail := &anypb.Any{TypeUrl: typeURL, Value: []byte("irrelevant")}
 
 	extSchema := *types.NewRecordTypeFromTypes([]types.Type{
@@ -497,71 +450,40 @@ func TestFromProtoWithDecoder(t *testing.T) {
 		ReadType: &proto.ReadRel_VirtualTable_{VirtualTable: &proto.ReadRel_VirtualTable{}},
 	}}}
 
-	makePlan := func(extRel *proto.Rel, names []string) *proto.Plan {
+	makePlan := func(extRel *proto.Rel) *proto.Plan {
 		return &proto.Plan{Relations: []*proto.PlanRel{{
-			RelType: &proto.PlanRel_Root{Root: &proto.RelRoot{Names: names, Input: extRel}},
+			RelType: &proto.PlanRel_Root{Root: &proto.RelRoot{Names: []string{"c", "a", "b"}, Input: extRel}},
 		}}}
 	}
 
-	cases := []struct {
-		name                 string
-		plan                 *proto.Plan
-		panicsWithoutDecoder bool
+	successCases := []struct {
+		name string
+		plan *proto.Plan
 	}{
 		{
-			name: "Single/Direct",
-			plan: makePlan(&proto.Rel{RelType: &proto.Rel_ExtensionSingle{ExtensionSingle: &proto.ExtensionSingleRel{
-				Common: direct, Input: oneColInput, Detail: detail,
-			}}}, []string{"a", "b", "c"}),
-		},
-		{
-			name:                 "Single/Emit",
-			panicsWithoutDecoder: true,
+			name: "Single",
 			plan: makePlan(&proto.Rel{RelType: &proto.Rel_ExtensionSingle{ExtensionSingle: &proto.ExtensionSingleRel{
 				Common: emit201, Input: oneColInput, Detail: detail,
-			}}}, []string{"c", "a", "b"}),
+			}}}),
 		},
 		{
-			name: "Leaf/Direct",
-			plan: makePlan(&proto.Rel{RelType: &proto.Rel_ExtensionLeaf{ExtensionLeaf: &proto.ExtensionLeafRel{
-				Common: direct, Detail: detail,
-			}}}, []string{"a", "b", "c"}),
-		},
-		{
-			name:                 "Leaf/Emit",
-			panicsWithoutDecoder: true,
+			name: "Leaf",
 			plan: makePlan(&proto.Rel{RelType: &proto.Rel_ExtensionLeaf{ExtensionLeaf: &proto.ExtensionLeafRel{
 				Common: emit201, Detail: detail,
-			}}}, []string{"c", "a", "b"}),
+			}}}),
 		},
 		{
-			name: "Multi/Direct",
-			plan: makePlan(&proto.Rel{RelType: &proto.Rel_ExtensionMulti{ExtensionMulti: &proto.ExtensionMultiRel{
-				Common: direct, Inputs: []*proto.Rel{oneColInput, oneColInput}, Detail: detail,
-			}}}, []string{"a", "b", "c"}),
-		},
-		{
-			name:                 "Multi/Emit",
-			panicsWithoutDecoder: true,
+			name: "Multi",
 			plan: makePlan(&proto.Rel{RelType: &proto.Rel_ExtensionMulti{ExtensionMulti: &proto.ExtensionMultiRel{
 				Common: emit201, Inputs: []*proto.Rel{oneColInput, oneColInput}, Detail: detail,
-			}}}, []string{"c", "a", "b"}),
+			}}}),
 		},
 	}
 
-	for _, tc := range cases {
+	for _, tc := range successCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if tc.panicsWithoutDecoder {
-				require.Panics(t, func() {
-					p, err := FromProto(tc.plan, c)
-					require.NoError(t, err)
-					_ = p.Relations()[0].Root().RecordType()
-				})
-			}
-
 			p, err := FromProtoWithDecoder(tc.plan, c, map[string]expr.ExtensionRelDecoder{typeURL: &customDecoder{schema: extSchema}})
 			require.NoError(t, err)
-
 			require.Len(t, p.Relations()[0].Root().RecordType().Struct.Types, 3)
 
 			roundTripped, err := p.ToProto()
@@ -571,43 +493,14 @@ func TestFromProtoWithDecoder(t *testing.T) {
 			}
 		})
 	}
-}
 
-// projectSetDecoderFor returns an ExtensionRelDecoder that handles the
-// ProjectSet-style extension: it unpacks a nested struct of SRF expressions
-// from the detail, resolves each expression's output type via ExprFromProto
-// against the provided inputSchema, and returns an ExtensionRelDefinition
-// whose Schema() = inputSchema + SRF output types.
-//
-// This mirrors the pattern used by SRF-style extension relations.
-func projectSetDecoderFor(inputSchema types.RecordType, reg expr.ExtensionRegistry) expr.ExtensionRelDecoder {
-	return &psStyleDecoder{inputSchema: inputSchema, reg: reg}
-}
-
-type psStyleDecoder struct {
-	inputSchema types.RecordType
-	reg         expr.ExtensionRegistry
-}
-
-func (d *psStyleDecoder) DecodeExtensionRel(detail *anypb.Any) (any, error) {
-	if detail == nil {
-		return nil, nil
-	}
-	var ns proto.Expression_Nested_Struct
-	if err := protobuf.Unmarshal(detail.Value, &ns); err != nil {
-		return nil, err
-	}
-	srfFields := ns.GetFields()
-	srfTypes := make([]types.Type, 0, len(srfFields))
-	for _, f := range srfFields {
-		stExpr, err := expr.ExprFromProto(f, &d.inputSchema, d.reg)
-		if err != nil {
-			return nil, err
-		}
-		srfTypes = append(srfTypes, stExpr.GetType())
-	}
-	fullSchema := d.inputSchema.Concat(*types.NewRecordTypeFromTypes(srfTypes))
-	return &customExtDef{schema: fullSchema, detail: detail}, nil
+	t.Run("decoder error propagates", func(t *testing.T) {
+		plan := makePlan(&proto.Rel{RelType: &proto.Rel_ExtensionSingle{ExtensionSingle: &proto.ExtensionSingleRel{
+			Common: direct, Input: oneColInput, Detail: detail,
+		}}})
+		_, err := FromProtoWithDecoder(plan, c, map[string]expr.ExtensionRelDecoder{typeURL: &errorDecoder{err: errors.New("decode failed")}})
+		require.ErrorContains(t, err, "decode failed")
+	})
 }
 
 // customExtDef is a test ExtensionRelDefinition that claims a fixed output schema.
