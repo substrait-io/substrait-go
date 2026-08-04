@@ -840,7 +840,7 @@ func (j *JoinRel) directOutputSchema() types.RecordType {
 		for _, r := range right.Types() {
 			typeList = append(typeList, r.WithNullability(types.NullabilityNullable))
 		}
-	case JoinTypeRight:
+	case JoinTypeRight, JoinTypeRightSingle:
 		left := j.left.RecordType()
 		right := j.right.RecordType()
 		typeList = make([]types.Type, 0, left.FieldCount()+right.FieldCount())
@@ -850,8 +850,8 @@ func (j *JoinRel) directOutputSchema() types.RecordType {
 		typeList = append(typeList, right.Types()...)
 	case JoinTypeLeftAnti:
 		typeList = j.left.RecordType().Types()
-	case JoinTypeRightSemi, JoinTypeRightAnti, JoinTypeRightSingle:
-		panic(fmt.Sprintf("join type: %v not supported", j.joinType))
+	case JoinTypeRightSemi, JoinTypeRightAnti:
+		return j.right.RecordType()
 	}
 
 	return *types.NewRecordTypeFromTypes(typeList)

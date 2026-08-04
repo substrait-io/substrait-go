@@ -329,11 +329,6 @@ func isRecordTypeSupported(rel Rel) bool {
 		return !undecoded
 	case *NamedTableWriteRel:
 		return false // TODO(#210): panics when outputMode is unspecified
-	case *JoinRel:
-		switch r.joinType {
-		case JoinTypeRightSemi, JoinTypeRightAnti, JoinTypeRightSingle:
-			return false // TODO(#210) panics: not yet implemented
-		}
 	}
 	return true
 }
