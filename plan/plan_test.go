@@ -501,6 +501,23 @@ func TestFromProtoWithDecoder(t *testing.T) {
 		_, err := FromProtoWithDecoder(plan, c, map[string]expr.ExtensionRelDecoder{typeURL: &errorDecoder{err: errors.New("decode failed")}})
 		require.ErrorContains(t, err, "decode failed")
 	})
+
+}
+
+func TestIsRecordTypeSupported(t *testing.T) {
+	fixedSchema := *types.NewRecordTypeFromTypes([]types.Type{
+		&types.Int64Type{Nullability: types.NullabilityRequired},
+	})
+	decoded := &customExtDef{schema: fixedSchema}
+	undecoded := &UndecodedExtension{}
+
+	assert.True(t, isRecordTypeSupported(&ExtensionSingleRel{definition: decoded}))
+	assert.True(t, isRecordTypeSupported(&ExtensionLeafRel{definition: decoded}))
+	assert.True(t, isRecordTypeSupported(&ExtensionMultiRel{definition: decoded}))
+
+	assert.False(t, isRecordTypeSupported(&ExtensionSingleRel{definition: undecoded}))
+	assert.False(t, isRecordTypeSupported(&ExtensionLeafRel{definition: undecoded}))
+	assert.False(t, isRecordTypeSupported(&ExtensionMultiRel{definition: undecoded}))
 }
 
 // customExtDef is a test ExtensionRelDefinition that claims a fixed output schema.

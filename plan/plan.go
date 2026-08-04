@@ -318,8 +318,15 @@ func validateRootNamesForSchema(recordType types.RecordType, names []string) err
 // TODO(#210): remove this once RecordType() is fixed for all relation types.
 func isRecordTypeSupported(rel Rel) bool {
 	switch r := rel.(type) {
-	case *ExtensionSingleRel, *ExtensionLeafRel, *ExtensionMultiRel:
-		return false // TODO(#210): UndecodedExtension.Schema() guesses or returns empty
+	case *ExtensionSingleRel:
+		_, undecoded := r.Definition().(*UndecodedExtension)
+		return !undecoded
+	case *ExtensionLeafRel:
+		_, undecoded := r.Definition().(*UndecodedExtension)
+		return !undecoded
+	case *ExtensionMultiRel:
+		_, undecoded := r.Definition().(*UndecodedExtension)
+		return !undecoded
 	case *NamedTableWriteRel:
 		return false // TODO(#210): panics when outputMode is unspecified
 	case *JoinRel:
