@@ -1,2 +1,5 @@
 testcases/parser/baseparser/** linguist-generated
 types/parser/baseparser/** linguist-generated
+
+# Golden fixtures record wire bytes, so keep them byte identical on every platform.
+codec/**/*.golden text eol=lf
