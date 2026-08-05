@@ -1,0 +1,10 @@
+# name domainValue wireHex
+# substrait.Type{bool:{nullability}} encoded through codec.
+# Rows named for a bare number are outside the spec's enum and are cast unchanged.
+NULLABILITY_UNSPECIFIED 0 0a00
+NULLABILITY_NULLABLE 1 0a021001
+NULLABILITY_REQUIRED 2 0a021002
+3 3 0a021003
+-1 -1 0a0b10ffffffffffffffffff01
+-2147483648 -2147483648 0a0b1080808080f8ffffffff01
+2147483647 2147483647 0a0610ffffffff07
