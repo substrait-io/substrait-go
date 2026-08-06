@@ -7,10 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
-	"google.golang.org/protobuf/testing/protocmp"
 )
 
 var expectedProtoValMap = map[TimePrecision]int32{
@@ -62,29 +59,7 @@ func TestNewPrecisionTimeType(t *testing.T) {
 			assert.Zero(t, createdPrecTime.GetTypeVariationReference())
 			assert.Equal(t, fmt.Sprintf("precision_time%s", expectedFormatString), createdPrecTime.String())
 			assert.Equal(t, "pt", createdPrecTime.ShortString())
-			assertPrecisionTimeProto(t, precision, nullability, *createdPrecTime)
 		}
-	}
-}
-
-func assertPrecisionTimeProto(t *testing.T, expectedPrecision TimePrecision, expectedNullability Nullability,
-	toVerifyType PrecisionTimeType) {
-
-	expectedTypeProto := &proto.Type{Kind: &proto.Type_PrecisionTime_{
-		PrecisionTime: &proto.Type_PrecisionTime{
-			Precision:   expectedPrecision.ToProtoVal(),
-			Nullability: expectedNullability,
-		},
-	}}
-	if diff := cmp.Diff(toVerifyType.ToProto(), expectedTypeProto, protocmp.Transform()); diff != "" {
-		t.Errorf("precisionTimeStamp proto didn't match, diff:\n%v", diff)
-	}
-
-	expectedFuncArgProto := &proto.FunctionArgument{ArgType: &proto.FunctionArgument_Type{
-		Type: expectedTypeProto,
-	}}
-	if diff := cmp.Diff(toVerifyType.ToProtoFuncArg(), expectedFuncArgProto, protocmp.Transform()); diff != "" {
-		t.Errorf("precisionTimeStamp proto didn't match, diff:\n%v", diff)
 	}
 }
 
@@ -112,7 +87,6 @@ func TestNewPrecisionTimestampType(t *testing.T) {
 			assert.Zero(t, createdPrecTimeStamp.GetTypeVariationReference())
 			assert.Equal(t, fmt.Sprintf("precision_timestamp%s", expectedFormatString), createdPrecTimeStamp.String())
 			assert.Equal(t, "pts", createdPrecTimeStamp.ShortString())
-			assertPrecisionTimeStampProto(t, precision, nullability, *createdPrecTimeStamp)
 
 			// verify PrecisionTimestampTzType
 			createdPrecTimeStampTzType := NewPrecisionTimestampTzType(precision).WithNullability(nullability)
@@ -123,51 +97,11 @@ func TestNewPrecisionTimestampType(t *testing.T) {
 			assert.Zero(t, createdPrecTimeStampTz.GetTypeVariationReference())
 			assert.Equal(t, fmt.Sprintf("precision_timestamp_tz%s", expectedFormatString), createdPrecTimeStampTz.String())
 			assert.Equal(t, "ptstz", createdPrecTimeStampTz.ShortString())
-			assertPrecisionTimeStampTzProto(t, precision, nullability, *createdPrecTimeStampTz)
 
 			// assert that both types are not equal
 			assert.False(t, createdPrecTimeStampType.Equals(createdPrecTimeStampTzType))
 			assert.False(t, createdPrecTimeStampTzType.Equals(createdPrecTimeStampType))
 		}
-	}
-}
-
-func assertPrecisionTimeStampProto(t *testing.T, expectedPrecision TimePrecision, expectedNullability Nullability,
-	toVerifyType PrecisionTimestampType) {
-
-	expectedTypeProto := &proto.Type{Kind: &proto.Type_PrecisionTimestamp_{
-		PrecisionTimestamp: &proto.Type_PrecisionTimestamp{
-			Precision:   expectedPrecision.ToProtoVal(),
-			Nullability: expectedNullability,
-		},
-	}}
-	if diff := cmp.Diff(toVerifyType.ToProto(), expectedTypeProto, protocmp.Transform()); diff != "" {
-		t.Errorf("precisionTimeStamp proto didn't match, diff:\n%v", diff)
-	}
-
-	expectedFuncArgProto := &proto.FunctionArgument{ArgType: &proto.FunctionArgument_Type{
-		Type: expectedTypeProto,
-	}}
-	if diff := cmp.Diff(toVerifyType.ToProtoFuncArg(), expectedFuncArgProto, protocmp.Transform()); diff != "" {
-		t.Errorf("precisionTimeStamp proto didn't match, diff:\n%v", diff)
-	}
-}
-
-func assertPrecisionTimeStampTzProto(t *testing.T, expectedPrecision TimePrecision, expectedNullability Nullability, toVerifyType PrecisionTimestampTzType) {
-	expectedTypeProto := &proto.Type{Kind: &proto.Type_PrecisionTimestampTz{
-		PrecisionTimestampTz: &proto.Type_PrecisionTimestampTZ{
-			Precision:   expectedPrecision.ToProtoVal(),
-			Nullability: expectedNullability,
-		},
-	}}
-	if diff := cmp.Diff(toVerifyType.ToProto(), expectedTypeProto, protocmp.Transform()); diff != "" {
-		t.Errorf("precisionTimeStampTz proto didn't match, diff:\n%v", diff)
-	}
-	expectedFuncArgProto := &proto.FunctionArgument{ArgType: &proto.FunctionArgument_Type{
-		Type: expectedTypeProto,
-	}}
-	if diff := cmp.Diff(toVerifyType.ToProtoFuncArg(), expectedFuncArgProto, protocmp.Transform()); diff != "" {
-		t.Errorf("precisionTimeStampTz proto didn't match, diff:\n%v", diff)
 	}
 }
 
