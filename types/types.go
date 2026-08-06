@@ -18,13 +18,29 @@ import (
 
 type Version = proto.Version
 
-type Nullability = proto.Type_Nullability
+// Nullability mirrors the Type.Nullability enum in the Substrait spec. substrait-go declares it
+// rather than aliasing the generated enum so that serialization can move out of the core.
+type Nullability int32
 
 const (
-	NullabilityUnspecified = proto.Type_NULLABILITY_UNSPECIFIED
-	NullabilityNullable    = proto.Type_NULLABILITY_NULLABLE
-	NullabilityRequired    = proto.Type_NULLABILITY_REQUIRED
+	NullabilityUnspecified Nullability = 0
+	NullabilityNullable    Nullability = 1
+	NullabilityRequired    Nullability = 2
 )
+
+// String reports the spec name. Unknown values print as the number.
+func (n Nullability) String() string {
+	switch n {
+	case NullabilityUnspecified:
+		return "NULLABILITY_UNSPECIFIED"
+	case NullabilityNullable:
+		return "NULLABILITY_NULLABLE"
+	case NullabilityRequired:
+		return "NULLABILITY_REQUIRED"
+	default:
+		return strconv.Itoa(int(n))
+	}
+}
 
 type TypeName string
 
@@ -211,67 +227,67 @@ func TypeFromProto(t *proto.Type) Type {
 	switch t := t.Kind.(type) {
 	case *proto.Type_Bool:
 		return &BooleanType{
-			Nullability:      t.Bool.Nullability,
+			Nullability:      Nullability(t.Bool.Nullability),
 			TypeVariationRef: t.Bool.TypeVariationReference,
 		}
 	case *proto.Type_I8_:
 		return &Int8Type{
-			Nullability:      t.I8.Nullability,
+			Nullability:      Nullability(t.I8.Nullability),
 			TypeVariationRef: t.I8.TypeVariationReference,
 		}
 	case *proto.Type_I16_:
 		return &Int16Type{
-			Nullability:      t.I16.Nullability,
+			Nullability:      Nullability(t.I16.Nullability),
 			TypeVariationRef: t.I16.TypeVariationReference,
 		}
 	case *proto.Type_I32_:
 		return &Int32Type{
-			Nullability:      t.I32.Nullability,
+			Nullability:      Nullability(t.I32.Nullability),
 			TypeVariationRef: t.I32.TypeVariationReference,
 		}
 	case *proto.Type_I64_:
 		return &Int64Type{
-			Nullability:      t.I64.Nullability,
+			Nullability:      Nullability(t.I64.Nullability),
 			TypeVariationRef: t.I64.TypeVariationReference,
 		}
 	case *proto.Type_Fp32:
 		return &Float32Type{
-			Nullability:      t.Fp32.Nullability,
+			Nullability:      Nullability(t.Fp32.Nullability),
 			TypeVariationRef: t.Fp32.TypeVariationReference,
 		}
 	case *proto.Type_Fp64:
 		return &Float64Type{
-			Nullability:      t.Fp64.Nullability,
+			Nullability:      Nullability(t.Fp64.Nullability),
 			TypeVariationRef: t.Fp64.TypeVariationReference,
 		}
 	case *proto.Type_String_:
 		return &StringType{
-			Nullability:      t.String_.Nullability,
+			Nullability:      Nullability(t.String_.Nullability),
 			TypeVariationRef: t.String_.TypeVariationReference,
 		}
 	case *proto.Type_Binary_:
 		return &BinaryType{
-			Nullability:      t.Binary.Nullability,
+			Nullability:      Nullability(t.Binary.Nullability),
 			TypeVariationRef: t.Binary.TypeVariationReference,
 		}
 	case *proto.Type_Timestamp_:
 		return &TimestampType{
-			Nullability:      t.Timestamp.Nullability,
+			Nullability:      Nullability(t.Timestamp.Nullability),
 			TypeVariationRef: t.Timestamp.TypeVariationReference,
 		}
 	case *proto.Type_Date_:
 		return &DateType{
-			Nullability:      t.Date.Nullability,
+			Nullability:      Nullability(t.Date.Nullability),
 			TypeVariationRef: t.Date.TypeVariationReference,
 		}
 	case *proto.Type_Time_:
 		return &TimeType{
-			Nullability:      t.Time.Nullability,
+			Nullability:      Nullability(t.Time.Nullability),
 			TypeVariationRef: t.Time.TypeVariationReference,
 		}
 	case *proto.Type_IntervalYear_:
 		return &IntervalYearType{
-			Nullability:      t.IntervalYear.Nullability,
+			Nullability:      Nullability(t.IntervalYear.Nullability),
 			TypeVariationRef: t.IntervalYear.TypeVariationReference,
 		}
 	case *proto.Type_IntervalDay_:
@@ -284,7 +300,7 @@ func TypeFromProto(t *proto.Type) Type {
 			}
 		}
 		return &IntervalDayType{
-			Nullability:      t.IntervalDay.Nullability,
+			Nullability:      Nullability(t.IntervalDay.Nullability),
 			TypeVariationRef: t.IntervalDay.TypeVariationReference,
 			Precision:        precision,
 		}
@@ -294,41 +310,41 @@ func TypeFromProto(t *proto.Type) Type {
 			panic(fmt.Sprintf("Invalid precision %v", err))
 		}
 		return &IntervalCompoundType{
-			nullability:      t.IntervalCompound.Nullability,
+			nullability:      Nullability(t.IntervalCompound.Nullability),
 			typeVariationRef: t.IntervalCompound.TypeVariationReference,
 			precision:        precision,
 		}
 	case *proto.Type_TimestampTz:
 		return &TimestampTzType{
-			Nullability:      t.TimestampTz.Nullability,
+			Nullability:      Nullability(t.TimestampTz.Nullability),
 			TypeVariationRef: t.TimestampTz.TypeVariationReference,
 		}
 	case *proto.Type_Uuid:
 		return &UUIDType{
-			Nullability:      t.Uuid.Nullability,
+			Nullability:      Nullability(t.Uuid.Nullability),
 			TypeVariationRef: t.Uuid.TypeVariationReference,
 		}
 	case *proto.Type_FixedBinary_:
 		return &FixedBinaryType{
-			Nullability:      t.FixedBinary.Nullability,
+			Nullability:      Nullability(t.FixedBinary.Nullability),
 			TypeVariationRef: t.FixedBinary.TypeVariationReference,
 			Length:           t.FixedBinary.Length,
 		}
 	case *proto.Type_FixedChar_:
 		return &FixedCharType{
-			Nullability:      t.FixedChar.Nullability,
+			Nullability:      Nullability(t.FixedChar.Nullability),
 			TypeVariationRef: t.FixedChar.TypeVariationReference,
 			Length:           t.FixedChar.Length,
 		}
 	case *proto.Type_Varchar:
 		return &VarCharType{
-			Nullability:      t.Varchar.Nullability,
+			Nullability:      Nullability(t.Varchar.Nullability),
 			TypeVariationRef: t.Varchar.TypeVariationReference,
 			Length:           t.Varchar.Length,
 		}
 	case *proto.Type_Decimal_:
 		return &DecimalType{
-			Nullability:      t.Decimal.Nullability,
+			Nullability:      Nullability(t.Decimal.Nullability),
 			TypeVariationRef: t.Decimal.TypeVariationReference,
 			Scale:            t.Decimal.Scale,
 			Precision:        t.Decimal.Precision,
@@ -339,7 +355,7 @@ func TypeFromProto(t *proto.Type) Type {
 			panic(fmt.Sprintf("Invalid precision %v", err))
 		}
 		return &PrecisionTimeType{
-			Nullability:      t.PrecisionTime.Nullability,
+			Nullability:      Nullability(t.PrecisionTime.Nullability),
 			TypeVariationRef: t.PrecisionTime.TypeVariationReference,
 			Precision:        precision,
 		}
@@ -349,7 +365,7 @@ func TypeFromProto(t *proto.Type) Type {
 			panic(fmt.Sprintf("Invalid precision %v", err))
 		}
 		return &PrecisionTimestampType{
-			Nullability:      t.PrecisionTimestamp.Nullability,
+			Nullability:      Nullability(t.PrecisionTimestamp.Nullability),
 			TypeVariationRef: t.PrecisionTimestamp.TypeVariationReference,
 			Precision:        precision,
 		}
@@ -359,7 +375,7 @@ func TypeFromProto(t *proto.Type) Type {
 			panic(fmt.Sprintf("Invalid precision %v", err))
 		}
 		return &PrecisionTimestampTzType{PrecisionTimestampType{
-			Nullability:      t.PrecisionTimestampTz.Nullability,
+			Nullability:      Nullability(t.PrecisionTimestampTz.Nullability),
 			TypeVariationRef: t.PrecisionTimestampTz.TypeVariationReference,
 			Precision:        precision,
 		}}
@@ -369,7 +385,7 @@ func TypeFromProto(t *proto.Type) Type {
 			fields[i] = TypeFromProto(f)
 		}
 		return &StructType{
-			Nullability:      t.Struct.Nullability,
+			Nullability:      Nullability(t.Struct.Nullability),
 			TypeVariationRef: t.Struct.TypeVariationReference,
 			Types:            fields,
 		}
@@ -379,19 +395,19 @@ func TypeFromProto(t *proto.Type) Type {
 			params[i] = TypeFromProto(p)
 		}
 		return &FuncType{
-			Nullability:    t.Func.Nullability,
+			Nullability:    Nullability(t.Func.Nullability),
 			ParameterTypes: params,
 			ReturnType:     TypeFromProto(t.Func.ReturnType),
 		}
 	case *proto.Type_List_:
 		return &ListType{
-			Nullability:      t.List.Nullability,
+			Nullability:      Nullability(t.List.Nullability),
 			TypeVariationRef: t.List.TypeVariationReference,
 			Type:             TypeFromProto(t.List.Type),
 		}
 	case *proto.Type_Map_:
 		return &MapType{
-			Nullability:      t.Map.Nullability,
+			Nullability:      Nullability(t.Map.Nullability),
 			TypeVariationRef: t.Map.TypeVariationReference,
 			Key:              TypeFromProto(t.Map.Key),
 			Value:            TypeFromProto(t.Map.Value),
@@ -402,7 +418,7 @@ func TypeFromProto(t *proto.Type) Type {
 			params[i] = TypeParamFromProto(p)
 		}
 		return &UserDefinedType{
-			Nullability:      t.UserDefined.Nullability,
+			Nullability:      Nullability(t.UserDefined.Nullability),
 			TypeVariationRef: t.UserDefined.TypeVariationReference,
 			TypeReference:    t.UserDefined.TypeReference,
 			TypeParameters:   params,
@@ -649,109 +665,109 @@ func TypeToProto(t Type) *proto.Type {
 	case *BooleanType:
 		return &proto.Type{Kind: &proto.Type_Bool{
 			Bool: &proto.Type_Boolean{
-				Nullability:            t.Nullability,
+				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *Int8Type:
 		return &proto.Type{Kind: &proto.Type_I8_{
 			I8: &proto.Type_I8{
-				Nullability:            t.Nullability,
+				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *Int16Type:
 		return &proto.Type{Kind: &proto.Type_I16_{
 			I16: &proto.Type_I16{
-				Nullability:            t.Nullability,
+				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *Int32Type:
 		return &proto.Type{Kind: &proto.Type_I32_{
 			I32: &proto.Type_I32{
-				Nullability:            t.Nullability,
+				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *Int64Type:
 		return &proto.Type{Kind: &proto.Type_I64_{
 			I64: &proto.Type_I64{
-				Nullability:            t.Nullability,
+				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *Float32Type:
 		return &proto.Type{Kind: &proto.Type_Fp32{
 			Fp32: &proto.Type_FP32{
-				Nullability:            t.Nullability,
+				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *Float64Type:
 		return &proto.Type{Kind: &proto.Type_Fp64{
 			Fp64: &proto.Type_FP64{
-				Nullability:            t.Nullability,
+				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *StringType:
 		return &proto.Type{Kind: &proto.Type_String_{
 			String_: &proto.Type_String{
-				Nullability:            t.Nullability,
+				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *BinaryType:
 		return &proto.Type{Kind: &proto.Type_Binary_{
 			Binary: &proto.Type_Binary{
-				Nullability:            t.Nullability,
+				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *DateType:
 		return &proto.Type{Kind: &proto.Type_Date_{
 			Date: &proto.Type_Date{
-				Nullability:            t.Nullability,
+				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *TimeType:
 		return &proto.Type{Kind: &proto.Type_Time_{
 			Time: &proto.Type_Time{
-				Nullability:            t.Nullability,
+				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *TimestampTzType:
 		return &proto.Type{Kind: &proto.Type_TimestampTz{
 			TimestampTz: &proto.Type_TimestampTZ{
-				Nullability:            t.Nullability,
+				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *TimestampType:
 		return &proto.Type{Kind: &proto.Type_Timestamp_{
 			Timestamp: &proto.Type_Timestamp{
-				Nullability:            t.Nullability,
+				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *IntervalYearType:
 		return &proto.Type{Kind: &proto.Type_IntervalYear_{
 			IntervalYear: &proto.Type_IntervalYear{
-				Nullability:            t.Nullability,
+				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *IntervalDayType:
 		precision := t.Precision.ToProtoVal()
 		return &proto.Type{Kind: &proto.Type_IntervalDay_{
 			IntervalDay: &proto.Type_IntervalDay{
 				Precision:              &precision,
-				Nullability:            t.Nullability,
+				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
 	case IntervalCompoundType:
 		precision := t.precision.ToProtoVal()
 		return &proto.Type{Kind: &proto.Type_IntervalCompound_{
 			IntervalCompound: &proto.Type_IntervalCompound{
 				Precision:              precision,
-				Nullability:            t.nullability,
+				Nullability:            proto.Type_Nullability(t.nullability),
 				TypeVariationReference: t.typeVariationRef}}}
 	case *UUIDType:
 		return &proto.Type{Kind: &proto.Type_Uuid{
 			Uuid: &proto.Type_UUID{
-				Nullability:            t.Nullability,
+				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *FixedCharType:
 		return &proto.Type{Kind: &proto.Type_FixedChar_{
 			FixedChar: &proto.Type_FixedChar{
 				Length:                 t.Length,
-				Nullability:            t.Nullability,
+				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *VarCharType:
 		return &proto.Type{Kind: &proto.Type_Varchar{
 			Varchar: &proto.Type_VarChar{
 				Length:                 t.Length,
-				Nullability:            t.Nullability,
+				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *FixedBinaryType:
 		return &proto.Type{Kind: &proto.Type_FixedBinary_{
 			FixedBinary: &proto.Type_FixedBinary{
 				Length:                 t.Length,
-				Nullability:            t.Nullability,
+				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *DecimalType:
 		return t.ToProto()
@@ -759,19 +775,19 @@ func TypeToProto(t Type) *proto.Type {
 		return &proto.Type{Kind: &proto.Type_PrecisionTime_{
 			PrecisionTime: &proto.Type_PrecisionTime{
 				Precision:              int32(t.Precision),
-				Nullability:            t.Nullability,
+				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *PrecisionTimestampType:
 		return &proto.Type{Kind: &proto.Type_PrecisionTimestamp_{
 			PrecisionTimestamp: &proto.Type_PrecisionTimestamp{
 				Precision:              int32(t.Precision),
-				Nullability:            t.Nullability,
+				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *PrecisionTimestampTzType:
 		return &proto.Type{Kind: &proto.Type_PrecisionTimestampTz{
 			PrecisionTimestampTz: &proto.Type_PrecisionTimestampTZ{
 				Precision:              int32(t.Precision),
-				Nullability:            t.Nullability,
+				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
 	case *StructType:
 		return t.ToProto()
@@ -1088,7 +1104,7 @@ func (s *DecimalType) ToProto() *proto.Type {
 	return &proto.Type{Kind: &proto.Type_Decimal_{
 		Decimal: &proto.Type_Decimal{
 			Scale: s.Scale, Precision: s.Precision,
-			Nullability:            s.Nullability,
+			Nullability:            proto.Type_Nullability(s.Nullability),
 			TypeVariationReference: s.TypeVariationRef}}}
 }
 
@@ -1161,7 +1177,7 @@ func (t *StructType) ToProto() *proto.Type {
 	return &proto.Type{Kind: &proto.Type_Struct_{
 		Struct: &proto.Type_Struct{Types: children,
 			TypeVariationReference: t.TypeVariationRef,
-			Nullability:            t.Nullability}}}
+			Nullability:            proto.Type_Nullability(t.Nullability)}}}
 }
 
 func (t *StructType) ToProtoFuncArg() *proto.FunctionArgument {
@@ -1297,7 +1313,7 @@ func (f *FuncType) ToProto() *proto.Type {
 		Func: &proto.Type_Func{
 			ParameterTypes: params,
 			ReturnType:     TypeToProto(f.ReturnType),
-			Nullability:    f.Nullability,
+			Nullability:    proto.Type_Nullability(f.Nullability),
 		}}}
 }
 
@@ -1364,7 +1380,7 @@ func (t *ListType) Equals(rhs Type) bool {
 
 func (t *ListType) ToProto() *proto.Type {
 	return &proto.Type{Kind: &proto.Type_List_{
-		List: &proto.Type_List{Nullability: t.Nullability,
+		List: &proto.Type_List{Nullability: proto.Type_Nullability(t.Nullability),
 			Type:                   TypeToProto(t.Type),
 			TypeVariationReference: t.TypeVariationRef}}}
 }
@@ -1426,7 +1442,7 @@ func (t *MapType) Equals(rhs Type) bool {
 
 func (t *MapType) ToProto() *proto.Type {
 	return &proto.Type{Kind: &proto.Type_Map_{
-		Map: &proto.Type_Map{Nullability: t.Nullability,
+		Map: &proto.Type_Map{Nullability: proto.Type_Nullability(t.Nullability),
 			TypeVariationReference: t.TypeVariationRef,
 			Key:                    TypeToProto(t.Key),
 			Value:                  TypeToProto(t.Value)}}}
@@ -1642,7 +1658,7 @@ func (t *UserDefinedType) ToProto() *proto.Type {
 
 	return &proto.Type{Kind: &proto.Type_UserDefined_{
 		UserDefined: &proto.Type_UserDefined{
-			Nullability:            t.Nullability,
+			Nullability:            proto.Type_Nullability(t.Nullability),
 			TypeVariationReference: t.TypeVariationRef,
 			TypeReference:          t.TypeReference,
 			TypeParameters:         params,
@@ -1690,7 +1706,7 @@ func NewNamedStructFromProto(n *proto.NamedStruct) NamedStruct {
 	return NamedStruct{
 		Names: n.Names,
 		Struct: StructType{
-			Nullability:      n.Struct.Nullability,
+			Nullability:      Nullability(n.Struct.Nullability),
 			TypeVariationRef: n.Struct.TypeVariationReference,
 			Types:            fields,
 		},

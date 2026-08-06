@@ -49,7 +49,7 @@ func assertIntervalDayTypeProto(t *testing.T, expectedPrecision TimePrecision, e
 	expectedTypeProto := &proto.Type{Kind: &proto.Type_IntervalDay_{
 		IntervalDay: &proto.Type_IntervalDay{
 			Precision:   &expectedPrecisionProtoVal,
-			Nullability: expectedNullability,
+			Nullability: proto.Type_Nullability(expectedNullability),
 		},
 	}}
 	if diff := cmp.Diff(toVerifyType.ToProto(), expectedTypeProto, protocmp.Transform()); diff != "" {

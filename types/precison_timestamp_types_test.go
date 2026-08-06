@@ -73,7 +73,7 @@ func assertPrecisionTimeProto(t *testing.T, expectedPrecision TimePrecision, exp
 	expectedTypeProto := &proto.Type{Kind: &proto.Type_PrecisionTime_{
 		PrecisionTime: &proto.Type_PrecisionTime{
 			Precision:   expectedPrecision.ToProtoVal(),
-			Nullability: expectedNullability,
+			Nullability: proto.Type_Nullability(expectedNullability),
 		},
 	}}
 	if diff := cmp.Diff(toVerifyType.ToProto(), expectedTypeProto, protocmp.Transform()); diff != "" {
@@ -138,7 +138,7 @@ func assertPrecisionTimeStampProto(t *testing.T, expectedPrecision TimePrecision
 	expectedTypeProto := &proto.Type{Kind: &proto.Type_PrecisionTimestamp_{
 		PrecisionTimestamp: &proto.Type_PrecisionTimestamp{
 			Precision:   expectedPrecision.ToProtoVal(),
-			Nullability: expectedNullability,
+			Nullability: proto.Type_Nullability(expectedNullability),
 		},
 	}}
 	if diff := cmp.Diff(toVerifyType.ToProto(), expectedTypeProto, protocmp.Transform()); diff != "" {
@@ -157,7 +157,7 @@ func assertPrecisionTimeStampTzProto(t *testing.T, expectedPrecision TimePrecisi
 	expectedTypeProto := &proto.Type{Kind: &proto.Type_PrecisionTimestampTz{
 		PrecisionTimestampTz: &proto.Type_PrecisionTimestampTZ{
 			Precision:   expectedPrecision.ToProtoVal(),
-			Nullability: expectedNullability,
+			Nullability: proto.Type_Nullability(expectedNullability),
 		},
 	}}
 	if diff := cmp.Diff(toVerifyType.ToProto(), expectedTypeProto, protocmp.Transform()); diff != "" {

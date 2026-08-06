@@ -94,9 +94,9 @@ func TestNewDecimalFromString(t *testing.T) {
 }
 
 func createDecimalLiteral(value []byte, precision int32, scale int32, isNullable bool) *expr.ProtoLiteral {
-	nullability := proto.Type_NULLABILITY_REQUIRED
+	nullability := types.NullabilityRequired
 	if isNullable {
-		nullability = proto.Type_NULLABILITY_NULLABLE
+		nullability = types.NullabilityNullable
 	}
 	return &expr.ProtoLiteral{
 		Value: value[:16],
@@ -109,9 +109,9 @@ func createDecimalLiteral(value []byte, precision int32, scale int32, isNullable
 }
 
 func protoLiteralWithNullability(lit *expr.ProtoLiteral, nullable bool) (expr.Literal, error) {
-	nullability := proto.Type_NULLABILITY_REQUIRED
+	nullability := types.NullabilityRequired
 	if nullable {
-		nullability = proto.Type_NULLABILITY_NULLABLE
+		nullability = types.NullabilityNullable
 	}
 	decType := lit.GetType().WithNullability(nullability)
 
@@ -377,7 +377,7 @@ func createIntervalDaysLiteral(days, seconds int32, micros int64) *expr.ProtoLit
 			},
 		},
 		Type: &types.IntervalDayType{
-			Nullability: proto.Type_NULLABILITY_REQUIRED,
+			Nullability: types.NullabilityRequired,
 			Precision:   types.PrecisionMicroSeconds,
 		},
 	}
@@ -394,7 +394,7 @@ func createIntervalDaysLiteralWithNanos(days, seconds int32, nanos int64) *expr.
 			},
 		},
 		Type: &types.IntervalDayType{
-			Nullability: proto.Type_NULLABILITY_REQUIRED,
+			Nullability: types.NullabilityRequired,
 			Precision:   types.PrecisionNanoSeconds,
 		},
 	}
@@ -485,7 +485,7 @@ func createIntervalYearsLiteral(years, months int32) *expr.ProtoLiteral {
 			Months: months,
 		},
 		Type: &types.IntervalYearType{
-			Nullability: proto.Type_NULLABILITY_REQUIRED,
+			Nullability: types.NullabilityRequired,
 		},
 	}
 }
@@ -773,7 +773,7 @@ func createVarCharLiteral(value string) *expr.ProtoLiteral {
 		//},
 		Value: value,
 		Type: &types.VarCharType{
-			Nullability: proto.Type_NULLABILITY_REQUIRED,
+			Nullability: types.NullabilityRequired,
 			Length:      int32(len(value)),
 		},
 	}

@@ -58,7 +58,7 @@ func (l *Lambda) ToProto() *proto.Expression {
 	paramsProto := &proto.Type_Struct{
 		Types:                  children,
 		TypeVariationReference: l.Parameters.TypeVariationRef,
-		Nullability:            l.Parameters.Nullability,
+		Nullability:            proto.Type_Nullability(l.Parameters.Nullability),
 	}
 
 	return &proto.Expression{
