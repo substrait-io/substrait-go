@@ -49,14 +49,16 @@ func (m *ParameterizedMapType) MatchWithNullability(ot Type) bool {
 		return false
 	}
 	if omt, ok := ot.(*MapType); ok {
-		return m.Key.MatchWithNullability(omt.Key) && m.Value.MatchWithNullability(omt.Value)
+		return matchTypeComponentWithNullability(m.Key, omt.Key) &&
+			matchTypeComponentWithNullability(m.Value, omt.Value)
 	}
 	return false
 }
 
 func (m *ParameterizedMapType) MatchWithoutNullability(ot Type) bool {
 	if omt, ok := ot.(*MapType); ok {
-		return m.Key.MatchWithoutNullability(omt.Key) && m.Value.MatchWithoutNullability(omt.Value)
+		return matchTypeComponentWithNullability(m.Key, omt.Key) &&
+			matchTypeComponentWithNullability(m.Value, omt.Value)
 	}
 	return false
 }

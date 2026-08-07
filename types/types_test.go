@@ -701,6 +701,103 @@ func TestStructTypeDepthFirstNameCount(t *testing.T) {
 	}
 }
 
+func TestParameterizedFuncTypeComponentNullabilityMatching(t *testing.T) {
+	param := &ParameterizedFuncType{
+		Nullability: NullabilityRequired,
+		Parameters:  []FuncDefArgType{&AnyType{Name: "any1", Nullability: NullabilityRequired}},
+		Return:      &AnyType{Name: "any1", Nullability: NullabilityNullable},
+	}
+
+	t.Run("match without nullability ignores only outer function nullability", func(t *testing.T) {
+		actual := &FuncType{
+			Nullability:    NullabilityNullable,
+			ParameterTypes: []Type{&Int32Type{Nullability: NullabilityRequired}},
+			ReturnType:     &Int32Type{Nullability: NullabilityNullable},
+		}
+
+		assert.True(t, param.MatchWithoutNullability(actual))
+		assert.False(t, param.MatchWithNullability(actual))
+	})
+
+	t.Run("nested component nullability still matters", func(t *testing.T) {
+		actual := &FuncType{
+			Nullability:    NullabilityRequired,
+			ParameterTypes: []Type{&Int32Type{Nullability: NullabilityRequired}},
+			ReturnType:     &Int32Type{Nullability: NullabilityRequired},
+		}
+
+		assert.False(t, param.MatchWithoutNullability(actual))
+	})
+
+	t.Run("non-function actual does not match", func(t *testing.T) {
+		assert.False(t, param.MatchWithoutNullability(&Int32Type{Nullability: NullabilityRequired}))
+	})
+
+	t.Run("parameter count must match", func(t *testing.T) {
+		actual := &FuncType{
+			Nullability:    NullabilityRequired,
+			ParameterTypes: []Type{},
+			ReturnType:     &Int32Type{Nullability: NullabilityNullable},
+		}
+
+		assert.False(t, param.MatchWithoutNullability(actual))
+	})
+}
+
+func TestParameterizedTypeComponentNullabilityMatching(t *testing.T) {
+	tests := []struct {
+		name   string
+		param  FuncDefArgType
+		actual Type
+		match  bool
+	}{
+		{
+			name:   "non-any requires matching nullability",
+			param:  &Int32Type{Nullability: NullabilityRequired},
+			actual: &Int32Type{Nullability: NullabilityRequired},
+			match:  true,
+		},
+		{
+			name:   "non-any rejects different nullability",
+			param:  &Int32Type{Nullability: NullabilityRequired},
+			actual: &Int32Type{Nullability: NullabilityNullable},
+			match:  false,
+		},
+		{
+			name:   "any1 accepts required component",
+			param:  &AnyType{Name: "any1", Nullability: NullabilityRequired},
+			actual: &Int32Type{Nullability: NullabilityRequired},
+			match:  true,
+		},
+		{
+			name:   "any1 accepts nullable component",
+			param:  &AnyType{Name: "any1", Nullability: NullabilityRequired},
+			actual: &Int32Type{Nullability: NullabilityNullable},
+			match:  true,
+		},
+		{
+			name:   "any1 nullable accepts nullable component",
+			param:  &AnyType{Name: "any1", Nullability: NullabilityNullable},
+			actual: &Int32Type{Nullability: NullabilityNullable},
+			match:  true,
+		},
+		{
+			name:   "any1 nullable rejects required component",
+			param:  &AnyType{Name: "any1", Nullability: NullabilityNullable},
+			actual: &Int32Type{Nullability: NullabilityRequired},
+			match:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			param := &ParameterizedListType{Nullability: NullabilityRequired, Type: tt.param}
+			actual := &ListType{Nullability: NullabilityRequired, Type: tt.actual}
+			assert.Equal(t, tt.match, param.MatchWithNullability(actual))
+		})
+	}
+}
+
 func TestEnumTypeShortString(t *testing.T) {
 	assert.Equal(t, "req", CommonEnumType.ShortString())
 }

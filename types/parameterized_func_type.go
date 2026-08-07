@@ -72,12 +72,16 @@ func (f *ParameterizedFuncType) MatchWithNullability(ot Type) bool {
 	if f.Nullability != ot.GetNullability() {
 		return false
 	}
-	return f.MatchWithoutNullability(ot)
+	return f.matchComponents(ot)
 }
 
 // MatchWithoutNullability checks if this parameterized type matches the given concrete type
-// ignoring nullability
+// ignoring only this function type's outer nullability.
 func (f *ParameterizedFuncType) MatchWithoutNullability(ot Type) bool {
+	return f.matchComponents(ot)
+}
+
+func (f *ParameterizedFuncType) matchComponents(ot Type) bool {
 	oft, ok := ot.(*FuncType)
 	if !ok {
 		return false
@@ -86,11 +90,11 @@ func (f *ParameterizedFuncType) MatchWithoutNullability(ot Type) bool {
 		return false
 	}
 	for i, pt := range f.Parameters {
-		if !pt.MatchWithoutNullability(oft.ParameterTypes[i]) {
+		if !matchTypeComponentWithNullability(pt, oft.ParameterTypes[i]) {
 			return false
 		}
 	}
-	return f.Return.MatchWithoutNullability(oft.ReturnType)
+	return matchTypeComponentWithNullability(f.Return, oft.ReturnType)
 }
 
 // GetNullability returns the nullability of this type
