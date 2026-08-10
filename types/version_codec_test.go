@@ -75,3 +75,30 @@ func TestVersionRoundTrip(t *testing.T) {
 	assert.Nil(t, types.VersionFromProto(nil))
 	assert.Nil(t, types.VersionToProto(nil))
 }
+
+// The spec asks producers for a 40 character lowercase hex git hash, and the conversions carry
+// whatever they are given rather than enforcing that. These cases sit on both sides of the length
+// the spec asks for, so a conversion that starts trimming or lowercasing fails here.
+func TestVersionCarriesAnyGitHash(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		gitHash string
+	}{
+		{"unset", ""},
+		{"not a hash at all", "HEAD"},
+		{"the length the spec asks for", "0123456789abcdef0123456789abcdef01234567"},
+		{"longer than the spec asks for", "0123456789ABCDEF0123456789abcdef0123456789abcdef"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			wire := &proto.Version{MinorNumber: 29, GitHash: tc.gitHash}
+
+			domain := types.VersionFromProto(wire)
+			require.NotNil(t, domain)
+			assert.Equal(t, tc.gitHash, domain.GetGitHash())
+
+			if diff := cmp.Diff(wire, types.VersionToProto(domain), protocmp.Transform()); diff != "" {
+				t.Errorf("version proto didn't match, diff:\n%v", diff)
+			}
+		})
+	}
+}
