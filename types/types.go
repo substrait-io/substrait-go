@@ -16,7 +16,106 @@ import (
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
-type Version = proto.Version
+// Version mirrors the Version message in the Substrait spec. substrait-go declares it rather than
+// aliasing the generated message so that serialization can move out of the core.
+//
+// Its getters are nil receiver safe, matching the generated message they replace. A plan built from
+// a message with no version field holds a nil *Version and hands it out through an interface, so
+// callers have no chance to check it for nil first.
+type Version struct {
+	MajorNumber uint32
+	MinorNumber uint32
+	PatchNumber uint32
+	GitHash     string
+	Producer    string
+}
+
+func (v *Version) GetMajorNumber() uint32 {
+	if v == nil {
+		return 0
+	}
+	return v.MajorNumber
+}
+
+func (v *Version) GetMinorNumber() uint32 {
+	if v == nil {
+		return 0
+	}
+	return v.MinorNumber
+}
+
+func (v *Version) GetPatchNumber() uint32 {
+	if v == nil {
+		return 0
+	}
+	return v.PatchNumber
+}
+
+func (v *Version) GetGitHash() string {
+	if v == nil {
+		return ""
+	}
+	return v.GitHash
+}
+
+func (v *Version) GetProducer() string {
+	if v == nil {
+		return ""
+	}
+	return v.Producer
+}
+
+// String reports the version the way a person writes it, for example
+// "0.29.0+abc123 (substrait-go v8.0.0 linux/amd64)". The git hash and producer are omitted when
+// empty. The generated message printed prototext here, but nothing parses this, so a readable form
+// is worth more than a wire dump.
+func (v *Version) String() string {
+	if v == nil {
+		return "<nil>"
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "%d.%d.%d", v.MajorNumber, v.MinorNumber, v.PatchNumber)
+	if v.GitHash != "" {
+		// the spec uses the hash to pin a commit between releases, which is what semver build
+		// metadata is for
+		b.WriteString("+" + v.GitHash)
+	}
+	if v.Producer != "" {
+		b.WriteString(" (" + v.Producer + ")")
+	}
+	return b.String()
+}
+
+// VersionFromProto decodes a version message. This lives in the core alongside the other FromProto
+// helpers only until serialization moves to the codec module, see substrait-io/substrait-go#280.
+func VersionFromProto(v *proto.Version) *Version {
+	if v == nil {
+		return nil
+	}
+	return &Version{
+		MajorNumber: v.MajorNumber,
+		MinorNumber: v.MinorNumber,
+		PatchNumber: v.PatchNumber,
+		GitHash:     v.GitHash,
+		Producer:    v.Producer,
+	}
+}
+
+// VersionToProto encodes a version as its protobuf message. A nil version stays absent rather than
+// becoming an empty message, so a plan that carries no version round trips unchanged.
+func VersionToProto(v *Version) *proto.Version {
+	if v == nil {
+		return nil
+	}
+	return &proto.Version{
+		MajorNumber: v.MajorNumber,
+		MinorNumber: v.MinorNumber,
+		PatchNumber: v.PatchNumber,
+		GitHash:     v.GitHash,
+		Producer:    v.Producer,
+	}
+}
 
 // Nullability indicates whether values of a Substrait type may be null.
 type Nullability int32
