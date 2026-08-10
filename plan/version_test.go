@@ -32,3 +32,22 @@ func TestPlanWithoutAVersion(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, roundTrip.Version, "an absent version must not come back as an empty message")
 }
+
+// ToProto used to hand out &CurrentVersion itself, since types.Version was the generated message.
+// It now encodes a copy, so a caller editing the returned message no longer rewrites the version
+// every later plan reports.
+func TestPlanToProtoCopiesTheVersion(t *testing.T) {
+	producer := plan.CurrentVersion.Producer
+
+	b := plan.NewBuilderDefault()
+	p, err := b.Plan(b.NamedScan([]string{"test"}, baseSchema), []string{"a", "b"})
+	require.NoError(t, err)
+
+	protoPlan, err := p.ToProto()
+	require.NoError(t, err)
+	require.Equal(t, producer, protoPlan.Version.Producer)
+
+	protoPlan.Version.Producer = "some other producer"
+	assert.Equal(t, producer, plan.CurrentVersion.Producer)
+	assert.Equal(t, producer, p.Version().GetProducer())
+}
