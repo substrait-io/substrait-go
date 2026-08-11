@@ -479,6 +479,10 @@ func (v *TestCaseVisitor) getLiteralFromString(ctx antlr.ParserRuleContext, valu
 			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid float arg %v", err))
 		}
 		return floatLiteral
+	case *types.StringType:
+		return literal.NewString(value, elementType.GetNullability() == types.NullabilityNullable)
+	case *types.BinaryType:
+		return expr.NewByteSliceLiteral([]byte(value), elementType.GetNullability() == types.NullabilityNullable)
 	case *types.DecimalType:
 		decimal, err := literal.NewDecimalFromString(value, false)
 		if err != nil {

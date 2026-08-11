@@ -962,6 +962,37 @@ func TestNewList(t *testing.T) {
 	}
 }
 
+func TestNewEmptyList(t *testing.T) {
+	elementType := &types.Int8Type{Nullability: types.NullabilityRequired}
+	for _, nullable := range []bool{false, true} {
+		got, err := NewEmptyList(elementType, nullable)
+		require.NoError(t, err)
+		assert.Equal(t, expr.NewEmptyListLiteral(elementType, nullable), got)
+	}
+
+	got, err := NewEmptyList(nil, false)
+	require.Error(t, err)
+	assert.Nil(t, got)
+}
+
+func TestNewEmptyMap(t *testing.T) {
+	keyType := &types.Int8Type{Nullability: types.NullabilityRequired}
+	valueType := &types.StringType{Nullability: types.NullabilityRequired}
+	for _, nullable := range []bool{false, true} {
+		got, err := NewEmptyMap(keyType, valueType, nullable)
+		require.NoError(t, err)
+		assert.Equal(t, expr.NewEmptyMapLiteral(keyType, valueType, nullable), got)
+	}
+
+	got, err := NewEmptyMap(nil, valueType, false)
+	require.Error(t, err)
+	assert.Nil(t, got)
+
+	got, err = NewEmptyMap(keyType, nil, false)
+	require.Error(t, err)
+	assert.Nil(t, got)
+}
+
 func TestNewMap(t *testing.T) {
 	i8Key1 := NewInt8(1, false)
 	i8Key2 := NewInt8(2, false)
@@ -984,8 +1015,8 @@ func TestNewMap(t *testing.T) {
 	nullInt8Type := &types.Int8Type{Nullability: types.NullabilityNullable}
 	stringType := &types.StringType{Nullability: types.NullabilityRequired}
 	nullStringType := &types.StringType{Nullability: types.NullabilityNullable}
-	mapType := &types.MapType{Key: int8Type, Value: stringType, Nullability: types.NullabilityRequired}
-	nullableMapType := &types.MapType{Key: int8Type, Value: stringType, Nullability: types.NullabilityNullable}
+	mapI8StrType := &types.MapType{Key: int8Type, Value: stringType, Nullability: types.NullabilityRequired}
+	nullableMapI8StrType := &types.MapType{Key: int8Type, Value: stringType, Nullability: types.NullabilityNullable}
 	nullableEntriesMapType := &types.MapType{Key: nullInt8Type, Value: nullStringType, Nullability: types.NullabilityRequired}
 
 	successTests := []struct {
@@ -994,9 +1025,9 @@ func TestNewMap(t *testing.T) {
 		nullable bool
 		litType  types.Type
 	}{
-		{"single", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}}, false, mapType},
-		{"multiple", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: i8Key2, Value: strVal2}}, false, mapType},
-		{"nullable", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}}, true, nullableMapType},
+		{"single", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}}, false, mapI8StrType},
+		{"multiple", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: i8Key2, Value: strVal2}}, false, mapI8StrType},
+		{"nullable", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}}, true, nullableMapI8StrType},
 		{
 			"nullableEntries",
 			expr.MapLiteralValue{

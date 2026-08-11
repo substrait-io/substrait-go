@@ -379,6 +379,8 @@ func TestParseNullablePrimitiveListLiterals(t *testing.T) {
 	header := makeHeader("v1.0", "/extensions/functions_list.yaml")
 	tests := `# nullable primitive lists
 some_func([true, null]::list<bool?>) = true::bool
+some_func(['a', null]::list<string?>) = true::bool
+some_func(['a', null]::list<binary?>) = true::bool
 some_func(['1991-01-01', null]::list<date?>) = true::bool
 some_func(['13:01:01.234', null]::list<time?>) = true::bool
 some_func(['1991-01-01T01:02:03.456', null]::list<timestamp?>) = true::bool
@@ -389,7 +391,7 @@ some_func(['P10DT5H6M7S', null]::list<interval_day?>) = true::bool
 
 	testFile, err := ParseTestCasesFromString(header + tests)
 	require.NoError(t, err)
-	assert.Len(t, testFile.TestCases, 7)
+	assert.Len(t, testFile.TestCases, 9)
 }
 
 func TestParseTriplyNestedListLiteral(t *testing.T) {
