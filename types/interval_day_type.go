@@ -19,8 +19,9 @@ func (m *IntervalDayType) GetPrecisionProtoVal() int32 {
 
 func (*IntervalDayType) isRootRef() {}
 func (m *IntervalDayType) WithNullability(n Nullability) Type {
-	m.Nullability = n
-	return m
+	out := *m
+	out.Nullability = n
+	return &out
 }
 
 func (m *IntervalDayType) GetType() Type                     { return m }

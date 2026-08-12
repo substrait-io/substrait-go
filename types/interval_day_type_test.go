@@ -42,6 +42,22 @@ func TestIntervalDayType(t *testing.T) {
 	}
 }
 
+func TestIntervalDayTypeWithNullabilityReturnsCopy(t *testing.T) {
+	original := &IntervalDayType{
+		Precision:        PrecisionMilliSeconds,
+		TypeVariationRef: 42,
+		Nullability:      NullabilityNullable,
+	}
+
+	updated := original.WithNullability(NullabilityRequired).(*IntervalDayType)
+
+	assert.NotSame(t, original, updated)
+	assert.Equal(t, NullabilityNullable, original.Nullability)
+	assert.Equal(t, NullabilityRequired, updated.Nullability)
+	assert.Equal(t, original.Precision, updated.Precision)
+	assert.Equal(t, original.TypeVariationRef, updated.TypeVariationRef)
+}
+
 func assertIntervalDayTypeProto(t *testing.T, expectedPrecision TimePrecision, expectedNullability Nullability,
 	toVerifyType *IntervalDayType) {
 
