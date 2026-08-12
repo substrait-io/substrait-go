@@ -417,6 +417,9 @@ func hasTypeMismatch(literals []expr.Literal) (int, bool) {
 	return 0, false
 }
 
+// NewList creates a list literal from a non-empty list of elements.
+// All elements must have exactly the same type.
+// For an empty list, use NewEmptyList.
 func NewList(elements []expr.Literal, nullable bool) (expr.Literal, error) {
 	if len(elements) == 0 {
 		return nil, fmt.Errorf("empty list literal; use NewEmptyList for an empty list")
