@@ -256,22 +256,23 @@ func (v *TestCaseVisitor) VisitDataColumn(ctx *baseparser.DataColumnContext) int
 	v.setLiteralTypeInContext(columnType)
 	defer v.clearLiteralTypeInContext()
 	columnValues := v.Visit(ctx.ColumnValues()).([]expr.Literal)
-	var err error
-	var column expr.Literal
-	if len(columnValues) == 0 {
-		column = expr.NewEmptyListLiteral(columnType, false)
-	} else {
-		v.setLiteralTypeInContext(columnType)
-		defer v.clearLiteralTypeInContext()
-		column, err = literal.NewList(columnValues, false)
-		if err != nil {
-			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid column values %v", err))
-		}
-	}
 	for _, value := range columnValues {
 		if _, ok := value.(*expr.NullLiteral); ok {
 			columnType = columnType.WithNullability(types.NullabilityNullable)
 			break
+		}
+	}
+	var column expr.Literal
+	if len(columnValues) == 0 {
+		column = expr.NewEmptyListLiteral(columnType, false)
+	} else {
+		// A declared column may contain both required values and typed nulls.
+		column = &expr.ListLiteral{
+			Value: columnValues,
+			Type: &types.ListType{
+				Type:        columnType,
+				Nullability: types.NullabilityRequired,
+			},
 		}
 	}
 	return &CaseLiteral{
@@ -478,6 +479,10 @@ func (v *TestCaseVisitor) getLiteralFromString(ctx antlr.ParserRuleContext, valu
 			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid float arg %v", err))
 		}
 		return floatLiteral
+	case *types.StringType:
+		return literal.NewString(value, elementType.GetNullability() == types.NullabilityNullable)
+	case *types.BinaryType:
+		return expr.NewByteSliceLiteral([]byte(value), elementType.GetNullability() == types.NullabilityNullable)
 	case *types.DecimalType:
 		decimal, err := literal.NewDecimalFromString(value, false)
 		if err != nil {
@@ -487,6 +492,42 @@ func (v *TestCaseVisitor) getLiteralFromString(ctx antlr.ParserRuleContext, valu
 		typed, err := decimal.(expr.WithTypeLiteral).WithType(elementType)
 		if err != nil {
 			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid decimal arg %v", err))
+			return nil
+		}
+		return typed
+	case *types.FixedCharType:
+		fixedChar, err := literal.NewFixedChar(value, elementType.GetNullability() == types.NullabilityNullable)
+		if err != nil {
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid fixedchar arg %v", err))
+			return nil
+		}
+		typed, err := fixedChar.(expr.WithTypeLiteral).WithType(elementType)
+		if err != nil {
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid fixedchar arg %v", err))
+			return nil
+		}
+		return typed
+	case *types.FixedBinaryType:
+		fixedBinary, err := literal.NewFixedBinary([]byte(value), elementType.GetNullability() == types.NullabilityNullable)
+		if err != nil {
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid fixedbinary arg %v", err))
+			return nil
+		}
+		typed, err := fixedBinary.(expr.WithTypeLiteral).WithType(elementType)
+		if err != nil {
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid fixedbinary arg %v", err))
+			return nil
+		}
+		return typed
+	case *types.VarCharType:
+		varChar, err := literal.NewVarChar(value, elementType.GetNullability() == types.NullabilityNullable)
+		if err != nil {
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid varchar arg %v", err))
+			return nil
+		}
+		typed, err := varChar.(expr.WithTypeLiteral).WithType(elementType)
+		if err != nil {
+			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid varchar arg %v", err))
 			return nil
 		}
 		return typed
@@ -756,13 +797,17 @@ func (v *TestCaseVisitor) VisitListElement(ctx *baseparser.ListElementContext) i
 }
 
 func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface{} {
+	nullable := false
+	if literalType := v.getLiteralTypeInContext(); literalType != nil {
+		nullable = literalType.GetNullability() == types.NullabilityNullable
+	}
 	if ctx.BooleanLiteral() != nil {
 		flag := strings.ToLower(ctx.BooleanLiteral().GetText()) == "true"
-		return literal.NewBool(flag, false)
+		return literal.NewBool(flag, nullable)
 	}
 	if ctx.DateLiteral() != nil {
 		dateStr := getRawStringFromStringLiteral(ctx.DateLiteral().GetText())
-		value, err := literal.NewDateFromString(dateStr, false)
+		value, err := literal.NewDateFromString(dateStr, nullable)
 		if err != nil {
 			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid date arg %v", err))
 		}
@@ -770,7 +815,7 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 	}
 	if ctx.TimeLiteral() != nil {
 		timeStr := getRawStringFromStringLiteral(ctx.TimeLiteral().GetText())
-		value, err := literal.NewTimeFromString(timeStr, false)
+		value, err := literal.NewTimeFromString(timeStr, nullable)
 		if err != nil {
 			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid time arg %v", err))
 		}
@@ -778,7 +823,7 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 	}
 	if ctx.TimestampLiteral() != nil {
 		timestampStr := getRawStringFromStringLiteral(ctx.TimestampLiteral().GetText())
-		value, err := literal.NewTimestampFromString(timestampStr, false)
+		value, err := literal.NewTimestampFromString(timestampStr, nullable)
 		if err != nil {
 			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid timestampTZ arg %v", err))
 		}
@@ -786,7 +831,7 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 	}
 	if ctx.TimestampTzLiteral() != nil {
 		timestampStr := getRawStringFromStringLiteral(ctx.TimestampTzLiteral().GetText())
-		value, err := literal.NewTimestampTZFromString(timestampStr, false)
+		value, err := literal.NewTimestampTZFromString(timestampStr, nullable)
 		if err != nil {
 			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid timestampTZ arg %v", err))
 		}
@@ -794,7 +839,7 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 	}
 	if ctx.IntervalYearLiteral() != nil {
 		iyearStr := getRawStringFromStringLiteral(ctx.IntervalYearLiteral().GetText())
-		value, err := literal.NewIntervalYearsToMonthFromString(iyearStr, false)
+		value, err := literal.NewIntervalYearsToMonthFromString(iyearStr, nullable)
 		if err != nil {
 			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid interval year arg %v", err))
 		}
@@ -802,9 +847,16 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 	}
 	if ctx.IntervalDayLiteral() != nil {
 		idayStr := getRawStringFromStringLiteral(ctx.IntervalDayLiteral().GetText())
-		value, err := literal.NewIntervalDaysToSecondFromString(idayStr, false)
+		value, err := literal.NewIntervalDaysToSecondFromString(idayStr, nullable)
 		if err != nil {
 			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid interval day arg %v", err))
+			return value
+		}
+		if intervalType, ok := v.getLiteralTypeInContext().(*types.IntervalDayType); ok {
+			value, err = value.(expr.WithTypeLiteral).WithType(intervalType)
+			if err != nil {
+				v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid interval day arg %v", err))
+			}
 		}
 		return value
 	}
@@ -820,8 +872,12 @@ func (v *TestCaseVisitor) VisitLiteral(ctx *baseparser.LiteralContext) interface
 
 	if ctx.StringLiteral() != nil {
 		valueStr := getRawStringFromStringLiteral(ctx.GetText())
-		value := literal.NewString(valueStr, false)
-		return value
+		if literalType := v.getLiteralTypeInContext(); literalType != nil {
+			if value := v.getLiteralFromString(ctx, valueStr, literalType); value != nil {
+				return value
+			}
+		}
+		return literal.NewString(valueStr, false)
 	}
 
 	if ctx.NullLiteral() != nil {
