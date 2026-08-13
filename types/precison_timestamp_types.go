@@ -97,8 +97,9 @@ func (m *PrecisionTimestampType) GetParameters() []interface{} {
 
 func (m *PrecisionTimestampType) withNullability(n Nullability) *PrecisionTimestampType {
 	return &PrecisionTimestampType{
-		Precision:   m.Precision,
-		Nullability: n,
+		Precision:        m.Precision,
+		TypeVariationRef: m.TypeVariationRef,
+		Nullability:      n,
 	}
 }
 
@@ -252,8 +253,9 @@ func (m *PrecisionTimeType) GetParameters() []interface{} {
 
 func (m *PrecisionTimeType) withNullability(n Nullability) *PrecisionTimeType {
 	return &PrecisionTimeType{
-		Precision:   m.Precision,
-		Nullability: n,
+		Precision:        m.Precision,
+		TypeVariationRef: m.TypeVariationRef,
+		Nullability:      n,
 	}
 }
 
