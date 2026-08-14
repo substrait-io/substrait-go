@@ -20,6 +20,12 @@ jobs:
         uses: golangci/golangci-lint-action@v8
         with:
           version: v2.1.6
+      # golangci-lint analyzes one module per run
+      - name: golangci-lint (codec)
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.1.6
+          working-directory: codec
   build:
     name: Build and Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -44,12 +50,24 @@ jobs:
       - name: Run Tests with Coverage
         if: runner.os == 'Linux'
         run: go test -v -coverprofile=coverage.out $(go list ./... | grep -v /proto)
+      # neither go build ./... nor go test ./... descends into a nested module
+      - name: Build codec
+        run: go build ./...
+        working-directory: codec
+      - name: Run codec Tests
+        if: runner.os != 'Linux'
+        run: go test -v ./...
+        working-directory: codec
+      - name: Run codec Tests with Coverage
+        if: runner.os == 'Linux'
+        run: go test -v -coverprofile=codec-coverage.out ./...
+        working-directory: codec
       - name: Upload coverage to Codecov
         if: runner.os == 'Linux' && github.repository == 'substrait-io/substrait-go'
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           disable_search: true
-          file: ./coverage.out
+          files: ./coverage.out,./codec/codec-coverage.out
           fail_ci_if_error: true
           codecov_yml_path: .codecov.yml
