@@ -541,29 +541,22 @@ func (b *builder) NamedDelete(input Rel, tableName []string, schema types.NamedS
 	return b.NamedWrite(input, WriteOpDelete, tableName, schema)
 }
 
-func (b *builder) NamedScanRemap(tableName []string, schema types.NamedStruct, remap []int32) (*NamedTableReadRel, error) {
-	noutput := int32(len(schema.Struct.Types))
-	for _, idx := range remap {
-		if idx < 0 || idx >= noutput {
-			return nil, fmt.Errorf("%w: output mapping index out of range",
-				substraitgo.ErrInvalidRel)
-		}
-	}
-
+func (b *builder) NamedScan(tableName []string, schema types.NamedStruct) *NamedTableReadRel {
 	return &NamedTableReadRel{
 		baseReadRel: baseReadRel{
-			RelCommon: RelCommon{
-				mapping: remap,
-			},
+			RelCommon:  RelCommon{mapping: nil},
 			baseSchema: schema,
 		},
 		names: tableName,
-	}, nil
+	}
 }
 
-func (b *builder) NamedScan(tableName []string, schema types.NamedStruct) *NamedTableReadRel {
-	n, _ := b.NamedScanRemap(tableName, schema, nil)
-	return n
+func (b *builder) NamedScanRemap(tableName []string, schema types.NamedStruct, remap []int32) (*NamedTableReadRel, error) {
+	rel, err := b.NamedScan(tableName, schema).Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*NamedTableReadRel), nil
 }
 
 func (b *builder) VirtualTableRemap(fieldNames []string, remap []int32, values ...expr.StructLiteralValue) (*VirtualTableReadRel, error) {
