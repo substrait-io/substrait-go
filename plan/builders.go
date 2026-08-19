@@ -722,7 +722,7 @@ func (b *builder) SortFields(input Rel, indices ...int32) ([]expr.SortField, err
 	return out, nil
 }
 
-func (b *builder) SetRemap(op SetOp, remap []int32, inputs ...Rel) (*SetRel, error) {
+func (b *builder) Set(op SetOp, inputs ...Rel) (*SetRel, error) {
 	if op == SetOpUnspecified {
 		return nil, fmt.Errorf("%w: operation for set relation must not be unspecified", substraitgo.ErrInvalidArg)
 	}
@@ -740,13 +740,6 @@ func (b *builder) SetRemap(op SetOp, remap []int32, inputs ...Rel) (*SetRel, err
 
 	output := inputs[0].RecordType()
 
-	noutput := output.FieldCount()
-	for _, idx := range remap {
-		if idx < 0 || idx >= noutput {
-			return nil, errOutputMappingOutOfRange
-		}
-	}
-
 	for _, in := range inputs[1:] {
 		t := in.RecordType()
 		if !output.Equals(&t) {
@@ -756,14 +749,22 @@ func (b *builder) SetRemap(op SetOp, remap []int32, inputs ...Rel) (*SetRel, err
 	}
 
 	return &SetRel{
-		RelCommon: RelCommon{mapping: remap},
+		RelCommon: RelCommon{mapping: nil},
 		op:        op,
 		inputs:    inputs,
 	}, nil
 }
 
-func (b *builder) Set(op SetOp, inputs ...Rel) (*SetRel, error) {
-	return b.SetRemap(op, nil, inputs...)
+func (b *builder) SetRemap(op SetOp, remap []int32, inputs ...Rel) (*SetRel, error) {
+	set, err := b.Set(op, inputs...)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := set.Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*SetRel), nil
 }
 
 func (b *builder) PlanWithTypes(root Rel, rootNames []string, expectedTypeURLs []string, others ...Rel) (*Plan, error) {
