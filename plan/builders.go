@@ -506,20 +506,13 @@ func (b *builder) Join(left, right Rel, condition expr.Expression, joinType Join
 	return b.JoinAndFilter(left, right, condition, nil, joinType)
 }
 
-func (b *builder) NamedWriteRemap(input Rel, op WriteOp, tableName []string, schema types.NamedStruct, remap []int32) (*NamedTableWriteRel, error) {
+func (b *builder) NamedWrite(input Rel, op WriteOp, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {
 	if input == nil {
 		return nil, errNilInputRel
 	}
 
-	nOutput := input.RecordType().FieldCount()
-	for _, idx := range remap {
-		if idx < 0 || idx >= nOutput {
-			return nil, errOutputMappingOutOfRange
-		}
-	}
-
 	return &NamedTableWriteRel{
-		RelCommon:   RelCommon{mapping: remap},
+		RelCommon:   RelCommon{mapping: nil},
 		names:       tableName,
 		tableSchema: schema,
 		op:          op,
@@ -528,8 +521,16 @@ func (b *builder) NamedWriteRemap(input Rel, op WriteOp, tableName []string, sch
 	}, nil
 }
 
-func (b *builder) NamedWrite(input Rel, op WriteOp, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {
-	return b.NamedWriteRemap(input, op, tableName, schema, nil)
+func (b *builder) NamedWriteRemap(input Rel, op WriteOp, tableName []string, schema types.NamedStruct, remap []int32) (*NamedTableWriteRel, error) {
+	nw, err := b.NamedWrite(input, op, tableName, schema)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := nw.Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*NamedTableWriteRel), nil
 }
 
 func (b *builder) NamedInsert(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {
