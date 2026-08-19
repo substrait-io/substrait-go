@@ -682,16 +682,9 @@ func (b *builder) IcebergTableFromMetadataFile(metadataURI string, snapshot Iceb
 	}, nil
 }
 
-func (b *builder) SortRemap(input Rel, remap []int32, sorts ...expr.SortField) (*SortRel, error) {
+func (b *builder) Sort(input Rel, sorts ...expr.SortField) (*SortRel, error) {
 	if input == nil {
 		return nil, errNilInputRel
-	}
-
-	noutput := input.RecordType().FieldCount()
-	for _, idx := range remap {
-		if idx < 0 || idx >= noutput {
-			return nil, errOutputMappingOutOfRange
-		}
 	}
 
 	if len(sorts) == 0 {
@@ -699,14 +692,22 @@ func (b *builder) SortRemap(input Rel, remap []int32, sorts ...expr.SortField) (
 	}
 
 	return &SortRel{
-		RelCommon: RelCommon{mapping: remap},
+		RelCommon: RelCommon{mapping: nil},
 		input:     input,
 		sorts:     sorts,
 	}, nil
 }
 
-func (b *builder) Sort(input Rel, sorts ...expr.SortField) (*SortRel, error) {
-	return b.SortRemap(input, nil, sorts...)
+func (b *builder) SortRemap(input Rel, remap []int32, sorts ...expr.SortField) (*SortRel, error) {
+	sort, err := b.Sort(input, sorts...)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := sort.Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*SortRel), nil
 }
 
 func (b *builder) SortFields(input Rel, indices ...int32) ([]expr.SortField, error) {
