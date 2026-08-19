@@ -140,16 +140,16 @@ func TestCreateTableAsSelect(t *testing.T) {
 	tableNames := []string{"main", "employee_salaries"}
 	input := b.NamedScan(tableNames, employeeSchema)
 
-	ctasRel, err := b.CreateTableAsSelect(input, tableNames, employeeSchema)
+	ctas, err := b.CreateTableAsSelect(input, tableNames, employeeSchema)
 	require.NoError(t, err)
-	assert.Equal(t, plan.OutputModeModifiedRecords, ctasRel.OutputMode())
-	assert.Equal(t, ctasRel.TableSchema(), employeeSchema)
-	assert.Equal(t, tableNames, ctasRel.Names())
-	assert.Equal(t, "struct<i32, string?, i32?, decimal?<10,2>, string?>", ctasRel.RecordType().String())
+	assert.Equal(t, plan.OutputModeModifiedRecords, ctas.OutputMode())
+	assert.Equal(t, ctas.TableSchema(), employeeSchema)
+	assert.Equal(t, tableNames, ctas.Names())
+	assert.Equal(t, "struct<i32, string?, i32?, decimal?<10,2>, string?>", ctas.RecordType().String())
 
-	ctasRel, err = b.CreateTableAsSelectRemap(input, []int32{0, 2}, tableNames, employeeSchema)
+	ctasRemap, err := ctas.Remap(0, 2)
 	require.NoError(t, err)
-	assert.Equal(t, "struct<i32, i32?>", ctasRel.RecordType().String())
+	assert.Equal(t, "struct<i32, i32?>", ctasRemap.RecordType().String())
 }
 
 // TestCreateTableAsSelectRoundTrip verifies that generated plans match the expected JSON.
