@@ -559,7 +559,7 @@ func (b *builder) NamedScanRemap(tableName []string, schema types.NamedStruct, r
 	return rel.(*NamedTableReadRel), nil
 }
 
-func (b *builder) VirtualTableRemap(fieldNames []string, remap []int32, values ...expr.StructLiteralValue) (*VirtualTableReadRel, error) {
+func (b *builder) VirtualTable(fieldNames []string, values ...expr.StructLiteralValue) (*VirtualTableReadRel, error) {
 	// convert Literal to Expression
 	exprs := make([]expr.VirtualTableExpressionValue, 0)
 	for _, row := range values {
@@ -569,14 +569,22 @@ func (b *builder) VirtualTableRemap(fieldNames []string, remap []int32, values .
 		}
 		exprs = append(exprs, rowExpr)
 	}
-	return b.VirtualTableFromExprRemap(fieldNames, remap, exprs...)
-}
-
-func (b *builder) VirtualTableFromExpr(fieldNames []string, values ...expr.VirtualTableExpressionValue) (*VirtualTableReadRel, error) {
-	return b.VirtualTableFromExprRemap(fieldNames, nil, values...)
+	return b.VirtualTableFromExpr(fieldNames, exprs...)
 }
 
 func (b *builder) VirtualTableFromExprRemap(fieldNames []string, remap []int32, values ...expr.VirtualTableExpressionValue) (*VirtualTableReadRel, error) {
+	vt, err := b.VirtualTableFromExpr(fieldNames, values...)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := vt.Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*VirtualTableReadRel), err
+}
+
+func (b *builder) VirtualTableFromExpr(fieldNames []string, values ...expr.VirtualTableExpressionValue) (*VirtualTableReadRel, error) {
 	if len(values) == 0 {
 		return nil, fmt.Errorf("%w: must provide at least one set of values. Consider EmptyVirtualTable to construct rowless Virtual Table", substraitgo.ErrInvalidArg)
 	}
@@ -585,13 +593,6 @@ func (b *builder) VirtualTableFromExprRemap(fieldNames []string, remap []int32, 
 	if len(values[0]) != nfields {
 		return nil, fmt.Errorf("%w: mismatched number of fields (%d) and literal values (%d) in virtual table",
 			substraitgo.ErrInvalidRel, nfields, len(values[0]))
-	}
-
-	for _, idx := range remap {
-		if idx < 0 || idx >= int32(nfields) {
-			return nil, fmt.Errorf("%w: output mapping index out of range",
-				substraitgo.ErrInvalidRel)
-		}
 	}
 
 	typeList := make([]types.Type, nfields)
@@ -618,15 +619,23 @@ func (b *builder) VirtualTableFromExprRemap(fieldNames []string, remap []int32, 
 
 	return &VirtualTableReadRel{
 		baseReadRel: baseReadRel{
-			RelCommon:  RelCommon{mapping: remap},
+			RelCommon:  RelCommon{mapping: nil},
 			baseSchema: baseSchema,
 		},
 		values: values,
 	}, nil
 }
 
-func (b *builder) VirtualTable(fields []string, values ...expr.StructLiteralValue) (*VirtualTableReadRel, error) {
-	return b.VirtualTableRemap(fields, nil, values...)
+func (b *builder) VirtualTableRemap(fields []string, remap []int32, values ...expr.StructLiteralValue) (*VirtualTableReadRel, error) {
+	vt, err := b.VirtualTable(fields, values...)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := vt.Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*VirtualTableReadRel), err
 }
 
 func (b *builder) EmptyVirtualTable(fieldNames []string, typeList []types.Type) (*VirtualTableReadRel, error) {
