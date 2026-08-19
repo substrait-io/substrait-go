@@ -362,26 +362,27 @@ func (b *builder) CreateTableAsSelectRemap(input Rel, remap []int32, tableName [
 	return rel.(*NamedTableWriteRel), nil
 }
 
-func (b *builder) CrossRemap(left, right Rel, remap []int32) (*CrossRel, error) {
+func (b *builder) Cross(left, right Rel) (*CrossRel, error) {
 	if left == nil || right == nil {
 		return nil, errNilInputRel
 	}
 
-	noutput := left.RecordType().FieldCount() + right.RecordType().FieldCount()
-	for _, idx := range remap {
-		if idx < 0 || idx >= noutput {
-			return nil, errOutputMappingOutOfRange
-		}
-	}
-
 	return &CrossRel{
-		RelCommon: RelCommon{mapping: remap},
+		RelCommon: RelCommon{mapping: nil},
 		left:      left, right: right,
 	}, nil
 }
 
-func (b *builder) Cross(left, right Rel) (*CrossRel, error) {
-	return b.CrossRemap(left, right, nil)
+func (b *builder) CrossRemap(left, right Rel, remap []int32) (*CrossRel, error) {
+	cross, err := b.Cross(left, right)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := cross.Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*CrossRel), nil
 }
 
 func (b *builder) FetchRemap(input Rel, offset, count int64, remap []int32) (*FetchRel, error) {
