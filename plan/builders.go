@@ -335,20 +335,13 @@ func (b *builder) AggregateExprs(input Rel, measures []AggRelMeasure, groups ...
 	return arb.Build()
 }
 
-func (b *builder) CreateTableAsSelectRemap(input Rel, remap []int32, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {
+func (b *builder) CreateTableAsSelect(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {
 	if input == nil {
 		return nil, errNilInputRel
 	}
 
-	nOutput := input.RecordType().FieldCount()
-	for _, idx := range remap {
-		if idx < 0 || idx >= nOutput {
-			return nil, errOutputMappingOutOfRange
-		}
-	}
-
 	return &NamedTableWriteRel{
-		RelCommon:   RelCommon{mapping: remap},
+		RelCommon:   RelCommon{mapping: nil},
 		names:       tableName,
 		tableSchema: schema,
 		op:          WriteOpCTAS,
@@ -357,8 +350,16 @@ func (b *builder) CreateTableAsSelectRemap(input Rel, remap []int32, tableName [
 	}, nil
 }
 
-func (b *builder) CreateTableAsSelect(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {
-	return b.CreateTableAsSelectRemap(input, nil, tableName, schema)
+func (b *builder) CreateTableAsSelectRemap(input Rel, remap []int32, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {
+	ctas, err := b.CreateTableAsSelect(input, tableName, schema)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := ctas.Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*NamedTableWriteRel), nil
 }
 
 func (b *builder) CrossRemap(left, right Rel, remap []int32) (*CrossRel, error) {
