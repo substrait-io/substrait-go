@@ -18,8 +18,7 @@ import (
 
 type Version = proto.Version
 
-// Nullability mirrors the Type.Nullability enum in the Substrait spec. substrait-go declares it
-// rather than aliasing the generated enum so that serialization can move out of the core.
+// Nullability indicates whether values of a Substrait type may be null.
 type Nullability int32
 
 const (
@@ -28,7 +27,7 @@ const (
 	NullabilityRequired    Nullability = 2
 )
 
-// String reports the spec name. Unknown values print as the number.
+// String returns the protobuf enum name for the nullability value.
 func (n Nullability) String() string {
 	switch n {
 	case NullabilityUnspecified:

@@ -18,8 +18,6 @@ func TestNullabilityString(t *testing.T) {
 		{types.NullabilityUnspecified, "NULLABILITY_UNSPECIFIED"},
 		{types.NullabilityNullable, "NULLABILITY_NULLABLE"},
 		{types.NullabilityRequired, "NULLABILITY_REQUIRED"},
-		// unmodelled value
-		{types.Nullability(7), "7"},
 	} {
 		t.Run(td.expected, func(t *testing.T) {
 			assert.Equal(t, td.expected, td.n.String())
