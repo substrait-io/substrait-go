@@ -385,27 +385,28 @@ func (b *builder) CrossRemap(left, right Rel, remap []int32) (*CrossRel, error) 
 	return rel.(*CrossRel), nil
 }
 
-func (b *builder) FetchRemap(input Rel, offset, count int64, remap []int32) (*FetchRel, error) {
+func (b *builder) Fetch(input Rel, offset, count int64) (*FetchRel, error) {
 	if input == nil {
 		return nil, errNilInputRel
 	}
 
-	noutput := input.RecordType().FieldCount()
-	for _, idx := range remap {
-		if idx < 0 || idx >= noutput {
-			return nil, errOutputMappingOutOfRange
-		}
-	}
-
 	return &FetchRel{
-		RelCommon: RelCommon{mapping: remap},
+		RelCommon: RelCommon{mapping: nil},
 		input:     input,
 		offset:    offset, count: count,
 	}, nil
 }
 
-func (b *builder) Fetch(input Rel, offset, count int64) (*FetchRel, error) {
-	return b.FetchRemap(input, offset, count, nil)
+func (b *builder) FetchRemap(input Rel, offset, count int64, remap []int32) (*FetchRel, error) {
+	fetch, err := b.Fetch(input, offset, count)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := fetch.Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*FetchRel), nil
 }
 
 func (b *builder) FilterRemap(input Rel, condition expr.Expression, remap []int32) (*FilterRel, error) {
