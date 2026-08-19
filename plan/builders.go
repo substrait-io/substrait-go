@@ -409,7 +409,7 @@ func (b *builder) FetchRemap(input Rel, offset, count int64, remap []int32) (*Fe
 	return rel.(*FetchRel), nil
 }
 
-func (b *builder) FilterRemap(input Rel, condition expr.Expression, remap []int32) (*FilterRel, error) {
+func (b *builder) Filter(input Rel, condition expr.Expression) (*FilterRel, error) {
 	if input == nil {
 		return nil, errNilInputRel
 	}
@@ -424,24 +424,23 @@ func (b *builder) FilterRemap(input Rel, condition expr.Expression, remap []int3
 			substraitgo.ErrInvalidArg, condition.GetType())
 	}
 
-	noutput := input.directOutputSchema().FieldCount()
-	for _, idx := range remap {
-		if idx < 0 || idx >= noutput {
-			return nil, errOutputMappingOutOfRange
-		}
-	}
-
 	return &FilterRel{
-		RelCommon: RelCommon{
-			mapping: remap,
-		},
-		input: input,
-		cond:  condition,
+		RelCommon: RelCommon{mapping: nil},
+		input:     input,
+		cond:      condition,
 	}, nil
 }
 
-func (b *builder) Filter(input Rel, condition expr.Expression) (*FilterRel, error) {
-	return b.FilterRemap(input, condition, nil)
+func (b *builder) FilterRemap(input Rel, condition expr.Expression, remap []int32) (*FilterRel, error) {
+	filter, err := b.Filter(input, condition)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := filter.Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*FilterRel), nil
 }
 
 func (b *builder) JoinAndFilterRemap(left, right Rel, condition, postJoinFilter expr.Expression, joinType JoinType, remap []int32) (*JoinRel, error) {
