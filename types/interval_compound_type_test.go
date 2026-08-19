@@ -42,7 +42,7 @@ func assertIntervalCompoundTypeProto(t *testing.T, expectedPrecision TimePrecisi
 	expectedTypeProto := &proto.Type{Kind: &proto.Type_IntervalCompound_{
 		IntervalCompound: &proto.Type_IntervalCompound{
 			Precision:   expectedPrecision.ToProtoVal(),
-			Nullability: expectedNullability,
+			Nullability: proto.Type_Nullability(expectedNullability),
 		},
 	}}
 	if diff := cmp.Diff(toVerifyType.ToProto(), expectedTypeProto, protocmp.Transform()); diff != "" {

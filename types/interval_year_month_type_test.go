@@ -35,7 +35,7 @@ func assertIntervalYearToMonthTypeProto(t *testing.T, expectedNullability Nullab
 
 	expectedTypeProto := &proto.Type{Kind: &proto.Type_IntervalYear_{
 		IntervalYear: &proto.Type_IntervalYear{
-			Nullability: expectedNullability,
+			Nullability: proto.Type_Nullability(expectedNullability),
 		},
 	}}
 	if diff := cmp.Diff(toVerifyType.ToProto(), expectedTypeProto, protocmp.Transform()); diff != "" {

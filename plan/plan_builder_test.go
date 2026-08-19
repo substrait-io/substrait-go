@@ -554,7 +554,7 @@ func TestFetchRel(t *testing.T) {
 		Struct: types.StructType{
 			Nullability: types.NullabilityRequired,
 			Types: []types.Type{
-				&types.StringType{Nullability: substraitproto.Type_NULLABILITY_REQUIRED}},
+				&types.StringType{Nullability: types.NullabilityRequired}},
 		},
 	})
 
@@ -584,7 +584,7 @@ func TestFetchRelErrors(t *testing.T) {
 		Struct: types.StructType{
 			Nullability: types.NullabilityRequired,
 			Types: []types.Type{
-				&types.StringType{Nullability: substraitproto.Type_NULLABILITY_REQUIRED}},
+				&types.StringType{Nullability: types.NullabilityRequired}},
 		},
 	})
 
@@ -682,8 +682,8 @@ func TestFilterRelationErrors(t *testing.T) {
 		Struct: types.StructType{
 			Nullability: types.NullabilityRequired,
 			Types: []types.Type{
-				&types.StringType{Nullability: substraitproto.Type_NULLABILITY_NULLABLE},
-				&types.BooleanType{Nullability: substraitproto.Type_NULLABILITY_NULLABLE}},
+				&types.StringType{Nullability: types.NullabilityNullable},
+				&types.BooleanType{Nullability: types.NullabilityNullable}},
 		},
 	})
 

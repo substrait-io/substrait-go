@@ -50,7 +50,7 @@ func (m IntervalYearToMonthType) ToProtoFuncArg() *proto.FunctionArgument {
 func (m IntervalYearToMonthType) ToProto() *proto.Type {
 	return &proto.Type{Kind: &proto.Type_IntervalYear_{
 		IntervalYear: &proto.Type_IntervalYear{
-			Nullability:            m.nullability,
+			Nullability:            proto.Type_Nullability(m.nullability),
 			TypeVariationReference: m.typeVariationRef}}}
 }
 
