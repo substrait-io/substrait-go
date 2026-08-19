@@ -272,10 +272,6 @@ func (b *builder) AggregateFn(nameSpace, key string, opts []*types.FunctionOptio
 }
 
 func (b *builder) Project(input Rel, exprs ...expr.Expression) (*ProjectRel, error) {
-	return b.ProjectRemap(input, nil, exprs...)
-}
-
-func (b *builder) ProjectRemap(input Rel, remap []int32, exprs ...expr.Expression) (*ProjectRel, error) {
 	if input == nil {
 		return nil, errNilInputRel
 	}
@@ -283,19 +279,23 @@ func (b *builder) ProjectRemap(input Rel, remap []int32, exprs ...expr.Expressio
 	if len(exprs) == 0 {
 		return nil, fmt.Errorf("%w: must provide at least one expression for project relation", substraitgo.ErrInvalidRel)
 	}
-
-	noutput := input.RecordType().FieldCount() + int32(len(exprs))
-	for _, idx := range remap {
-		if idx < 0 || idx >= noutput {
-			return nil, errOutputMappingOutOfRange
-		}
-	}
-
 	return &ProjectRel{
-		RelCommon: RelCommon{mapping: remap},
+		RelCommon: RelCommon{mapping: nil},
 		input:     input,
 		exprs:     exprs,
 	}, nil
+}
+
+func (b *builder) ProjectRemap(input Rel, remap []int32, exprs ...expr.Expression) (*ProjectRel, error) {
+	project, err := b.Project(input, exprs...)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := project.Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*ProjectRel), err
 }
 
 func (b *builder) Measure(measure *expr.AggregateFunction, filter expr.Expression) AggRelMeasure {
