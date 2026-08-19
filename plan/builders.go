@@ -443,7 +443,7 @@ func (b *builder) FilterRemap(input Rel, condition expr.Expression, remap []int3
 	return rel.(*FilterRel), nil
 }
 
-func (b *builder) JoinAndFilterRemap(left, right Rel, condition, postJoinFilter expr.Expression, joinType JoinType, remap []int32) (*JoinRel, error) {
+func (b *builder) JoinAndFilter(left, right Rel, condition, postJoinFilter expr.Expression, joinType JoinType) (*JoinRel, error) {
 	if left == nil || right == nil {
 		return nil, errNilInputRel
 	}
@@ -470,33 +470,40 @@ func (b *builder) JoinAndFilterRemap(left, right Rel, condition, postJoinFilter 
 		}
 	}
 
-	out := &JoinRel{
-		RelCommon: RelCommon{mapping: remap},
+	return &JoinRel{
+		RelCommon: RelCommon{mapping: nil},
 		left:      left, right: right,
 		expr: condition, postJoinFilter: postJoinFilter,
 		joinType: joinType,
-	}
-
-	noutput := out.directOutputSchema().FieldCount()
-	for _, idx := range remap {
-		if idx < 0 || idx >= noutput {
-			return nil, errOutputMappingOutOfRange
-		}
-	}
-
-	return out, nil
+	}, nil
 }
 
-func (b *builder) JoinAndFilter(left, right Rel, condition, postJoinFilter expr.Expression, joinType JoinType) (*JoinRel, error) {
-	return b.JoinAndFilterRemap(left, right, condition, postJoinFilter, joinType, nil)
+func (b *builder) JoinAndFilterRemap(left, right Rel, condition, postJoinFilter expr.Expression, joinType JoinType, remap []int32) (*JoinRel, error) {
+	join, err := b.JoinAndFilter(left, right, condition, postJoinFilter, joinType)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := join.Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*JoinRel), nil
 }
 
 func (b *builder) JoinRemap(left, right Rel, condition expr.Expression, joinType JoinType, remap []int32) (*JoinRel, error) {
-	return b.JoinAndFilterRemap(left, right, condition, nil, joinType, remap)
+	join, err := b.Join(left, right, condition, joinType)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := join.Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*JoinRel), nil
 }
 
 func (b *builder) Join(left, right Rel, condition expr.Expression, joinType JoinType) (*JoinRel, error) {
-	return b.JoinAndFilterRemap(left, right, condition, nil, joinType, nil)
+	return b.JoinAndFilter(left, right, condition, nil, joinType)
 }
 
 func (b *builder) NamedWriteRemap(input Rel, op WriteOp, tableName []string, schema types.NamedStruct, remap []int32) (*NamedTableWriteRel, error) {
