@@ -30,8 +30,9 @@ func (m IntervalCompoundType) GetPrecisionProtoVal() int32 {
 func (IntervalCompoundType) isRootRef() {}
 func (m IntervalCompoundType) WithNullability(n Nullability) Type {
 	return IntervalCompoundType{
-		precision:   m.precision,
-		nullability: n,
+		precision:        m.precision,
+		typeVariationRef: m.typeVariationRef,
+		nullability:      n,
 	}
 }
 

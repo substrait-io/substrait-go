@@ -3,11 +3,28 @@
 package expr
 
 import (
+	"fmt"
+
 	"github.com/substrait-io/substrait-go/v8/extensions"
 	"github.com/substrait-io/substrait-go/v8/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	extensionspb "github.com/substrait-io/substrait-protobuf/go/substraitpb/extensions"
+	"google.golang.org/protobuf/types/known/anypb"
 )
+
+// ExtensionRelDecoder decodes an extension relation's Any detail into an
+// ExtensionRelDefinition that knows its output schema and expressions.
+// It is called by RelFromProto for extension rels whose type URL has a
+// registered decoder; unregistered type URLs fall back to UndecodedExtension.
+//
+// The return type is intentionally left as any to avoid an import cycle between
+// the expr and plan packages; callers cast it to the appropriate concrete type.
+type ExtensionRelDecoder interface {
+	// DecodeExtensionRel decodes detail into a plan.ExtensionRelDefinition.
+	// The return type is any because ExtensionRelDefinition is defined in the plan
+	// package, and importing it here would create a cycle with the expr package.
+	DecodeExtensionRel(detail *anypb.Any) (any, error)
+}
 
 // ExtensionRegistry provides functionality to resolve extension references and handle subquery expressions.
 // It combines an extensions.Set for looking up extension definitions with a Collection for extension metadata.
@@ -18,6 +35,9 @@ type ExtensionRegistry struct {
 	// subqueryConverter is injected by the plan package to handle subquery expressions
 	// TODO: We may want to consider refactoring to make a cleaner interface here
 	subqueryConverter
+
+	// extensionRelDecoders maps type URLs to decoders for extension relation details.
+	extensionRelDecoders map[string]ExtensionRelDecoder
 }
 
 // subqueryConverter converts subqueries and the Relations within from the native
@@ -38,6 +58,26 @@ type subqueryConverter interface {
 // This is an internal function used to break the dependency cycle between expr and plan packages.
 func (e *ExtensionRegistry) SetSubqueryConverter(converter subqueryConverter) {
 	e.subqueryConverter = converter
+}
+
+// SetExtensionRelDecoder registers a decoder for the given type URL.
+// RelFromProto dispatches to it when it encounters an extension rel whose
+// detail matches typeURL; unregistered type URLs fall back to UndecodedExtension.
+// Returns an error if a decoder is already registered for typeURL.
+func (e *ExtensionRegistry) SetExtensionRelDecoder(typeURL string, decoder ExtensionRelDecoder) error {
+	if e.extensionRelDecoders == nil {
+		e.extensionRelDecoders = make(map[string]ExtensionRelDecoder)
+	}
+	if _, exists := e.extensionRelDecoders[typeURL]; exists {
+		return fmt.Errorf("decoder already registered for type URL %q", typeURL)
+	}
+	e.extensionRelDecoders[typeURL] = decoder
+	return nil
+}
+
+// ExtensionRelDecoderFor returns the decoder registered for typeURL, or nil if none was set.
+func (e *ExtensionRegistry) ExtensionRelDecoderFor(typeURL string) ExtensionRelDecoder {
+	return e.extensionRelDecoders[typeURL]
 }
 
 // NewExtensionRegistry creates a new registry.  If you have an existing plan you can use GetExtensionSet() to

@@ -2,7 +2,6 @@ package literal
 
 import (
 	"fmt"
-	"reflect"
 	"regexp"
 	"strconv"
 	"time"
@@ -401,26 +400,76 @@ func NewPrecisionTimestampTzFromString(precision types.TimePrecision, value stri
 	return NewPrecisionTimestampTzFromTime(precision, tm, nullable)
 }
 
-func NewList(elements []expr.Literal, nullable bool) (expr.Literal, error) {
-	if len(elements) == 0 {
-		return nil, fmt.Errorf("empty list literal")
+// hasTypeMismatch returns the index of the first nil literal or literal whose
+// type differs from the first literal, or false if every literal has the same
+// type.
+func hasTypeMismatch(literals []expr.Literal) (int, bool) {
+	if literals[0] == nil {
+		return 0, true
 	}
-	anchorType := reflect.TypeOf(elements[0])
-	for i, e := range elements {
-		currentType := reflect.TypeOf(e)
-		if currentType != anchorType {
-			nullLiteralType := reflect.TypeOf((*expr.NullLiteral)(nil))
-			if currentType == nullLiteralType {
-				continue
-			}
-			if anchorType == nullLiteralType {
-				anchorType = currentType
-				continue
-			}
-			return nil, fmt.Errorf("element %d of list literal has different type", i)
+
+	expectedType := literals[0].GetType()
+	for i, literal := range literals[1:] {
+		if literal == nil || !expectedType.Equals(literal.GetType()) {
+			return i + 1, true
 		}
 	}
+	return 0, false
+}
+
+// NewList creates a list literal from a non-empty list of elements.
+// All elements must have exactly the same type.
+// For an empty list, use NewEmptyList.
+func NewList(elements []expr.Literal, nullable bool) (expr.Literal, error) {
+	if len(elements) == 0 {
+		return nil, fmt.Errorf("empty list literal; use NewEmptyList for an empty list")
+	}
+	if i, ok := hasTypeMismatch(elements); ok {
+		return nil, fmt.Errorf("element %d of list literal has invalid or different type", i)
+	}
 	return expr.NewLiteral[expr.ListLiteralValue](elements, nullable)
+}
+
+// NewMap creates a map literal from the given key/value entries. As in NewList,
+// all keys must have the same type and all values must have the same type. For
+// an empty map use NewEmptyMap, which takes the key and value types explicitly.
+func NewMap(entries expr.MapLiteralValue, nullable bool) (expr.Literal, error) {
+	if len(entries) == 0 {
+		return nil, fmt.Errorf("empty map literal; use NewEmptyMap for an empty map")
+	}
+	keys := make([]expr.Literal, len(entries))
+	values := make([]expr.Literal, len(entries))
+	for i, e := range entries {
+		keys[i], values[i] = e.Key, e.Value
+	}
+	if i, ok := hasTypeMismatch(keys); ok {
+		return nil, fmt.Errorf("key %d of map literal has invalid or different type", i)
+	}
+	if i, ok := hasTypeMismatch(values); ok {
+		return nil, fmt.Errorf("value %d of map literal has invalid or different type", i)
+	}
+	return expr.NewLiteral[expr.MapLiteralValue](entries, nullable)
+}
+
+// NewEmptyMap creates an empty map literal of the given key and value types,
+// marked nullable or not.
+func NewEmptyMap(keyType, valueType types.Type, nullable bool) (expr.Literal, error) {
+	if keyType == nil {
+		return nil, fmt.Errorf("empty map literal key type cannot be nil")
+	}
+	if valueType == nil {
+		return nil, fmt.Errorf("empty map literal value type cannot be nil")
+	}
+	return expr.NewEmptyMapLiteral(keyType, valueType, nullable), nil
+}
+
+// NewEmptyList creates an empty list literal of the given element type, marked
+// nullable or not.
+func NewEmptyList(elementType types.Type, nullable bool) (expr.Literal, error) {
+	if elementType == nil {
+		return nil, fmt.Errorf("empty list literal element type cannot be nil")
+	}
+	return expr.NewEmptyListLiteral(elementType, nullable), nil
 }
 
 // NewUserDefinedLiteral creates a user-defined literal using the struct representation.

@@ -924,6 +924,7 @@ func TestNewList(t *testing.T) {
 	i32Lit1 := NewInt32(1, false)
 	i32Lit2 := NewInt32(2, false)
 	listLiteral, _ := expr.NewLiteral[expr.ListLiteralValue]([]expr.Literal{i8Lit1, i8Lit2}, false)
+	i32ListLiteral, _ := expr.NewLiteral[expr.ListLiteralValue]([]expr.Literal{i32Lit1, i32Lit2}, false)
 	int8Type := &types.Int8Type{Nullability: types.NullabilityRequired}
 	int32Type := &types.Int32Type{Nullability: types.NullabilityRequired}
 	int8ListType := &types.ListType{Type: int8Type, Nullability: types.NullabilityRequired}
@@ -937,7 +938,9 @@ func TestNewList(t *testing.T) {
 		wantErr    assert.ErrorAssertionFunc
 	}{
 		{"empty", []expr.Literal{}, false, nil, assert.Error},
+		{"nilElement", []expr.Literal{i8Lit1, nil}, false, nil, assert.Error},
 		{"i32List", []expr.Literal{i8Lit1, i32Lit2}, false, nil, assert.Error},
+		{"listDifferentNestedTypes", []expr.Literal{listLiteral, i32ListLiteral}, false, nil, assert.Error},
 		{"i8ListSingle", []expr.Literal{i8Lit1}, true, int8ListType, assert.NoError},
 		{"listOfListSingle", []expr.Literal{listLiteral}, true, listOfListType, assert.NoError},
 		{"i8List", []expr.Literal{i8Lit1, i8Lit2}, true, int8ListType, assert.NoError},
@@ -955,6 +958,122 @@ func TestNewList(t *testing.T) {
 				assert.Equalf(t, want, got, "NewList(%v)", tt.elements)
 				assert.Equalf(t, tt.litType, got.GetType(), "NewList(%v)", tt.elements)
 			}
+		})
+	}
+}
+
+func TestNewEmptyList(t *testing.T) {
+	elementType := &types.Int8Type{Nullability: types.NullabilityRequired}
+	for _, nullable := range []bool{false, true} {
+		got, err := NewEmptyList(elementType, nullable)
+		require.NoError(t, err)
+		assert.Equal(t, expr.NewEmptyListLiteral(elementType, nullable), got)
+	}
+
+	got, err := NewEmptyList(nil, false)
+	require.Error(t, err)
+	assert.Nil(t, got)
+}
+
+func TestNewEmptyMap(t *testing.T) {
+	keyType := &types.Int8Type{Nullability: types.NullabilityRequired}
+	valueType := &types.StringType{Nullability: types.NullabilityRequired}
+	for _, nullable := range []bool{false, true} {
+		got, err := NewEmptyMap(keyType, valueType, nullable)
+		require.NoError(t, err)
+		assert.Equal(t, expr.NewEmptyMapLiteral(keyType, valueType, nullable), got)
+	}
+
+	got, err := NewEmptyMap(nil, valueType, false)
+	require.Error(t, err)
+	assert.Nil(t, got)
+
+	got, err = NewEmptyMap(keyType, nil, false)
+	require.Error(t, err)
+	assert.Nil(t, got)
+}
+
+func TestNewMap(t *testing.T) {
+	i8Key1 := NewInt8(1, false)
+	i8Key2 := NewInt8(2, false)
+	i32Key1 := NewInt32(1, false)
+	nullableI8Key := NewInt8(3, true)
+	strVal1 := NewString("a", false)
+	strVal2 := NewString("b", false)
+	nullableStrVal := NewString("c", true)
+	i32Val1 := NewInt32(10, false)
+	nullStrVal := expr.NewNullLiteral(&types.StringType{Nullability: types.NullabilityNullable})
+	nullI8Key := expr.NewNullLiteral(&types.Int8Type{Nullability: types.NullabilityNullable})
+	nullStrKey := expr.NewNullLiteral(&types.StringType{Nullability: types.NullabilityNullable})
+	vc1, _ := NewVarChar("a", false)
+	vc4, _ := NewVarChar("abcd", false)
+	dec1, _ := NewDecimalFromString("1.0", false)
+	i8ListVal, _ := NewList([]expr.Literal{i8Key1}, false)
+	i32ListVal, _ := NewList([]expr.Literal{i32Val1}, false)
+
+	int8Type := &types.Int8Type{Nullability: types.NullabilityRequired}
+	nullInt8Type := &types.Int8Type{Nullability: types.NullabilityNullable}
+	stringType := &types.StringType{Nullability: types.NullabilityRequired}
+	nullStringType := &types.StringType{Nullability: types.NullabilityNullable}
+	mapI8StrType := &types.MapType{Key: int8Type, Value: stringType, Nullability: types.NullabilityRequired}
+	nullableMapI8StrType := &types.MapType{Key: int8Type, Value: stringType, Nullability: types.NullabilityNullable}
+	nullableEntriesMapType := &types.MapType{Key: nullInt8Type, Value: nullStringType, Nullability: types.NullabilityRequired}
+
+	successTests := []struct {
+		name     string
+		entries  expr.MapLiteralValue
+		nullable bool
+		litType  types.Type
+	}{
+		{"single", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}}, false, mapI8StrType},
+		{"multiple", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: i8Key2, Value: strVal2}}, false, mapI8StrType},
+		{"nullable", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}}, true, nullableMapI8StrType},
+		{
+			"nullableEntries",
+			expr.MapLiteralValue{
+				{Key: nullableI8Key, Value: nullableStrVal},
+				{Key: nullI8Key, Value: nullStrVal},
+			},
+			false,
+			nullableEntriesMapType,
+		},
+	}
+	for _, tt := range successTests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewMap(tt.entries, tt.nullable)
+			require.NoError(t, err, fmt.Sprintf("NewMap(%v)", tt.entries))
+
+			want := &expr.MapLiteral{Value: tt.entries, Type: tt.litType}
+			assert.Equalf(t, want, got, "NewMap(%v)", tt.entries)
+		})
+	}
+
+	errorTests := []struct {
+		name    string
+		entries expr.MapLiteralValue
+	}{
+		{"empty", expr.MapLiteralValue{}},
+		{"nilKey", expr.MapLiteralValue{{Key: nil, Value: strVal1}}},
+		{"nilValue", expr.MapLiteralValue{{Key: i8Key1, Value: nil}}},
+		{"mismatchedKeys", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: i32Key1, Value: strVal2}}},
+		{"mismatchedValues", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: i8Key2, Value: i32Val1}}},
+		{"nullValue", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: i8Key2, Value: nullStrVal}}},
+		{"nullKey", expr.MapLiteralValue{{Key: i8Key1, Value: strVal1}, {Key: nullI8Key, Value: strVal2}}},
+		{"leadingNullValue", expr.MapLiteralValue{{Key: i8Key1, Value: nullStrVal}, {Key: i8Key2, Value: strVal2}}},
+		{"leadingNullKey", expr.MapLiteralValue{{Key: nullI8Key, Value: strVal1}, {Key: i8Key2, Value: strVal2}}},
+		{"differingValueParams", expr.MapLiteralValue{{Key: i8Key1, Value: vc1}, {Key: i8Key2, Value: vc4}}},
+		{"differingKeyParams", expr.MapLiteralValue{{Key: vc1, Value: strVal1}, {Key: vc4, Value: strVal2}}},
+		{"typedNullMismatchedKey", expr.MapLiteralValue{{Key: nullStrKey, Value: strVal1}, {Key: i8Key1, Value: strVal2}}},
+		{"typedNullMismatchedValue", expr.MapLiteralValue{{Key: i8Key1, Value: nullStrVal}, {Key: i8Key2, Value: i32Val1}}},
+		{"nestedMismatchedValues", expr.MapLiteralValue{{Key: i8Key1, Value: i8ListVal}, {Key: i8Key2, Value: i32ListVal}}},
+		{"crossFamilyValues", expr.MapLiteralValue{{Key: i8Key1, Value: dec1}, {Key: i8Key2, Value: vc1}}},
+		{"crossFamilyKeys", expr.MapLiteralValue{{Key: dec1, Value: strVal1}, {Key: vc1, Value: strVal2}}},
+	}
+	for _, tt := range errorTests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewMap(tt.entries, false)
+			require.Error(t, err, fmt.Sprintf("NewMap(%v)", tt.entries))
+			assert.Nil(t, got)
 		})
 	}
 }

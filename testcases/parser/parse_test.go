@@ -375,6 +375,25 @@ some_func([[1, null, 2], [3, 4]]::list<list<i32?>>) = true::bool
 	assert.Equal(t, expected, testFile.TestCases[0].Args[0].Value)
 }
 
+func TestParseNullablePrimitiveListLiterals(t *testing.T) {
+	header := makeHeader("v1.0", "/extensions/functions_list.yaml")
+	tests := `# nullable primitive lists
+some_func([true, null]::list<bool?>) = true::bool
+some_func(['a', null]::list<string?>) = true::bool
+some_func(['a', null]::list<binary?>) = true::bool
+some_func(['1991-01-01', null]::list<date?>) = true::bool
+some_func(['13:01:01.234', null]::list<time?>) = true::bool
+some_func(['1991-01-01T01:02:03.456', null]::list<timestamp?>) = true::bool
+some_func(['1991-01-01T01:02:03.456+00:00', null]::list<timestamp_tz?>) = true::bool
+some_func(['P10Y5M', null]::list<interval_year?>) = true::bool
+some_func(['P10DT5H6M7S', null]::list<interval_day?>) = true::bool
+`
+
+	testFile, err := ParseTestCasesFromString(header + tests)
+	require.NoError(t, err)
+	assert.Len(t, testFile.TestCases, 9)
+}
+
 func TestParseTriplyNestedListLiteral(t *testing.T) {
 	header := makeHeader("v1.0", "/extensions/functions_list.yaml")
 	tests := `# basic
@@ -479,6 +498,12 @@ sum((9223372036854775806, 1, 1, 1, 1, 10000000000)::i64) [overflow:ERROR] = <!ER
 	lit, ok := tc.AggregateArgs[0].Argument.Value.(expr.Literal)
 	require.True(t, ok, "aggregate arg should be a literal, got %T", tc.AggregateArgs[0].Argument.Value)
 	assert.Equal(t, listType, lit.GetType())
+	nullableLit, ok := testFile.TestCases[1].AggregateArgs[0].Argument.Value.(expr.Literal)
+	require.True(t, ok, "aggregate arg should be a literal, got %T", testFile.TestCases[1].AggregateArgs[0].Argument.Value)
+	assert.Equal(t, &types.ListType{
+		Type:        &types.Float32Type{Nullability: types.NullabilityNullable},
+		Nullability: types.NullabilityRequired,
+	}, nullableLit.GetType())
 	assert.Equal(t, "fp64", resultLiteral(t, tc.Result).Type.String())
 	assert.Equal(t, literal.NewFloat64(2, false), resultLiteral(t, tc.Result).Value)
 	assert.Equal(t, AggregateFuncType, tc.FuncType)
@@ -861,7 +886,7 @@ func TestParseTestWithBadAggregateTests(t *testing.T) {
 		errorMsg    string
 	}{
 		{"max((-12, +5)::i8) = -7.0::i8", "no viable alternative at input '-7.0::i8'"},
-		{"max((-12, 'arg')::i32) = -7::i8", "invalid column values"},
+		{"max((-12, 'arg')::i32) = -7::i8", "invalid int arg"},
 		{"max((4.53, 2.2)::dec<38, 1>) = 4.0::dec<38, 1>", "invalid decimal arg"},
 		{
 			`DEFINE t1(fp32, fp32) = ((20, 20), (-3, -3), (1, 1), (10,10), (5,5))
@@ -928,10 +953,11 @@ count(t1.col0) = 4::fp64`, expTestStr: "(('cat'), ('bat'), ('rat'), (null)) coun
 		{testCaseStr: "f20(('abcd', null)::fixedchar?<9>) = Null::fchar?<9>", expTestStr: "f20(('abcd', null)::fixedchar?<9>) = null::fixedchar?<9>"},
 		{testCaseStr: "f20(('abcd', 'ef', null)::vchar?<9>) = Null::vchar?<9>", expTestStr: "f20(('abcd', 'ef', null)::varchar?<9>) = null::varchar?<9>"},
 		{testCaseStr: "f20(('abcd', 'ef')::varchar<9>) = Null::vchar?<9>", expTestStr: "f20(('abcd', 'ef')::varchar<9>) = null::varchar?<9>"},
-		{testCaseStr: "f20(('abcd', 'ef')::fbin<9>) = Null::fbin?<9>", expTestStr: "f20(('abcd', 'ef')::fixedbinary<9>) = null::fixedbinary?<9>"},
+		{testCaseStr: "f20(('abcd', 'ef')::fbin<9>) = Null::fbin?<9>", expTestStr: "f20(('0x61626364', '0x6566')::fixedbinary<9>) = null::fixedbinary?<9>"},
 		{testCaseStr: "f20(('abcd', 'ef')::varchar?<9>) = 'abcdef'::varchar<9>", expTestStr: "f20(('abcd', 'ef')::varchar?<9>) = 'abcdef'::varchar<9>"},
 		{testCaseStr: "f20(('abcd', null)::fixedchar?<9>) = Null::fixedchar?<9>", expTestStr: "f20(('abcd', null)::fixedchar?<9>) = null::fixedchar?<9>"},
-		{testCaseStr: "f20(('abcd', 'ef')::fixedbinary?<9>) = Null::fixedbinary?<9>", expTestStr: "f20(('abcd', 'ef')::fixedbinary?<9>) = null::fixedbinary?<9>"},
+		{testCaseStr: "f20(('abcd', 'ef')::fixedbinary?<9>) = Null::fixedbinary?<9>", expTestStr: "f20(('0x61626364', '0x6566')::fixedbinary?<9>) = null::fixedbinary?<9>"},
+		{testCaseStr: "f20(('abcd', null)::fixedbinary?<9>) = Null::fixedbinary?<9>", expTestStr: "f20(('0x61626364', null)::fixedbinary?<9>) = null::fixedbinary?<9>"},
 		{testCaseStr: "f35(('1991-01-01T01:02:03.456')::pts?<3>) = '1991-01-01T01:02:30.123123'::precision_timestamp<3>",
 			expTestStr: "f35(('1991-01-01T01:02:03.456')::precision_timestamp?<3>) = '1991-01-01T01:02:30.123'::precision_timestamp<3>"},
 		{testCaseStr: "f36(('1991-01-01T01:02:03.456', '1991-01-01T01:02:30.123123')::precision_timestamp<3>) = 123456::i64"},

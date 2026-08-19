@@ -5,6 +5,7 @@ package expr_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -22,6 +23,7 @@ import (
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/encoding/protojson"
 	pb "google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 const sampleYAML = `---
@@ -694,4 +696,35 @@ func TestSubqueryExpressionRoundtrip(t *testing.T) {
 			// comment in plan/subquery.go
 		})
 	}
+}
+
+func TestExtensionRegistrySetAndGetDecoder(t *testing.T) {
+	const typeURL = "type.googleapis.com/test.Ext"
+	c := ext.GetDefaultCollectionWithNoError()
+
+	t.Run("nil before set", func(t *testing.T) {
+		reg := expr.NewEmptyExtensionRegistry(c)
+		require.Nil(t, reg.ExtensionRelDecoderFor(typeURL))
+	})
+
+	t.Run("returns decoder after set", func(t *testing.T) {
+		reg := expr.NewEmptyExtensionRegistry(c)
+		dec := &stubRelDecoder{}
+		require.NoError(t, reg.SetExtensionRelDecoder(typeURL, dec))
+		require.Equal(t, dec, reg.ExtensionRelDecoderFor(typeURL))
+	})
+
+	t.Run("duplicate typeURL returns error", func(t *testing.T) {
+		reg := expr.NewEmptyExtensionRegistry(c)
+		require.NoError(t, reg.SetExtensionRelDecoder(typeURL, &stubRelDecoder{}))
+		err := reg.SetExtensionRelDecoder(typeURL, &stubRelDecoder{})
+		require.ErrorContains(t, err, typeURL)
+	})
+}
+
+// stubRelDecoder is a minimal ExtensionRelDecoder that always returns an error.
+type stubRelDecoder struct{}
+
+func (s *stubRelDecoder) DecodeExtensionRel(_ *anypb.Any) (any, error) {
+	return nil, errors.New("stub")
 }
