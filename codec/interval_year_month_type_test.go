@@ -15,7 +15,7 @@ func TestIntervalYearToMonthTypeToProto(t *testing.T) {
 			types.NewIntervalYearToMonthType().WithTypeVariationRef(0).WithNullability(nullability).(serializableType),
 			&proto.Type{Kind: &proto.Type_IntervalYear_{
 				IntervalYear: &proto.Type_IntervalYear{
-					Nullability: nullability,
+					Nullability: proto.Type_Nullability(nullability),
 				},
 			}})
 	}

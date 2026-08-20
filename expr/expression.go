@@ -358,7 +358,7 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 		params := &types.StructType{
 			Types:            paramTypes,
 			TypeVariationRef: et.Lambda.Parameters.TypeVariationReference,
-			Nullability:      et.Lambda.Parameters.Nullability,
+			Nullability:      types.Nullability(et.Lambda.Parameters.Nullability),
 		}
 
 		if params.Nullability != types.NullabilityRequired {

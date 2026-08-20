@@ -17,7 +17,7 @@ func TestIntervalCompoundTypeToProto(t *testing.T) {
 				&proto.Type{Kind: &proto.Type_IntervalCompound_{
 					IntervalCompound: &proto.Type_IntervalCompound{
 						Precision:   precision.ToProtoVal(),
-						Nullability: nullability,
+						Nullability: proto.Type_Nullability(nullability),
 					},
 				}})
 		}

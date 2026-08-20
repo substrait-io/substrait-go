@@ -44,7 +44,7 @@ func (m *IntervalDayType) ToProto() *proto.Type {
 	return &proto.Type{Kind: &proto.Type_IntervalDay_{
 		IntervalDay: &proto.Type_IntervalDay{
 			Precision:              &precisionVal,
-			Nullability:            m.Nullability,
+			Nullability:            proto.Type_Nullability(m.Nullability),
 			TypeVariationReference: m.TypeVariationRef}}}
 }
 

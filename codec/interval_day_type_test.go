@@ -18,7 +18,7 @@ func TestIntervalDayTypeToProto(t *testing.T) {
 				&proto.Type{Kind: &proto.Type_IntervalDay_{
 					IntervalDay: &proto.Type_IntervalDay{
 						Precision:   &precisionProtoVal,
-						Nullability: nullability,
+						Nullability: proto.Type_Nullability(nullability),
 					},
 				}})
 		}

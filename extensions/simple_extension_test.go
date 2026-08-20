@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/v8/extensions"
 	"github.com/substrait-io/substrait-go/v8/types"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
 func TestUnmarshalSimpleExtension(t *testing.T) {
@@ -76,7 +75,7 @@ scalar_functions:
 	typ, err := arg1.Value.ValueType.ReturnType(nil, nil)
 	assert.NoError(t, err)
 	assert.IsType(t, &types.UserDefinedType{}, typ)
-	assert.Equal(t, proto.Type_NULLABILITY_REQUIRED, typ.GetNullability(), "expected NULLABILITY_REQUIRED")
+	assert.Equal(t, types.NullabilityRequired, typ.GetNullability(), "expected NULLABILITY_REQUIRED")
 
 	assert.Equal(t, "scalar2", f.ScalarFunctions[1].Name)
 	assert.IsType(t, extensions.ValueArg{}, f.ScalarFunctions[1].Impls[0].Args[0])
@@ -85,7 +84,7 @@ scalar_functions:
 	typ, err = ret.ValueType.ReturnType(nil, nil)
 	assert.NoError(t, err)
 	assert.IsType(t, &types.UserDefinedType{}, typ)
-	assert.Equal(t, proto.Type_NULLABILITY_NULLABLE, typ.GetNullability(), "expected NULLABILITY_NULLABLE")
+	assert.Equal(t, types.NullabilityNullable, typ.GetNullability(), "expected NULLABILITY_NULLABLE")
 }
 
 func TestUnmarshalSimpleExtensionScalarFunction(t *testing.T) {

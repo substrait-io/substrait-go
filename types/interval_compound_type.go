@@ -66,7 +66,7 @@ func (m IntervalCompoundType) ToProto() *proto.Type {
 	return &proto.Type{Kind: &proto.Type_IntervalCompound_{
 		IntervalCompound: &proto.Type_IntervalCompound{
 			Precision:              m.precision.ToProtoVal(),
-			Nullability:            m.nullability,
+			Nullability:            proto.Type_Nullability(m.nullability),
 			TypeVariationReference: m.typeVariationRef}}}
 }
 

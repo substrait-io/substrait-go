@@ -17,7 +17,7 @@ func TestPrecisionTimeTypeToProto(t *testing.T) {
 				&proto.Type{Kind: &proto.Type_PrecisionTime_{
 					PrecisionTime: &proto.Type_PrecisionTime{
 						Precision:   precision.ToProtoVal(),
-						Nullability: nullability,
+						Nullability: proto.Type_Nullability(nullability),
 					},
 				}})
 		}
@@ -32,7 +32,7 @@ func TestPrecisionTimestampTypeToProto(t *testing.T) {
 				&proto.Type{Kind: &proto.Type_PrecisionTimestamp_{
 					PrecisionTimestamp: &proto.Type_PrecisionTimestamp{
 						Precision:   precision.ToProtoVal(),
-						Nullability: nullability,
+						Nullability: proto.Type_Nullability(nullability),
 					},
 				}})
 		}
@@ -47,7 +47,7 @@ func TestPrecisionTimestampTzTypeToProto(t *testing.T) {
 				&proto.Type{Kind: &proto.Type_PrecisionTimestampTz{
 					PrecisionTimestampTz: &proto.Type_PrecisionTimestampTZ{
 						Precision:   precision.ToProtoVal(),
-						Nullability: nullability,
+						Nullability: proto.Type_Nullability(nullability),
 					},
 				}})
 		}
