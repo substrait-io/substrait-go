@@ -15,6 +15,7 @@ import (
 	"github.com/goccy/go-yaml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	substraitgo "github.com/substrait-io/substrait-go/v8"
 	"github.com/substrait-io/substrait-go/v8/expr"
 	ext "github.com/substrait-io/substrait-go/v8/extensions"
 	"github.com/substrait-io/substrait-go/v8/plan"
@@ -727,4 +728,38 @@ type stubRelDecoder struct{}
 
 func (s *stubRelDecoder) DecodeExtensionRel(_ *anypb.Any) (any, error) {
 	return nil, errors.New("stub")
+}
+
+func TestStructFieldRefGetTypeBounds(t *testing.T) {
+	st := &types.StructType{
+		Types: []types.Type{
+			&types.Int64Type{Nullability: types.NullabilityRequired},
+			&types.Int32Type{Nullability: types.NullabilityRequired},
+		},
+	}
+
+	t.Run("valid index returns type", func(t *testing.T) {
+		ref := &expr.StructFieldRef{Field: 0}
+		got, err := ref.GetType(st)
+		require.NoError(t, err)
+		assert.IsType(t, &types.Int64Type{}, got)
+	})
+
+	t.Run("negative index returns error", func(t *testing.T) {
+		ref := &expr.StructFieldRef{Field: -1}
+		_, err := ref.GetType(st)
+		require.ErrorIs(t, err, substraitgo.ErrInvalidType)
+	})
+
+	t.Run("index equal to len returns error", func(t *testing.T) {
+		ref := &expr.StructFieldRef{Field: int32(len(st.Types))}
+		_, err := ref.GetType(st)
+		require.ErrorIs(t, err, substraitgo.ErrInvalidType)
+	})
+
+	t.Run("index beyond len returns error", func(t *testing.T) {
+		ref := &expr.StructFieldRef{Field: int32(len(st.Types) + 1)}
+		_, err := ref.GetType(st)
+		require.ErrorIs(t, err, substraitgo.ErrInvalidType)
+	})
 }
