@@ -19,11 +19,12 @@ var (
 // makeAddExpr constructs expression val1 + val2.
 func makeAddExpr(t *testing.T, b plan.Builder, val1, val2 expr.Literal) expr.Expression {
 	id := extensions.FunctionID{
-		URN:  "extension:io.substrait:functions_arithmetic",
-		Name: "add:i32_i32",
+		URN:       "extension:io.substrait:functions_arithmetic",
+		Signature: "add:i32_i32",
 	}
-	b.GetFunctionRef(id.URN, id.Name)
-	scalarExpr, err := b.ScalarFn(id.URN, id.Name, nil, val1, val2)
+	_, err := b.GetFunctionRef(id)
+	require.NoError(t, err)
+	scalarExpr, err := b.ScalarFn(id.URN, id.Signature, nil, val1, val2)
 	require.NoError(t, err)
 	return scalarExpr
 }

@@ -177,7 +177,7 @@ func TestDynamicParameterBindingInFilter(t *testing.T) {
 	ref, err := b.RootFieldRef(scan, 0)
 	require.NoError(t, err)
 
-	gt, err := b.ScalarFn(extensions.SubstraitDefaultURNPrefix+"functions_comparison", "gt", nil, ref, dp)
+	gt, err := b.ScalarFn(extensions.SubstraitDefaultURNPrefix+"functions_comparison", "gt:any_any", nil, ref, dp)
 	require.NoError(t, err)
 
 	filter, err := b.Filter(scan, gt)
