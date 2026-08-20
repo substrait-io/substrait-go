@@ -192,7 +192,7 @@ func (r *StructFieldRef) GetType(parentType types.Type) (types.Type, error) {
 		return nil, substraitgo.ErrInvalidType
 	}
 
-	if len(st.Types) < int(r.Field) {
+	if r.Field < 0 || int(r.Field) >= len(st.Types) {
 		return nil, substraitgo.ErrInvalidType
 	}
 
