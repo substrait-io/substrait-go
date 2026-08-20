@@ -272,10 +272,6 @@ func (b *builder) AggregateFn(nameSpace, key string, opts []*types.FunctionOptio
 }
 
 func (b *builder) Project(input Rel, exprs ...expr.Expression) (*ProjectRel, error) {
-	return b.ProjectRemap(input, nil, exprs...)
-}
-
-func (b *builder) ProjectRemap(input Rel, remap []int32, exprs ...expr.Expression) (*ProjectRel, error) {
 	if input == nil {
 		return nil, errNilInputRel
 	}
@@ -283,19 +279,23 @@ func (b *builder) ProjectRemap(input Rel, remap []int32, exprs ...expr.Expressio
 	if len(exprs) == 0 {
 		return nil, fmt.Errorf("%w: must provide at least one expression for project relation", substraitgo.ErrInvalidRel)
 	}
-
-	noutput := input.RecordType().FieldCount() + int32(len(exprs))
-	for _, idx := range remap {
-		if idx < 0 || idx >= noutput {
-			return nil, errOutputMappingOutOfRange
-		}
-	}
-
 	return &ProjectRel{
-		RelCommon: RelCommon{mapping: remap},
+		RelCommon: RelCommon{mapping: nil},
 		input:     input,
 		exprs:     exprs,
 	}, nil
+}
+
+func (b *builder) ProjectRemap(input Rel, remap []int32, exprs ...expr.Expression) (*ProjectRel, error) {
+	project, err := b.Project(input, exprs...)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := project.Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*ProjectRel), err
 }
 
 func (b *builder) Measure(measure *expr.AggregateFunction, filter expr.Expression) AggRelMeasure {
@@ -335,20 +335,13 @@ func (b *builder) AggregateExprs(input Rel, measures []AggRelMeasure, groups ...
 	return arb.Build()
 }
 
-func (b *builder) CreateTableAsSelectRemap(input Rel, remap []int32, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {
+func (b *builder) CreateTableAsSelect(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {
 	if input == nil {
 		return nil, errNilInputRel
 	}
 
-	nOutput := input.RecordType().FieldCount()
-	for _, idx := range remap {
-		if idx < 0 || idx >= nOutput {
-			return nil, errOutputMappingOutOfRange
-		}
-	}
-
 	return &NamedTableWriteRel{
-		RelCommon:   RelCommon{mapping: remap},
+		RelCommon:   RelCommon{mapping: nil},
 		names:       tableName,
 		tableSchema: schema,
 		op:          WriteOpCTAS,
@@ -357,56 +350,66 @@ func (b *builder) CreateTableAsSelectRemap(input Rel, remap []int32, tableName [
 	}, nil
 }
 
-func (b *builder) CreateTableAsSelect(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {
-	return b.CreateTableAsSelectRemap(input, nil, tableName, schema)
+func (b *builder) CreateTableAsSelectRemap(input Rel, remap []int32, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {
+	ctas, err := b.CreateTableAsSelect(input, tableName, schema)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := ctas.Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*NamedTableWriteRel), nil
 }
 
-func (b *builder) CrossRemap(left, right Rel, remap []int32) (*CrossRel, error) {
+func (b *builder) Cross(left, right Rel) (*CrossRel, error) {
 	if left == nil || right == nil {
 		return nil, errNilInputRel
 	}
 
-	noutput := left.RecordType().FieldCount() + right.RecordType().FieldCount()
-	for _, idx := range remap {
-		if idx < 0 || idx >= noutput {
-			return nil, errOutputMappingOutOfRange
-		}
-	}
-
 	return &CrossRel{
-		RelCommon: RelCommon{mapping: remap},
+		RelCommon: RelCommon{mapping: nil},
 		left:      left, right: right,
 	}, nil
 }
 
-func (b *builder) Cross(left, right Rel) (*CrossRel, error) {
-	return b.CrossRemap(left, right, nil)
+func (b *builder) CrossRemap(left, right Rel, remap []int32) (*CrossRel, error) {
+	cross, err := b.Cross(left, right)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := cross.Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*CrossRel), nil
 }
 
-func (b *builder) FetchRemap(input Rel, offset, count int64, remap []int32) (*FetchRel, error) {
+func (b *builder) Fetch(input Rel, offset, count int64) (*FetchRel, error) {
 	if input == nil {
 		return nil, errNilInputRel
 	}
 
-	noutput := input.RecordType().FieldCount()
-	for _, idx := range remap {
-		if idx < 0 || idx >= noutput {
-			return nil, errOutputMappingOutOfRange
-		}
-	}
-
 	return &FetchRel{
-		RelCommon: RelCommon{mapping: remap},
+		RelCommon: RelCommon{mapping: nil},
 		input:     input,
 		offset:    offset, count: count,
 	}, nil
 }
 
-func (b *builder) Fetch(input Rel, offset, count int64) (*FetchRel, error) {
-	return b.FetchRemap(input, offset, count, nil)
+func (b *builder) FetchRemap(input Rel, offset, count int64, remap []int32) (*FetchRel, error) {
+	fetch, err := b.Fetch(input, offset, count)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := fetch.Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*FetchRel), nil
 }
 
-func (b *builder) FilterRemap(input Rel, condition expr.Expression, remap []int32) (*FilterRel, error) {
+func (b *builder) Filter(input Rel, condition expr.Expression) (*FilterRel, error) {
 	if input == nil {
 		return nil, errNilInputRel
 	}
@@ -421,27 +424,26 @@ func (b *builder) FilterRemap(input Rel, condition expr.Expression, remap []int3
 			substraitgo.ErrInvalidArg, condition.GetType())
 	}
 
-	noutput := input.directOutputSchema().FieldCount()
-	for _, idx := range remap {
-		if idx < 0 || idx >= noutput {
-			return nil, errOutputMappingOutOfRange
-		}
-	}
-
 	return &FilterRel{
-		RelCommon: RelCommon{
-			mapping: remap,
-		},
-		input: input,
-		cond:  condition,
+		RelCommon: RelCommon{mapping: nil},
+		input:     input,
+		cond:      condition,
 	}, nil
 }
 
-func (b *builder) Filter(input Rel, condition expr.Expression) (*FilterRel, error) {
-	return b.FilterRemap(input, condition, nil)
+func (b *builder) FilterRemap(input Rel, condition expr.Expression, remap []int32) (*FilterRel, error) {
+	filter, err := b.Filter(input, condition)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := filter.Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*FilterRel), nil
 }
 
-func (b *builder) JoinAndFilterRemap(left, right Rel, condition, postJoinFilter expr.Expression, joinType JoinType, remap []int32) (*JoinRel, error) {
+func (b *builder) JoinAndFilter(left, right Rel, condition, postJoinFilter expr.Expression, joinType JoinType) (*JoinRel, error) {
 	if left == nil || right == nil {
 		return nil, errNilInputRel
 	}
@@ -468,49 +470,49 @@ func (b *builder) JoinAndFilterRemap(left, right Rel, condition, postJoinFilter 
 		}
 	}
 
-	out := &JoinRel{
-		RelCommon: RelCommon{mapping: remap},
+	return &JoinRel{
+		RelCommon: RelCommon{mapping: nil},
 		left:      left, right: right,
 		expr: condition, postJoinFilter: postJoinFilter,
 		joinType: joinType,
-	}
-
-	noutput := out.directOutputSchema().FieldCount()
-	for _, idx := range remap {
-		if idx < 0 || idx >= noutput {
-			return nil, errOutputMappingOutOfRange
-		}
-	}
-
-	return out, nil
+	}, nil
 }
 
-func (b *builder) JoinAndFilter(left, right Rel, condition, postJoinFilter expr.Expression, joinType JoinType) (*JoinRel, error) {
-	return b.JoinAndFilterRemap(left, right, condition, postJoinFilter, joinType, nil)
+func (b *builder) JoinAndFilterRemap(left, right Rel, condition, postJoinFilter expr.Expression, joinType JoinType, remap []int32) (*JoinRel, error) {
+	join, err := b.JoinAndFilter(left, right, condition, postJoinFilter, joinType)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := join.Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*JoinRel), nil
 }
 
 func (b *builder) JoinRemap(left, right Rel, condition expr.Expression, joinType JoinType, remap []int32) (*JoinRel, error) {
-	return b.JoinAndFilterRemap(left, right, condition, nil, joinType, remap)
+	join, err := b.Join(left, right, condition, joinType)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := join.Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*JoinRel), nil
 }
 
 func (b *builder) Join(left, right Rel, condition expr.Expression, joinType JoinType) (*JoinRel, error) {
-	return b.JoinAndFilterRemap(left, right, condition, nil, joinType, nil)
+	return b.JoinAndFilter(left, right, condition, nil, joinType)
 }
 
-func (b *builder) NamedWriteRemap(input Rel, op WriteOp, tableName []string, schema types.NamedStruct, remap []int32) (*NamedTableWriteRel, error) {
+func (b *builder) NamedWrite(input Rel, op WriteOp, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {
 	if input == nil {
 		return nil, errNilInputRel
 	}
 
-	nOutput := input.RecordType().FieldCount()
-	for _, idx := range remap {
-		if idx < 0 || idx >= nOutput {
-			return nil, errOutputMappingOutOfRange
-		}
-	}
-
 	return &NamedTableWriteRel{
-		RelCommon:   RelCommon{mapping: remap},
+		RelCommon:   RelCommon{mapping: nil},
 		names:       tableName,
 		tableSchema: schema,
 		op:          op,
@@ -519,8 +521,16 @@ func (b *builder) NamedWriteRemap(input Rel, op WriteOp, tableName []string, sch
 	}, nil
 }
 
-func (b *builder) NamedWrite(input Rel, op WriteOp, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {
-	return b.NamedWriteRemap(input, op, tableName, schema, nil)
+func (b *builder) NamedWriteRemap(input Rel, op WriteOp, tableName []string, schema types.NamedStruct, remap []int32) (*NamedTableWriteRel, error) {
+	nw, err := b.NamedWrite(input, op, tableName, schema)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := nw.Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*NamedTableWriteRel), nil
 }
 
 func (b *builder) NamedInsert(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error) {
@@ -531,32 +541,25 @@ func (b *builder) NamedDelete(input Rel, tableName []string, schema types.NamedS
 	return b.NamedWrite(input, WriteOpDelete, tableName, schema)
 }
 
-func (b *builder) NamedScanRemap(tableName []string, schema types.NamedStruct, remap []int32) (*NamedTableReadRel, error) {
-	noutput := int32(len(schema.Struct.Types))
-	for _, idx := range remap {
-		if idx < 0 || idx >= noutput {
-			return nil, fmt.Errorf("%w: output mapping index out of range",
-				substraitgo.ErrInvalidRel)
-		}
-	}
-
+func (b *builder) NamedScan(tableName []string, schema types.NamedStruct) *NamedTableReadRel {
 	return &NamedTableReadRel{
 		baseReadRel: baseReadRel{
-			RelCommon: RelCommon{
-				mapping: remap,
-			},
+			RelCommon:  RelCommon{mapping: nil},
 			baseSchema: schema,
 		},
 		names: tableName,
-	}, nil
+	}
 }
 
-func (b *builder) NamedScan(tableName []string, schema types.NamedStruct) *NamedTableReadRel {
-	n, _ := b.NamedScanRemap(tableName, schema, nil)
-	return n
+func (b *builder) NamedScanRemap(tableName []string, schema types.NamedStruct, remap []int32) (*NamedTableReadRel, error) {
+	rel, err := b.NamedScan(tableName, schema).Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*NamedTableReadRel), nil
 }
 
-func (b *builder) VirtualTableRemap(fieldNames []string, remap []int32, values ...expr.StructLiteralValue) (*VirtualTableReadRel, error) {
+func (b *builder) VirtualTable(fieldNames []string, values ...expr.StructLiteralValue) (*VirtualTableReadRel, error) {
 	// convert Literal to Expression
 	exprs := make([]expr.VirtualTableExpressionValue, 0)
 	for _, row := range values {
@@ -566,14 +569,22 @@ func (b *builder) VirtualTableRemap(fieldNames []string, remap []int32, values .
 		}
 		exprs = append(exprs, rowExpr)
 	}
-	return b.VirtualTableFromExprRemap(fieldNames, remap, exprs...)
-}
-
-func (b *builder) VirtualTableFromExpr(fieldNames []string, values ...expr.VirtualTableExpressionValue) (*VirtualTableReadRel, error) {
-	return b.VirtualTableFromExprRemap(fieldNames, nil, values...)
+	return b.VirtualTableFromExpr(fieldNames, exprs...)
 }
 
 func (b *builder) VirtualTableFromExprRemap(fieldNames []string, remap []int32, values ...expr.VirtualTableExpressionValue) (*VirtualTableReadRel, error) {
+	vt, err := b.VirtualTableFromExpr(fieldNames, values...)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := vt.Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*VirtualTableReadRel), err
+}
+
+func (b *builder) VirtualTableFromExpr(fieldNames []string, values ...expr.VirtualTableExpressionValue) (*VirtualTableReadRel, error) {
 	if len(values) == 0 {
 		return nil, fmt.Errorf("%w: must provide at least one set of values. Consider EmptyVirtualTable to construct rowless Virtual Table", substraitgo.ErrInvalidArg)
 	}
@@ -582,13 +593,6 @@ func (b *builder) VirtualTableFromExprRemap(fieldNames []string, remap []int32, 
 	if len(values[0]) != nfields {
 		return nil, fmt.Errorf("%w: mismatched number of fields (%d) and literal values (%d) in virtual table",
 			substraitgo.ErrInvalidRel, nfields, len(values[0]))
-	}
-
-	for _, idx := range remap {
-		if idx < 0 || idx >= int32(nfields) {
-			return nil, fmt.Errorf("%w: output mapping index out of range",
-				substraitgo.ErrInvalidRel)
-		}
 	}
 
 	typeList := make([]types.Type, nfields)
@@ -615,15 +619,23 @@ func (b *builder) VirtualTableFromExprRemap(fieldNames []string, remap []int32, 
 
 	return &VirtualTableReadRel{
 		baseReadRel: baseReadRel{
-			RelCommon:  RelCommon{mapping: remap},
+			RelCommon:  RelCommon{mapping: nil},
 			baseSchema: baseSchema,
 		},
 		values: values,
 	}, nil
 }
 
-func (b *builder) VirtualTable(fields []string, values ...expr.StructLiteralValue) (*VirtualTableReadRel, error) {
-	return b.VirtualTableRemap(fields, nil, values...)
+func (b *builder) VirtualTableRemap(fields []string, remap []int32, values ...expr.StructLiteralValue) (*VirtualTableReadRel, error) {
+	vt, err := b.VirtualTable(fields, values...)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := vt.Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*VirtualTableReadRel), err
 }
 
 func (b *builder) EmptyVirtualTable(fieldNames []string, typeList []types.Type) (*VirtualTableReadRel, error) {
@@ -670,16 +682,9 @@ func (b *builder) IcebergTableFromMetadataFile(metadataURI string, snapshot Iceb
 	}, nil
 }
 
-func (b *builder) SortRemap(input Rel, remap []int32, sorts ...expr.SortField) (*SortRel, error) {
+func (b *builder) Sort(input Rel, sorts ...expr.SortField) (*SortRel, error) {
 	if input == nil {
 		return nil, errNilInputRel
-	}
-
-	noutput := input.RecordType().FieldCount()
-	for _, idx := range remap {
-		if idx < 0 || idx >= noutput {
-			return nil, errOutputMappingOutOfRange
-		}
 	}
 
 	if len(sorts) == 0 {
@@ -687,14 +692,22 @@ func (b *builder) SortRemap(input Rel, remap []int32, sorts ...expr.SortField) (
 	}
 
 	return &SortRel{
-		RelCommon: RelCommon{mapping: remap},
+		RelCommon: RelCommon{mapping: nil},
 		input:     input,
 		sorts:     sorts,
 	}, nil
 }
 
-func (b *builder) Sort(input Rel, sorts ...expr.SortField) (*SortRel, error) {
-	return b.SortRemap(input, nil, sorts...)
+func (b *builder) SortRemap(input Rel, remap []int32, sorts ...expr.SortField) (*SortRel, error) {
+	sort, err := b.Sort(input, sorts...)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := sort.Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*SortRel), nil
 }
 
 func (b *builder) SortFields(input Rel, indices ...int32) ([]expr.SortField, error) {
@@ -709,7 +722,7 @@ func (b *builder) SortFields(input Rel, indices ...int32) ([]expr.SortField, err
 	return out, nil
 }
 
-func (b *builder) SetRemap(op SetOp, remap []int32, inputs ...Rel) (*SetRel, error) {
+func (b *builder) Set(op SetOp, inputs ...Rel) (*SetRel, error) {
 	if op == SetOpUnspecified {
 		return nil, fmt.Errorf("%w: operation for set relation must not be unspecified", substraitgo.ErrInvalidArg)
 	}
@@ -727,13 +740,6 @@ func (b *builder) SetRemap(op SetOp, remap []int32, inputs ...Rel) (*SetRel, err
 
 	output := inputs[0].RecordType()
 
-	noutput := output.FieldCount()
-	for _, idx := range remap {
-		if idx < 0 || idx >= noutput {
-			return nil, errOutputMappingOutOfRange
-		}
-	}
-
 	for _, in := range inputs[1:] {
 		t := in.RecordType()
 		if !output.Equals(&t) {
@@ -743,14 +749,22 @@ func (b *builder) SetRemap(op SetOp, remap []int32, inputs ...Rel) (*SetRel, err
 	}
 
 	return &SetRel{
-		RelCommon: RelCommon{mapping: remap},
+		RelCommon: RelCommon{mapping: nil},
 		op:        op,
 		inputs:    inputs,
 	}, nil
 }
 
-func (b *builder) Set(op SetOp, inputs ...Rel) (*SetRel, error) {
-	return b.SetRemap(op, nil, inputs...)
+func (b *builder) SetRemap(op SetOp, remap []int32, inputs ...Rel) (*SetRel, error) {
+	set, err := b.Set(op, inputs...)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := set.Remap(remap...)
+	if err != nil {
+		return nil, err
+	}
+	return rel.(*SetRel), nil
 }
 
 func (b *builder) PlanWithTypes(root Rel, rootNames []string, expectedTypeURLs []string, others ...Rel) (*Plan, error) {
