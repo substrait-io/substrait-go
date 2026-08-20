@@ -67,5 +67,6 @@ func (m IntervalYearToMonthLiteral) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 
+func (m IntervalYearToMonthLiteral) GetExprs() []Expression     { return nil }
 func (m IntervalYearToMonthLiteral) Visit(VisitFunc) Expression { return m }
 func (IntervalYearToMonthLiteral) IsScalar() bool               { return true }
