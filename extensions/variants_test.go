@@ -532,6 +532,61 @@ func TestResolveTypeErrorHandling(t *testing.T) {
 	assert.Contains(t, err.Error(), "mismatch in number of arguments")
 }
 
+func TestFunctionVariantMatchAt(t *testing.T) {
+	const matchAtYAML = `---
+urn: extension:test:match-at
+scalar_functions:
+  - name: example
+    impls:
+      - args:
+          - name: x
+            value: i32
+        nullability: MIRROR
+        return: i32
+`
+
+	var c extensions.Collection
+	require.NoError(t, c.Load("test://match-at.yaml", strings.NewReader(matchAtYAML)))
+	variant, ok := c.GetScalarFunc(extensions.ID{URN: "extension:test:match-at", Name: "example:i32"})
+	require.True(t, ok)
+
+	matches, err := variant.MatchAt(&types.Int32Type{Nullability: types.NullabilityRequired}, 0)
+	require.NoError(t, err)
+	require.True(t, matches)
+
+	matches, err = variant.MatchAt(&types.Int32Type{Nullability: types.NullabilityRequired}, 1)
+	require.NoError(t, err)
+	require.False(t, matches)
+}
+
+func TestVariadicFunctionVariantMatchAtRejectsInvalidPosition(t *testing.T) {
+	variant := extensions.NewScalarFuncVariantWithProps(
+		extensions.ID{URN: "extension:test", Name: "example:i32"},
+		&extensions.VariadicBehavior{Min: 1, Max: 2},
+		false,
+		true)
+
+	matches, err := variant.MatchAt(&types.Int32Type{Nullability: types.NullabilityRequired}, 3)
+	require.NoError(t, err)
+	require.False(t, matches)
+}
+
+func TestEvaluateTypeExpressionInvalidNullabilityHandling(t *testing.T) {
+	argType, err := parser.ParseType("i32")
+	require.NoError(t, err)
+
+	_, err = extensions.EvaluateTypeExpression(
+		"extension:test",
+		extensions.NullabilityHandling("INVALID"),
+		argType,
+		extensions.FuncParameterList{valArg(argType)},
+		nil,
+		[]types.Type{&types.Int32Type{Nullability: types.NullabilityRequired}},
+		extensions.NewSet())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid nullability type")
+}
+
 func TestValidateConstrainedAnyTypeConsistency(t *testing.T) {
 	t.Run("non-variadic with matching types succeeds", func(t *testing.T) {
 		// func(any1, any1) with (i32, i32)
