@@ -441,7 +441,11 @@ func (v *TestCaseVisitor) VisitArgument(ctx *baseparser.ArgumentContext) interfa
 }
 
 func (v *TestCaseVisitor) VisitNullArg(ctx *baseparser.NullArgContext) interface{} {
-	dataType := v.Visit(ctx.DataType()).(types.Type)
+	dataType, ok := v.Visit(ctx.DataType()).(types.Type)
+	if !ok {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("unsupported null argument type: %v", ctx.DataType().GetText()))
+		return nil
+	}
 	v.validateNullLiteralType(ctx, dataType)
 	return &CaseLiteral{Value: expr.NewNullLiteral(dataType), ValueText: ctx.NullLiteral().GetText(), Type: dataType}
 }
@@ -1001,6 +1005,22 @@ func (v *TestCaseVisitor) VisitDataType(ctx *baseparser.DataTypeContext) interfa
 		return v.Visit(ctx.ParameterizedType())
 	}
 	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid data type %v", ctx.GetText()))
+	return nil
+}
+
+// VisitUserDefined handles the `u!<identifier>[?]` scalar form that shows
+// up in parser inputs like `null::u!geometry?`. The base visitor returns
+// VisitChildren here (nil), which caused VisitNullArg to try to use nil as
+// a types.Type and panic with
+// "interface conversion: interface {} is nil, not string".
+//
+// The testcases/parser layer has no extension registry, so the identifier
+// cannot be resolved to a TypeReference. Rather than emit an unresolved
+// placeholder type (which would leave every user-defined type at anchor 0
+// and indistinguishable), report a visit error so the input fails as a
+// clean parse error.
+func (v *TestCaseVisitor) VisitUserDefined(ctx *baseparser.UserDefinedContext) interface{} {
+	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("user-defined type %q is not supported in test case parsing", ctx.GetText()))
 	return nil
 }
 
