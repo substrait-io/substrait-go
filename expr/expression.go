@@ -1700,7 +1700,7 @@ func ExtendedFromProto(ex *proto.ExtendedExpression, c *extensions.Collection) (
 	}
 
 	return &Extended{
-		Version:          ex.Version,
+		Version:          types.VersionFromProto(ex.Version),
 		Extensions:       extSet,
 		ReferredExpr:     refs,
 		BaseSchema:       base,
@@ -1718,7 +1718,7 @@ func (ex *Extended) ToProto() *proto.ExtendedExpression {
 	}
 
 	return &proto.ExtendedExpression{
-		Version:            ex.Version,
+		Version:            types.VersionToProto(ex.Version),
 		ExtensionUrns:      urns,
 		Extensions:         decls,
 		BaseSchema:         ex.BaseSchema.ToProto(),
