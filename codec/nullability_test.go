@@ -16,6 +16,7 @@ import (
 	"github.com/substrait-io/substrait-go/v8/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	protobuf "google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 const nullabilityGolden = "testdata/nullability.golden"
@@ -75,14 +76,16 @@ func TestNullabilityGoldenMatchesCodec(t *testing.T) {
 	}
 }
 
-func TestNullabilityFromProtoRoundTrip(t *testing.T) {
+// TestNullabilityGoldenWireCarriesTheValue reads each row's bytes and checks them against that
+// row's domain column. The first assertion goes straight to the decoded message, since checking
+// only through the conversion would prove the pair agrees with itself and let a drift in both
+// directions regenerate the golden with wrong bytes. The second is what catches a decode that
+// stops preserving values, including the rows the spec does not name.
+func TestNullabilityGoldenWireCarriesTheValue(t *testing.T) {
 	for _, record := range readGolden(t, nullabilityGolden) {
 		t.Run(record.name, func(t *testing.T) {
 			var decoded proto.Type
 			require.NoError(t, protobuf.Unmarshal(record.wire, &decoded))
-			// The wire column has to be checked against the domain column directly. Decoding it
-			// through the conversion only proves the pair agrees with itself, so a symmetric drift
-			// would regenerate the golden with wrong bytes and still pass.
 			n := decoded.GetBool().GetNullability()
 			assert.EqualValues(t, record.domainValue, n, "golden wire bytes do not carry domainValue")
 			assert.EqualValues(t, record.domainValue, codec.NullabilityFromProto(n))
@@ -90,23 +93,29 @@ func TestNullabilityFromProtoRoundTrip(t *testing.T) {
 	}
 }
 
-// TestNullabilityGoldenCoversDescriptor fails if the spec gains a nullability value the golden has
-// no row for.
-func TestNullabilityGoldenCoversDescriptor(t *testing.T) {
+// TestNullabilityCoversTheSpec walks the generated descriptor and checks that every value the spec
+// defines has both a constant and a golden row. It fails if the spec gains a value, which is the
+// case where a hand written enum quietly stops matching the wire.
+func TestNullabilityCoversTheSpec(t *testing.T) {
+	ours := map[protoreflect.Name]types.Nullability{
+		"NULLABILITY_UNSPECIFIED": types.NullabilityUnspecified,
+		"NULLABILITY_NULLABLE":    types.NullabilityNullable,
+		"NULLABILITY_REQUIRED":    types.NullabilityRequired,
+	}
 	byName := map[string]goldenRecord{}
 	for _, record := range readGolden(t, nullabilityGolden) {
 		byName[record.name] = record
 	}
 
 	values := proto.Type_Nullability(0).Descriptor().Values()
+	require.Equal(t, values.Len(), len(ours), "the set of spec nullability values changed")
+
 	for i := 0; i < values.Len(); i++ {
 		v := values.Get(i)
-		record, ok := byName[string(v.Name())]
-		require.Truef(t, ok, "the golden has no row for %s", v.Name())
-
-		var decoded proto.Type
-		require.NoError(t, protobuf.Unmarshal(record.wire, &decoded))
-		assert.EqualValues(t, v.Number(), decoded.GetBool().GetNullability(), "wire number for %s", v.Name())
-		assert.EqualValues(t, v.Number(), record.domainValue, "domain value for %s", v.Name())
+		ourValue, ok := ours[v.Name()]
+		require.Truef(t, ok, "no types.Nullability constant covers %s", v.Name())
+		assert.EqualValues(t, v.Number(), ourValue, "wire number for %s", v.Name())
+		assert.Equal(t, string(v.Name()), ourValue.String(), "String() for %s", v.Name())
+		assert.Containsf(t, byName, string(v.Name()), "the golden has no row for %s", v.Name())
 	}
 }
