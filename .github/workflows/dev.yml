@@ -58,9 +58,11 @@ jobs:
         if: runner.os != 'Linux'
         run: go test -v ./...
         working-directory: codec
+      # -coverpkg reaches the core, since codec's tests exercise core conversions that the core's
+      # own suite no longer covers. Without it those statements are instrumented by neither module.
       - name: Run codec Tests with Coverage
         if: runner.os == 'Linux'
-        run: go test -v -coverprofile=codec-coverage.out ./...
+        run: go test -v -coverprofile=codec-coverage.out -coverpkg=./...,github.com/substrait-io/substrait-go/v8/... ./...
         working-directory: codec
       - name: Upload coverage to Codecov
         if: runner.os == 'Linux' && github.repository == 'substrait-io/substrait-go'
