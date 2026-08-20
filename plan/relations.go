@@ -1027,7 +1027,7 @@ type FetchRel struct {
 	RelCommon
 
 	input         Rel
-	offset, count int64
+	offset, count *expr.Expression
 	advExtension  *extensions.AdvancedExtension
 }
 
@@ -1035,9 +1035,9 @@ func (f *FetchRel) directOutputSchema() types.RecordType { return f.input.Record
 func (f *FetchRel) RecordType() types.RecordType {
 	return f.remap(f.directOutputSchema())
 }
-func (f *FetchRel) Input() Rel    { return f.input }
-func (f *FetchRel) Offset() int64 { return f.offset }
-func (f *FetchRel) Count() int64  { return f.count }
+func (f *FetchRel) Input() Rel               { return f.input }
+func (f *FetchRel) Offset() *expr.Expression { return f.offset }
+func (f *FetchRel) Count() *expr.Expression  { return f.count }
 func (f *FetchRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return f.advExtension
 }
@@ -1048,21 +1048,18 @@ func (f *FetchRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtensi
 }
 
 func (f *FetchRel) ToProto() *proto.Rel {
-	return &proto.Rel{
-		RelType: &proto.Rel_Fetch{
-			Fetch: &proto.FetchRel{
-				Common: f.toProto(),
-				Input:  f.input.ToProto(),
-				OffsetMode: &proto.FetchRel_Offset{
-					Offset: f.offset,
-				},
-				CountMode: &proto.FetchRel_Count{
-					Count: f.count,
-				},
-				AdvancedExtension: f.advExtension,
-			},
-		},
+	fetchRel := &proto.FetchRel{
+		Common:            f.toProto(),
+		Input:             f.input.ToProto(),
+		AdvancedExtension: f.advExtension,
 	}
+	if f.offset != nil {
+		fetchRel.OffsetMode = &proto.FetchRel_OffsetExpr{OffsetExpr: (*f.offset).ToProto()}
+	}
+	if f.count != nil {
+		fetchRel.CountMode = &proto.FetchRel_CountExpr{CountExpr: (*f.count).ToProto()}
+	}
+	return &proto.Rel{RelType: &proto.Rel_Fetch{Fetch: fetchRel}}
 }
 
 func (f *FetchRel) ToProtoPlanRel() *proto.PlanRel {
@@ -1086,14 +1083,27 @@ func (f *FetchRel) Copy(newInputs ...Rel) (Rel, error) {
 	return &fetch, nil
 }
 
-func (f *FetchRel) CopyWithExpressionRewrite(_ RewriteFunc, newInputs ...Rel) (Rel, error) {
+func (f *FetchRel) CopyWithExpressionRewrite(rewrite RewriteFunc, newInputs ...Rel) (Rel, error) {
 	if len(newInputs) != 1 {
 		return nil, substraitgo.ErrInvalidInputCount
 	}
-	if newInputs[0] == f.input {
-		return f, nil
+	fetch := *f
+	fetch.input = newInputs[0]
+	if f.offset != nil {
+		newOffset, err := rewrite(*f.offset)
+		if err != nil {
+			return nil, err
+		}
+		fetch.offset = &newOffset
 	}
-	return f.Copy(newInputs...)
+	if f.count != nil {
+		newCount, err := rewrite(*f.count)
+		if err != nil {
+			return nil, err
+		}
+		fetch.count = &newCount
+	}
+	return &fetch, nil
 }
 
 func (f *FetchRel) Remap(mapping ...int32) (Rel, error) {
