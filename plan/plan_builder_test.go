@@ -512,8 +512,7 @@ func TestFetchRel(t *testing.T) {
 									}
 								}
 							},
-							"offset": 100,
-							"count": -1
+							"offsetExpr": {"literal": {"i64": "100"}}
 						}
 					},
 					"names": ["a"]
@@ -532,7 +531,8 @@ func TestFetchRel(t *testing.T) {
 		},
 	})
 
-	fetch, err := b.Fetch(scan, 100, plan.FETCH_COUNT_ALL_RECORDS)
+	offsetExpr := expr.Expression(expr.NewPrimitiveLiteral(int64(100), false))
+	fetch, err := b.Fetch(scan, &offsetExpr, nil)
 	require.NoError(t, err)
 
 	p, err := b.Plan(fetch, []string{"a"})
@@ -549,7 +549,10 @@ func TestFetchRel(t *testing.T) {
 func TestFetchRelErrors(t *testing.T) {
 	b := plan.NewBuilderDefault()
 
-	_, err := b.Fetch(nil, 0, 0)
+	zeroExpr := expr.Expression(expr.NewPrimitiveLiteral(int64(0), false))
+	zero := &zeroExpr
+
+	_, err := b.Fetch(nil, zero, zero)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "input Relation must not be nil")
 
@@ -562,13 +565,13 @@ func TestFetchRelErrors(t *testing.T) {
 		},
 	})
 
-	f, err := b.Fetch(scan, 0, 0)
+	f, err := b.Fetch(scan, zero, zero)
 	assert.NoError(t, err)
 	_, err = f.Remap(-1)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
-	f, err = b.Fetch(scan, 0, 0)
+	f, err = b.Fetch(scan, zero, zero)
 	assert.NoError(t, err)
 	_, err = f.Remap(2)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
