@@ -3,14 +3,9 @@
 package codec_test
 
 import (
-	"bytes"
-	"encoding/hex"
-	"fmt"
 	"math"
-	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/codec"
 	"github.com/substrait-io/substrait-go/v8/types"
@@ -21,9 +16,9 @@ import (
 
 const nullabilityGolden = "testdata/nullability.golden"
 
-// nullabilityValues is the golden's row order. Nullability is an int32, so a caller can hold a
-// number the spec has not defined and a plan from a newer spec version can carry one; without
-// those rows the golden cannot tell a value-preserving conversion from one that clamps.
+// nullabilityValues is the golden's row order. Nullability is an int32, so a plan from a newer spec
+// version can carry a number this one has not defined; without those rows the golden cannot tell a
+// value-preserving conversion from one that clamps.
 var nullabilityValues = []types.Nullability{
 	types.NullabilityUnspecified,
 	types.NullabilityNullable,
@@ -45,77 +40,25 @@ func codecWire(t *testing.T, n types.Nullability) []byte {
 	return b
 }
 
-func renderNullabilityGolden(t *testing.T) string {
-	t.Helper()
-	var buf bytes.Buffer
-	buf.WriteString("# name domainValue wireHex\n")
-	buf.WriteString("# substrait.Type{bool:{nullability}} encoded through codec.\n")
-	buf.WriteString("# Rows named for a bare number are outside the spec's enum and are cast unchanged.\n")
-	for _, n := range nullabilityValues {
-		fmt.Fprintf(&buf, "%s %d %s\n", n, int32(n), hex.EncodeToString(codecWire(t, n)))
-	}
-	return buf.String()
-}
-
-// TestNullabilityGoldenMatchesCodec compares the committed bytes against what codec encodes now.
-// The golden is a snapshot, so a later change to the conversion shows up as a diff.
-func TestNullabilityGoldenMatchesCodec(t *testing.T) {
-	if *update {
-		require.NoError(t, os.WriteFile(nullabilityGolden, []byte(renderNullabilityGolden(t)), 0o644))
-		return
-	}
-
-	records := readGolden(t, nullabilityGolden)
-	require.Len(t, records, len(nullabilityValues), "the golden does not have a row per value")
-	for i, n := range nullabilityValues {
-		t.Run(n.String(), func(t *testing.T) {
-			assert.Equal(t, n.String(), records[i].name)
-			assert.EqualValues(t, n, records[i].domainValue)
-			assert.Equal(t, hex.EncodeToString(records[i].wire), hex.EncodeToString(codecWire(t, n)))
-		})
-	}
-}
-
-// TestNullabilityGoldenWireCarriesTheValue reads each row's bytes and checks them against that
-// row's domain column. The first assertion goes straight to the decoded message, since checking
-// only through the conversion would prove the pair agrees with itself and let a drift in both
-// directions regenerate the golden with wrong bytes. The second is what catches a decode that
-// stops preserving values, including the rows the spec does not name.
-func TestNullabilityGoldenWireCarriesTheValue(t *testing.T) {
-	for _, record := range readGolden(t, nullabilityGolden) {
-		t.Run(record.name, func(t *testing.T) {
+func TestNullability(t *testing.T) {
+	enumGolden[types.Nullability]{
+		path:   nullabilityGolden,
+		note:   "substrait.Type{bool:{nullability}} encoded through codec.",
+		values: nullabilityValues,
+		encode: codecWire,
+		decodeWire: func(t *testing.T, b []byte) int32 {
 			var decoded proto.Type
-			require.NoError(t, protobuf.Unmarshal(record.wire, &decoded))
-			n := decoded.GetBool().GetNullability()
-			assert.EqualValues(t, record.domainValue, n, "golden wire bytes do not carry domainValue")
-			assert.EqualValues(t, record.domainValue, codec.NullabilityFromProto(n))
-		})
-	}
-}
-
-// TestNullabilityCoversTheSpec walks the generated descriptor and checks that every value the spec
-// defines has both a constant and a golden row. It fails if the spec gains a value, which is the
-// case where a hand written enum quietly stops matching the wire.
-func TestNullabilityCoversTheSpec(t *testing.T) {
-	ours := map[protoreflect.Name]types.Nullability{
-		"NULLABILITY_UNSPECIFIED": types.NullabilityUnspecified,
-		"NULLABILITY_NULLABLE":    types.NullabilityNullable,
-		"NULLABILITY_REQUIRED":    types.NullabilityRequired,
-	}
-	byName := map[string]goldenRecord{}
-	for _, record := range readGolden(t, nullabilityGolden) {
-		byName[record.name] = record
-	}
-
-	values := proto.Type_Nullability(0).Descriptor().Values()
-	require.Equal(t, values.Len(), len(ours), "the set of spec nullability values changed")
-
-	for i := 0; i < values.Len(); i++ {
-		v := values.Get(i)
-		ourValue, ok := ours[v.Name()]
-		require.Truef(t, ok, "no types.Nullability constant covers %s", v.Name())
-		assert.EqualValues(t, v.Number(), ourValue, "wire number for %s", v.Name())
-		assert.Equal(t, string(v.Name()), ourValue.String(), "String() for %s", v.Name())
-		assert.Containsf(t, byName, string(v.Name()), "the golden has no row for %s", v.Name())
-	}
+			require.NoError(t, protobuf.Unmarshal(b, &decoded))
+			return int32(decoded.GetBool().GetNullability())
+		},
+		decodeCodec: func(v int32) int32 {
+			return int32(codec.NullabilityFromProto(proto.Type_Nullability(v)))
+		},
+		spec: proto.Type_Nullability(0).Descriptor().Values(),
+		constants: map[protoreflect.Name]types.Nullability{
+			"NULLABILITY_UNSPECIFIED": types.NullabilityUnspecified,
+			"NULLABILITY_NULLABLE":    types.NullabilityNullable,
+			"NULLABILITY_REQUIRED":    types.NullabilityRequired,
+		},
+	}.run(t)
 }
