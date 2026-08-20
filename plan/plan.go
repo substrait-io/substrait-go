@@ -392,12 +392,16 @@ type Rel interface {
 
 	// Remap modifies the current relation by applying the provided
 	// mapping to the current relation.  Typically used to remove any
-	// unneeded columns or provide them in a different order.  If there
+	// unneeded columns or provide them in a different order. If there
 	// already is a mapping on this relation, this provides mapping over
 	// the current mapping.
 	//
 	// If any column numbers specified are outside the currently available
 	// input range an error is returned and the mapping is left unchanged.
+	//
+	// If Remap is called with no arguments, an empty mapping will be set
+	// on the relation, which removes ALL columns.
+
 	Remap(mapping ...int32) (Rel, error)
 
 	// setMapping sets the current mapping and is for internal use.
