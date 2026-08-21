@@ -9,8 +9,8 @@ import (
 
 	"github.com/creasty/defaults"
 	"github.com/goccy/go-yaml"
-	substraitgo "github.com/substrait-io/substrait-go/v8"
-	"github.com/substrait-io/substrait-go/v8/extensions"
+	substraitgo "github.com/substrait-io/substrait-go/v9"
+	"github.com/substrait-io/substrait-go/v9/extensions"
 )
 
 func LoadDialect(name string, r io.Reader) (Dialect, error) {

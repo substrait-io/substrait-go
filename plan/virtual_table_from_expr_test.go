@@ -5,10 +5,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/v8/expr"
-	"github.com/substrait-io/substrait-go/v8/extensions"
-	"github.com/substrait-io/substrait-go/v8/plan"
-	"github.com/substrait-io/substrait-go/v8/types"
+	"github.com/substrait-io/substrait-go/v9/expr"
+	"github.com/substrait-io/substrait-go/v9/extensions"
+	"github.com/substrait-io/substrait-go/v9/plan"
+	"github.com/substrait-io/substrait-go/v9/types"
 )
 
 var (

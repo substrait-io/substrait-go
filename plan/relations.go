@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"slices"
 
-	substraitgo "github.com/substrait-io/substrait-go/v8"
-	"github.com/substrait-io/substrait-go/v8/expr"
-	"github.com/substrait-io/substrait-go/v8/extensions"
-	"github.com/substrait-io/substrait-go/v8/types"
+	substraitgo "github.com/substrait-io/substrait-go/v9"
+	"github.com/substrait-io/substrait-go/v9/expr"
+	"github.com/substrait-io/substrait-go/v9/extensions"
+	"github.com/substrait-io/substrait-go/v9/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/types/known/anypb"
 )

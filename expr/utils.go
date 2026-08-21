@@ -5,8 +5,8 @@ package expr
 import (
 	"fmt"
 
-	"github.com/substrait-io/substrait-go/v8/extensions"
-	"github.com/substrait-io/substrait-go/v8/types"
+	"github.com/substrait-io/substrait-go/v9/extensions"
+	"github.com/substrait-io/substrait-go/v9/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	extensionspb "github.com/substrait-io/substrait-protobuf/go/substraitpb/extensions"
 	"google.golang.org/protobuf/types/known/anypb"

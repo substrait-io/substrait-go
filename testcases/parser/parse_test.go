@@ -9,11 +9,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait"
-	"github.com/substrait-io/substrait-go/v8/expr"
-	"github.com/substrait-io/substrait-go/v8/extensions"
-	"github.com/substrait-io/substrait-go/v8/functions"
-	"github.com/substrait-io/substrait-go/v8/literal"
-	"github.com/substrait-io/substrait-go/v8/types"
+	"github.com/substrait-io/substrait-go/v9/expr"
+	"github.com/substrait-io/substrait-go/v9/extensions"
+	"github.com/substrait-io/substrait-go/v9/functions"
+	"github.com/substrait-io/substrait-go/v9/literal"
+	"github.com/substrait-io/substrait-go/v9/types"
 )
 
 func resultLiteral(t *testing.T, r TestCaseResult) *CaseLiteral {
