@@ -135,15 +135,6 @@ func (r *Relation) ToProto() *proto.PlanRel {
 	return r.rel.ToProtoPlanRel()
 }
 
-type Version interface {
-	GetGitHash() string
-	GetMajorNumber() uint32
-	GetMinorNumber() uint32
-	GetPatchNumber() uint32
-	GetProducer() string
-	fmt.Stringer
-}
-
 type AdvancedExtension interface {
 	GetEnhancement() *anypb.Any
 	GetOptimization() []*anypb.Any
@@ -152,7 +143,7 @@ type AdvancedExtension interface {
 // Plan describes a set of operations to complete. For
 // compactness, identifiers are normalized at the plan level.
 type Plan struct {
-	version           *types.Version
+	version           types.Version
 	extensions        extensions.Set
 	expectedTypeURLs  []string
 	advExtension      *extensions.AdvancedExtension
@@ -163,7 +154,7 @@ type Plan struct {
 }
 
 // Version returns the substrait version of the plan.
-func (p *Plan) Version() Version { return p.version }
+func (p *Plan) Version() types.Version { return p.version }
 
 // ExtensionRegistry returns the set of registered extensions for this plan
 // that it may depend on.
@@ -237,8 +228,11 @@ func FromProtoWithDecoder(plan *proto.Plan, c *extensions.Collection, decoders m
 	if err != nil {
 		return nil, err
 	}
+	if plan.Version == nil {
+		return nil, fmt.Errorf("%w: missing required version", substraitgo.ErrInvalidPlan)
+	}
 	ret := &Plan{
-		version:          plan.Version,
+		version:          *types.VersionFromProto(plan.Version),
 		extensions:       extSet,
 		advExtension:     plan.AdvancedExtensions,
 		expectedTypeURLs: plan.ExpectedTypeUrls,
@@ -290,7 +284,7 @@ func (p *Plan) ToProto() (*proto.Plan, error) {
 	}
 
 	return &proto.Plan{
-		Version:            p.version,
+		Version:            types.VersionToProto(&p.version),
 		ExpectedTypeUrls:   p.expectedTypeURLs,
 		AdvancedExtensions: p.advExtension,
 		Relations:          relations,
