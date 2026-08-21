@@ -7,21 +7,16 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	substraitgo "github.com/substrait-io/substrait-go/v8"
 	"github.com/substrait-io/substrait-go/v8/extensions"
 	"github.com/substrait-io/substrait-go/v8/plan"
 	substraitproto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
-// A plan can hold no version, in which case Version() returns nil.
+// version is required, so a plan without one is rejected at parse.
 func TestPlanWithoutAVersion(t *testing.T) {
-	p, err := plan.FromProto(&substraitproto.Plan{}, extensions.GetDefaultCollectionWithNoError())
-	require.NoError(t, err)
-
-	assert.Nil(t, p.Version())
-
-	roundTrip, err := p.ToProto()
-	require.NoError(t, err)
-	assert.Nil(t, roundTrip.Version, "an absent version must not come back as an empty message")
+	_, err := plan.FromProto(&substraitproto.Plan{}, extensions.GetDefaultCollectionWithNoError())
+	require.ErrorIs(t, err, substraitgo.ErrInvalidPlan)
 }
 
 // ToProto used to hand out &CurrentVersion itself. It now encodes a copy, so editing the returned

@@ -92,6 +92,7 @@ func TestPlanRoundTripWithExtensions(t *testing.T) {
 	require.NoError(t, err)
 
 	original := &proto.Plan{
+		Version: &proto.Version{MinorNumber: 29},
 		ExtensionUrns: []*extensionspb.SimpleExtensionURN{
 			{ExtensionUrnAnchor: 1, Urn: "extension:test:sample"},
 		},
@@ -191,6 +192,7 @@ func TestPlanRoundTripWithSubqueries(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			original := &proto.Plan{
+				Version: &proto.Version{MinorNumber: 29},
 				Relations: []*proto.PlanRel{{
 					RelType: &proto.PlanRel_Root{
 						Root: &proto.RelRoot{
@@ -304,6 +306,7 @@ func TestFromProtoWithSubqueries(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			p := &proto.Plan{
+				Version: &proto.Version{MinorNumber: 29},
 				Relations: []*proto.PlanRel{{
 					RelType: &proto.PlanRel_Root{
 						Root: &proto.RelRoot{
@@ -451,7 +454,7 @@ func TestFromProtoWithDecoder(t *testing.T) {
 	}}}
 
 	makePlan := func(extRel *proto.Rel) *proto.Plan {
-		return &proto.Plan{Relations: []*proto.PlanRel{{
+		return &proto.Plan{Version: &proto.Version{MinorNumber: 29}, Relations: []*proto.PlanRel{{
 			RelType: &proto.PlanRel_Root{Root: &proto.RelRoot{Names: []string{"c", "a", "b"}, Input: extRel}},
 		}}}
 	}
