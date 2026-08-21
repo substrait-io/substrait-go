@@ -1658,7 +1658,7 @@ func (er *ExpressionReference) GetExpr() Expression            { return er.expr 
 func (er *ExpressionReference) GetMeasure() *AggregateFunction { return er.measure }
 
 type Extended struct {
-	Version          *types.Version
+	Version          types.Version
 	Extensions       extensions.Set
 	ReferredExpr     []ExpressionReference
 	BaseSchema       types.NamedStruct
@@ -1699,8 +1699,11 @@ func ExtendedFromProto(ex *proto.ExtendedExpression, c *extensions.Collection) (
 		}
 	}
 
+	if ex.Version == nil {
+		return nil, fmt.Errorf("%w: missing required version", substraitgo.ErrInvalidExpr)
+	}
 	return &Extended{
-		Version:          types.VersionFromProto(ex.Version),
+		Version:          *types.VersionFromProto(ex.Version),
 		Extensions:       extSet,
 		ReferredExpr:     refs,
 		BaseSchema:       base,
@@ -1718,7 +1721,7 @@ func (ex *Extended) ToProto() *proto.ExtendedExpression {
 	}
 
 	return &proto.ExtendedExpression{
-		Version:            types.VersionToProto(ex.Version),
+		Version:            types.VersionToProto(&ex.Version),
 		ExtensionUrns:      urns,
 		Extensions:         decls,
 		BaseSchema:         ex.BaseSchema.ToProto(),
