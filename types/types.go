@@ -201,13 +201,28 @@ func (f FunctionRef) String() string { return "comparison_func_ref: " + strconv.
 
 func (FunctionRef) isSortKind() {}
 
-type CastFailBehavior = proto.Expression_Cast_FailureBehavior
+// CastFailBehavior indicates how a cast behaves when the input can't be converted to the target type.
+type CastFailBehavior int32
 
 const (
-	BehaviorUnspecified    = proto.Expression_Cast_FAILURE_BEHAVIOR_UNSPECIFIED
-	BehaviorReturnNil      = proto.Expression_Cast_FAILURE_BEHAVIOR_RETURN_NULL
-	BehaviorThrowException = proto.Expression_Cast_FAILURE_BEHAVIOR_THROW_EXCEPTION
+	CastFailBehaviorUnspecified    CastFailBehavior = 0
+	CastFailBehaviorReturnNull     CastFailBehavior = 1
+	CastFailBehaviorThrowException CastFailBehavior = 2
 )
+
+// String returns the protobuf enum name for the cast failure behavior.
+func (b CastFailBehavior) String() string {
+	switch b {
+	case CastFailBehaviorUnspecified:
+		return "FAILURE_BEHAVIOR_UNSPECIFIED"
+	case CastFailBehaviorReturnNull:
+		return "FAILURE_BEHAVIOR_RETURN_NULL"
+	case CastFailBehaviorThrowException:
+		return "FAILURE_BEHAVIOR_THROW_EXCEPTION"
+	default:
+		return strconv.Itoa(int(b))
+	}
+}
 
 type (
 	IntervalYearToMonth  = proto.Expression_Literal_IntervalYearToMonth

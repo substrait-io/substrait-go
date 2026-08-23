@@ -502,7 +502,7 @@ func TestCastVisit(t *testing.T) {
 	castExpr := expr.MustExpr(builder.GetExprBuilder().Cast(builder.GetExprBuilder().Wrap(
 		expr.NewLiteral[float64](12.0, true)),
 		&types.Float64Type{Nullability: types.NullabilityRequired}).FailBehavior(
-		types.BehaviorThrowException).BuildExpr())
+		types.CastFailBehaviorThrowException).BuildExpr())
 
 	type relationTestCase struct {
 		name            string
