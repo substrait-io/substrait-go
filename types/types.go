@@ -276,13 +276,19 @@ func (b CastFailBehavior) String() string {
 type (
 	IntervalYearToMonth  = proto.Expression_Literal_IntervalYearToMonth
 	IntervalDayToSecond  = proto.Expression_Literal_IntervalDayToSecond
-	VarChar              = proto.Expression_Literal_VarChar
 	Decimal              = proto.Expression_Literal_Decimal
 	UserDefinedLiteral   = proto.Expression_Literal_UserDefined
 	PrecisionTime        = proto.Expression_Literal_PrecisionTime
 	PrecisionTimestamp   = proto.Expression_Literal_PrecisionTimestamp_
 	PrecisionTimestampTz = proto.Expression_Literal_PrecisionTimestampTz
 )
+
+// VarChar is a variable-length character literal: its value and length, mirroring the fields of
+// the Substrait VarChar literal message.
+type VarChar struct {
+	Value  string
+	Length uint32
+}
 
 // TypeFromProto returns the appropriate Type object from a protobuf
 // type message.
