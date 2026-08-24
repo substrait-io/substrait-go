@@ -5,8 +5,8 @@ package extensions
 import (
 	"fmt"
 
-	substraitgo "github.com/substrait-io/substrait-go/v8"
-	"github.com/substrait-io/substrait-go/v8/types"
+	substraitgo "github.com/substrait-io/substrait-go/v9"
+	"github.com/substrait-io/substrait-go/v9/types"
 )
 
 // validateUserDefinedTypeReferences ensures every user-defined type used in a
