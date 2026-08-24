@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/v8/expr"
 	"github.com/substrait-io/substrait-go/v8/extensions"
@@ -131,6 +132,24 @@ func getProjectionForTest2(t *testing.T, b plan.Builder) plan.Rel {
 
 	// projectRel output employee_id, name, department_id, salary, role
 	return makeProjectRel(t, b, filterRel, []int{1, 2, 3, 4, 0})
+}
+
+func TestCreateTableAsSelect(t *testing.T) {
+	b := plan.NewBuilderDefault()
+
+	tableNames := []string{"main", "employee_salaries"}
+	input := b.NamedScan(tableNames, employeeSchema)
+
+	ctasRel, err := b.CreateTableAsSelect(input, tableNames, employeeSchema)
+	require.NoError(t, err)
+	assert.Equal(t, plan.OutputModeModifiedRecords, ctasRel.OutputMode())
+	assert.Equal(t, ctasRel.TableSchema(), employeeSchema)
+	assert.Equal(t, tableNames, ctasRel.Names())
+	assert.Equal(t, "struct<i32, string?, i32?, decimal?<10,2>, string?>", ctasRel.RecordType().String())
+
+	ctasRel, err = b.CreateTableAsSelectRemap(input, []int32{0, 2}, tableNames, employeeSchema)
+	require.NoError(t, err)
+	assert.Equal(t, "struct<i32, i32?>", ctasRel.RecordType().String())
 }
 
 // TestCreateTableAsSelectRoundTrip verifies that generated plans match the expected JSON.

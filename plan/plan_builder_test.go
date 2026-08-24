@@ -899,6 +899,32 @@ func TestJoinAndFilterRelation(t *testing.T) {
 	checkRoundTrip(t, expectedJSON, p)
 }
 
+func TestJoinAndFilter(t *testing.T) {
+	b := plan.NewBuilderDefault()
+
+	left := b.NamedScan([]string{"left"}, baseSchema)
+	right := b.NamedScan([]string{"right"}, baseSchema2)
+
+	f1, err := b.JoinedRecordFieldRef(left, right, 1)
+	require.NoError(t, err)
+	f3, err := b.JoinedRecordFieldRef(left, right, 3)
+	require.NoError(t, err)
+
+	_, err = b.JoinAndFilter(left, right, f1, nil, plan.JoinTypeInner)
+	assert.ErrorContains(t, err, "condition for Join Relation must yield boolean")
+
+	_, err = b.JoinAndFilter(left, right, f3, f1, plan.JoinTypeInner)
+	assert.ErrorContains(t, err, "post join filter must be either nil or yield a boolean")
+
+	join, err := b.JoinAndFilter(left, right, f3, f3, plan.JoinTypeInner)
+	require.NoError(t, err)
+	assert.Equal(t, "struct<string, fp32, i32, boolean>", join.RecordType().String())
+
+	joinRemap, err := b.JoinAndFilterRemap(left, right, f3, f3, plan.JoinTypeInner, []int32{1, 2})
+	require.NoError(t, err)
+	assert.Equal(t, "struct<fp32, i32>", joinRemap.RecordType().String())
+}
+
 func TestJoinRelationError(t *testing.T) {
 	b := plan.NewBuilderDefault()
 	left := b.NamedScan([]string{"test"}, baseSchema)
@@ -1666,6 +1692,24 @@ func TestColumnlessVirtualTable(t *testing.T) {
 	require.NoError(t, err)
 
 	checkRoundTrip(t, expectedJSON, p)
+}
+
+func TestVirtualTable(t *testing.T) {
+	b := plan.NewBuilderDefault()
+	fieldNames := []string{"col0", "col1"}
+	c0 := expr.PrimitiveLiteral[int32]{Value: 1, Type: &types.Int32Type{Nullability: types.NullabilityRequired}}
+	c1 := expr.PrimitiveLiteral[int32]{Value: 'a', Type: &types.StringType{Nullability: types.NullabilityRequired}}
+	row := expr.StructLiteralValue{&c0, &c1}
+
+	vt, err := b.VirtualTable(fieldNames, row, row, row)
+	require.NoError(t, err)
+	assert.Equal(t, 3, len(vt.Values()))
+	assert.Equal(t, fieldNames, vt.BaseSchema().Names)
+	assert.Equal(t, "struct<i32, string>", vt.RecordType().String())
+
+	vtRemap, err := b.VirtualTableRemap(fieldNames, []int32{1}, row)
+	require.NoError(t, err)
+	assert.Equal(t, "struct<string>", vtRemap.RecordType().String())
 }
 
 func TestEmptyVirtualTable(t *testing.T) {
