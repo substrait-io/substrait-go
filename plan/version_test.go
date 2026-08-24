@@ -24,8 +24,8 @@ func TestPlanWithoutAVersion(t *testing.T) {
 	assert.Nil(t, roundTrip.Version, "an absent version must not come back as an empty message")
 }
 
-// ToProto used to hand out &CurrentVersion itself. It now encodes a copy, so editing the returned
-// message no longer rewrites the version every later plan reports.
+// ToProto encodes a copy of the version, so editing the returned message doesn't rewrite the
+// version every later plan reports.
 func TestPlanToProtoCopiesTheVersion(t *testing.T) {
 	producer := plan.CurrentVersion.Producer
 

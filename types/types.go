@@ -34,7 +34,6 @@ func (v *Version) String() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%d.%d.%d", v.MajorNumber, v.MinorNumber, v.PatchNumber)
 	if v.GitHash != "" {
-		// semver build metadata: the hash pins a commit between releases
 		b.WriteString("+" + v.GitHash)
 	}
 	if v.Producer != "" {
