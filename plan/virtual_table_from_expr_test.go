@@ -51,7 +51,7 @@ func TestVirtualTableFromExpr(t *testing.T) {
 	assert.Equal(t, fieldNames, vt.BaseSchema().Names)
 	assert.Equal(t, "struct<i32, i32>", vt.RecordType().String())
 
-	vtRemap, err := b.VirtualTableFromExprRemap(fieldNames, []int32{1}, values...)
+	vtRemap, err := vt.Remap(1)
 	require.NoError(t, err)
 	assert.Equal(t, "struct<i32>", vtRemap.RecordType().String())
 }
