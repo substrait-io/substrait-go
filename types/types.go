@@ -25,8 +25,9 @@ type Version struct {
 	Producer    string
 }
 
-// UnsetVersion marks a version-less plan or expression; it renders as "0.0.0 (UNSET)".
-var UnsetVersion = Version{Producer: "UNSET"}
+// unsetVersion stands in for a plan or expression parsed from proto with no version; it renders as
+// "0.0.0 (UNSET)".
+var unsetVersion = Version{Producer: "UNSET"}
 
 // String reports a readable version like "0.29.0+abc123 (producer)".
 func (v Version) String() string {
@@ -42,11 +43,11 @@ func (v Version) String() string {
 }
 
 // VersionFromProto converts a protobuf version message to the domain Version.
-func VersionFromProto(v *proto.Version) *Version {
+func VersionFromProto(v *proto.Version) Version {
 	if v == nil {
-		return nil
+		return unsetVersion
 	}
-	return &Version{
+	return Version{
 		MajorNumber: v.MajorNumber,
 		MinorNumber: v.MinorNumber,
 		PatchNumber: v.PatchNumber,
@@ -55,11 +56,8 @@ func VersionFromProto(v *proto.Version) *Version {
 	}
 }
 
-// VersionToProto encodes a version; a nil pointer stays absent.
-func VersionToProto(v *Version) *proto.Version {
-	if v == nil {
-		return nil
-	}
+// VersionToProto encodes a version as its protobuf message.
+func VersionToProto(v Version) *proto.Version {
 	return &proto.Version{
 		MajorNumber: v.MajorNumber,
 		MinorNumber: v.MinorNumber,

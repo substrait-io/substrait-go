@@ -1668,9 +1668,6 @@ type Extended struct {
 	reg ExtensionRegistry
 }
 
-// HasVersion reports whether the expression declared a version (false when Version is types.UnsetVersion).
-func (ex *Extended) HasVersion() bool { return ex.Version != types.UnsetVersion }
-
 func ExtendedFromProto(ex *proto.ExtendedExpression, c *extensions.Collection) (*Extended, error) {
 	extSet, err := extensions.GetExtensionSet(ex, c)
 	if err != nil {
@@ -1702,12 +1699,8 @@ func ExtendedFromProto(ex *proto.ExtendedExpression, c *extensions.Collection) (
 		}
 	}
 
-	version := types.UnsetVersion
-	if ex.Version != nil {
-		version = *types.VersionFromProto(ex.Version)
-	}
 	return &Extended{
-		Version:          version,
+		Version:          types.VersionFromProto(ex.Version),
 		Extensions:       extSet,
 		ReferredExpr:     refs,
 		BaseSchema:       base,
@@ -1725,7 +1718,7 @@ func (ex *Extended) ToProto() *proto.ExtendedExpression {
 	}
 
 	return &proto.ExtendedExpression{
-		Version:            types.VersionToProto(&ex.Version),
+		Version:            types.VersionToProto(ex.Version),
 		ExtensionUrns:      urns,
 		Extensions:         decls,
 		BaseSchema:         ex.BaseSchema.ToProto(),

@@ -15,9 +15,12 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
-// UnsetVersion renders as a visible sentinel so a missing version stands out in output.
-func TestUnsetVersionString(t *testing.T) {
-	assert.Equal(t, "0.0.0 (UNSET)", types.UnsetVersion.String())
+// A version-less proto maps to the unset placeholder, which renders visibly and serializes back out
+// as a producer "UNSET" version rather than an absent one.
+func TestVersionFromProtoNilIsUnset(t *testing.T) {
+	unset := types.VersionFromProto(nil)
+	assert.Equal(t, "0.0.0 (UNSET)", unset.String())
+	assert.Equal(t, "UNSET", types.VersionToProto(unset).GetProducer())
 }
 
 func TestVersionString(t *testing.T) {
@@ -42,8 +45,8 @@ func TestVersionString(t *testing.T) {
 	}
 }
 
-// Pin the hand written struct to the generated descriptor: the field set and wire numbers, which
-// a spec change can move without breaking the build.
+// Guard against spec drift: fail if the Version proto message gains, drops, or renumbers a field
+// that the hand-written types.Version does not mirror.
 func TestVersionMatchesDescriptor(t *testing.T) {
 	ours := map[protoreflect.Name]protoreflect.FieldNumber{
 		"major_number": 1,
@@ -66,12 +69,10 @@ func TestVersionMatchesDescriptor(t *testing.T) {
 	}
 }
 
-// Both directions carry every field and leave an absent version absent. A non-hash git value
-// ("HEAD") shows the hash is copied as given, not validated.
 func TestVersionRoundTrip(t *testing.T) {
 	for _, td := range []struct {
-		name string
-		wire *proto.Version
+		name         string
+		protoVersion *proto.Version
 	}{
 		// distinct numbers, so a conversion reading the wrong field shows up
 		{"every field", &proto.Version{
@@ -82,20 +83,16 @@ func TestVersionRoundTrip(t *testing.T) {
 		{"not a hash at all", &proto.Version{MinorNumber: 29, GitHash: "HEAD"}},
 	} {
 		t.Run(td.name, func(t *testing.T) {
-			domain := types.VersionFromProto(td.wire)
-			require.NotNil(t, domain)
-			assert.Equal(t, td.wire.GetMajorNumber(), domain.MajorNumber)
-			assert.Equal(t, td.wire.GetMinorNumber(), domain.MinorNumber)
-			assert.Equal(t, td.wire.GetPatchNumber(), domain.PatchNumber)
-			assert.Equal(t, td.wire.GetGitHash(), domain.GitHash)
-			assert.Equal(t, td.wire.GetProducer(), domain.Producer)
+			domain := types.VersionFromProto(td.protoVersion)
+			assert.Equal(t, td.protoVersion.GetMajorNumber(), domain.MajorNumber)
+			assert.Equal(t, td.protoVersion.GetMinorNumber(), domain.MinorNumber)
+			assert.Equal(t, td.protoVersion.GetPatchNumber(), domain.PatchNumber)
+			assert.Equal(t, td.protoVersion.GetGitHash(), domain.GitHash)
+			assert.Equal(t, td.protoVersion.GetProducer(), domain.Producer)
 
-			if diff := cmp.Diff(td.wire, types.VersionToProto(domain), protocmp.Transform()); diff != "" {
+			if diff := cmp.Diff(td.protoVersion, types.VersionToProto(domain), protocmp.Transform()); diff != "" {
 				t.Errorf("version proto didn't match, diff:\n%v", diff)
 			}
 		})
 	}
-
-	assert.Nil(t, types.VersionFromProto(nil))
-	assert.Nil(t, types.VersionToProto(nil))
 }

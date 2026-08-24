@@ -153,11 +153,8 @@ type Plan struct {
 	reg expr.ExtensionRegistry
 }
 
-// Version returns the plan's version, or types.UnsetVersion if it declared none.
+// Version returns the plan's version.
 func (p *Plan) Version() types.Version { return p.version }
-
-// HasVersion reports whether the plan declared a version (false when Version is types.UnsetVersion).
-func (p *Plan) HasVersion() bool { return p.version != types.UnsetVersion }
 
 // ExtensionRegistry returns the set of registered extensions for this plan
 // that it may depend on.
@@ -231,10 +228,7 @@ func FromProtoWithDecoder(plan *proto.Plan, c *extensions.Collection, decoders m
 	if err != nil {
 		return nil, err
 	}
-	version := types.UnsetVersion
-	if plan.Version != nil {
-		version = *types.VersionFromProto(plan.Version)
-	}
+	version := types.VersionFromProto(plan.Version)
 	ret := &Plan{
 		version:          version,
 		extensions:       extSet,
@@ -288,7 +282,7 @@ func (p *Plan) ToProto() (*proto.Plan, error) {
 	}
 
 	return &proto.Plan{
-		Version:            types.VersionToProto(&p.version),
+		Version:            types.VersionToProto(p.version),
 		ExpectedTypeUrls:   p.expectedTypeURLs,
 		AdvancedExtensions: p.advExtension,
 		Relations:          relations,
