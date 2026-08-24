@@ -101,11 +101,10 @@ type Builder interface {
 	Filter(input Rel, condition expr.Expression) (*FilterRel, error)
 	// Deprecated: Use JoinAndFilter(...).Remap() instead.
 	JoinAndFilterRemap(left, right Rel, condition, postJoinFilter expr.Expression, joinType JoinType, remap []int32) (*JoinRel, error)
-	// Deprecated: Use Fetch(...).Remap() instead.
-	JoinAndFilter(left, right Rel, condition, postJoinFilter expr.Expression, joinType JoinType) (*JoinRel, error)
 	// Deprecated: Use Join(...).Remap() instead.
 	JoinRemap(left, right Rel, condition expr.Expression, joinType JoinType, remap []int32) (*JoinRel, error)
 	Join(left, right Rel, condition expr.Expression, joinType JoinType) (*JoinRel, error)
+	JoinAndFilter(left, right Rel, condition, postJoinFilter expr.Expression, joinType JoinType) (*JoinRel, error)
 	// Deprecated: Use NamedScan(...).Remap() instead.
 	NamedScanRemap(tableName []string, schema types.NamedStruct, remap []int32) (*NamedTableReadRel, error)
 	NamedScan(tableName []string, schema types.NamedStruct) *NamedTableReadRel
