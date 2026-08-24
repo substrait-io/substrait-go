@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/v8/expr"
 	"github.com/substrait-io/substrait-go/v8/extensions"
@@ -37,6 +38,22 @@ func buildScalarAddExpression(t *testing.T, b plan.Builder) []expr.VirtualTableE
 	s1 := makeAddExpr(t, b, &v1, &v1)
 	s2 := makeAddExpr(t, b, &v2, &v2)
 	return []expr.VirtualTableExpressionValue{{s1, s2}}
+}
+
+func TestVirtualTableFromExpr(t *testing.T) {
+	b := plan.NewBuilderDefault()
+	values := buildLiteralExpressions(t, b)
+	fieldNames := []string{"col0", "col1"}
+
+	vt, err := b.VirtualTableFromExpr(fieldNames, values...)
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(vt.Values()))
+	assert.Equal(t, fieldNames, vt.BaseSchema().Names)
+	assert.Equal(t, "struct<i32, i32>", vt.RecordType().String())
+
+	vtRemap, err := b.VirtualTableFromExprRemap(fieldNames, []int32{1}, values...)
+	require.NoError(t, err)
+	assert.Equal(t, "struct<i32>", vtRemap.RecordType().String())
 }
 
 // TestNamedTableInsertRoundTrip verifies that generated plans match the expected JSON.
