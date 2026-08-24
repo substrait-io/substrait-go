@@ -9,19 +9,23 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/plan"
+	"github.com/substrait-io/substrait-go/v9/types"
 	substraitproto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
-// A plan can hold no version, in which case Version() returns nil.
+// A plan parsed with no version is accepted but flagged: HasVersion is false, Version is the
+// UnsetVersion sentinel, and it surfaces as "0.0.0 (UNSET)" including on the way back out.
 func TestPlanWithoutAVersion(t *testing.T) {
 	p, err := plan.FromProto(&substraitproto.Plan{}, extensions.GetDefaultCollectionWithNoError())
 	require.NoError(t, err)
 
-	assert.Nil(t, p.Version())
+	assert.False(t, p.HasVersion())
+	assert.Equal(t, types.UnsetVersion, p.Version())
+	assert.Equal(t, "0.0.0 (UNSET)", p.Version().String())
 
 	roundTrip, err := p.ToProto()
 	require.NoError(t, err)
-	assert.Nil(t, roundTrip.Version, "an absent version must not come back as an empty message")
+	assert.Equal(t, "UNSET", roundTrip.Version.GetProducer())
 }
 
 // ToProto encodes a copy of the version, so editing the returned message doesn't rewrite the

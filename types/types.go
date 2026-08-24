@@ -25,12 +25,11 @@ type Version struct {
 	Producer    string
 }
 
-// String reports a readable version like "0.29.0+abc123 (producer)".
-func (v *Version) String() string {
-	if v == nil {
-		return "<nil>"
-	}
+// UnsetVersion marks a version-less plan or expression; it renders as "0.0.0 (UNSET)".
+var UnsetVersion = Version{Producer: "UNSET"}
 
+// String reports a readable version like "0.29.0+abc123 (producer)".
+func (v Version) String() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%d.%d.%d", v.MajorNumber, v.MinorNumber, v.PatchNumber)
 	if v.GitHash != "" {
@@ -56,8 +55,7 @@ func VersionFromProto(v *proto.Version) *Version {
 	}
 }
 
-// VersionToProto encodes a version. A nil stays absent rather than an empty message, so a plan
-// with no version round trips unchanged.
+// VersionToProto encodes a version; a nil pointer stays absent.
 func VersionToProto(v *Version) *proto.Version {
 	if v == nil {
 		return nil

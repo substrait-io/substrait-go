@@ -1658,7 +1658,7 @@ func (er *ExpressionReference) GetExpr() Expression            { return er.expr 
 func (er *ExpressionReference) GetMeasure() *AggregateFunction { return er.measure }
 
 type Extended struct {
-	Version          *types.Version
+	Version          types.Version
 	Extensions       extensions.Set
 	ReferredExpr     []ExpressionReference
 	BaseSchema       types.NamedStruct
@@ -1667,6 +1667,9 @@ type Extended struct {
 
 	reg ExtensionRegistry
 }
+
+// HasVersion reports whether the expression declared a version (false when Version is types.UnsetVersion).
+func (ex *Extended) HasVersion() bool { return ex.Version != types.UnsetVersion }
 
 func ExtendedFromProto(ex *proto.ExtendedExpression, c *extensions.Collection) (*Extended, error) {
 	extSet, err := extensions.GetExtensionSet(ex, c)
@@ -1699,8 +1702,12 @@ func ExtendedFromProto(ex *proto.ExtendedExpression, c *extensions.Collection) (
 		}
 	}
 
+	version := types.UnsetVersion
+	if ex.Version != nil {
+		version = *types.VersionFromProto(ex.Version)
+	}
 	return &Extended{
-		Version:          types.VersionFromProto(ex.Version),
+		Version:          version,
 		Extensions:       extSet,
 		ReferredExpr:     refs,
 		BaseSchema:       base,
@@ -1718,7 +1725,7 @@ func (ex *Extended) ToProto() *proto.ExtendedExpression {
 	}
 
 	return &proto.ExtendedExpression{
-		Version:            types.VersionToProto(ex.Version),
+		Version:            types.VersionToProto(&ex.Version),
 		ExtensionUrns:      urns,
 		Extensions:         decls,
 		BaseSchema:         ex.BaseSchema.ToProto(),

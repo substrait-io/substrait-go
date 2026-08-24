@@ -143,7 +143,7 @@ type AdvancedExtension interface {
 // Plan describes a set of operations to complete. For
 // compactness, identifiers are normalized at the plan level.
 type Plan struct {
-	version           *types.Version
+	version           types.Version
 	extensions        extensions.Set
 	expectedTypeURLs  []string
 	advExtension      *extensions.AdvancedExtension
@@ -153,8 +153,11 @@ type Plan struct {
 	reg expr.ExtensionRegistry
 }
 
-// Version returns the substrait version of the plan, or nil if the plan declares none.
-func (p *Plan) Version() *types.Version { return p.version }
+// Version returns the plan's version, or types.UnsetVersion if it declared none.
+func (p *Plan) Version() types.Version { return p.version }
+
+// HasVersion reports whether the plan declared a version (false when Version is types.UnsetVersion).
+func (p *Plan) HasVersion() bool { return p.version != types.UnsetVersion }
 
 // ExtensionRegistry returns the set of registered extensions for this plan
 // that it may depend on.
@@ -228,8 +231,12 @@ func FromProtoWithDecoder(plan *proto.Plan, c *extensions.Collection, decoders m
 	if err != nil {
 		return nil, err
 	}
+	version := types.UnsetVersion
+	if plan.Version != nil {
+		version = *types.VersionFromProto(plan.Version)
+	}
 	ret := &Plan{
-		version:          types.VersionFromProto(plan.Version),
+		version:          version,
 		extensions:       extSet,
 		advExtension:     plan.AdvancedExtensions,
 		expectedTypeURLs: plan.ExpectedTypeUrls,
@@ -281,7 +288,7 @@ func (p *Plan) ToProto() (*proto.Plan, error) {
 	}
 
 	return &proto.Plan{
-		Version:            types.VersionToProto(p.version),
+		Version:            types.VersionToProto(&p.version),
 		ExpectedTypeUrls:   p.expectedTypeURLs,
 		AdvancedExtensions: p.advExtension,
 		Relations:          relations,

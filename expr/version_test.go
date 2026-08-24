@@ -9,16 +9,20 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	ext "github.com/substrait-io/substrait-go/v9/extensions"
+	"github.com/substrait-io/substrait-go/v9/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
-// An absent version must stay absent through a round trip, not become an empty message. The
-// populated case is already covered by TestRoundTripExtendedExpression.
+// An extended expression parsed with no version is accepted but flagged: HasVersion is false and
+// Version is the UnsetVersion sentinel that renders as "0.0.0 (UNSET)".
 func TestExtendedWithoutAVersion(t *testing.T) {
-	in := &proto.ExtendedExpression{}
-	result, err := expr.ExtendedFromProto(in, ext.GetDefaultCollectionWithNoError())
+	result, err := expr.ExtendedFromProto(&proto.ExtendedExpression{}, ext.GetDefaultCollectionWithNoError())
 	require.NoError(t, err)
-	assert.Nil(t, result.Version)
 
-	assert.Nil(t, result.ToProto().Version)
+	assert.False(t, result.HasVersion())
+	assert.Equal(t, types.UnsetVersion, result.Version)
+	assert.Equal(t, "0.0.0 (UNSET)", result.Version.String())
+
+	// the sentinel is written back out, so the missing version stays visible on the wire
+	assert.Equal(t, "UNSET", result.ToProto().Version.GetProducer())
 }

@@ -15,10 +15,9 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
-// Plan.Version() can return a nil *Version, so String() must stay nil safe.
-func TestVersionStringOnNil(t *testing.T) {
-	var v *types.Version
-	assert.Equal(t, "<nil>", v.String())
+// UnsetVersion renders as a visible sentinel so a missing version stands out in output.
+func TestUnsetVersionString(t *testing.T) {
+	assert.Equal(t, "0.0.0 (UNSET)", types.UnsetVersion.String())
 }
 
 func TestVersionString(t *testing.T) {
