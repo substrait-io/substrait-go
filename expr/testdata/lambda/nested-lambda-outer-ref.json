@@ -1,4 +1,8 @@
 {
+  "version": {
+    "majorNumber": 0,
+    "minorNumber": 79
+  },
   "extensionUrns": [
     {
       "extensionUrnAnchor": 1,
