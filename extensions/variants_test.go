@@ -442,11 +442,11 @@ func valArg(typ types.FuncDefArgType) extensions.ValueArg {
 	return extensions.ValueArg{Value: &parser.TypeExpression{ValueType: typ}}
 }
 
-func TestScalarFunctionVariantReturnType(t *testing.T) {
+func TestFunctionVariantReturnType(t *testing.T) {
 	const yaml = `---
 urn: extension:x:test
 scalar_functions:
-  - name: "f"
+  - name: "scalar"
     impls:
       - args:
           - name: key
@@ -454,20 +454,49 @@ scalar_functions:
           - name: value
             value: any2
         return: map<any1, any2>
+aggregate_functions:
+  - name: "aggregate"
+    impls:
+      - args:
+          - name: value
+            value: any1
+        return: list<any1>
+        decomposable: NONE
+window_functions:
+  - name: "window"
+    impls:
+      - args:
+          - name: value
+            value: any1
+        return: struct<any1>
+        decomposable: NONE
+        window_type: PARTITION
 `
 	var collection extensions.Collection
 	require.NoError(t, collection.Load(strings.NewReader(yaml)))
 
-	variant, ok := collection.GetScalarFunc(extensions.FunctionID{
-		URN: "extension:x:test", Name: "f:any_any",
+	scalar, ok := collection.GetScalarFunc(extensions.FunctionID{
+		URN: "extension:x:test", Name: "scalar:any_any",
 	})
 	require.True(t, ok)
-	require.Equal(t, "map<any1, any2>", variant.ReturnType().String())
+	require.Equal(t, "map<any1, any2>", scalar.ReturnType().String())
 
-	variant = extensions.NewScalarFuncVariant(extensions.FunctionID{
-		URN: "extension:x:test", Name: "f:any",
+	aggregate, ok := collection.GetAggregateFunc(extensions.FunctionID{
+		URN: "extension:x:test", Name: "aggregate:any",
 	})
-	require.Nil(t, variant.ReturnType())
+	require.True(t, ok)
+	require.Equal(t, "list<any1>", aggregate.ReturnType().String())
+
+	window, ok := collection.GetWindowFunc(extensions.FunctionID{
+		URN: "extension:x:test", Name: "window:any",
+	})
+	require.True(t, ok)
+	require.Equal(t, "struct<any1>", window.ReturnType().String())
+
+	id := extensions.FunctionID{URN: "extension:x:test", Name: "f:any"}
+	require.Nil(t, extensions.NewScalarFuncVariant(id).ReturnType())
+	require.Nil(t, extensions.NewAggFuncVariant(id).ReturnType())
+	require.Nil(t, extensions.NewWindowFuncVariant(id).ReturnType())
 }
 
 func TestResolveType(t *testing.T) {

@@ -475,6 +475,16 @@ func (s *AggregateFunctionVariant) SessionDependent() bool           { return s.
 func (s *AggregateFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
 func (s *AggregateFunctionVariant) URN() string                      { return s.urn }
 func (s *AggregateFunctionVariant) Metadata() map[string]any         { return s.metadata }
+
+// ReturnType returns the unresolved return type expression, or nil when the
+// variant does not define one.
+func (s *AggregateFunctionVariant) ReturnType() types.FuncDefArgType {
+	if s.impl.Return == nil {
+		return nil
+	}
+	return s.impl.Return.ValueType
+}
+
 func (s *AggregateFunctionVariant) ResolveType(argumentTypes []types.Type, registry Set) (types.Type, error) {
 	return EvaluateTypeExpression(s.urn, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
 }
@@ -597,6 +607,16 @@ func (s *WindowFunctionVariant) SessionDependent() bool           { return s.imp
 func (s *WindowFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
 func (s *WindowFunctionVariant) URN() string                      { return s.urn }
 func (s *WindowFunctionVariant) Metadata() map[string]any         { return s.metadata }
+
+// ReturnType returns the unresolved return type expression, or nil when the
+// variant does not define one.
+func (s *WindowFunctionVariant) ReturnType() types.FuncDefArgType {
+	if s.impl.Return == nil {
+		return nil
+	}
+	return s.impl.Return.ValueType
+}
+
 func (s *WindowFunctionVariant) ResolveType(argumentTypes []types.Type, registry Set) (types.Type, error) {
 	return EvaluateTypeExpression(s.urn, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
 }
