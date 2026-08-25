@@ -16,7 +16,56 @@ import (
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
-type Version = proto.Version
+// Version is the Substrait version a plan or extended expression was built against.
+type Version struct {
+	MajorNumber uint32
+	MinorNumber uint32
+	PatchNumber uint32
+	GitHash     string
+	Producer    string
+}
+
+// unsetVersion stands in for a plan or expression parsed from proto with no version; it renders as
+// "0.0.0 (UNSET)".
+var unsetVersion = Version{Producer: "UNSET"}
+
+// String reports a readable version like "0.29.0+abc123 (producer)".
+func (v Version) String() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "%d.%d.%d", v.MajorNumber, v.MinorNumber, v.PatchNumber)
+	if v.GitHash != "" {
+		b.WriteString("+" + v.GitHash)
+	}
+	if v.Producer != "" {
+		b.WriteString(" (" + v.Producer + ")")
+	}
+	return b.String()
+}
+
+// VersionFromProto converts a protobuf version message to the domain Version.
+func VersionFromProto(v *proto.Version) Version {
+	if v == nil {
+		return unsetVersion
+	}
+	return Version{
+		MajorNumber: v.MajorNumber,
+		MinorNumber: v.MinorNumber,
+		PatchNumber: v.PatchNumber,
+		GitHash:     v.GitHash,
+		Producer:    v.Producer,
+	}
+}
+
+// VersionToProto encodes a version as its protobuf message.
+func VersionToProto(v Version) *proto.Version {
+	return &proto.Version{
+		MajorNumber: v.MajorNumber,
+		MinorNumber: v.MinorNumber,
+		PatchNumber: v.PatchNumber,
+		GitHash:     v.GitHash,
+		Producer:    v.Producer,
+	}
+}
 
 // Nullability indicates whether values of a Substrait type may be null.
 type Nullability int32
