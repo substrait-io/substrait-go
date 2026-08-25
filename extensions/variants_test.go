@@ -442,6 +442,34 @@ func valArg(typ types.FuncDefArgType) extensions.ValueArg {
 	return extensions.ValueArg{Value: &parser.TypeExpression{ValueType: typ}}
 }
 
+func TestScalarFunctionVariantReturnType(t *testing.T) {
+	const yaml = `---
+urn: extension:x:test
+scalar_functions:
+  - name: "f"
+    impls:
+      - args:
+          - name: key
+            value: any1
+          - name: value
+            value: any2
+        return: map<any1, any2>
+`
+	var collection extensions.Collection
+	require.NoError(t, collection.Load(strings.NewReader(yaml)))
+
+	variant, ok := collection.GetScalarFunc(extensions.FunctionID{
+		URN: "extension:x:test", Name: "f:any_any",
+	})
+	require.True(t, ok)
+	require.Equal(t, "map<any1, any2>", variant.ReturnType().String())
+
+	variant = extensions.NewScalarFuncVariant(extensions.FunctionID{
+		URN: "extension:x:test", Name: "f:any",
+	})
+	require.Nil(t, variant.ReturnType())
+}
+
 func TestResolveType(t *testing.T) {
 	// Test TypeReference setting logic for user-defined types
 	tests := []struct {

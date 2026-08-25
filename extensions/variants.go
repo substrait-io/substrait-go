@@ -352,6 +352,15 @@ func (s *ScalarFunctionVariant) SessionDependent() bool           { return s.imp
 func (s *ScalarFunctionVariant) Nullability() NullabilityHandling { return s.impl.Nullability }
 func (s *ScalarFunctionVariant) URN() string                      { return s.urn }
 func (s *ScalarFunctionVariant) Metadata() map[string]any         { return s.metadata }
+
+// ReturnType returns the unresolved return type expression, or nil when the
+// variant does not define one.
+func (s *ScalarFunctionVariant) ReturnType() types.FuncDefArgType {
+	if s.impl.Return == nil {
+		return nil
+	}
+	return s.impl.Return.ValueType
+}
 func (s *ScalarFunctionVariant) ResolveType(argumentTypes []types.Type, registry Set) (types.Type, error) {
 	return EvaluateTypeExpression(s.urn, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
 }
