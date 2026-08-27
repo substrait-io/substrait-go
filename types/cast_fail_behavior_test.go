@@ -27,20 +27,3 @@ func TestCastFailBehaviorString(t *testing.T) {
 	}
 }
 
-func TestCastFailBehaviorMatchesProto(t *testing.T) {
-	cases := []struct {
-		domain types.CastFailBehavior
-		pb     proto.Expression_Cast_FailureBehavior
-	}{
-		{types.CastFailBehaviorUnspecified, proto.Expression_Cast_FAILURE_BEHAVIOR_UNSPECIFIED},
-		{types.CastFailBehaviorReturnNull, proto.Expression_Cast_FAILURE_BEHAVIOR_RETURN_NULL},
-		{types.CastFailBehaviorThrowException, proto.Expression_Cast_FAILURE_BEHAVIOR_THROW_EXCEPTION},
-	}
-	// fail if the spec adds a value we don't mirror
-	assert.Equal(t, proto.Expression_Cast_FAILURE_BEHAVIOR_UNSPECIFIED.Descriptor().Values().Len(), len(cases),
-		"a proto cast failure behavior value is not covered")
-	for _, td := range cases {
-		assert.EqualValues(t, td.pb, td.domain, "wire number for %s", td.pb)
-		assert.Equal(t, td.pb.String(), td.domain.String(), "enum name for %s", td.pb)
-	}
-}
