@@ -5,6 +5,7 @@ package plan
 import (
 	"fmt"
 	"slices"
+	"strconv"
 
 	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/expr"
@@ -1822,14 +1823,30 @@ const (
 
 // SimpleComparisonType describes one of the predefined comparison behaviors
 // used by a ComparisonJoinKey.
-type SimpleComparisonType = proto.ComparisonJoinKey_SimpleComparisonType
+type SimpleComparisonType int32
 
 const (
-	SimpleComparisonTypeUnspecified       = proto.ComparisonJoinKey_SIMPLE_COMPARISON_TYPE_UNSPECIFIED
-	SimpleComparisonTypeEq                = proto.ComparisonJoinKey_SIMPLE_COMPARISON_TYPE_EQ
-	SimpleComparisonTypeIsNotDistinctFrom = proto.ComparisonJoinKey_SIMPLE_COMPARISON_TYPE_IS_NOT_DISTINCT_FROM
-	SimpleComparisonTypeMightEqual        = proto.ComparisonJoinKey_SIMPLE_COMPARISON_TYPE_MIGHT_EQUAL
+	SimpleComparisonTypeUnspecified       SimpleComparisonType = 0
+	SimpleComparisonTypeEq                SimpleComparisonType = 1
+	SimpleComparisonTypeIsNotDistinctFrom SimpleComparisonType = 2
+	SimpleComparisonTypeMightEqual        SimpleComparisonType = 3
 )
+
+// String returns the protobuf enum name for the comparison type.
+func (t SimpleComparisonType) String() string {
+	switch t {
+	case SimpleComparisonTypeUnspecified:
+		return "SIMPLE_COMPARISON_TYPE_UNSPECIFIED"
+	case SimpleComparisonTypeEq:
+		return "SIMPLE_COMPARISON_TYPE_EQ"
+	case SimpleComparisonTypeIsNotDistinctFrom:
+		return "SIMPLE_COMPARISON_TYPE_IS_NOT_DISTINCT_FROM"
+	case SimpleComparisonTypeMightEqual:
+		return "SIMPLE_COMPARISON_TYPE_MIGHT_EQUAL"
+	default:
+		return strconv.Itoa(int(t))
+	}
+}
 
 // JoinKeyComparison describes how the two sides of a ComparisonJoinKey are
 // compared. It is either a SimpleComparison or a CustomComparison. The
@@ -1845,7 +1862,7 @@ type SimpleComparison struct {
 
 func (c SimpleComparison) toProto() *proto.ComparisonJoinKey_ComparisonType {
 	return &proto.ComparisonJoinKey_ComparisonType{
-		InnerType: &proto.ComparisonJoinKey_ComparisonType_Simple{Simple: c.Type},
+		InnerType: &proto.ComparisonJoinKey_ComparisonType_Simple{Simple: proto.ComparisonJoinKey_SimpleComparisonType(c.Type)},
 	}
 }
 
@@ -1956,7 +1973,7 @@ func rightJoinKeys(keys []*ComparisonJoinKey) []*expr.FieldReference {
 func joinKeyComparisonFromProto(c *proto.ComparisonJoinKey_ComparisonType) (JoinKeyComparison, error) {
 	switch it := c.GetInnerType().(type) {
 	case *proto.ComparisonJoinKey_ComparisonType_Simple:
-		return SimpleComparison{Type: it.Simple}, nil
+		return SimpleComparison{Type: SimpleComparisonType(it.Simple)}, nil
 	case *proto.ComparisonJoinKey_ComparisonType_CustomFunctionReference:
 		return CustomComparison{FunctionReference: it.CustomFunctionReference}, nil
 	default:
