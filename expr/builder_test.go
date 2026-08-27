@@ -54,7 +54,7 @@ func TestExprBuilder(t *testing.T) {
 			b.ScalarFunc(subID).Args(
 				b.RootRef(expr.NewStructFieldRef(3)),
 				b.Cast(b.RootRef(expr.NewStructFieldRef(6)), &types.Int32Type{}).
-					FailBehavior(types.BehaviorThrowException),
+					FailBehavior(types.CastFailBehaviorThrowException),
 			), ""},
 		{"expression with lit", "subtract(.field(3) => i32, i32(3)) => i32",
 			b.ScalarFunc(subID).Args(b.RootRef(expr.NewStructFieldRef(3)),

@@ -260,7 +260,7 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 		return &Cast{
 			Type:            types.TypeFromProto(et.Cast.Type),
 			Input:           input,
-			FailureBehavior: et.Cast.FailureBehavior,
+			FailureBehavior: types.CastFailBehavior(et.Cast.FailureBehavior),
 		}, nil
 	case *proto.Expression_Nested_:
 		var err error
@@ -649,7 +649,7 @@ func (ex *Cast) ToProto() *proto.Expression {
 			Cast: &proto.Expression_Cast{
 				Type:            types.TypeToProto(ex.Type),
 				Input:           ex.Input.ToProto(),
-				FailureBehavior: ex.FailureBehavior,
+				FailureBehavior: proto.Expression_Cast_FailureBehavior(ex.FailureBehavior),
 			},
 		},
 	}
