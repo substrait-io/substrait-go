@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/substrait-io/substrait-go/v9/types"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
 func TestCastFailBehaviorString(t *testing.T) {
@@ -26,4 +25,3 @@ func TestCastFailBehaviorString(t *testing.T) {
 		})
 	}
 }
-
