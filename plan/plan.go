@@ -731,7 +731,7 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			}
 		}
 
-		if rel.Set.Op == SetOpUnspecified {
+		if SetOp(rel.Set.Op) == SetOpUnspecified {
 			return nil, fmt.Errorf("%w: set operation must not be unspecified", substraitgo.ErrInvalidRel)
 		}
 
@@ -746,7 +746,7 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 
 		out := &SetRel{
 			inputs:       inputs,
-			op:           rel.Set.Op,
+			op:           SetOp(rel.Set.Op),
 			advExtension: rel.Set.AdvancedExtension,
 		}
 		out.fromProtoCommon(rel.Set.Common)

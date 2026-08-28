@@ -1522,17 +1522,46 @@ func (fr *FilterRel) Remap(mapping ...int32) (Rel, error) {
 	return RemapHelper(fr, mapping)
 }
 
-type SetOp = proto.SetRel_SetOp
+// SetOp identifies the relational set operator applied by a SetRel.
+type SetOp int32
 
 const (
-	SetOpUnspecified          = proto.SetRel_SET_OP_UNSPECIFIED
-	SetOpMinusPrimary         = proto.SetRel_SET_OP_MINUS_PRIMARY
-	SetOpMinusMultiset        = proto.SetRel_SET_OP_MINUS_MULTISET
-	SetOpIntersectionPrimary  = proto.SetRel_SET_OP_INTERSECTION_PRIMARY
-	SetOpIntersectionMultiset = proto.SetRel_SET_OP_INTERSECTION_MULTISET
-	SetOpUnionDistinct        = proto.SetRel_SET_OP_UNION_DISTINCT
-	SetOpUnionAll             = proto.SetRel_SET_OP_UNION_ALL
+	SetOpUnspecified             SetOp = 0
+	SetOpMinusPrimary            SetOp = 1
+	SetOpMinusMultiset           SetOp = 2
+	SetOpIntersectionPrimary     SetOp = 3
+	SetOpIntersectionMultiset    SetOp = 4
+	SetOpUnionDistinct           SetOp = 5
+	SetOpUnionAll                SetOp = 6
+	SetOpMinusPrimaryAll         SetOp = 7
+	SetOpIntersectionMultisetAll SetOp = 8
 )
+
+// String returns the protobuf enum name for the set operation.
+func (o SetOp) String() string {
+	switch o {
+	case SetOpUnspecified:
+		return "SET_OP_UNSPECIFIED"
+	case SetOpMinusPrimary:
+		return "SET_OP_MINUS_PRIMARY"
+	case SetOpMinusMultiset:
+		return "SET_OP_MINUS_MULTISET"
+	case SetOpIntersectionPrimary:
+		return "SET_OP_INTERSECTION_PRIMARY"
+	case SetOpIntersectionMultiset:
+		return "SET_OP_INTERSECTION_MULTISET"
+	case SetOpUnionDistinct:
+		return "SET_OP_UNION_DISTINCT"
+	case SetOpUnionAll:
+		return "SET_OP_UNION_ALL"
+	case SetOpMinusPrimaryAll:
+		return "SET_OP_MINUS_PRIMARY_ALL"
+	case SetOpIntersectionMultisetAll:
+		return "SET_OP_INTERSECTION_MULTISET_ALL"
+	default:
+		return strconv.Itoa(int(o))
+	}
+}
 
 // SetRel represents the relational set operators (intersection, union, etc.)
 type SetRel struct {
@@ -1568,7 +1597,7 @@ func (s *SetRel) ToProto() *proto.Rel {
 			Set: &proto.SetRel{
 				Common:            s.toProto(),
 				Inputs:            inputs,
-				Op:                s.op,
+				Op:                proto.SetRel_SetOp(s.op),
 				AdvancedExtension: s.advExtension,
 			},
 		},
