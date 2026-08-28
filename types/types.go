@@ -292,7 +292,6 @@ func (b CastFailBehavior) String() string {
 }
 
 type (
-	IntervalYearToMonth  = proto.Expression_Literal_IntervalYearToMonth
 	IntervalDayToSecond  = proto.Expression_Literal_IntervalDayToSecond
 	UserDefinedLiteral   = proto.Expression_Literal_UserDefined
 	PrecisionTime        = proto.Expression_Literal_PrecisionTime
@@ -313,6 +312,13 @@ type Decimal struct {
 	Value     []byte
 	Precision int32
 	Scale     int32
+}
+
+// IntervalYearToMonth is an interval literal expressed in years and months, mirroring the
+// fields of the Substrait IntervalYearToMonth literal message.
+type IntervalYearToMonth struct {
+	Years  int32
+	Months int32
 }
 
 // TypeFromProto returns the appropriate Type object from a protobuf

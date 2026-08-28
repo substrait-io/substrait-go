@@ -538,9 +538,9 @@ func (t *ProtoLiteral) ValueString() string {
 	case *types.DecimalType:
 		return decimalBytesToString([16]byte(t.Value.([]byte)), literalType.Scale)
 	case *types.IntervalYearType:
-		x, _ := t.Value.(*proto.Expression_Literal_IntervalYearToMonth)
+		x, _ := t.Value.(*types.IntervalYearToMonth)
 		// Validity is required by construction.
-		return fmt.Sprintf("%d years, %d months", x.GetYears(), x.GetMonths())
+		return fmt.Sprintf("%d years, %d months", x.Years, x.Months)
 	case *types.IntervalDayType:
 		x, _ := t.Value.(*proto.Expression_Literal_IntervalDayToSecond)
 		// Validity is required by construction.
@@ -562,9 +562,9 @@ func (t *ProtoLiteral) IsoValueString() string {
 		tm := types.TimestampTz(t.Value.(int64)).ToPrecisionTime(literalType.Precision)
 		return tm.UTC().Format("2006-01-02T15:04:05.000-07:00")
 	case *types.IntervalYearType:
-		x, _ := t.Value.(*proto.Expression_Literal_IntervalYearToMonth)
+		x, _ := t.Value.(*types.IntervalYearToMonth)
 		// Validity is required by construction.
-		return fmt.Sprintf("P%dY%dM", x.GetYears(), x.GetMonths())
+		return fmt.Sprintf("P%dY%dM", x.Years, x.Months)
 	case *types.IntervalDayType:
 		x, _ := t.Value.(*proto.Expression_Literal_IntervalDayToSecond)
 		// Validity is required by construction.
@@ -622,7 +622,10 @@ func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
 	case *types.IntervalYearType:
 		v := t.Value.(*types.IntervalYearToMonth)
 		lit.LiteralType = &proto.Expression_Literal_IntervalYearToMonth_{
-			IntervalYearToMonth: v,
+			IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{
+				Years:  v.Years,
+				Months: v.Months,
+			},
 		}
 	case *types.IntervalDayType:
 		v := t.Value.(*types.IntervalDayToSecond)
@@ -938,6 +941,9 @@ func NewLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {
 	case MapLiteralValue:
 		return NewNestedLiteral(v, nullable), nil
 	case *types.IntervalYearToMonth:
+		if v == nil {
+			return nil, fmt.Errorf("interval year to month value must not be nil")
+		}
 		return &ProtoLiteral{
 			Value: v,
 			Type: &types.IntervalYearType{
