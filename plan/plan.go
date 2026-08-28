@@ -651,7 +651,7 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 		out.fromProtoCommon(rel.Sort.Common)
 		return out, nil
 	case *proto.Rel_Join:
-		if rel.Join.Type == JoinTypeUnspecified {
+		if JoinType(rel.Join.Type) == JoinTypeUnspecified {
 			return nil, fmt.Errorf("%w: JoinRel must not have unspecified join type", substraitgo.ErrInvalidRel)
 		}
 
@@ -668,7 +668,7 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 		out := &JoinRel{
 			left:         left,
 			right:        right,
-			joinType:     rel.Join.Type,
+			joinType:     JoinType(rel.Join.Type),
 			advExtension: rel.Join.AdvancedExtension,
 		}
 		out.fromProtoCommon(rel.Join.Common)
