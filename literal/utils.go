@@ -195,12 +195,10 @@ func NewIntervalDaysToSecondFromString(daysToSecond string, nullable bool) (expr
 		return nil, err
 	}
 	return expr.NewLiteral(&types.IntervalDayToSecond{
-		Days:    days,
-		Seconds: seconds,
-		PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{
-			Precision: precision,
-		},
-		Subseconds: subSeconds,
+		Days:          days,
+		Seconds:       seconds,
+		PrecisionMode: types.IntervalDayToSecondPrecision(precision),
+		Subseconds:    subSeconds,
 	}, nullable)
 }
 
@@ -265,12 +263,10 @@ func parseIntervalDaysToSecond(interval string) (int32, int32, int64, int32, err
 
 func NewIntervalDaysToSecond(days, seconds int32, micros int64, nullable bool) (expr.Literal, error) {
 	return expr.NewLiteral(&types.IntervalDayToSecond{
-		Days:    days,
-		Seconds: seconds,
-		PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{
-			Precision: int32(types.PrecisionMicroSeconds),
-		},
-		Subseconds: micros,
+		Days:          days,
+		Seconds:       seconds,
+		PrecisionMode: types.IntervalDayToSecondPrecision(int32(types.PrecisionMicroSeconds)),
+		Subseconds:    micros,
 	}, nullable)
 }
 

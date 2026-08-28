@@ -542,9 +542,9 @@ func (t *ProtoLiteral) ValueString() string {
 		// Validity is required by construction.
 		return fmt.Sprintf("%d years, %d months", x.Years, x.Months)
 	case *types.IntervalDayType:
-		x, _ := t.Value.(*proto.Expression_Literal_IntervalDayToSecond)
+		x, _ := t.Value.(*types.IntervalDayToSecond)
 		// Validity is required by construction.
-		return fmt.Sprintf("%d days, %d seconds, %d subseconds", x.GetDays(), x.GetSeconds(), x.GetSubseconds())
+		return fmt.Sprintf("%d days, %d seconds, %d subseconds", x.Days, x.Seconds, x.Subseconds)
 	}
 	return fmt.Sprintf("%s", t.Value)
 }
@@ -566,17 +566,17 @@ func (t *ProtoLiteral) IsoValueString() string {
 		// Validity is required by construction.
 		return fmt.Sprintf("P%dY%dM", x.Years, x.Months)
 	case *types.IntervalDayType:
-		x, _ := t.Value.(*proto.Expression_Literal_IntervalDayToSecond)
+		x, _ := t.Value.(*types.IntervalDayToSecond)
 		// Validity is required by construction.
 		sb := strings.Builder{}
 		sb.WriteString("P")
-		if x.GetDays() > 0 {
-			sb.WriteString(fmt.Sprintf("%dD", x.GetDays()))
+		if x.Days > 0 {
+			sb.WriteString(fmt.Sprintf("%dD", x.Days))
 		}
-		if x.GetSeconds() > 0 || x.GetSubseconds() > 0 {
+		if x.Seconds > 0 || x.Subseconds > 0 {
 			sb.WriteString("T")
-			duration := time.Duration(x.GetSeconds()) * time.Second
-			duration += types.SubSecondsToDuration(x.GetSubseconds(), literalType.Precision)
+			duration := time.Duration(x.Seconds) * time.Second
+			duration += types.SubSecondsToDuration(x.Subseconds, literalType.Precision)
 			sb.WriteString(strings.ToUpper(duration.String()))
 		}
 		return sb.String()
@@ -630,7 +630,7 @@ func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
 	case *types.IntervalDayType:
 		v := t.Value.(*types.IntervalDayToSecond)
 		lit.LiteralType = &proto.Expression_Literal_IntervalDayToSecond_{
-			IntervalDayToSecond: v,
+			IntervalDayToSecond: types.IntervalDayToSecondToProto(v),
 		}
 	case *types.VarCharType:
 		v := t.Value.(string)
@@ -749,9 +749,9 @@ func newPrecisionTimestampTzWithType(literal *ProtoLiteral, ptstzType *types.Pre
 
 func newIntervalDayWithType(literal *ProtoLiteral, intervalDayType *types.IntervalDayType) (Literal, error) {
 	if _, ok := literal.GetType().(*types.IntervalDayType); ok {
-		intervalValue := literal.Value.(*proto.Expression_Literal_IntervalDayToSecond)
+		intervalValue := literal.Value.(*types.IntervalDayToSecond)
 		precisionDiff := intervalValue.GetPrecision() - intervalDayType.Precision.ToProtoVal()
-		ss := intervalValue.GetSubseconds()
+		ss := intervalValue.Subseconds
 		if precisionDiff != 0 {
 			factor := int64(math.Pow10(int(math.Abs(float64(precisionDiff)))))
 			if precisionDiff > 0 {
@@ -762,12 +762,10 @@ func newIntervalDayWithType(literal *ProtoLiteral, intervalDayType *types.Interv
 		}
 		return &ProtoLiteral{
 			Value: &types.IntervalDayToSecond{
-				Days:       intervalValue.GetDays(),
-				Seconds:    intervalValue.GetSeconds(),
-				Subseconds: ss,
-				PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{
-					Precision: intervalDayType.Precision.ToProtoVal(),
-				},
+				Days:          intervalValue.Days,
+				Seconds:       intervalValue.Seconds,
+				Subseconds:    ss,
+				PrecisionMode: types.IntervalDayToSecondPrecision(intervalDayType.Precision.ToProtoVal()),
 			}, Type: intervalDayType,
 		}, nil
 	}
@@ -951,6 +949,9 @@ func NewLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {
 			},
 		}, nil
 	case *types.IntervalDayToSecond:
+		if v == nil {
+			return nil, fmt.Errorf("interval day to second value must not be nil")
+		}
 		return &ProtoLiteral{
 			Value: v,
 			Type: &types.IntervalDayType{
@@ -1104,7 +1105,7 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 			}
 		}
 		return &ProtoLiteral{
-			Value: lit.IntervalDayToSecond,
+			Value: types.IntervalDayToSecondFromProto(lit.IntervalDayToSecond),
 			Type: &types.IntervalDayType{
 				Precision:        precision,
 				Nullability:      nullability,

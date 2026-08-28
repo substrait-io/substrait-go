@@ -307,7 +307,6 @@ func (b CastFailBehavior) String() string {
 }
 
 type (
-	IntervalDayToSecond  = proto.Expression_Literal_IntervalDayToSecond
 	UserDefinedLiteral   = proto.Expression_Literal_UserDefined
 	PrecisionTime        = proto.Expression_Literal_PrecisionTime
 	PrecisionTimestamp   = proto.Expression_Literal_PrecisionTimestamp_
@@ -334,6 +333,82 @@ type Decimal struct {
 type IntervalYearToMonth struct {
 	Years  int32
 	Months int32
+}
+
+// IntervalDayToSecond is an interval literal spanning days down to sub-seconds, mirroring the
+// fields of the Substrait IntervalDayToSecond literal message. Its sub-second precision is carried
+// by the PrecisionMode oneof.
+type IntervalDayToSecond struct {
+	Days          int32
+	Seconds       int32
+	Subseconds    int64
+	PrecisionMode IntervalDayToSecondPrecisionMode
+}
+
+// IntervalDayToSecondPrecisionMode models the precision_mode oneof of the IntervalDayToSecond
+// literal message: either a deprecated Microseconds count or a Precision exponent.
+type IntervalDayToSecondPrecisionMode interface {
+	isIntervalDayToSecondPrecisionMode()
+}
+
+// IntervalDayToSecondMicroseconds is the deprecated microseconds arm of the precision_mode oneof.
+type IntervalDayToSecondMicroseconds int32
+
+func (IntervalDayToSecondMicroseconds) isIntervalDayToSecondPrecisionMode() {}
+
+// IntervalDayToSecondPrecision is the sub-second precision exponent arm of the precision_mode oneof.
+type IntervalDayToSecondPrecision int32
+
+func (IntervalDayToSecondPrecision) isIntervalDayToSecondPrecisionMode() {}
+
+// GetPrecision returns the sub-second precision exponent when the precision_mode oneof carries a
+// Precision arm, and 0 otherwise, mirroring the proto getter.
+func (i *IntervalDayToSecond) GetPrecision() int32 {
+	if i == nil {
+		return 0
+	}
+	if p, ok := i.PrecisionMode.(IntervalDayToSecondPrecision); ok {
+		return int32(p)
+	}
+	return 0
+}
+
+// IntervalDayToSecondToProto encodes the domain interval as its protobuf literal message.
+func IntervalDayToSecondToProto(v *IntervalDayToSecond) *proto.Expression_Literal_IntervalDayToSecond {
+	if v == nil {
+		return nil
+	}
+	p := &proto.Expression_Literal_IntervalDayToSecond{
+		Days:       v.Days,
+		Seconds:    v.Seconds,
+		Subseconds: v.Subseconds,
+	}
+	switch m := v.PrecisionMode.(type) {
+	case IntervalDayToSecondMicroseconds:
+		p.PrecisionMode = &proto.Expression_Literal_IntervalDayToSecond_Microseconds{Microseconds: int32(m)}
+	case IntervalDayToSecondPrecision:
+		p.PrecisionMode = &proto.Expression_Literal_IntervalDayToSecond_Precision{Precision: int32(m)}
+	}
+	return p
+}
+
+// IntervalDayToSecondFromProto decodes a protobuf interval literal message into the domain type.
+func IntervalDayToSecondFromProto(p *proto.Expression_Literal_IntervalDayToSecond) *IntervalDayToSecond {
+	if p == nil {
+		return nil
+	}
+	v := &IntervalDayToSecond{
+		Days:       p.GetDays(),
+		Seconds:    p.GetSeconds(),
+		Subseconds: p.GetSubseconds(),
+	}
+	switch m := p.PrecisionMode.(type) {
+	case *proto.Expression_Literal_IntervalDayToSecond_Microseconds:
+		v.PrecisionMode = IntervalDayToSecondMicroseconds(m.Microseconds)
+	case *proto.Expression_Literal_IntervalDayToSecond_Precision:
+		v.PrecisionMode = IntervalDayToSecondPrecision(m.Precision)
+	}
+	return v
 }
 
 // TypeFromProto returns the appropriate Type object from a protobuf
