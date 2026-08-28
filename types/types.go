@@ -241,23 +241,59 @@ func GetTypeNameToTypeMap() map[string]Type {
 	return typeMap
 }
 
-type AggregationPhase = proto.AggregationPhase
+// AggregationPhase describes which part of an aggregation or window function to
+// perform within the context of distributed algorithms.
+type AggregationPhase int32
 
 const (
-	AggPhaseUnspecified                = proto.AggregationPhase_AGGREGATION_PHASE_UNSPECIFIED
-	AggPhaseInitialToIntermediate      = proto.AggregationPhase_AGGREGATION_PHASE_INITIAL_TO_INTERMEDIATE
-	AggPhaseIntermediateToIntermediate = proto.AggregationPhase_AGGREGATION_PHASE_INTERMEDIATE_TO_INTERMEDIATE
-	AggPhaseInitialToResult            = proto.AggregationPhase_AGGREGATION_PHASE_INITIAL_TO_RESULT
-	AggPhaseIntermediateToResult       = proto.AggregationPhase_AGGREGATION_PHASE_INTERMEDIATE_TO_RESULT
+	AggregationPhaseUnspecified                AggregationPhase = 0
+	AggregationPhaseInitialToIntermediate      AggregationPhase = 1
+	AggregationPhaseIntermediateToIntermediate AggregationPhase = 2
+	AggregationPhaseInitialToResult            AggregationPhase = 3
+	AggregationPhaseIntermediateToResult       AggregationPhase = 4
 )
 
-type AggregationInvocation = proto.AggregateFunction_AggregationInvocation
+// String returns the protobuf enum name for the aggregation phase.
+func (p AggregationPhase) String() string {
+	switch p {
+	case AggregationPhaseUnspecified:
+		return "AGGREGATION_PHASE_UNSPECIFIED"
+	case AggregationPhaseInitialToIntermediate:
+		return "AGGREGATION_PHASE_INITIAL_TO_INTERMEDIATE"
+	case AggregationPhaseIntermediateToIntermediate:
+		return "AGGREGATION_PHASE_INTERMEDIATE_TO_INTERMEDIATE"
+	case AggregationPhaseInitialToResult:
+		return "AGGREGATION_PHASE_INITIAL_TO_RESULT"
+	case AggregationPhaseIntermediateToResult:
+		return "AGGREGATION_PHASE_INTERMEDIATE_TO_RESULT"
+	default:
+		return strconv.Itoa(int(p))
+	}
+}
+
+// AggregationInvocation describes the method in which equivalent records are
+// merged before being aggregated.
+type AggregationInvocation int32
 
 const (
-	AggInvocationUnspecified = proto.AggregateFunction_AGGREGATION_INVOCATION_UNSPECIFIED
-	AggInvocationAll         = proto.AggregateFunction_AGGREGATION_INVOCATION_ALL
-	AggInvocationDistinct    = proto.AggregateFunction_AGGREGATION_INVOCATION_DISTINCT
+	AggregationInvocationUnspecified AggregationInvocation = 0
+	AggregationInvocationAll         AggregationInvocation = 1
+	AggregationInvocationDistinct    AggregationInvocation = 2
 )
+
+// String returns the protobuf enum name for the aggregation invocation.
+func (i AggregationInvocation) String() string {
+	switch i {
+	case AggregationInvocationUnspecified:
+		return "AGGREGATION_INVOCATION_UNSPECIFIED"
+	case AggregationInvocationAll:
+		return "AGGREGATION_INVOCATION_ALL"
+	case AggregationInvocationDistinct:
+		return "AGGREGATION_INVOCATION_DISTINCT"
+	default:
+		return strconv.Itoa(int(i))
+	}
+}
 
 // BoundsType indicates whether a window frame's bounds are measured in rows or in a range of values.
 type BoundsType int32

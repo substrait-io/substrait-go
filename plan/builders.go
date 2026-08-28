@@ -231,7 +231,7 @@ func (b *builder) ScalarFn(nameSpace, key string, opts []*types.FunctionOption, 
 func (b *builder) AggregateFn(nameSpace, key string, opts []*types.FunctionOption, args ...types.FuncArg) (*expr.AggregateFunction, error) {
 	id := extensions.FunctionID{URN: nameSpace, Name: key}
 	return expr.NewAggregateFunc(b.reg, id, opts,
-		types.AggInvocationAll, types.AggPhaseInitialToResult, nil, args...)
+		types.AggregationInvocationAll, types.AggregationPhaseInitialToResult, nil, args...)
 }
 
 func (b *builder) Project(input Rel, exprs ...expr.Expression) (*ProjectRel, error) {

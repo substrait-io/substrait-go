@@ -393,7 +393,7 @@ func (tc *TestCase) GetAggregateFunctionInvocation(reg *expr.ExtensionRegistry, 
 	}
 
 	invocation, err := expr.NewAggregateFunc(*reg, id, tc.GetFunctionOptions(),
-		types.AggInvocationAll, types.AggPhaseInitialToResult, nil, args...)
+		types.AggregationInvocationAll, types.AggregationPhaseInitialToResult, nil, args...)
 	if err == nil {
 		return invocation, nil
 	}
@@ -403,7 +403,7 @@ func (tc *TestCase) GetAggregateFunctionInvocation(reg *expr.ExtensionRegistry, 
 		isMatch, err := function.Match(tc.GetArgTypes())
 		if err == nil && isMatch && function.ID().URN == id.URN {
 			return expr.NewAggregateFunc(*reg, function.ID(), tc.GetFunctionOptions(),
-				types.AggInvocationAll, types.AggPhaseInitialToResult, nil, args...)
+				types.AggregationInvocationAll, types.AggregationPhaseInitialToResult, nil, args...)
 		}
 	}
 	return nil, fmt.Errorf("%w: no matching function found  or %s", substraitgo.ErrNotFound, id)
