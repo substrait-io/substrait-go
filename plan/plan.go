@@ -901,9 +901,9 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 		tableSchema := types.NewNamedStructFromProto(rel.Write.TableSchema)
 		out := &NamedTableWriteRel{
 			tableSchema: tableSchema,
-			op:          rel.Write.Op,
+			op:          WriteOp(rel.Write.Op),
 			input:       input,
-			outputMode:  rel.Write.Output,
+			outputMode:  OutputMode(rel.Write.Output),
 		}
 		if rel.Write.Common != nil {
 			out.fromProtoCommon(rel.Write.Common)

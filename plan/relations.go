@@ -2329,23 +2329,57 @@ func (mr *MergeJoinRel) Remap(mapping ...int32) (Rel, error) {
 	return RemapHelper(mr, mapping)
 }
 
-type WriteOp = proto.WriteRel_WriteOp
+// WriteOp describes the kind of write a NamedTableWriteRel performs.
+type WriteOp int32
 
 const (
-	WriteOpUnspecified = proto.WriteRel_WRITE_OP_UNSPECIFIED
-	WriteOpInsert      = proto.WriteRel_WRITE_OP_INSERT
-	WriteOpDelete      = proto.WriteRel_WRITE_OP_DELETE
-	WriteOpUpdate      = proto.WriteRel_WRITE_OP_UPDATE
-	WriteOpCTAS        = proto.WriteRel_WRITE_OP_CTAS
+	WriteOpUnspecified WriteOp = 0
+	WriteOpInsert      WriteOp = 1
+	WriteOpDelete      WriteOp = 2
+	WriteOpUpdate      WriteOp = 3
+	WriteOpCTAS        WriteOp = 4
 )
 
-type OutputMode = proto.WriteRel_OutputMode
+// String returns the protobuf enum name for the write operation.
+func (o WriteOp) String() string {
+	switch o {
+	case WriteOpUnspecified:
+		return "WRITE_OP_UNSPECIFIED"
+	case WriteOpInsert:
+		return "WRITE_OP_INSERT"
+	case WriteOpDelete:
+		return "WRITE_OP_DELETE"
+	case WriteOpUpdate:
+		return "WRITE_OP_UPDATE"
+	case WriteOpCTAS:
+		return "WRITE_OP_CTAS"
+	default:
+		return strconv.Itoa(int(o))
+	}
+}
+
+// OutputMode describes what records a NamedTableWriteRel returns.
+type OutputMode int32
 
 const (
-	OutputModeUnspecified     = proto.WriteRel_OUTPUT_MODE_UNSPECIFIED
-	OutputModeNoOutput        = proto.WriteRel_OUTPUT_MODE_NO_OUTPUT
-	OutputModeModifiedRecords = proto.WriteRel_OUTPUT_MODE_MODIFIED_RECORDS
+	OutputModeUnspecified     OutputMode = 0
+	OutputModeNoOutput        OutputMode = 1
+	OutputModeModifiedRecords OutputMode = 2
 )
+
+// String returns the protobuf enum name for the output mode.
+func (m OutputMode) String() string {
+	switch m {
+	case OutputModeUnspecified:
+		return "OUTPUT_MODE_UNSPECIFIED"
+	case OutputModeNoOutput:
+		return "OUTPUT_MODE_NO_OUTPUT"
+	case OutputModeModifiedRecords:
+		return "OUTPUT_MODE_MODIFIED_RECORDS"
+	default:
+		return strconv.Itoa(int(m))
+	}
+}
 
 // NamedTableWriteRel is a relational operator that writes data to a table. The list of strings
 // that make up the names are to represent namespacing (e.g. mydb.mytable).
@@ -2405,7 +2439,7 @@ func (wr *NamedTableWriteRel) ToProto() *proto.Rel {
 					},
 				},
 				TableSchema: wr.tableSchema.ToProto(),
-				Op:          wr.op,
+				Op:          proto.WriteRel_WriteOp(wr.op),
 				Input:       wr.input.ToProto(),
 			},
 		},
