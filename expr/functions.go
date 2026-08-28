@@ -719,7 +719,7 @@ func (w *WindowFunction) ToProto() *proto.Expression {
 				Sorts:             sorts,
 				Invocation:        w.invocation,
 				Partitions:        parts,
-				BoundsType:        w.BoundsType,
+				BoundsType:        proto.Expression_WindowFunction_BoundsType(w.BoundsType),
 				LowerBound:        lowerBound,
 				UpperBound:        upperBound,
 			},

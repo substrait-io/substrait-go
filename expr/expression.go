@@ -134,7 +134,7 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 			fn.Partitions = parts
 			fn.Sorts = sorts
 			fn.LowerBound = BoundFromProto(et.WindowFunction.LowerBound)
-			fn.BoundsType = et.WindowFunction.BoundsType
+			fn.BoundsType = types.BoundsType(et.WindowFunction.BoundsType)
 			fn.UpperBound = BoundFromProto(et.WindowFunction.UpperBound)
 			return fn, nil
 		}
@@ -149,7 +149,7 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 			invocation:  et.WindowFunction.Invocation,
 			Partitions:  parts,
 			Sorts:       sorts,
-			BoundsType:  et.WindowFunction.BoundsType,
+			BoundsType:  types.BoundsType(et.WindowFunction.BoundsType),
 			LowerBound:  BoundFromProto(et.WindowFunction.LowerBound),
 			UpperBound:  BoundFromProto(et.WindowFunction.UpperBound),
 		}, nil

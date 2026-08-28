@@ -221,13 +221,28 @@ const (
 	AggInvocationDistinct    = proto.AggregateFunction_AGGREGATION_INVOCATION_DISTINCT
 )
 
-type BoundsType = proto.Expression_WindowFunction_BoundsType
+// BoundsType indicates whether a window frame's bounds are measured in rows or in a range of values.
+type BoundsType int32
 
 const (
-	BoundsTypeUnspecified = proto.Expression_WindowFunction_BOUNDS_TYPE_UNSPECIFIED
-	BoundsTypeRows        = proto.Expression_WindowFunction_BOUNDS_TYPE_ROWS
-	BoundsTypeRange       = proto.Expression_WindowFunction_BOUNDS_TYPE_RANGE
+	BoundsTypeUnspecified BoundsType = 0
+	BoundsTypeRows        BoundsType = 1
+	BoundsTypeRange       BoundsType = 2
 )
+
+// String returns the protobuf enum name for the bounds type.
+func (b BoundsType) String() string {
+	switch b {
+	case BoundsTypeUnspecified:
+		return "BOUNDS_TYPE_UNSPECIFIED"
+	case BoundsTypeRows:
+		return "BOUNDS_TYPE_ROWS"
+	case BoundsTypeRange:
+		return "BOUNDS_TYPE_RANGE"
+	default:
+		return strconv.Itoa(int(b))
+	}
+}
 
 type SortDirection int32
 
