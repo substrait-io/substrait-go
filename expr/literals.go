@@ -995,9 +995,9 @@ func NewLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {
 	case *types.PrecisionTime:
 		return NewPrecisionTimeLiteral(v.Value, types.TimePrecision(v.Precision), getNullability(nullable)), nil
 	case *types.PrecisionTimestamp:
-		return NewPrecisionTimestampLiteral(v.PrecisionTimestamp.Value, types.TimePrecision(v.PrecisionTimestamp.Precision), getNullability(nullable)), nil
+		return NewPrecisionTimestampLiteral(v.Value, types.TimePrecision(v.Precision), getNullability(nullable)), nil
 	case *types.PrecisionTimestampTz:
-		return NewPrecisionTimestampTzLiteral(v.PrecisionTimestampTz.Value, types.TimePrecision(v.PrecisionTimestampTz.Precision), getNullability(nullable)), nil
+		return NewPrecisionTimestampTzLiteral(v.Value, types.TimePrecision(v.Precision), getNullability(nullable)), nil
 	}
 
 	return nil, substraitgo.ErrNotImplemented

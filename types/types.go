@@ -307,11 +307,8 @@ func (b CastFailBehavior) String() string {
 }
 
 type (
-	IntervalDayToSecond  = proto.Expression_Literal_IntervalDayToSecond
-	UserDefinedLiteral   = proto.Expression_Literal_UserDefined
-	PrecisionTime        = proto.Expression_Literal_PrecisionTime
-	PrecisionTimestamp   = proto.Expression_Literal_PrecisionTimestamp_
-	PrecisionTimestampTz = proto.Expression_Literal_PrecisionTimestampTz
+	IntervalDayToSecond = proto.Expression_Literal_IntervalDayToSecond
+	UserDefinedLiteral  = proto.Expression_Literal_UserDefined
 )
 
 // VarChar is a variable-length character literal: its value and length, mirroring the fields of
@@ -334,6 +331,29 @@ type Decimal struct {
 type IntervalYearToMonth struct {
 	Years  int32
 	Months int32
+}
+
+// PrecisionTime is a time-of-day literal: the number of precision units past
+// midnight, mirroring the fields of the Substrait PrecisionTime literal message.
+type PrecisionTime struct {
+	Precision int32
+	Value     int64
+}
+
+// PrecisionTimestamp is a timestamp literal in an unspecified time zone: the
+// number of precision units since the UNIX epoch, mirroring the fields of the
+// Substrait PrecisionTimestamp literal message.
+type PrecisionTimestamp struct {
+	Precision int32
+	Value     int64
+}
+
+// PrecisionTimestampTz is a UTC timestamp literal: the number of precision units
+// since the UNIX epoch, mirroring the fields of the Substrait PrecisionTimestamp
+// literal message that backs the precision_timestamp_tz field.
+type PrecisionTimestampTz struct {
+	Precision int32
+	Value     int64
 }
 
 // TypeFromProto returns the appropriate Type object from a protobuf
