@@ -229,18 +229,36 @@ const (
 	BoundsTypeRange       = proto.Expression_WindowFunction_BOUNDS_TYPE_RANGE
 )
 
-type SortDirection proto.SortField_SortDirection
+type SortDirection int32
 
 const (
-	SortUnspecified    = SortDirection(proto.SortField_SORT_DIRECTION_UNSPECIFIED)
-	SortAscNullsFirst  = SortDirection(proto.SortField_SORT_DIRECTION_ASC_NULLS_FIRST)
-	SortAscNullsLast   = SortDirection(proto.SortField_SORT_DIRECTION_ASC_NULLS_LAST)
-	SortDescNullsFirst = SortDirection(proto.SortField_SORT_DIRECTION_DESC_NULLS_FIRST)
-	SortDescNullsLast  = SortDirection(proto.SortField_SORT_DIRECTION_DESC_NULLS_LAST)
-	SortClustered      = SortDirection(proto.SortField_SORT_DIRECTION_CLUSTERED)
+	SortUnspecified    SortDirection = 0
+	SortAscNullsFirst  SortDirection = 1
+	SortAscNullsLast   SortDirection = 2
+	SortDescNullsFirst SortDirection = 3
+	SortDescNullsLast  SortDirection = 4
+	SortClustered      SortDirection = 5
 )
 
-func (s SortDirection) String() string { return proto.SortField_SortDirection(s).String() }
+// String returns the protobuf enum name for the sort direction.
+func (s SortDirection) String() string {
+	switch s {
+	case SortUnspecified:
+		return "SORT_DIRECTION_UNSPECIFIED"
+	case SortAscNullsFirst:
+		return "SORT_DIRECTION_ASC_NULLS_FIRST"
+	case SortAscNullsLast:
+		return "SORT_DIRECTION_ASC_NULLS_LAST"
+	case SortDescNullsFirst:
+		return "SORT_DIRECTION_DESC_NULLS_FIRST"
+	case SortDescNullsLast:
+		return "SORT_DIRECTION_DESC_NULLS_LAST"
+	case SortClustered:
+		return "SORT_DIRECTION_CLUSTERED"
+	default:
+		return strconv.Itoa(int(s))
+	}
+}
 
 func (SortDirection) isSortKind() {}
 
