@@ -499,8 +499,8 @@ func (t *ByteSliceLiteral[T]) WithType(newType types.Type) (Literal, error) {
 	return nil, fmt.Errorf("byte slice literal withType is not supported for %T ", newType)
 }
 
-// ProtoLiteral is a literal that is represented using its protobuf
-// message type such as a Decimal or UserDefinedType.
+// ProtoLiteral is a literal represented by a structured value such as a
+// decimal or user-defined value.
 type ProtoLiteral struct {
 	Value any
 	Type  types.Type

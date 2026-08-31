@@ -276,7 +276,6 @@ func (b CastFailBehavior) String() string {
 type (
 	IntervalYearToMonth  = proto.Expression_Literal_IntervalYearToMonth
 	IntervalDayToSecond  = proto.Expression_Literal_IntervalDayToSecond
-	Decimal              = proto.Expression_Literal_Decimal
 	UserDefinedLiteral   = proto.Expression_Literal_UserDefined
 	PrecisionTime        = proto.Expression_Literal_PrecisionTime
 	PrecisionTimestamp   = proto.Expression_Literal_PrecisionTimestamp_
@@ -288,6 +287,14 @@ type (
 type VarChar struct {
 	Value  string
 	Length uint32
+}
+
+// Decimal is a decimal literal: the value as a 16-byte little-endian two's-complement integer
+// (ignoring precision), together with the precision and scale.
+type Decimal struct {
+	Value     []byte
+	Precision int32
+	Scale     int32
 }
 
 // TypeFromProto returns the appropriate Type object from a protobuf
