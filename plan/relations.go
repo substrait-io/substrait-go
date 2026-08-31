@@ -793,21 +793,58 @@ func (p *ProjectRel) Remap(mapping ...int32) (Rel, error) {
 
 var defFilter = expr.NewPrimitiveLiteral(true, false)
 
-type JoinType = proto.JoinRel_JoinType
+// JoinType indicates the semantics of a JoinRel (inner, outer, semi, etc.).
+type JoinType int32
 
 const (
-	JoinTypeUnspecified = proto.JoinRel_JOIN_TYPE_UNSPECIFIED
-	JoinTypeInner       = proto.JoinRel_JOIN_TYPE_INNER
-	JoinTypeOuter       = proto.JoinRel_JOIN_TYPE_OUTER
-	JoinTypeLeft        = proto.JoinRel_JOIN_TYPE_LEFT
-	JoinTypeRight       = proto.JoinRel_JOIN_TYPE_RIGHT
-	JoinTypeLeftSemi    = proto.JoinRel_JOIN_TYPE_LEFT_SEMI
-	JoinTypeLeftAnti    = proto.JoinRel_JOIN_TYPE_LEFT_ANTI
-	JoinTypeLeftSingle  = proto.JoinRel_JOIN_TYPE_LEFT_SINGLE
-	JoinTypeRightSemi   = proto.JoinRel_JOIN_TYPE_RIGHT_SEMI
-	JoinTypeRightAnti   = proto.JoinRel_JOIN_TYPE_RIGHT_ANTI
-	JoinTypeRightSingle = proto.JoinRel_JOIN_TYPE_RIGHT_SINGLE
+	JoinTypeUnspecified JoinType = 0
+	JoinTypeInner       JoinType = 1
+	JoinTypeOuter       JoinType = 2
+	JoinTypeLeft        JoinType = 3
+	JoinTypeRight       JoinType = 4
+	JoinTypeLeftSemi    JoinType = 5
+	JoinTypeLeftAnti    JoinType = 6
+	JoinTypeLeftSingle  JoinType = 7
+	JoinTypeRightSemi   JoinType = 8
+	JoinTypeRightAnti   JoinType = 9
+	JoinTypeRightSingle JoinType = 10
+	JoinTypeLeftMark    JoinType = 11
+	JoinTypeRightMark   JoinType = 12
 )
+
+// String returns the protobuf enum name for the join type.
+func (j JoinType) String() string {
+	switch j {
+	case JoinTypeUnspecified:
+		return "JOIN_TYPE_UNSPECIFIED"
+	case JoinTypeInner:
+		return "JOIN_TYPE_INNER"
+	case JoinTypeOuter:
+		return "JOIN_TYPE_OUTER"
+	case JoinTypeLeft:
+		return "JOIN_TYPE_LEFT"
+	case JoinTypeRight:
+		return "JOIN_TYPE_RIGHT"
+	case JoinTypeLeftSemi:
+		return "JOIN_TYPE_LEFT_SEMI"
+	case JoinTypeLeftAnti:
+		return "JOIN_TYPE_LEFT_ANTI"
+	case JoinTypeLeftSingle:
+		return "JOIN_TYPE_LEFT_SINGLE"
+	case JoinTypeRightSemi:
+		return "JOIN_TYPE_RIGHT_SEMI"
+	case JoinTypeRightAnti:
+		return "JOIN_TYPE_RIGHT_ANTI"
+	case JoinTypeRightSingle:
+		return "JOIN_TYPE_RIGHT_SINGLE"
+	case JoinTypeLeftMark:
+		return "JOIN_TYPE_LEFT_MARK"
+	case JoinTypeRightMark:
+		return "JOIN_TYPE_RIGHT_MARK"
+	default:
+		return strconv.Itoa(int(j))
+	}
+}
 
 // JoinRel is a binary Join relational operator representing left-join-right,
 // including various join types, a join condition and a post join filter expr.
@@ -891,7 +928,7 @@ func (j *JoinRel) ToProto() *proto.Rel {
 		Left:              j.left.ToProto(),
 		Right:             j.right.ToProto(),
 		Expression:        j.expr.ToProto(),
-		Type:              j.joinType,
+		Type:              proto.JoinRel_JoinType(j.joinType),
 		AdvancedExtension: j.advExtension,
 	}
 
