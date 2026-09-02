@@ -220,7 +220,7 @@ func (d *dialectImpl) buildFunctionInfoMap(functions []dialectFunction) map[exte
 			if len(localName) == 0 {
 				localName = name
 			}
-			id := extensions.FunctionID{URN: urn, Name: name + ":" + kernel}
+			id := extensions.FunctionID{URN: urn, Signature: name + ":" + kernel}
 			localFunction := dialectFunctionInfo{
 				ID:        id,
 				Name:      name,
