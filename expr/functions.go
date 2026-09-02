@@ -434,6 +434,16 @@ func (s *ScalarFunction) Equals(rhs Expression) bool {
 	})
 }
 
+func (s *ScalarFunction) GetExprs() []Expression {
+	var out []Expression
+	for _, arg := range s.args {
+		if e, ok := arg.(Expression); ok {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
 func (s *ScalarFunction) Visit(visit VisitFunc) Expression {
 	var args []types.FuncArg
 	for i, arg := range s.args {
@@ -733,6 +743,20 @@ func (w *WindowFunction) ToProtoFuncArg() *proto.FunctionArgument {
 			Value: w.ToProto(),
 		},
 	}
+}
+
+func (w *WindowFunction) GetExprs() []Expression {
+	var out []Expression
+	for _, arg := range w.args {
+		if e, ok := arg.(Expression); ok {
+			out = append(out, e)
+		}
+	}
+	out = append(out, w.Partitions...)
+	for _, sf := range w.Sorts {
+		out = append(out, sf.Expr)
+	}
+	return out
 }
 
 func (w *WindowFunction) Visit(visit VisitFunc) Expression {

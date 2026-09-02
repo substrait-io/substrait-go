@@ -138,6 +138,17 @@ func (b *baseReadRel) GetInputs() []Rel {
 	return []Rel{}
 }
 
+func (b *baseReadRel) GetExprs() []expr.Expression {
+	var out []expr.Expression
+	if b.filter != nil {
+		out = append(out, b.filter)
+	}
+	if b.bestEffortFilter != nil {
+		out = append(out, b.bestEffortFilter)
+	}
+	return out
+}
+
 func (b *baseReadRel) copyExpressions(rewriteFunc RewriteFunc) ([]expr.Expression, error) {
 	filter, err := rewriteFunc(b.filter)
 	if err != nil {
@@ -758,6 +769,8 @@ func (p *ProjectRel) GetInputs() []Rel {
 	return []Rel{p.input}
 }
 
+func (p *ProjectRel) GetExprs() []expr.Expression { return p.exprs }
+
 func (p *ProjectRel) Copy(newInputs ...Rel) (Rel, error) {
 	if len(newInputs) != 1 {
 		return nil, substraitgo.ErrInvalidInputCount
@@ -955,6 +968,17 @@ func (j *JoinRel) GetInputs() []Rel {
 	return []Rel{j.left, j.right}
 }
 
+func (j *JoinRel) GetExprs() []expr.Expression {
+	var out []expr.Expression
+	if j.expr != nil {
+		out = append(out, j.expr)
+	}
+	if j.postJoinFilter != nil {
+		out = append(out, j.postJoinFilter)
+	}
+	return out
+}
+
 func (j *JoinRel) Copy(newInputs ...Rel) (Rel, error) {
 	if len(newInputs) != 2 {
 		return nil, substraitgo.ErrInvalidInputCount
@@ -1039,6 +1063,8 @@ func (c *CrossRel) GetInputs() []Rel {
 	return []Rel{c.left, c.right}
 }
 
+func (c *CrossRel) GetExprs() []expr.Expression { return nil }
+
 func (c *CrossRel) Copy(newInputs ...Rel) (Rel, error) {
 	if len(newInputs) != 2 {
 		return nil, substraitgo.ErrInvalidInputCount
@@ -1114,6 +1140,8 @@ func (f *FetchRel) ToProtoPlanRel() *proto.PlanRel {
 func (f *FetchRel) GetInputs() []Rel {
 	return []Rel{f.input}
 }
+
+func (f *FetchRel) GetExprs() []expr.Expression { return nil }
 
 func (f *FetchRel) Copy(newInputs ...Rel) (Rel, error) {
 	if len(newInputs) != 1 {
@@ -1248,6 +1276,25 @@ func (ar *AggregateRel) ToProtoPlanRel() *proto.PlanRel {
 
 func (ar *AggregateRel) GetInputs() []Rel {
 	return []Rel{ar.input}
+}
+
+func (ar *AggregateRel) GetExprs() []expr.Expression {
+	var out []expr.Expression
+	out = append(out, ar.groupingExpressions...)
+	for _, am := range ar.measures {
+		if am.filter != nil {
+			out = append(out, am.filter)
+		}
+		for i := range am.measure.NArgs() {
+			if e, ok := am.measure.Arg(i).(expr.Expression); ok {
+				out = append(out, e)
+			}
+		}
+		for _, sf := range am.measure.Sorts {
+			out = append(out, sf.Expr)
+		}
+	}
+	return out
 }
 
 func (ar *AggregateRel) Copy(newInputs ...Rel) (Rel, error) {
@@ -1406,6 +1453,14 @@ func (sr *SortRel) GetInputs() []Rel {
 	return []Rel{sr.input}
 }
 
+func (sr *SortRel) GetExprs() []expr.Expression {
+	var out []expr.Expression
+	for _, sf := range sr.sorts {
+		out = append(out, sf.Expr)
+	}
+	return out
+}
+
 func (sr *SortRel) Copy(newInputs ...Rel) (Rel, error) {
 	if len(newInputs) != 1 {
 		return nil, substraitgo.ErrInvalidInputCount
@@ -1491,6 +1546,8 @@ func (fr *FilterRel) ToProtoPlanRel() *proto.PlanRel {
 func (fr *FilterRel) GetInputs() []Rel {
 	return []Rel{fr.input}
 }
+
+func (fr *FilterRel) GetExprs() []expr.Expression { return []expr.Expression{fr.cond} }
 
 func (fr *FilterRel) Copy(newInputs ...Rel) (Rel, error) {
 	if len(newInputs) != 1 {
@@ -1616,6 +1673,8 @@ func (s *SetRel) GetInputs() []Rel {
 	return s.inputs
 }
 
+func (s *SetRel) GetExprs() []expr.Expression { return nil }
+
 func (s *SetRel) Copy(newInputs ...Rel) (Rel, error) {
 	set := *s
 	set.inputs = newInputs
@@ -1727,6 +1786,8 @@ func (es *ExtensionSingleRel) GetInputs() []Rel {
 	return []Rel{es.input}
 }
 
+func (es *ExtensionSingleRel) GetExprs() []expr.Expression { return nil }
+
 func (es *ExtensionSingleRel) Copy(newInputs ...Rel) (Rel, error) {
 	if len(newInputs) != 1 {
 		return nil, substraitgo.ErrInvalidInputCount
@@ -1792,6 +1853,8 @@ func (el *ExtensionLeafRel) GetInputs() []Rel {
 	return []Rel{}
 }
 
+func (el *ExtensionLeafRel) GetExprs() []expr.Expression { return nil }
+
 func (el *ExtensionLeafRel) Copy(_ ...Rel) (Rel, error) {
 	return el, nil
 }
@@ -1855,6 +1918,8 @@ func (em *ExtensionMultiRel) ToProtoPlanRel() *proto.PlanRel {
 func (em *ExtensionMultiRel) GetInputs() []Rel {
 	return em.inputs
 }
+
+func (em *ExtensionMultiRel) GetExprs() []expr.Expression { return nil }
 
 func (em *ExtensionMultiRel) Copy(newInputs ...Rel) (Rel, error) {
 	proj := *em
@@ -2182,6 +2247,17 @@ func (hr *HashJoinRel) GetInputs() []Rel {
 	return []Rel{hr.left, hr.right}
 }
 
+func (hr *HashJoinRel) GetExprs() []expr.Expression {
+	var out []expr.Expression
+	for _, k := range hr.keys {
+		out = append(out, k.left, k.right)
+	}
+	if hr.postJoinFilter != nil {
+		out = append(out, hr.postJoinFilter)
+	}
+	return out
+}
+
 func (hr *HashJoinRel) Copy(newInputs ...Rel) (Rel, error) {
 	if len(newInputs) != 2 {
 		return nil, substraitgo.ErrInvalidInputCount
@@ -2297,6 +2373,17 @@ func (mr *MergeJoinRel) ToProtoPlanRel() *proto.PlanRel {
 
 func (mr *MergeJoinRel) GetInputs() []Rel {
 	return []Rel{mr.left, mr.right}
+}
+
+func (mr *MergeJoinRel) GetExprs() []expr.Expression {
+	var out []expr.Expression
+	for _, k := range mr.keys {
+		out = append(out, k.left, k.right)
+	}
+	if mr.postJoinFilter != nil {
+		out = append(out, mr.postJoinFilter)
+	}
+	return out
 }
 
 func (mr *MergeJoinRel) Copy(newInputs ...Rel) (Rel, error) {
@@ -2457,6 +2544,8 @@ func (wr *NamedTableWriteRel) ToProtoPlanRel() *proto.PlanRel {
 func (wr *NamedTableWriteRel) GetInputs() []Rel {
 	return []Rel{wr.input}
 }
+
+func (wr *NamedTableWriteRel) GetExprs() []expr.Expression { return nil }
 
 func (wr *NamedTableWriteRel) Copy(newInputs ...Rel) (Rel, error) {
 	if len(newInputs) != 1 {

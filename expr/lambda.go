@@ -84,3 +84,5 @@ func (l *Lambda) Visit(visit VisitFunc) Expression {
 	}
 	return &Lambda{Parameters: l.Parameters, Body: newBody}
 }
+
+func (l *Lambda) GetExprs() []Expression { return []Expression{l.Body} }

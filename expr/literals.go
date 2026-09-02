@@ -94,6 +94,7 @@ type Literal interface {
 	Visit(VisitFunc) Expression
 	// ValueString returns a human presentable representation of just the literal's value.
 	ValueString() string
+	GetExprs() []Expression
 }
 
 // A NullLiteral is a typed null, so it just contains its type with no value
@@ -143,6 +144,8 @@ func (n *NullLiteral) Equals(rhs Expression) bool {
 
 	return false
 }
+
+func (n *NullLiteral) GetExprs() []Expression { return nil }
 
 func (n *NullLiteral) Visit(VisitFunc) Expression {
 	return n
@@ -235,6 +238,7 @@ func (t *PrimitiveLiteral[T]) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 
+func (t *PrimitiveLiteral[T]) GetExprs() []Expression     { return nil }
 func (t *PrimitiveLiteral[T]) Visit(VisitFunc) Expression { return t }
 func (*PrimitiveLiteral[T]) IsScalar() bool               { return true }
 
@@ -330,6 +334,8 @@ func (t *NestedLiteral[T]) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 
+func (t *NestedLiteral[T]) GetExprs() []Expression { return nil }
+
 func (t *NestedLiteral[T]) Visit(VisitFunc) Expression {
 	return t
 }
@@ -410,6 +416,7 @@ func (t *MapLiteral) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 
+func (t *MapLiteral) GetExprs() []Expression     { return nil }
 func (t *MapLiteral) Visit(VisitFunc) Expression { return t }
 func (*MapLiteral) IsScalar() bool               { return true }
 
@@ -480,6 +487,7 @@ func (t *ByteSliceLiteral[T]) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 
+func (t *ByteSliceLiteral[T]) GetExprs() []Expression     { return nil }
 func (t *ByteSliceLiteral[T]) Visit(VisitFunc) Expression { return t }
 func (*ByteSliceLiteral[T]) IsScalar() bool               { return true }
 
@@ -697,6 +705,7 @@ func (t *ProtoLiteral) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 
+func (t *ProtoLiteral) GetExprs() []Expression     { return nil }
 func (t *ProtoLiteral) Visit(VisitFunc) Expression { return t }
 func (*ProtoLiteral) IsScalar() bool               { return true }
 
