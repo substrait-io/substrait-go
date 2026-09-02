@@ -12,9 +12,30 @@ import (
 	"github.com/substrait-io/substrait-go/v9/literal"
 	"github.com/substrait-io/substrait-go/v9/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
+
+// TestUserDefinedValueOneofMatchesProto fails if the spec's UserDefined `val`
+// oneof gains or loses a variant, so UserDefinedLiteralValue and its encode/decode
+// helpers stay in step with the set of variants they must handle.
+func TestUserDefinedValueOneofMatchesProto(t *testing.T) {
+	want := map[protoreflect.Name]struct{}{
+		"value":  {},
+		"struct": {},
+	}
+
+	val := (&proto.Expression_Literal_UserDefined{}).ProtoReflect().Descriptor().Oneofs().ByName("val")
+	require.NotNil(t, val, "UserDefined message has no val oneof")
+	require.Equal(t, len(want), val.Fields().Len(), "UserDefined val oneof variant set changed")
+
+	for i := 0; i < val.Fields().Len(); i++ {
+		name := val.Fields().Get(i).Name()
+		_, ok := want[name]
+		require.Truef(t, ok, "unexpected val oneof variant %q", name)
+	}
+}
 
 // Test extension YAML with point type definition
 const testExtensionYAML = `---
@@ -126,7 +147,7 @@ func TestUserDefinedLiteralWithAnyRepresentation(t *testing.T) {
 	require.NoError(t, err)
 
 	pointLiteral := &expr.ProtoLiteral{
-		Value: &proto.Expression_Literal_UserDefined_Value{Value: anyValue},
+		Value: expr.UserDefinedValueAny{Value: anyValue},
 		Type: &types.UserDefinedType{
 			Nullability:    types.NullabilityRequired,
 			TypeReference:  registry.GetTypeAnchor(pointID),
@@ -187,7 +208,7 @@ func TestNestedUserDefinedLiteralWithAnyRepresentation(t *testing.T) {
 	require.NoError(t, err)
 
 	triangleLiteral := &expr.ProtoLiteral{
-		Value: &proto.Expression_Literal_UserDefined_Value{Value: anyValue},
+		Value: expr.UserDefinedValueAny{Value: anyValue},
 		Type: &types.UserDefinedType{
 			Nullability:    types.NullabilityRequired,
 			TypeReference:  registry.GetTypeAnchor(triangleID),
@@ -283,7 +304,7 @@ func TestMixedRepresentationNestedUserDefinedLiteral(t *testing.T) {
 		require.NoError(t, err)
 
 		return &expr.ProtoLiteral{
-			Value: &proto.Expression_Literal_UserDefined_Value{Value: anyValue},
+			Value: expr.UserDefinedValueAny{Value: anyValue},
 			Type: &types.UserDefinedType{
 				Nullability:    types.NullabilityRequired,
 				TypeReference:  registry.GetTypeAnchor(pointID),

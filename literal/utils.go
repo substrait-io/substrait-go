@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/types"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
 //This package contains utility functions for creating literals
@@ -469,18 +468,11 @@ func NewEmptyList(elementType types.Type, nullable bool) (expr.Literal, error) {
 // The structValue contains the field values for the user-defined type.
 // Optional type parameters can be provided for parameterized user-defined types (pass nil for none).
 func NewUserDefinedLiteral(typeRef uint32, structValue expr.StructLiteralValue, nullable bool, typeParams []types.TypeParam) (expr.Literal, error) {
-	structProto := structValue.ToProto()
-
-	protoParams := make([]*proto.Type_Parameter, len(typeParams))
-	for i, p := range typeParams {
-		protoParams[i] = p.ToProto()
-	}
-
 	return expr.NewLiteral(
-		&types.UserDefinedLiteral{
-			Val:            &proto.Expression_Literal_UserDefined_Struct{Struct: structProto},
-			TypeAnchorType: &proto.Expression_Literal_UserDefined_TypeReference{TypeReference: typeRef},
-			TypeParameters: protoParams,
+		&expr.UserDefinedLiteral{
+			TypeReference:  typeRef,
+			TypeParameters: typeParams,
+			Val:            expr.UserDefinedValueStruct{Value: structValue},
 		},
 		nullable,
 	)

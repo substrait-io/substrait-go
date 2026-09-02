@@ -607,14 +607,11 @@ func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
 				TypeReference: literalType.TypeReference},
 			TypeParameters: params,
 		}
-		switch v := t.Value.(type) {
-		case *proto.Expression_Literal_UserDefined_Value:
-			udt.Val = v
-		case *proto.Expression_Literal_UserDefined_Struct:
-			udt.Val = v
-		default:
+		val, ok := t.Value.(UserDefinedLiteralValue)
+		if !ok {
 			panic(fmt.Sprintf("unexpected UserDefined literal value type: %T", t.Value))
 		}
+		setUserDefinedVal(udt, val)
 
 		lit.LiteralType = &proto.Expression_Literal_UserDefined_{
 			UserDefined: udt,
@@ -894,7 +891,7 @@ func NewFixedBinaryLiteral(val types.FixedBinary, nullable bool) *ByteSliceLiter
 type allLiteralTypes interface {
 	PrimitiveLiteralValue | nestedLiteral | MapLiteralValue |
 		[]byte | types.UUID | types.FixedBinary | *types.IntervalYearToMonth |
-		*types.IntervalDayToSecond | *types.VarChar | *types.Decimal | *types.UserDefinedLiteral |
+		*types.IntervalDayToSecond | *types.VarChar | *types.Decimal | *UserDefinedLiteral |
 		*types.PrecisionTime | *types.PrecisionTimestamp | *types.PrecisionTimestampTz
 }
 
@@ -971,17 +968,15 @@ func NewLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {
 				Scale:       v.Scale,
 			},
 		}, nil
-	case *types.UserDefinedLiteral:
+	case *UserDefinedLiteral:
 		params := make([]types.TypeParam, len(v.TypeParameters))
-		for i, p := range v.TypeParameters {
-			params[i] = types.TypeParamFromProto(p)
-		}
+		copy(params, v.TypeParameters)
 
 		return &ProtoLiteral{
 			Value: v.Val,
 			Type: &types.UserDefinedType{
 				Nullability:    getNullability(nullable),
-				TypeReference:  v.GetTypeReference(),
+				TypeReference:  v.TypeReference,
 				TypeParameters: params,
 			},
 		}, nil
@@ -1227,7 +1222,7 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 		}
 
 		return &ProtoLiteral{
-			Value: lit.UserDefined.Val,
+			Value: userDefinedValueFromProto(lit.UserDefined),
 			Type: &types.UserDefinedType{
 				Nullability:      nullability,
 				TypeVariationRef: l.TypeVariationReference,
