@@ -654,6 +654,9 @@ func (w *WindowFunction) Equals(other Expression) bool {
 	case w.LowerBound != rhs.LowerBound || w.UpperBound != rhs.UpperBound:
 		return false
 	case !slices.EqualFunc(w.options, rhs.options, func(l, r *types.FunctionOption) bool {
+		if l == nil || r == nil {
+			return l == r
+		}
 		return l.Name == r.Name && slices.Equal(l.Preference, r.Preference)
 	}):
 		return false
