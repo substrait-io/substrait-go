@@ -1704,7 +1704,7 @@ func ExtendedFromProto(ex *proto.ExtendedExpression, c *extensions.Collection) (
 		Extensions:       extSet,
 		ReferredExpr:     refs,
 		BaseSchema:       base,
-		AdvancedExts:     ex.AdvancedExtensions,
+		AdvancedExts:     extensions.AdvancedExtensionFromProto(ex.AdvancedExtensions),
 		ExpectedTypeURLs: ex.ExpectedTypeUrls,
 		reg:              reg,
 	}, nil
@@ -1722,7 +1722,7 @@ func (ex *Extended) ToProto() *proto.ExtendedExpression {
 		ExtensionUrns:      urns,
 		Extensions:         decls,
 		BaseSchema:         ex.BaseSchema.ToProto(),
-		AdvancedExtensions: ex.AdvancedExts,
+		AdvancedExtensions: extensions.AdvancedExtensionToProto(ex.AdvancedExts),
 		ExpectedTypeUrls:   ex.ExpectedTypeURLs,
 		ReferredExpr:       refs,
 	}

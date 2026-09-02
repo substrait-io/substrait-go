@@ -17,9 +17,54 @@ import (
 	"github.com/substrait-io/substrait"
 	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-protobuf/go/substraitpb/extensions"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
-type AdvancedExtension = extensions.AdvancedExtension
+// AdvancedExtension embeds additional, non-standard information into a
+// serialized Substrait plan. Optimizations may be ignored by a consumer;
+// enhancements alter semantics and cannot be ignored.
+type AdvancedExtension struct {
+	Optimization []*anypb.Any
+	Enhancement  *anypb.Any
+}
+
+// GetOptimization returns the optimization payloads, or nil for a nil receiver.
+func (a *AdvancedExtension) GetOptimization() []*anypb.Any {
+	if a == nil {
+		return nil
+	}
+	return a.Optimization
+}
+
+// GetEnhancement returns the enhancement payload, or nil for a nil receiver.
+func (a *AdvancedExtension) GetEnhancement() *anypb.Any {
+	if a == nil {
+		return nil
+	}
+	return a.Enhancement
+}
+
+// AdvancedExtensionFromProto converts a protobuf AdvancedExtension to the domain type.
+func AdvancedExtensionFromProto(a *extensions.AdvancedExtension) *AdvancedExtension {
+	if a == nil {
+		return nil
+	}
+	return &AdvancedExtension{
+		Optimization: a.Optimization,
+		Enhancement:  a.Enhancement,
+	}
+}
+
+// AdvancedExtensionToProto encodes a domain AdvancedExtension as its protobuf message.
+func AdvancedExtensionToProto(a *AdvancedExtension) *extensions.AdvancedExtension {
+	if a == nil {
+		return nil
+	}
+	return &extensions.AdvancedExtension{
+		Optimization: a.Optimization,
+		Enhancement:  a.Enhancement,
+	}
+}
 
 const SubstraitDefaultURNPrefix = "extension:io.substrait:"
 

@@ -232,7 +232,7 @@ func FromProtoWithDecoder(plan *proto.Plan, c *extensions.Collection, decoders m
 	ret := &Plan{
 		version:          version,
 		extensions:       extSet,
-		advExtension:     plan.AdvancedExtensions,
+		advExtension:     extensions.AdvancedExtensionFromProto(plan.AdvancedExtensions),
 		expectedTypeURLs: plan.ExpectedTypeUrls,
 		relations:        make([]Relation, len(plan.Relations)),
 	}
@@ -284,7 +284,7 @@ func (p *Plan) ToProto() (*proto.Plan, error) {
 	return &proto.Plan{
 		Version:            types.VersionToProto(p.version),
 		ExpectedTypeUrls:   p.expectedTypeURLs,
-		AdvancedExtensions: p.advExtension,
+		AdvancedExtensions: extensions.AdvancedExtensionToProto(p.advExtension),
 		Relations:          relations,
 		Extensions:         decls,
 		ExtensionUrns:      urns,
@@ -456,12 +456,12 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			}
 			out = &LocalFileReadRel{
 				items:        items,
-				advExtension: readType.LocalFiles.AdvancedExtension,
+				advExtension: extensions.AdvancedExtensionFromProto(readType.LocalFiles.AdvancedExtension),
 			}
 		case *proto.ReadRel_NamedTable_:
 			out = &NamedTableReadRel{
 				names:        readType.NamedTable.Names,
-				advExtension: readType.NamedTable.AdvancedExtension,
+				advExtension: extensions.AdvancedExtensionFromProto(readType.NamedTable.AdvancedExtension),
 			}
 		case *proto.ReadRel_VirtualTable_:
 			if len(readType.VirtualTable.Values) > 0 && len(readType.VirtualTable.Expressions) > 0 {
@@ -529,7 +529,7 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 		out := &FilterRel{
 			input:        input,
 			cond:         cond,
-			advExtension: rel.Filter.AdvancedExtension,
+			advExtension: extensions.AdvancedExtensionFromProto(rel.Filter.AdvancedExtension),
 		}
 		if rel.Filter.Common != nil {
 			out.fromProtoCommon(rel.Filter.Common)
@@ -559,7 +559,7 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			input:        input,
 			offset:       offset,
 			count:        count,
-			advExtension: rel.Fetch.AdvancedExtension,
+			advExtension: extensions.AdvancedExtensionFromProto(rel.Fetch.AdvancedExtension),
 		}
 		if rel.Fetch.Common != nil {
 			out.fromProtoCommon(rel.Fetch.Common)
@@ -620,7 +620,7 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			measures:            measures,
 			groupingReferences:  groupingReferences,
 			groupingExpressions: groupingExpressions,
-			advExtension:        rel.Aggregate.AdvancedExtension,
+			advExtension:        extensions.AdvancedExtensionFromProto(rel.Aggregate.AdvancedExtension),
 		}
 		out.fromProtoCommon(rel.Aggregate.Common)
 		return out, nil
@@ -646,7 +646,7 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 		out := &SortRel{
 			input:        input,
 			sorts:        sorts,
-			advExtension: rel.Sort.AdvancedExtension,
+			advExtension: extensions.AdvancedExtensionFromProto(rel.Sort.AdvancedExtension),
 		}
 		out.fromProtoCommon(rel.Sort.Common)
 		return out, nil
@@ -669,7 +669,7 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			left:         left,
 			right:        right,
 			joinType:     JoinType(rel.Join.Type),
-			advExtension: rel.Join.AdvancedExtension,
+			advExtension: extensions.AdvancedExtensionFromProto(rel.Join.AdvancedExtension),
 		}
 		out.fromProtoCommon(rel.Join.Common)
 
@@ -710,7 +710,7 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 		out := &ProjectRel{
 			input:        input,
 			exprs:        exprs,
-			advExtension: rel.Project.AdvancedExtension,
+			advExtension: extensions.AdvancedExtensionFromProto(rel.Project.AdvancedExtension),
 		}
 		if rel.Project.Common != nil {
 			out.fromProtoCommon(rel.Project.Common)
@@ -747,7 +747,7 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 		out := &SetRel{
 			inputs:       inputs,
 			op:           SetOp(rel.Set.Op),
-			advExtension: rel.Set.AdvancedExtension,
+			advExtension: extensions.AdvancedExtensionFromProto(rel.Set.AdvancedExtension),
 		}
 		out.fromProtoCommon(rel.Set.Common)
 
@@ -815,7 +815,7 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 		out := &CrossRel{
 			left:         left,
 			right:        right,
-			advExtension: rel.Cross.AdvancedExtension,
+			advExtension: extensions.AdvancedExtensionFromProto(rel.Cross.AdvancedExtension),
 		}
 		out.fromProtoCommon(rel.Cross.Common)
 		return out, nil
@@ -843,7 +843,7 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			right:        right,
 			keys:         keys,
 			joinType:     HashMergeJoinType(rel.HashJoin.Type),
-			advExtension: rel.HashJoin.AdvancedExtension,
+			advExtension: extensions.AdvancedExtensionFromProto(rel.HashJoin.AdvancedExtension),
 		}
 		out.fromProtoCommon(rel.HashJoin.Common)
 
@@ -880,7 +880,7 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			right:        right,
 			keys:         keys,
 			joinType:     HashMergeJoinType(rel.MergeJoin.Type),
-			advExtension: rel.MergeJoin.AdvancedExtension,
+			advExtension: extensions.AdvancedExtensionFromProto(rel.MergeJoin.AdvancedExtension),
 		}
 		out.fromProtoCommon(rel.MergeJoin.Common)
 
@@ -913,7 +913,7 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			switch writeType := rel.Write.WriteType.(type) {
 			case *proto.WriteRel_NamedTable:
 				out.names = writeType.NamedTable.Names
-				out.advExtension = writeType.NamedTable.AdvancedExtension
+				out.advExtension = extensions.AdvancedExtensionFromProto(writeType.NamedTable.AdvancedExtension)
 			case *proto.WriteRel_ExtensionTable:
 				return nil, fmt.Errorf("%w: ExtensionTable not supported for WriteRel", substraitgo.ErrInvalidRel)
 			}
