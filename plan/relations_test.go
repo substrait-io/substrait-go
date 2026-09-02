@@ -767,7 +767,7 @@ func TestNamedTableWriteRecordType(t *testing.T) {
 	var rel NamedTableWriteRel
 	rel.input = &fakeRel{outputType: *types.NewRecordTypeFromTypes(
 		[]types.Type{&types.Int64Type{}, &types.StringType{}})}
-	rel.outputMode = proto.WriteRel_OUTPUT_MODE_MODIFIED_RECORDS
+	rel.outputMode = OutputModeModifiedRecords
 
 	expected := *types.NewRecordTypeFromTypes(nil)
 	result := rel.RecordType()
