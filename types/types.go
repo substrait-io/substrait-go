@@ -67,6 +67,43 @@ func VersionToProto(v Version) *proto.Version {
 	}
 }
 
+// FunctionOption is a named function behavior option: its name and the producer's ordered list of
+// acceptable preference values, mirroring the fields of the Substrait FunctionOption message.
+type FunctionOption struct {
+	Name       string
+	Preference []string
+}
+
+// FunctionOptionsFromProto converts protobuf function option messages to domain FunctionOptions.
+func FunctionOptionsFromProto(opts []*proto.FunctionOption) []*FunctionOption {
+	if opts == nil {
+		return nil
+	}
+	out := make([]*FunctionOption, len(opts))
+	for i, o := range opts {
+		if o == nil {
+			continue
+		}
+		out[i] = &FunctionOption{Name: o.Name, Preference: o.Preference}
+	}
+	return out
+}
+
+// FunctionOptionsToProto encodes domain FunctionOptions as their protobuf messages.
+func FunctionOptionsToProto(opts []*FunctionOption) []*proto.FunctionOption {
+	if opts == nil {
+		return nil
+	}
+	out := make([]*proto.FunctionOption, len(opts))
+	for i, o := range opts {
+		if o == nil {
+			continue
+		}
+		out[i] = &proto.FunctionOption{Name: o.Name, Preference: o.Preference}
+	}
+	return out
+}
+
 // Nullability indicates whether values of a Substrait type may be null.
 type Nullability int32
 
@@ -551,8 +588,6 @@ type (
 	FixedBinary []byte
 	UUID        []byte
 	Enum        string
-
-	FunctionOption = proto.FunctionOption
 
 	// FuncArg corresponds to the protobuf FunctionArgument. Anything
 	// which could be a function argument should meet this interface.

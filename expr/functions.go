@@ -11,7 +11,6 @@ import (
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
-	pb "google.golang.org/protobuf/proto"
 )
 
 func FuncArgsEqual(a, b types.FuncArg) bool {
@@ -356,7 +355,7 @@ func (s *ScalarFunction) String() string {
 func (s *ScalarFunction) GetOption(name string) []string {
 	for _, o := range s.options {
 		if name == o.Name {
-			return o.GetPreference()
+			return o.Preference
 		}
 	}
 	return nil
@@ -402,7 +401,7 @@ func (s *ScalarFunction) ToProto() *proto.Expression {
 		RexType: &proto.Expression_ScalarFunction_{
 			ScalarFunction: &proto.Expression_ScalarFunction{
 				FunctionReference: s.funcRef,
-				Options:           s.options,
+				Options:           types.FunctionOptionsToProto(s.options),
 				OutputType:        types.TypeToProto(s.outputType),
 				Arguments:         args,
 			},
@@ -430,7 +429,10 @@ func (s *ScalarFunction) Equals(rhs Expression) bool {
 	}
 
 	return slices.EqualFunc(s.options, other.options, func(a, b *types.FunctionOption) bool {
-		return pb.Equal(a, b)
+		if a == nil || b == nil {
+			return a == b
+		}
+		return a.Name == b.Name && slices.Equal(a.Preference, b.Preference)
 	})
 }
 
@@ -713,7 +715,7 @@ func (w *WindowFunction) ToProto() *proto.Expression {
 			WindowFunction: &proto.Expression_WindowFunction{
 				FunctionReference: w.funcRef,
 				Arguments:         args,
-				Options:           w.options,
+				Options:           types.FunctionOptionsToProto(w.options),
 				OutputType:        types.TypeToProto(w.outputType),
 				Phase:             w.phase,
 				Sorts:             sorts,
@@ -853,14 +855,14 @@ func NewAggregateFunctionFromProto(
 	}
 	decl, ok := reg.LookupAggregateFunction(agg.FunctionReference)
 	if !ok {
-		return NewCustomAggregateFunc(reg, extensions.NewAggFuncVariant(id), types.TypeFromProto(agg.OutputType), agg.Options, agg.Invocation, agg.Phase, sorts, args...)
+		return NewCustomAggregateFunc(reg, extensions.NewAggFuncVariant(id), types.TypeFromProto(agg.OutputType), types.FunctionOptionsFromProto(agg.Options), agg.Invocation, agg.Phase, sorts, args...)
 	}
 
 	return &AggregateFunction{
 		funcRef:     agg.FunctionReference,
 		declaration: decl,
 		args:        args,
-		options:     agg.Options,
+		options:     types.FunctionOptionsFromProto(agg.Options),
 		outputType:  types.TypeFromProto(agg.OutputType),
 		phase:       agg.Phase,
 		invocation:  agg.Invocation,
@@ -931,7 +933,7 @@ func (a *AggregateFunction) String() string {
 func (a *AggregateFunction) GetOption(name string) []string {
 	for _, o := range a.options {
 		if name == o.Name {
-			return o.GetPreference()
+			return o.Preference
 		}
 	}
 	return nil
@@ -967,7 +969,7 @@ func (a *AggregateFunction) ToProto() *proto.AggregateFunction {
 	return &proto.AggregateFunction{
 		FunctionReference: a.funcRef,
 		Arguments:         args,
-		Options:           a.options,
+		Options:           types.FunctionOptionsToProto(a.options),
 		OutputType:        types.TypeToProto(a.outputType),
 		Phase:             a.phase,
 		Sorts:             sorts,
