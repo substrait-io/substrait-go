@@ -311,7 +311,9 @@ func buildTypeParametersNameValueMap(funcParameters []FuncDefArgType, argumentTy
 	symbolTable := make(map[string]any)
 	for i, p := range funcParameters {
 		if i >= len(argumentTypes) {
-			return nil, fmt.Errorf("missing argument for function parameter %d", i)
+			// A variadic parameter can have zero values. Bind only supplied
+			// arguments; output derivation reports any unresolved parameters.
+			break
 		}
 		if err := bindTypeParameters(p, argumentTypes[i], symbolTable); err != nil {
 			return nil, err

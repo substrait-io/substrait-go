@@ -97,5 +97,10 @@ func resolveAggregateVariant[T aggregateVariant](
 	if err != nil {
 		return nil, nil, err
 	}
+	// A single state can repeat integer parameters across its fields. Check
+	// those bindings even when the final output has no parameters to resolve.
+	if !initial && !types.AreSyncTypeParametersMatching([]types.FuncDefArgType{intermediate}, argTypes) {
+		return nil, nil, fmt.Errorf("%w: intermediate state has conflicting type parameters", substraitgo.ErrInvalidType)
+	}
 	return decl, out, nil
 }

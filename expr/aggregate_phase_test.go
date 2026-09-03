@@ -256,6 +256,70 @@ window_functions:
 	assert.Equal(t, phaseType(t, "i32"), window.GetType())
 }
 
+func TestAggregatePhaseIntermediateParameterConsistency(t *testing.T) {
+	const declarations = `
+urn: extension:test:state_consistency
+aggregate_functions:
+  - name: integers
+    impls:
+      - args:
+          - value: decimal<P,S>
+          - value: decimal<P,S>
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: struct<decimal<P,S>,decimal<P,S>>
+        return: i64
+  - name: any_types
+    impls:
+      - args:
+          - value: any1
+          - value: any1
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: struct<any1,any1>
+        return: i64
+`
+	var col extensions.Collection
+	require.NoError(t, col.Load(strings.NewReader(declarations)))
+	for _, tt := range []struct {
+		name, function, state string
+		valid                 bool
+	}{
+		{"matching_integers", "integers:dec_dec", "struct<decimal<12,2>,decimal<12,2>>", true},
+		{"conflicting_precision", "integers:dec_dec", "struct<decimal<12,2>,decimal<13,2>>", false},
+		{"conflicting_scale", "integers:dec_dec", "struct<decimal<12,2>,decimal<12,3>>", false},
+		{"matching_any", "any_types:any_any", "struct<string,string>", true},
+		{"conflicting_any", "any_types:any_any", "struct<string,i64>", false},
+	} {
+		for _, phase := range []types.AggregationPhase{
+			types.AggPhaseIntermediateToResult, types.AggPhaseIntermediateToIntermediate, types.AggPhaseUnspecified,
+		} {
+			for _, window := range []bool{false, true} {
+				kind := "aggregate"
+				if window {
+					kind = "window"
+				}
+				t.Run(tt.name+"/"+phase.String()+"/"+kind, func(t *testing.T) {
+					reg := expr.NewEmptyExtensionRegistry(&col)
+					id := extensions.FunctionID{URN: "extension:test:state_consistency", Name: tt.function}
+					arg := &expr.DynamicParameter{OutputType: phaseType(t, tt.state)}
+					var err error
+					if window {
+						_, err = expr.NewWindowFunc(reg, id, nil, types.AggInvocationAll, phase, arg)
+					} else {
+						_, err = expr.NewAggregateFunc(reg, id, nil, types.AggInvocationAll, phase, nil, arg)
+					}
+					if tt.valid {
+						require.NoError(t, err)
+					} else {
+						require.Error(t, err)
+					}
+				})
+			}
+		}
+	}
+}
+
 func TestAggregateInitialPhaseInfersSignature(t *testing.T) {
 	reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
 	id := extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Name: "avg"}
