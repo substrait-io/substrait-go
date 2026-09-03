@@ -353,6 +353,9 @@ func MaskExpressionFromProto(p *proto.Expression_MaskExpression) *MaskExpression
 }
 
 func maskSelectFromProto(p *proto.Expression_MaskExpression_Select) MaskSelect {
+	if p == nil {
+		return nil
+	}
 	switch s := p.Type.(type) {
 	case *proto.Expression_MaskExpression_Select_Struct:
 		items := make(MaskStructSelect, len(s.Struct.StructItems))
@@ -378,7 +381,7 @@ func maskSelectFromProto(p *proto.Expression_MaskExpression_Select) MaskSelect {
 			child:     maskSelectFromProto(s.List.Child),
 		}
 	case *proto.Expression_MaskExpression_Select_Map:
-		var ret MaskMapSelect
+		ret := MaskMapSelect{kind: MapSelectAll}
 		if s.Map.Child != nil {
 			ret.child = maskSelectFromProto(s.Map.Child)
 		}
@@ -445,6 +448,10 @@ type MaskListSelect struct {
 }
 
 func (m *MaskListSelect) ToProto() *proto.Expression_MaskExpression_Select {
+	var childProto *proto.Expression_MaskExpression_Select
+	if m.child != nil {
+		childProto = m.child.ToProto()
+	}
 	selection := make([]*proto.Expression_MaskExpression_ListSelect_ListSelectItem, len(m.selection))
 	for i, s := range m.selection {
 		selection[i] = s.ToProto()
@@ -454,7 +461,7 @@ func (m *MaskListSelect) ToProto() *proto.Expression_MaskExpression_Select {
 		Type: &proto.Expression_MaskExpression_Select_List{
 			List: &proto.Expression_MaskExpression_ListSelect{
 				Selection: selection,
-				Child:     m.child.ToProto(),
+				Child:     childProto,
 			},
 		},
 	}
@@ -502,6 +509,8 @@ type MapSelectKind int8
 const (
 	MapSelectKey MapSelectKind = iota
 	MapSelectExpr
+	// MapSelectAll preserves every key when the map select discriminator is absent.
+	MapSelectAll
 )
 
 type MaskMapSelect struct {
@@ -518,19 +527,24 @@ func (m *MaskMapSelect) Child() MaskSelect {
 }
 
 func (m *MaskMapSelect) ToProto() *proto.Expression_MaskExpression_Select {
+	var childProto *proto.Expression_MaskExpression_Select
+	if m.child != nil {
+		childProto = m.child.ToProto()
+	}
 	ret := &proto.Expression_MaskExpression_Select_Map{
 		Map: &proto.Expression_MaskExpression_MapSelect{
-			Child: m.child.ToProto(),
+			Child: childProto,
 		},
 	}
 
-	if m.kind == MapSelectKey {
+	switch m.kind {
+	case MapSelectKey:
 		ret.Map.Select = &proto.Expression_MaskExpression_MapSelect_Key{
 			Key: &proto.Expression_MaskExpression_MapSelect_MapKey{
 				MapKey: m.key,
 			},
 		}
-	} else {
+	case MapSelectExpr:
 		ret.Map.Select = &proto.Expression_MaskExpression_MapSelect_Expression{
 			Expression: &proto.Expression_MaskExpression_MapSelect_MapKeyExpression{
 				MapKeyExpression: m.key,
