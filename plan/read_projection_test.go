@@ -168,3 +168,30 @@ func TestReadProjectionInvalidField(t *testing.T) {
 		assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	}
 }
+
+func TestReadProjectionInvalidNestedSelection(t *testing.T) {
+	inner := &types.StructType{Types: []types.Type{&types.Int64Type{}}}
+	invalidField := &proto.Expression_MaskExpression_Select{Type: &proto.Expression_MaskExpression_Select_Struct{Struct: projectionStruct(1)}}
+	for _, tc := range []struct {
+		name      string
+		input     types.Type
+		selection *proto.Expression_MaskExpression_Select
+		message   string
+	}{
+		{"struct field", inner, invalidField, "field 1 out of range"},
+		{"list element field", &types.ListType{Type: inner}, &proto.Expression_MaskExpression_Select{Type: &proto.Expression_MaskExpression_Select_List{List: &proto.Expression_MaskExpression_ListSelect{Child: invalidField}}}, "field 1 out of range"},
+		{"map value field", &types.MapType{Key: &types.StringType{}, Value: inner}, &proto.Expression_MaskExpression_Select{Type: &proto.Expression_MaskExpression_Select_Map{Map: &proto.Expression_MaskExpression_MapSelect{
+			Child: invalidField, Select: &proto.Expression_MaskExpression_MapSelect_Key{Key: &proto.Expression_MaskExpression_MapSelect_MapKey{MapKey: "name"}},
+		}}}, "field 1 out of range"},
+		{"struct mask on scalar", &types.Int64Type{}, invalidField, "cannot select from i64"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			schema := types.NamedStruct{Struct: types.StructType{Types: []types.Type{tc.input}}}
+			projection := &proto.Expression_MaskExpression{MaintainSingularStruct: true, Select: &proto.Expression_MaskExpression_StructSelect{StructItems: []*proto.Expression_MaskExpression_StructItem{{Field: 0, Child: tc.selection}}}}
+			r, err := RelFromProto(projectionRead(schema, projection), expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError()))
+			assert.Nil(t, r)
+			assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+			assert.ErrorContains(t, err, tc.message)
+		})
+	}
+}
