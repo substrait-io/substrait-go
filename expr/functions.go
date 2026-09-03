@@ -209,10 +209,7 @@ type variant interface {
 	ResolveType([]types.Type, extensions.Set) (types.Type, error)
 }
 
-func resolveVariant[T variant](
-	id extensions.FunctionID, reg ExtensionRegistry, getter func(extensions.FunctionID) (T, bool),
-	args []types.FuncArg,
-) (T, types.Type, error) {
+func functionArgumentTypes(args []types.FuncArg) []types.Type {
 	argTypes := make([]types.Type, 0, len(args))
 	for _, arg := range args {
 		switch a := arg.(type) {
@@ -223,6 +220,13 @@ func resolveVariant[T variant](
 		}
 	}
 
+	return argTypes
+}
+
+func lookupVariant[T variant](
+	id extensions.FunctionID, reg ExtensionRegistry, getter func(extensions.FunctionID) (T, bool),
+	argTypes []types.Type,
+) (T, error) {
 	decl, found := getter(id)
 	if !found {
 		if strings.IndexByte(id.Name, ':') == -1 {
@@ -234,7 +238,7 @@ func resolveVariant[T variant](
 				} else if ud, ok := t.(*types.UserDefinedType); ok {
 					id, found := reg.DecodeType(ud.TypeReference)
 					if !found {
-						return nil, nil, fmt.Errorf("%w: could not find type for reference %d",
+						return nil, fmt.Errorf("%w: could not find type for reference %d",
 							substraitgo.ErrNotFound, ud.TypeReference)
 					}
 					sigs[i] = "u!" + id.Name
@@ -244,20 +248,31 @@ func resolveVariant[T variant](
 			}
 			id.Name += ":" + strings.Join(sigs, "_")
 			if decl, found = getter(id); !found {
-				return nil, nil, fmt.Errorf("%w: could not find matching function for id: %s",
+				return nil, fmt.Errorf("%w: could not find matching function for id: %s",
 					substraitgo.ErrNotFound, id)
 			}
 		} else {
-			return nil, nil, fmt.Errorf("%w: could not find matching function for id: %s",
+			return nil, fmt.Errorf("%w: could not find matching function for id: %s",
 				substraitgo.ErrNotFound, id)
 		}
 	}
 
+	return decl, nil
+}
+
+func resolveVariant[T variant](
+	id extensions.FunctionID, reg ExtensionRegistry, getter func(extensions.FunctionID) (T, bool),
+	args []types.FuncArg,
+) (T, types.Type, error) {
+	argTypes := functionArgumentTypes(args)
+	decl, err := lookupVariant(id, reg, getter, argTypes)
+	if err != nil {
+		return nil, nil, err
+	}
 	outType, err := decl.ResolveType(argTypes, reg.Set)
 	if err != nil {
 		return nil, nil, err
 	}
-
 	return decl, outType, nil
 }
 
@@ -503,18 +518,16 @@ func NewCustomWindowFunc(
 	}, nil
 }
 
+// NewWindowFunc resolves the argument and output types for the requested phase.
+// Intermediate-input phases require the original compound function name unless
+// the name identifies a unique variant in the registry.
 func NewWindowFunc(
 	reg ExtensionRegistry, id extensions.FunctionID, opts []*types.FunctionOption,
 	invoke types.AggregationInvocation, phase types.AggregationPhase, args ...types.FuncArg,
 ) (*WindowFunction, error) {
-	decl, outType, err := resolveVariant(id, reg, reg.c.GetWindowFunc, args)
+	decl, outType, err := resolveAggregateVariant(id, reg, reg.c.GetWindowFunc, phase, args)
 	if err != nil {
 		return nil, err
-	}
-
-	if decl.Decomposability() == extensions.DecomposeNone && phase != types.AggPhaseInitialToResult {
-		return nil, fmt.Errorf("%w: non-decomposable window or agg function '%s' must use InitialToResult phase",
-			substraitgo.ErrInvalidExpr, id)
 	}
 
 	// We use the fully qualified ID for resolving an anchor, to make sure we
@@ -779,12 +792,15 @@ type AggregateFunction struct {
 	Sorts      []SortField
 }
 
+// NewAggregateFunc resolves the argument and output types for the requested phase.
+// Intermediate-input phases require the original compound function name unless
+// the name identifies a unique variant in the registry.
 func NewAggregateFunc(
 	reg ExtensionRegistry, id extensions.FunctionID, opts []*types.FunctionOption,
 	invoke types.AggregationInvocation, phase types.AggregationPhase, sorts []SortField,
 	args ...types.FuncArg,
 ) (*AggregateFunction, error) {
-	decl, outType, err := resolveVariant(id, reg, reg.c.GetAggregateFunc, args)
+	decl, outType, err := resolveAggregateVariant(id, reg, reg.c.GetAggregateFunc, phase, args)
 	if err != nil {
 		return nil, err
 	}

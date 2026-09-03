@@ -113,6 +113,21 @@ decimal<prec,scale>`
 		want       types.Type
 		wantErr    assert.ErrorAssertionFunc
 	}{
+		{"nestedStruct", []string{"struct<i64,decimal<38,S>,i64>"}, []string{"struct<i64,decimal<38,2>,i64>"}, "decimal<38,S>",
+			&types.DecimalType{Precision: 38, Scale: 2, Nullability: types.NullabilityRequired}, assert.NoError},
+		{"nestedListMap", []string{"list<map<i32,struct<i64,decimal<P,S>>>>"}, []string{"list<map<i32,struct<i64,decimal<12,2>>>>"}, "decimal<P,S>",
+			&types.DecimalType{Precision: 12, Scale: 2, Nullability: types.NullabilityRequired}, assert.NoError},
+		{"nestedFunction", []string{"func<i32 -> decimal<P,S>>"}, []string{"func<i32 -> decimal<12,2>>"}, "decimal<P,S>",
+			&types.DecimalType{Precision: 12, Scale: 2, Nullability: types.NullabilityRequired}, assert.NoError},
+		{"nestedRepeatedParameter", []string{"struct<i64,decimal<P,S>,decimal<P,S>>"}, []string{"struct<i64,decimal<12,2>,decimal<12,2>>"}, "decimal<P,S>",
+			&types.DecimalType{Precision: 12, Scale: 2, Nullability: types.NullabilityRequired}, assert.NoError},
+		{"nestedConflictingParameter", []string{"struct<i64,decimal<P,S>,decimal<P,S>>"}, []string{"struct<i64,decimal<12,2>,decimal<12,3>>"}, "decimal<P,S>",
+			nil, assert.Error},
+		{"nestedAndTopLevelConflict", []string{"struct<decimal<P,S>,i64>", "decimal<P,S>"}, []string{"struct<decimal<12,2>,i64>", "decimal<12,3>"}, "decimal<P,S>",
+			nil, assert.Error},
+		{"nestedMissingField", []string{"struct<decimal<P,S>,i64>"}, []string{"struct<decimal<12,2>>"}, "decimal<P,S>",
+			nil, assert.Error},
+
 		{"SameAsInput", []string{"varchar<L1>"}, []string{"varchar<8>"}, "varchar<L1>",
 			&types.VarCharType{Length: 8, Nullability: types.NullabilityRequired}, assert.NoError},
 		{"SameAsInput?", []string{"varchar<L1>"}, []string{"varchar<8>"}, "varchar?<L1>",
@@ -201,7 +216,7 @@ func parseFuncArguments(t *testing.T, args []string) []types.Type {
 	for i, a := range args {
 		funcDefArgType, err := parser.ParseType(a)
 		require.NoError(t, err)
-		result[i], err = funcDefArgType.WithParameters(nil)
+		result[i], err = funcDefArgType.ReturnType(nil, nil)
 		require.NoError(t, err)
 	}
 	return result
