@@ -74,7 +74,15 @@ func NewBaseReadRel(common RelCommon, baseSchema types.NamedStruct, filter, best
 }
 
 func (b *baseReadRel) directOutputSchema() types.RecordType {
-	return *types.NewRecordTypeFromStruct(b.baseSchema.Struct)
+	schema := b.baseSchema.Struct
+	if b.projection != nil {
+		var err error
+		schema, err = projectReadStruct(schema, b.projection.Select())
+		if err != nil {
+			panic(err)
+		}
+	}
+	return *types.NewRecordTypeFromStruct(schema)
 }
 
 func (b *baseReadRel) RecordType() types.RecordType {
