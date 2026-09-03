@@ -750,7 +750,7 @@ func newPrecisionTimestampTzWithType(literal *ProtoLiteral, ptstzType *types.Pre
 func newIntervalDayWithType(literal *ProtoLiteral, intervalDayType *types.IntervalDayType) (Literal, error) {
 	if _, ok := literal.GetType().(*types.IntervalDayType); ok {
 		intervalValue := literal.Value.(*types.IntervalDayToSecond)
-		precisionDiff := intervalValue.GetPrecision() - intervalDayType.Precision.ToProtoVal()
+		precisionDiff := intervalValue.Precision.ToProtoVal() - intervalDayType.Precision.ToProtoVal()
 		ss := intervalValue.Subseconds
 		if precisionDiff != 0 {
 			factor := int64(math.Pow10(int(math.Abs(float64(precisionDiff)))))
@@ -956,7 +956,7 @@ func NewLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {
 			Value: v,
 			Type: &types.IntervalDayType{
 				Nullability: getNullability(nullable),
-				Precision:   types.TimePrecision(v.GetPrecision()),
+				Precision:   v.Precision,
 			},
 		}, nil
 	case *types.Decimal:
@@ -1096,7 +1096,7 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 			}}
 	case *proto.Expression_Literal_IntervalDayToSecond_:
 		value := types.IntervalDayToSecondFromProto(lit.IntervalDayToSecond)
-		precision, err := types.ProtoToTimePrecision(value.GetPrecision())
+		precision, err := types.ProtoToTimePrecision(value.GetPrecisionProtoVal())
 		if err != nil {
 			return nil
 		}

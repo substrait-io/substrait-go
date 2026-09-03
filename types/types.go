@@ -345,8 +345,9 @@ type IntervalDayToSecond struct {
 	Precision  TimePrecision
 }
 
-// GetPrecision returns the sub-second precision as its protobuf value, and 0 for a nil receiver.
-func (i *IntervalDayToSecond) GetPrecision() int32 {
+// GetPrecisionProtoVal returns the sub-second precision as its protobuf value, and 0 for a nil
+// receiver.
+func (i *IntervalDayToSecond) GetPrecisionProtoVal() int32 {
 	if i == nil {
 		return 0
 	}

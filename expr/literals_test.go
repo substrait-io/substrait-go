@@ -252,7 +252,7 @@ func TestNewIntervalDayWithType(t *testing.T) {
 			assert.Equal(t, tt.inputType, got.GetType())
 			assert.Equal(t, tt.expLiteralString, got.(types.IsoValuePrinter).IsoValueString())
 			iday := got.(*expr.ProtoLiteral).Value.(*types.IntervalDayToSecond)
-			assert.Equal(t, tt.inputType.Precision.ToProtoVal(), iday.GetPrecision())
+			assert.Equal(t, tt.inputType.Precision.ToProtoVal(), iday.GetPrecisionProtoVal())
 			assert.Equal(t, tt.expSubSeconds, iday.Subseconds)
 		})
 	}

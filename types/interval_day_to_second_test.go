@@ -104,7 +104,7 @@ func TestIntervalDayToSecondRoundTrip(t *testing.T) {
 	assert.Nil(t, types.IntervalDayToSecondToProto(nil))
 	assert.Nil(t, types.IntervalDayToSecondFromProto(nil))
 
-	// GetPrecision is nil-safe and yields the precision's protobuf value.
-	assert.Zero(t, (*types.IntervalDayToSecond)(nil).GetPrecision())
-	assert.EqualValues(t, 9, (&types.IntervalDayToSecond{Precision: types.PrecisionNanoSeconds}).GetPrecision())
+	// GetPrecisionProtoVal is nil-safe and yields the precision's protobuf value.
+	assert.Zero(t, (*types.IntervalDayToSecond)(nil).GetPrecisionProtoVal())
+	assert.EqualValues(t, 9, (&types.IntervalDayToSecond{Precision: types.PrecisionNanoSeconds}).GetPrecisionProtoVal())
 }
