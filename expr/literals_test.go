@@ -108,7 +108,7 @@ func TestNewLiteralWithIntervalDayToSecond(t *testing.T) {
 	_, err := expr.NewLiteral((*types.IntervalDayToSecond)(nil), false)
 	require.Error(t, err)
 
-	v := &types.IntervalDayToSecond{Days: 1, Seconds: 2, Subseconds: 3, PrecisionMode: types.IntervalDayToSecondPrecision(6)}
+	v := &types.IntervalDayToSecond{Days: 1, Seconds: 2, Subseconds: 3, Precision: types.PrecisionMicroSeconds}
 	lit, err := expr.NewLiteral(v, false)
 	require.NoError(t, err)
 	assert.Equal(t, "1 days, 2 seconds, 3 subseconds", lit.ValueString())

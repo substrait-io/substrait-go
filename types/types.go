@@ -336,63 +336,43 @@ type IntervalYearToMonth struct {
 }
 
 // IntervalDayToSecond is an interval literal spanning days down to sub-seconds, mirroring the
-// fields of the Substrait IntervalDayToSecond literal message. Its sub-second precision is carried
-// by the PrecisionMode oneof.
+// fields of the Substrait IntervalDayToSecond literal message. Its sub-second value is Subseconds
+// interpreted at Precision fractional-second digits.
 type IntervalDayToSecond struct {
-	Days          int32
-	Seconds       int32
-	Subseconds    int64
-	PrecisionMode IntervalDayToSecondPrecisionMode
+	Days       int32
+	Seconds    int32
+	Subseconds int64
+	Precision  TimePrecision
 }
 
-// IntervalDayToSecondPrecisionMode models the precision_mode oneof of the IntervalDayToSecond
-// literal message: either a deprecated Microseconds count or a Precision exponent.
-type IntervalDayToSecondPrecisionMode interface {
-	isIntervalDayToSecondPrecisionMode()
-}
-
-// IntervalDayToSecondMicroseconds is the deprecated microseconds arm of the precision_mode oneof.
-type IntervalDayToSecondMicroseconds int32
-
-func (IntervalDayToSecondMicroseconds) isIntervalDayToSecondPrecisionMode() {}
-
-// IntervalDayToSecondPrecision is the sub-second precision exponent arm of the precision_mode oneof.
-type IntervalDayToSecondPrecision int32
-
-func (IntervalDayToSecondPrecision) isIntervalDayToSecondPrecisionMode() {}
-
-// GetPrecision returns the sub-second precision exponent when the precision_mode oneof carries a
-// Precision arm, and 0 otherwise, mirroring the proto getter.
+// GetPrecision returns the sub-second precision as its protobuf value, and 0 for a nil receiver.
 func (i *IntervalDayToSecond) GetPrecision() int32 {
 	if i == nil {
 		return 0
 	}
-	if p, ok := i.PrecisionMode.(IntervalDayToSecondPrecision); ok {
-		return int32(p)
-	}
-	return 0
+	return i.Precision.ToProtoVal()
 }
 
-// IntervalDayToSecondToProto encodes the domain interval as its protobuf literal message.
+// IntervalDayToSecondToProto encodes the domain interval as its protobuf literal message. It always
+// writes the precision precision_mode arm; the deprecated microseconds arm is never emitted.
 func IntervalDayToSecondToProto(v *IntervalDayToSecond) *proto.Expression_Literal_IntervalDayToSecond {
 	if v == nil {
 		return nil
 	}
-	p := &proto.Expression_Literal_IntervalDayToSecond{
+	return &proto.Expression_Literal_IntervalDayToSecond{
 		Days:       v.Days,
 		Seconds:    v.Seconds,
 		Subseconds: v.Subseconds,
+		PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{
+			Precision: v.Precision.ToProtoVal(),
+		},
 	}
-	switch m := v.PrecisionMode.(type) {
-	case IntervalDayToSecondMicroseconds:
-		p.PrecisionMode = &proto.Expression_Literal_IntervalDayToSecond_Microseconds{Microseconds: int32(m)}
-	case IntervalDayToSecondPrecision:
-		p.PrecisionMode = &proto.Expression_Literal_IntervalDayToSecond_Precision{Precision: int32(m)}
-	}
-	return p
 }
 
 // IntervalDayToSecondFromProto decodes a protobuf interval literal message into the domain type.
+// The deprecated microseconds precision_mode arm, and an absent precision_mode (the legacy
+// encoding), are both normalized to microsecond precision, matching IntervalDayType so the domain
+// type never carries the deprecated representation.
 func IntervalDayToSecondFromProto(p *proto.Expression_Literal_IntervalDayToSecond) *IntervalDayToSecond {
 	if p == nil {
 		return nil
@@ -403,10 +383,13 @@ func IntervalDayToSecondFromProto(p *proto.Expression_Literal_IntervalDayToSecon
 		Subseconds: p.GetSubseconds(),
 	}
 	switch m := p.PrecisionMode.(type) {
-	case *proto.Expression_Literal_IntervalDayToSecond_Microseconds:
-		v.PrecisionMode = IntervalDayToSecondMicroseconds(m.Microseconds)
 	case *proto.Expression_Literal_IntervalDayToSecond_Precision:
-		v.PrecisionMode = IntervalDayToSecondPrecision(m.Precision)
+		v.Precision = TimePrecision(m.Precision)
+	case *proto.Expression_Literal_IntervalDayToSecond_Microseconds:
+		v.Subseconds = int64(m.Microseconds)
+		v.Precision = PrecisionMicroSeconds
+	default:
+		v.Precision = PrecisionMicroSeconds
 	}
 	return v
 }

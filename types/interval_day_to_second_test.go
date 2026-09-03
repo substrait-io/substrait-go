@@ -15,7 +15,7 @@ import (
 
 func TestIntervalDayToSecondMatchesDescriptor(t *testing.T) {
 	// Scalar fields are pinned by wire number and kind; the precision_mode oneof is pinned
-	// separately since the domain type collapses its two arms into a single PrecisionMode field.
+	// separately since the domain type collapses its two arms into a single Precision field.
 	wantScalars := map[protoreflect.Name]struct {
 		number protoreflect.FieldNumber
 		kind   protoreflect.Kind
@@ -36,7 +36,7 @@ func TestIntervalDayToSecondMatchesDescriptor(t *testing.T) {
 	fields := desc.Fields()
 	require.Equal(t, len(wantScalars)+len(wantOneof), fields.Len(), "spec interval_day_to_second field set changed")
 
-	// 3 scalars + 1 PrecisionMode field standing in for the 2-arm oneof.
+	// 3 scalars + 1 Precision field standing in for the 2-arm oneof.
 	require.Equal(t, len(wantScalars)+1, reflect.TypeOf(types.IntervalDayToSecond{}).NumField(),
 		"types.IntervalDayToSecond field count drifted from the spec")
 
@@ -57,50 +57,54 @@ func TestIntervalDayToSecondMatchesDescriptor(t *testing.T) {
 	}
 }
 
-// Round-trip both precision_mode arms domain->proto->domain, asserting each arm maps to the
-// correct proto oneof field so a swapped or dropped arm fails here.
+// Round-trip domain->proto->domain always uses the non-deprecated precision arm, so a swapped or
+// dropped field fails here.
 func TestIntervalDayToSecondRoundTrip(t *testing.T) {
 	for _, tc := range []struct {
-		name    string
-		in      *types.IntervalDayToSecond
-		checkPB func(t *testing.T, p *proto.Expression_Literal_IntervalDayToSecond)
+		name string
+		in   *types.IntervalDayToSecond
 	}{
 		{
-			name: "precision arm",
-			in:   &types.IntervalDayToSecond{Days: 1, Seconds: 2, Subseconds: 3, PrecisionMode: types.IntervalDayToSecondPrecision(9)},
-			checkPB: func(t *testing.T, p *proto.Expression_Literal_IntervalDayToSecond) {
-				require.IsType(t, &proto.Expression_Literal_IntervalDayToSecond_Precision{}, p.PrecisionMode)
-				assert.EqualValues(t, 9, p.GetPrecision())
-			},
+			name: "nanosecond precision",
+			in:   &types.IntervalDayToSecond{Days: 1, Seconds: 2, Subseconds: 3, Precision: types.PrecisionNanoSeconds},
 		},
 		{
-			name: "microseconds arm",
-			in:   &types.IntervalDayToSecond{Days: 4, Seconds: 5, PrecisionMode: types.IntervalDayToSecondMicroseconds(7)},
-			checkPB: func(t *testing.T, p *proto.Expression_Literal_IntervalDayToSecond) {
-				require.IsType(t, &proto.Expression_Literal_IntervalDayToSecond_Microseconds{}, p.PrecisionMode)
-				assert.EqualValues(t, 7, p.GetMicroseconds())
-			},
-		},
-		{
-			name: "no precision mode",
-			in:   &types.IntervalDayToSecond{Days: 1, Seconds: 2, Subseconds: 3},
-			checkPB: func(t *testing.T, p *proto.Expression_Literal_IntervalDayToSecond) {
-				assert.Nil(t, p.PrecisionMode)
-			},
+			name: "second precision",
+			in:   &types.IntervalDayToSecond{Days: 4, Seconds: 5, Precision: types.PrecisionSeconds},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			p := types.IntervalDayToSecondToProto(tc.in)
-			tc.checkPB(t, p)
+			require.IsType(t, &proto.Expression_Literal_IntervalDayToSecond_Precision{}, p.PrecisionMode)
 			assert.Equal(t, tc.in, types.IntervalDayToSecondFromProto(p))
 		})
 	}
 
+	// The deprecated microseconds precision_mode arm is normalized to microsecond precision on decode.
+	t.Run("deprecated microseconds normalized", func(t *testing.T) {
+		p := &proto.Expression_Literal_IntervalDayToSecond{
+			Days:          4,
+			Seconds:       5,
+			PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Microseconds{Microseconds: 7},
+		}
+		assert.Equal(t,
+			&types.IntervalDayToSecond{Days: 4, Seconds: 5, Subseconds: 7, Precision: types.PrecisionMicroSeconds},
+			types.IntervalDayToSecondFromProto(p))
+	})
+
+	// An absent precision_mode is the legacy encoding and decodes as microsecond precision,
+	// matching IntervalDayType's default.
+	t.Run("absent precision_mode defaults to microseconds", func(t *testing.T) {
+		p := &proto.Expression_Literal_IntervalDayToSecond{Days: 1, Seconds: 2, Subseconds: 3}
+		assert.Equal(t,
+			&types.IntervalDayToSecond{Days: 1, Seconds: 2, Subseconds: 3, Precision: types.PrecisionMicroSeconds},
+			types.IntervalDayToSecondFromProto(p))
+	})
+
 	assert.Nil(t, types.IntervalDayToSecondToProto(nil))
 	assert.Nil(t, types.IntervalDayToSecondFromProto(nil))
 
-	// GetPrecision is nil-safe and yields the exponent only for the Precision arm.
+	// GetPrecision is nil-safe and yields the precision's protobuf value.
 	assert.Zero(t, (*types.IntervalDayToSecond)(nil).GetPrecision())
-	assert.EqualValues(t, 9, (&types.IntervalDayToSecond{PrecisionMode: types.IntervalDayToSecondPrecision(9)}).GetPrecision())
-	assert.Zero(t, (&types.IntervalDayToSecond{PrecisionMode: types.IntervalDayToSecondMicroseconds(7)}).GetPrecision())
+	assert.EqualValues(t, 9, (&types.IntervalDayToSecond{Precision: types.PrecisionNanoSeconds}).GetPrecision())
 }

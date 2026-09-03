@@ -368,10 +368,10 @@ func TestNewIntervalDaysToSecond(t *testing.T) {
 func createIntervalDaysLiteral(days, seconds int32, micros int64) *expr.ProtoLiteral {
 	return &expr.ProtoLiteral{
 		Value: &types.IntervalDayToSecond{
-			Days:          days,
-			Seconds:       seconds,
-			Subseconds:    micros,
-			PrecisionMode: types.IntervalDayToSecondPrecision(int32(types.PrecisionMicroSeconds)),
+			Days:       days,
+			Seconds:    seconds,
+			Subseconds: micros,
+			Precision:  types.PrecisionMicroSeconds,
 		},
 		Type: &types.IntervalDayType{
 			Nullability: types.NullabilityRequired,
@@ -383,10 +383,10 @@ func createIntervalDaysLiteral(days, seconds int32, micros int64) *expr.ProtoLit
 func createIntervalDaysLiteralWithNanos(days, seconds int32, nanos int64) *expr.ProtoLiteral {
 	return &expr.ProtoLiteral{
 		Value: &types.IntervalDayToSecond{
-			Days:          days,
-			Seconds:       seconds,
-			Subseconds:    nanos,
-			PrecisionMode: types.IntervalDayToSecondPrecision(int32(types.PrecisionNanoSeconds)),
+			Days:       days,
+			Seconds:    seconds,
+			Subseconds: nanos,
+			Precision:  types.PrecisionNanoSeconds,
 		},
 		Type: &types.IntervalDayType{
 			Nullability: types.NullabilityRequired,

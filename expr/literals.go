@@ -762,10 +762,10 @@ func newIntervalDayWithType(literal *ProtoLiteral, intervalDayType *types.Interv
 		}
 		return &ProtoLiteral{
 			Value: &types.IntervalDayToSecond{
-				Days:          intervalValue.Days,
-				Seconds:       intervalValue.Seconds,
-				Subseconds:    ss,
-				PrecisionMode: types.IntervalDayToSecondPrecision(intervalDayType.Precision.ToProtoVal()),
+				Days:       intervalValue.Days,
+				Seconds:    intervalValue.Seconds,
+				Subseconds: ss,
+				Precision:  intervalDayType.Precision,
 			}, Type: intervalDayType,
 		}, nil
 	}
