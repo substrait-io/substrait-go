@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package plan_test
+package codec_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/substrait-io/substrait-go/codec"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/plan"
 	substraitproto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
@@ -15,11 +16,11 @@ import (
 // A plan parsed with no version is accepted; the missing version surfaces as "0.0.0 (UNSET)",
 // including on the way back out.
 func TestPlanWithoutAVersion(t *testing.T) {
-	p, err := plan.FromProto(&substraitproto.Plan{}, extensions.GetDefaultCollectionWithNoError())
+	p, err := codec.PlanFromProto(&substraitproto.Plan{}, extensions.GetDefaultCollectionWithNoError())
 	require.NoError(t, err)
 	assert.Equal(t, "0.0.0 (UNSET)", p.Version().String())
 
-	roundTrip, err := p.ToProto()
+	roundTrip, err := codec.PlanToProto(p)
 	require.NoError(t, err)
 	assert.Equal(t, "UNSET", roundTrip.Version.GetProducer())
 }
@@ -33,7 +34,7 @@ func TestPlanToProtoCopiesTheVersion(t *testing.T) {
 	p, err := b.Plan(b.NamedScan([]string{"test"}, baseSchema), []string{"a", "b"})
 	require.NoError(t, err)
 
-	protoPlan, err := p.ToProto()
+	protoPlan, err := codec.PlanToProto(p)
 	require.NoError(t, err)
 	require.Equal(t, producer, protoPlan.Version.Producer)
 

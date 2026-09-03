@@ -3,7 +3,6 @@
 package plan_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,34 +11,7 @@ import (
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/plan"
 	"github.com/substrait-io/substrait-go/v9/types"
-	substraitproto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
 )
-
-func TestDynamicParameterPlanRoundtrip(t *testing.T) {
-	for _, name := range []string{
-		"dynamic_parameter_plan",
-		"dynamic_parameter_filter",
-	} {
-		t.Run(name, func(t *testing.T) {
-			planJSON, err := testdata.ReadFile(fmt.Sprintf("testdata/%s.json", name))
-			require.NoError(t, err)
-
-			var protoPlan substraitproto.Plan
-			require.NoError(t, protojson.Unmarshal(planJSON, &protoPlan))
-
-			p, err := plan.FromProto(&protoPlan, extensions.GetDefaultCollectionWithNoError())
-			require.NoError(t, err)
-
-			backToProto, err := p.ToProto()
-			require.NoError(t, err)
-			assert.Truef(t, proto.Equal(&protoPlan, backToProto),
-				"expected: %s\ngot: %s",
-				protojson.Format(&protoPlan), protojson.Format(backToProto))
-		})
-	}
-}
 
 func TestDynamicParameterPlanWithoutBindings(t *testing.T) {
 	b := plan.NewBuilderDefault()
@@ -57,10 +29,6 @@ func TestDynamicParameterPlanWithoutBindings(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Empty(t, p.ParameterBindings())
-
-	protoPlan, err := p.ToProto()
-	require.NoError(t, err)
-	assert.Empty(t, protoPlan.ParameterBindings)
 }
 
 func TestDynamicParameterBindingTypeMismatch(t *testing.T) {

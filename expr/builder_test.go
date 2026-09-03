@@ -229,15 +229,15 @@ window_functions:
 	p, err := planBuilder.Plan(project, []string{"output1", "output2"})
 	require.NoError(t, err)
 
-	pp, err := p.ToProto()
-	require.NoError(t, err)
+	reg := p.ExtensionRegistry()
+	_, decls := reg.ExtensionsToProto()
 
 	// custom_type1 is referenced as an argument and return type, so should be registered in the extensions
 	// custom_type2 is referenced as an argument and return type, so should be registered in the extensions
 	// custom_type3 is only referenced as a return type, but should still be registered in the extensions
 	// custom_type4 is not referenced in the plan at all, so not be registerd in the extensions
 	typeExtensionsFound := []string{}
-	for _, ext := range pp.Extensions {
+	for _, ext := range decls {
 		typeExt := ext.GetExtensionType()
 		if typeExt == nil {
 			continue
