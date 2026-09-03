@@ -31,6 +31,16 @@ func TestMaskExpressionOptionalCollectionChildRoundTrip(t *testing.T) {
 				Child: child, Select: &proto.Expression_MaskExpression_MapSelect_Key{Key: &proto.Expression_MaskExpression_MapSelect_MapKey{MapKey: "name"}},
 			}}}
 		}},
+		{"map empty key", func(child *proto.Expression_MaskExpression_Select) *proto.Expression_MaskExpression_Select {
+			return &proto.Expression_MaskExpression_Select{Type: &proto.Expression_MaskExpression_Select_Map{Map: &proto.Expression_MaskExpression_MapSelect{
+				Child: child, Select: &proto.Expression_MaskExpression_MapSelect_Key{Key: &proto.Expression_MaskExpression_MapSelect_MapKey{MapKey: ""}},
+			}}}
+		}},
+		{"map all keys", func(child *proto.Expression_MaskExpression_Select) *proto.Expression_MaskExpression_Select {
+			return &proto.Expression_MaskExpression_Select{Type: &proto.Expression_MaskExpression_Select_Map{Map: &proto.Expression_MaskExpression_MapSelect{
+				Child: child,
+			}}}
+		}},
 		{"map expression", func(child *proto.Expression_MaskExpression_Select) *proto.Expression_MaskExpression_Select {
 			return &proto.Expression_MaskExpression_Select{Type: &proto.Expression_MaskExpression_Select_Map{Map: &proto.Expression_MaskExpression_MapSelect{
 				Child: child, Select: &proto.Expression_MaskExpression_MapSelect_Expression{Expression: &proto.Expression_MaskExpression_MapSelect_MapKeyExpression{MapKeyExpression: "a.*"}},
