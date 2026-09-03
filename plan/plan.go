@@ -263,35 +263,6 @@ func FromProtoWithDecoder(plan *proto.Plan, c *extensions.Collection, decoders m
 	return ret, nil
 }
 
-func (p *Plan) ToProto() (*proto.Plan, error) {
-	urns, decls := p.reg.ExtensionsToProto()
-	relations := make([]*proto.PlanRel, len(p.relations))
-	for i, r := range p.relations {
-		relations[i] = r.ToProto()
-	}
-
-	var bindings []*proto.DynamicParameterBinding
-	if len(p.parameterBindings) > 0 {
-		bindings = make([]*proto.DynamicParameterBinding, len(p.parameterBindings))
-		for i, b := range p.parameterBindings {
-			bindings[i] = &proto.DynamicParameterBinding{
-				ParameterAnchor: b.ParameterAnchor,
-				Value:           b.Value.ToProtoLiteral(),
-			}
-		}
-	}
-
-	return &proto.Plan{
-		Version:            types.VersionToProto(p.version),
-		ExpectedTypeUrls:   p.expectedTypeURLs,
-		AdvancedExtensions: p.advExtension,
-		Relations:          relations,
-		Extensions:         decls,
-		ExtensionUrns:      urns,
-		ParameterBindings:  bindings,
-	}, nil
-}
-
 // validateRootNamesForSchema checks that the number of root output names
 // matches the depth-first field count of the given record type.
 // Per the spec, root relations have field names (https://substrait.io/faq).

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/substrait-io/substrait-go/codec"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/plan"
@@ -65,7 +66,7 @@ var planCases = []struct {
 		base, err := b.Plan(root, []string{"x", "y"})
 		require.NoError(t, err)
 
-		pb, err := base.ToProto()
+		pb, err := codec.PlanToProto(base)
 		require.NoError(t, err)
 		pb.AdvancedExtensions = &extensionspb.AdvancedExtension{
 			Enhancement: &anypb.Any{TypeUrl: "urn:enh", Value: []byte("e")},
@@ -81,14 +82,14 @@ func TestPlanToProto(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			p := tc.build(t)
 
-			got, err := p.ToProto()
+			got, err := codec.PlanToProto(p)
 			require.NoError(t, err)
 
 			checkGolden(t, "plan", tc.name, got)
 
 			back, err := plan.FromProto(got, extensions.GetDefaultCollectionWithNoError())
 			require.NoError(t, err)
-			regot, err := back.ToProto()
+			regot, err := codec.PlanToProto(back)
 			require.NoError(t, err)
 			if diff := protoDiff(got, regot); diff != "" {
 				t.Errorf("%s round-trip not stable (-got +regot):\n%s", tc.name, diff)
