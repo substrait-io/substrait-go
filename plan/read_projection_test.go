@@ -126,10 +126,14 @@ func TestReadProjectionNestedMasks(t *testing.T) {
 			&proto.Expression_MaskExpression_Select{Type: &proto.Expression_MaskExpression_Select_List{List: &proto.Expression_MaskExpression_ListSelect{Selection: listSelection, Child: structMask}}}},
 		{"map child", mapType, &types.MapType{Nullability: mapType.Nullability, TypeVariationRef: mapType.TypeVariationRef, Key: str, Value: &projected},
 			&proto.Expression_MaskExpression_Select{Type: &proto.Expression_MaskExpression_Select_Map{Map: &proto.Expression_MaskExpression_MapSelect{Child: structMask, Select: &proto.Expression_MaskExpression_MapSelect_Expression{Expression: &proto.Expression_MaskExpression_MapSelect_MapKeyExpression{MapKeyExpression: "a.*"}}}}}},
+		{"map all keys with child", mapType, &types.MapType{Nullability: mapType.Nullability, TypeVariationRef: mapType.TypeVariationRef, Key: str, Value: &projected},
+			&proto.Expression_MaskExpression_Select{Type: &proto.Expression_MaskExpression_Select_Map{Map: &proto.Expression_MaskExpression_MapSelect{Child: structMask}}}},
 		{"list without child", list, list,
 			&proto.Expression_MaskExpression_Select{Type: &proto.Expression_MaskExpression_Select_List{List: &proto.Expression_MaskExpression_ListSelect{Selection: listSelection}}}},
 		{"map without child", mapType, mapType,
 			&proto.Expression_MaskExpression_Select{Type: &proto.Expression_MaskExpression_Select_Map{Map: &proto.Expression_MaskExpression_MapSelect{Select: &proto.Expression_MaskExpression_MapSelect_Key{Key: &proto.Expression_MaskExpression_MapSelect_MapKey{MapKey: "a"}}}}}},
+		{"map all keys without child", mapType, mapType,
+			&proto.Expression_MaskExpression_Select{Type: &proto.Expression_MaskExpression_Select_Map{Map: &proto.Expression_MaskExpression_MapSelect{}}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			schema := types.NamedStruct{Struct: types.StructType{Types: []types.Type{integer, tc.input}}}

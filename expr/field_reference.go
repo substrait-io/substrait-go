@@ -381,7 +381,7 @@ func maskSelectFromProto(p *proto.Expression_MaskExpression_Select) MaskSelect {
 			child:     maskSelectFromProto(s.List.Child),
 		}
 	case *proto.Expression_MaskExpression_Select_Map:
-		var ret MaskMapSelect
+		ret := MaskMapSelect{kind: MapSelectAll}
 		if s.Map.Child != nil {
 			ret.child = maskSelectFromProto(s.Map.Child)
 		}
@@ -509,6 +509,8 @@ type MapSelectKind int8
 const (
 	MapSelectKey MapSelectKind = iota
 	MapSelectExpr
+	// MapSelectAll preserves every key when the map select discriminator is absent.
+	MapSelectAll
 )
 
 type MaskMapSelect struct {
@@ -535,13 +537,14 @@ func (m *MaskMapSelect) ToProto() *proto.Expression_MaskExpression_Select {
 		},
 	}
 
-	if m.kind == MapSelectKey {
+	switch m.kind {
+	case MapSelectKey:
 		ret.Map.Select = &proto.Expression_MaskExpression_MapSelect_Key{
 			Key: &proto.Expression_MaskExpression_MapSelect_MapKey{
 				MapKey: m.key,
 			},
 		}
-	} else {
+	case MapSelectExpr:
 		ret.Map.Select = &proto.Expression_MaskExpression_MapSelect_Expression{
 			Expression: &proto.Expression_MaskExpression_MapSelect_MapKeyExpression{
 				MapKeyExpression: m.key,
