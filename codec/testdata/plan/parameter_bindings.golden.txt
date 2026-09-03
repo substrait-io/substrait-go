@@ -1,0 +1,56 @@
+relations:  {
+  root:  {
+    input:  {
+      project:  {
+        common:  {
+          direct:  {}
+        }
+        input:  {
+          read:  {
+            common:  {
+              direct:  {}
+            }
+            base_schema:  {
+              names:  "x"
+              names:  "y"
+              struct:  {
+                types:  {
+                  i32:  {
+                    nullability:  NULLABILITY_REQUIRED
+                  }
+                }
+                types:  {
+                  bool:  {
+                    nullability:  NULLABILITY_REQUIRED
+                  }
+                }
+                nullability:  NULLABILITY_REQUIRED
+              }
+            }
+            named_table:  {
+              names:  "test"
+            }
+          }
+        }
+        expressions:  {
+          dynamic_parameter:  {
+            type:  {
+              i32:  {
+                nullability:  NULLABILITY_REQUIRED
+              }
+            }
+          }
+        }
+      }
+    }
+    names:  "x"
+    names:  "y"
+    names:  "p"
+  }
+}
+expected_type_urls:  "urn:example"
+parameter_bindings:  {
+  value:  {
+    i32:  42
+  }
+}

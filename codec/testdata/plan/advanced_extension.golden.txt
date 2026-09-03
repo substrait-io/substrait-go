@@ -1,0 +1,39 @@
+relations:  {
+  root:  {
+    input:  {
+      read:  {
+        common:  {
+          direct:  {}
+        }
+        base_schema:  {
+          names:  "x"
+          names:  "y"
+          struct:  {
+            types:  {
+              i32:  {
+                nullability:  NULLABILITY_REQUIRED
+              }
+            }
+            types:  {
+              bool:  {
+                nullability:  NULLABILITY_REQUIRED
+              }
+            }
+            nullability:  NULLABILITY_REQUIRED
+          }
+        }
+        named_table:  {
+          names:  "test"
+        }
+      }
+    }
+    names:  "x"
+    names:  "y"
+  }
+}
+advanced_extensions:  {
+  enhancement:  {
+    type_url:  "urn:enh"
+    value:  "e"
+  }
+}
