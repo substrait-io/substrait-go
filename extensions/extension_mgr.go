@@ -363,16 +363,20 @@ func NewSet() Set {
 }
 
 type set struct {
-	urns map[uint32]string
+	urns          map[uint32]string
+	nextURNAnchor uint32
 
-	typesMap map[uint32]TypeID
-	types    map[TypeID]uint32
+	typesMap       map[uint32]TypeID
+	types          map[TypeID]uint32
+	nextTypeAnchor uint32
 
-	typeVariationMap map[uint32]TypeVariationID
-	typeVariations   map[TypeVariationID]uint32
+	typeVariationMap        map[uint32]TypeVariationID
+	typeVariations          map[TypeVariationID]uint32
+	nextTypeVariationAnchor uint32
 
-	funcMap map[uint32]FunctionID
-	funcs   map[FunctionID]uint32
+	funcMap        map[uint32]FunctionID
+	funcs          map[FunctionID]uint32
+	nextFuncAnchor uint32
 }
 
 func (e *set) ToProto(c *Collection) ([]*extensions.SimpleExtensionURN, []*extensions.SimpleExtensionDeclaration) {
@@ -512,7 +516,7 @@ func (e *set) GetTypeAnchor(id TypeID) uint32 {
 	a, ok := e.types[id]
 	if !ok {
 		e.addOrGetURN(id.URN)
-		a = unusedAnchor(e.typesMap)
+		a = unusedAnchor(e.typesMap, &e.nextTypeAnchor)
 		e.encodeType(a, id)
 	}
 	return a
@@ -522,7 +526,7 @@ func (e *set) GetFuncAnchor(id FunctionID) uint32 {
 	a, ok := e.funcs[id]
 	if !ok {
 		e.addOrGetURN(id.URN)
-		a = unusedAnchor(e.funcMap)
+		a = unusedAnchor(e.funcMap, &e.nextFuncAnchor)
 		e.encodeFunc(a, id)
 	}
 	return a
@@ -532,7 +536,7 @@ func (e *set) GetTypeVariationAnchor(id TypeVariationID) uint32 {
 	a, ok := e.typeVariations[id]
 	if !ok {
 		e.addOrGetURN(id.URN)
-		a = unusedAnchor(e.typeVariationMap)
+		a = unusedAnchor(e.typeVariationMap, &e.nextTypeVariationAnchor)
 		e.encodeTypeVariation(a, id)
 	}
 	return a
@@ -564,12 +568,20 @@ func (e *set) FindURN(urn string) (uint32, bool) {
 
 // unusedAnchor preserves the dense allocation sequence while avoiding collisions
 // with imported anchors. Zero is reserved for the system-preferred type variation.
-func unusedAnchor[T any](anchors map[uint32]T) uint32 {
-	for anchor := uint32(len(anchors)) + 1; ; anchor++ {
+// The cursor skips previously scanned ranges on subsequent allocations.
+func unusedAnchor[T any](anchors map[uint32]T, next *uint32) uint32 {
+	if *next == 0 {
+		*next = uint32(len(anchors)) + 1
+	}
+	for anchor := *next; ; anchor++ {
 		if anchor == 0 {
 			continue
 		}
 		if _, exists := anchors[anchor]; !exists {
+			*next = anchor + 1
+			if *next == 0 {
+				*next = 1
+			}
 			return anchor
 		}
 	}
@@ -581,7 +593,7 @@ func (e *set) addOrGetURN(urn string) uint32 {
 			return k
 		}
 	}
-	anchor := unusedAnchor(e.urns)
+	anchor := unusedAnchor(e.urns, &e.nextURNAnchor)
 	e.urns[anchor] = urn
 	return anchor
 }
