@@ -71,7 +71,7 @@ var planCases = []struct {
 		pb.AdvancedExtensions = &extensionspb.AdvancedExtension{
 			Enhancement: &anypb.Any{TypeUrl: "urn:enh", Value: []byte("e")},
 		}
-		p, err := plan.FromProto(pb, extensions.GetDefaultCollectionWithNoError())
+		p, err := codec.PlanFromProto(pb, extensions.GetDefaultCollectionWithNoError())
 		require.NoError(t, err)
 		return p
 	}},
@@ -87,7 +87,7 @@ func TestPlanToProto(t *testing.T) {
 
 			checkGolden(t, "plan", tc.name, got)
 
-			back, err := plan.FromProto(got, extensions.GetDefaultCollectionWithNoError())
+			back, err := codec.PlanFromProto(got, extensions.GetDefaultCollectionWithNoError())
 			require.NoError(t, err)
 			regot, err := codec.PlanToProto(back)
 			require.NoError(t, err)
