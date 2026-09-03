@@ -193,7 +193,7 @@ window_functions:
 		Name: "custom_aggr",
 	}).Args(
 		customLiteral,
-	).Build()
+	).Phase(types.AggPhaseInitialToResult).Build()
 	require.NoError(t, err)
 	aggrProto := aggr.ToProto()
 
