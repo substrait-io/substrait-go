@@ -86,6 +86,9 @@ func (b *baseReadRel) fromProtoReadRel(rel *proto.ReadRel, reg expr.ExtensionReg
 
 	if rel.Projection != nil {
 		b.projection = expr.MaskExpressionFromProto(rel.Projection)
+		if _, err := projectReadStruct(b.baseSchema.Struct, b.projection.Select()); err != nil {
+			return err
+		}
 	}
 
 	b.advExtension = rel.AdvancedExtension
@@ -93,7 +96,15 @@ func (b *baseReadRel) fromProtoReadRel(rel *proto.ReadRel, reg expr.ExtensionReg
 }
 
 func (b *baseReadRel) directOutputSchema() types.RecordType {
-	return *types.NewRecordTypeFromStruct(b.baseSchema.Struct)
+	schema := b.baseSchema.Struct
+	if b.projection != nil {
+		var err error
+		schema, err = projectReadStruct(schema, b.projection.Select())
+		if err != nil {
+			panic(err)
+		}
+	}
+	return *types.NewRecordTypeFromStruct(schema)
 }
 
 func (b *baseReadRel) RecordType() types.RecordType {
