@@ -216,80 +216,18 @@ func (p *Plan) ParameterBindings() []DynamicParameterBinding {
 	return slices.Clone(p.parameterBindings)
 }
 
-func FromProto(plan *proto.Plan, c *extensions.Collection) (*Plan, error) {
-	return FromProtoWithDecoder(plan, c, nil)
-}
-
-// FromProtoWithDecoder is like FromProto but registers per-typeURL ExtensionRelDecoders
-// on the registry before parsing relations, allowing extension rels to be
-// decoded into typed ExtensionRelDefinitions rather than UndecodedExtension.
-func FromProtoWithDecoder(plan *proto.Plan, c *extensions.Collection, decoders map[string]expr.ExtensionRelDecoder) (*Plan, error) {
-	extSet, err := extensions.GetExtensionSet(plan, c)
-	if err != nil {
-		return nil, err
+// NewPlan assembles a Plan from parts already decoded from protobuf. It is the
+// construction seam the codec module uses, since a Plan's fields are unexported.
+func NewPlan(version types.Version, expectedTypeURLs []string, advExt *extensions.AdvancedExtension, relations []Relation, bindings []DynamicParameterBinding, reg expr.ExtensionRegistry) *Plan {
+	return &Plan{
+		version:           version,
+		extensions:        reg.Set,
+		expectedTypeURLs:  expectedTypeURLs,
+		advExtension:      advExt,
+		relations:         relations,
+		parameterBindings: bindings,
+		reg:               reg,
 	}
-	version := types.VersionFromProto(plan.Version)
-	ret := &Plan{
-		version:          version,
-		extensions:       extSet,
-		advExtension:     plan.AdvancedExtensions,
-		expectedTypeURLs: plan.ExpectedTypeUrls,
-		relations:        make([]Relation, len(plan.Relations)),
-	}
-
-	ret.reg = expr.NewExtensionRegistry(ret.extensions, c)
-	ret.reg.SetSubqueryConverter(&ExpressionConverter{ExtensionRegistry: ret.reg})
-	for typeURL, dec := range decoders {
-		if err := ret.reg.SetExtensionRelDecoder(typeURL, dec); err != nil {
-			return nil, err
-		}
-	}
-	for i, r := range plan.Relations {
-		if err := ret.relations[i].FromProto(r, ret.reg); err != nil {
-			return nil, err
-		}
-	}
-
-	if len(plan.ParameterBindings) > 0 {
-		ret.parameterBindings = make([]DynamicParameterBinding, len(plan.ParameterBindings))
-		for i, pb := range plan.ParameterBindings {
-			ret.parameterBindings[i] = DynamicParameterBinding{
-				ParameterAnchor: pb.ParameterAnchor,
-				Value:           expr.LiteralFromProto(pb.Value),
-			}
-		}
-	}
-
-	return ret, nil
-}
-
-func (p *Plan) ToProto() (*proto.Plan, error) {
-	urns, decls := p.reg.ExtensionsToProto()
-	relations := make([]*proto.PlanRel, len(p.relations))
-	for i, r := range p.relations {
-		relations[i] = r.ToProto()
-	}
-
-	var bindings []*proto.DynamicParameterBinding
-	if len(p.parameterBindings) > 0 {
-		bindings = make([]*proto.DynamicParameterBinding, len(p.parameterBindings))
-		for i, b := range p.parameterBindings {
-			bindings[i] = &proto.DynamicParameterBinding{
-				ParameterAnchor: b.ParameterAnchor,
-				Value:           b.Value.ToProtoLiteral(),
-			}
-		}
-	}
-
-	return &proto.Plan{
-		Version:            types.VersionToProto(p.version),
-		ExpectedTypeUrls:   p.expectedTypeURLs,
-		AdvancedExtensions: p.advExtension,
-		Relations:          relations,
-		Extensions:         decls,
-		ExtensionUrns:      urns,
-		ParameterBindings:  bindings,
-	}, nil
 }
 
 // validateRootNamesForSchema checks that the number of root output names

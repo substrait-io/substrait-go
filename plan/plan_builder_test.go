@@ -3,9 +3,6 @@
 package plan_test
 
 import (
-	"encoding/json"
-	"fmt"
-	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,19 +12,9 @@ import (
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/plan"
 	"github.com/substrait-io/substrait-go/v9/types"
-	substraitproto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
-
-const versionStruct = `"version": {
-	"majorNumber": 0,
-	"minorNumber": 29,
-	"patchNumber": 0,
-	"producer": "substrait-go"
-}`
 
 var baseSchema = types.NamedStruct{Names: []string{"a", "b"},
 	Struct: types.StructType{
@@ -63,15 +50,7 @@ func TestBasicEmitPlan(t *testing.T) {
 	p, err := b.Plan(root, []string{"a", "b"})
 	require.NoError(t, err)
 
-	protoPlan, err := p.ToProto()
-	require.NoError(t, err)
-
-	roundTrip, err := plan.FromProto(protoPlan, extensions.GetDefaultCollectionWithNoError())
-	require.NoError(t, err)
-
-	assert.Equal(t, p, roundTrip)
 	assert.Equal(t, "NSTRUCT<a: fp32, b: string>", p.GetRoots()[0].RecordType().String())
-	assert.Equal(t, roundTrip.GetRoots()[0].RecordType(), p.GetRoots()[0].RecordType())
 }
 
 func TestEmitEmptyPlan(t *testing.T) {
@@ -95,14 +74,6 @@ func TestEmitEmptyPlan(t *testing.T) {
 	_, err = root.Remap(-1)
 	require.Error(t, err)
 	assert.Equal(t, "NSTRUCT<a: fp32, b: string>", p.GetRoots()[0].RecordType().String())
-
-	protoPlan, err := p.ToProto()
-	require.NoError(t, err)
-
-	roundTrip, err := plan.FromProto(protoPlan, extensions.GetDefaultCollectionWithNoError())
-	require.NoError(t, err)
-
-	assert.Equal(t, p, roundTrip)
 }
 
 func TestBuildEmitOutOfRangePlan(t *testing.T) {
@@ -146,108 +117,7 @@ func TestFailedMappingOfMapping(t *testing.T) {
 	assert.ErrorContains(t, err, "output mapping index out of range")
 }
 
-func checkRoundTrip(t *testing.T, expectedJSON string, p *plan.Plan) {
-	t.Helper()
-	protoPlan, err := p.ToProto()
-	require.NoError(t, err)
-
-	var expectedProto substraitproto.Plan
-	require.NoError(t, protojson.Unmarshal([]byte(expectedJSON), &expectedProto))
-
-	// Equalize producer field; it may differ between golden JSON and protoPlan
-	// depending on which OS (GOOS, ARCH, and the like) this test runs.
-	protoPlan.Version.Producer = expectedProto.Version.Producer
-
-	assert.Truef(t, proto.Equal(&expectedProto, protoPlan), "JSON expected: %s\ngot: %s",
-		protojson.Format(&expectedProto), protojson.Format(protoPlan))
-
-	roundTrip, err := plan.FromProto(&expectedProto, extensions.GetDefaultCollectionWithNoError())
-	require.NoError(t, err)
-
-	roundTripProto, err := roundTrip.ToProto()
-	require.NoError(t, err)
-
-	assert.Truef(t, proto.Equal(protoPlan, roundTripProto), "plan expected: %s\ngot: %s",
-		protojson.Format(protoPlan), protojson.Format(roundTripProto))
-}
-
 func TestAggregateRelPlan(t *testing.T) {
-	const expectedJSON = `{
-		` + versionStruct + `,
-		"extensionUrns": [
-			{
-				"extensionUrnAnchor": 1,
-				"urn": "extension:io.substrait:functions_aggregate_generic"
-			}
-		],
-		"extensions": [
-			{
-				"extensionFunction": {
-					"extensionUrnReference": 1,
-					"functionAnchor": 1,
-					"name": "count:"
-				}
-			}
-		],
-		"relations": [
-			{
-				"root": {
-					"input": {
-						"aggregate": {
-							"common": {"direct": {}},
-							"input": {
-								"read": {
-									"common": {"direct": {}},
-									"baseSchema": {
-										"names": ["a", "b"],
-										"struct": {
-											"types": [
-												{"string": { "nullability": "NULLABILITY_REQUIRED"}},
-												{"fp32": { "nullability": "NULLABILITY_REQUIRED"}}
-											],
-											"nullability": "NULLABILITY_REQUIRED"
-										}
-									},
-									"namedTable": { "names": [ "test" ]}
-								}
-							},
-							"groupingExpressions": [
-								{
-									"selection": {
-										"rootReference": {},
-										"directReference": { "structField": { "field": 0 }}
-									}
-								}
-							],
-							"groupings": [
-								{
-									"expressionReferences": [
-										0
-									]
-								}
-							],
-							"measures": [
-								{
-									"measure": {
-										"functionReference": 1,
-										"outputType": {
-											"i64": {
-												"nullability": "NULLABILITY_REQUIRED"
-											}
-										},
-										"phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
-										"invocation": "AGGREGATION_INVOCATION_ALL"
-									}
-								}
-							]
-						}
-					},
-					"names": ["val", "cnt"]
-				}
-			}
-		]
-	}`
-
 	b := plan.NewBuilderDefault()
 	aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURNPrefix+"functions_aggregate_generic",
 		"count", nil)
@@ -260,8 +130,6 @@ func TestAggregateRelPlan(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "NSTRUCT<val: string, cnt: i64>", p.GetRoots()[0].RecordType().String())
 
-	checkRoundTrip(t, expectedJSON, p)
-
 	// Test with grouping expressions and references
 	ref, err := b.RootFieldRef(scan, 0)
 	require.NoError(t, err)
@@ -273,8 +141,6 @@ func TestAggregateRelPlan(t *testing.T) {
 	p, err = b.Plan(root, []string{"val", "cnt"})
 	require.NoError(t, err)
 	assert.Equal(t, "NSTRUCT<val: string, cnt: i64>", p.GetRoots()[0].RecordType().String())
-
-	checkRoundTrip(t, expectedJSON, p)
 }
 
 func TestAggregateNoGrouping(t *testing.T) {
@@ -382,60 +248,6 @@ func TestAggregateRelErrors(t *testing.T) {
 }
 
 func TestCrossRel(t *testing.T) {
-	const expectedJSON = `{
-		` + versionStruct + `,
-		"relations": [
-			{
-				"root": {
-					"input": {
-						"cross": {
-							"common": {
-								"direct": {}
-							},
-							"left": {
-								"read": {
-									"common": {"direct": {}},
-									"baseSchema": {
-										"names": ["a", "b"],
-										"struct": {
-											"nullability": "NULLABILITY_REQUIRED",
-											"types": [
-												{ "string": { "nullability": "NULLABILITY_REQUIRED" }},
-												{ "fp32": { "nullability": "NULLABILITY_REQUIRED" }}
-											]
-										}
-									},
-									"namedTable": {
-										"names": [ "test" ]
-									}
-								}
-							},
-							"right": {
-								"read": {
-									"common": {"direct": {}},
-									"baseSchema": {
-										"names": ["x", "y"],
-										"struct": {
-											"nullability": "NULLABILITY_REQUIRED",
-											"types": [
-												{ "i32": { "nullability": "NULLABILITY_REQUIRED" }},
-												{ "bool": { "nullability": "NULLABILITY_REQUIRED" }}
-											]
-										}
-									},
-									"namedTable": {
-										"names": [ "test2" ]
-									}
-								}
-							}
-						}
-					},
-					"names": ["str", "fp", "i", "bool" ]
-				}
-			}
-		]
-	}`
-
 	b := plan.NewBuilderDefault()
 	left := b.NamedScan([]string{"test"}, baseSchema)
 	right := b.NamedScan([]string{"test2"}, baseSchema2)
@@ -447,8 +259,6 @@ func TestCrossRel(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "NSTRUCT<str: string, fp: fp32, i: i32, bool: boolean>", p.GetRoots()[0].RecordType().String())
-
-	checkRoundTrip(t, expectedJSON, p)
 }
 
 func TestCrossRelErrors(t *testing.T) {
@@ -485,43 +295,6 @@ func TestCrossRelErrors(t *testing.T) {
 }
 
 func TestFetchRel(t *testing.T) {
-	const expectedJSON = `{
-		` + versionStruct + `,
-		"relations": [
-			{
-				"root": {
-					"input": {
-						"fetch": {
-							"common": {"direct": {}},
-							"input": {
-								"read": {
-									"common": {
-										"direct": {}
-									},
-									"baseSchema": {
-										"names": ["a"],
-										"struct": {
-											"nullability": "NULLABILITY_REQUIRED",
-											"types": [
-												{"string": { "nullability": "NULLABILITY_REQUIRED" }}
-											]
-										}
-									},
-									"namedTable": {
-										"names": ["test"]
-									}
-								}
-							},
-							"offset": 100,
-							"count": -1
-						}
-					},
-					"names": ["a"]
-				}
-			}
-		]
-	}`
-
 	b := plan.NewBuilderDefault()
 	scan := b.NamedScan([]string{"test"}, types.NamedStruct{
 		Names: []string{"a"},
@@ -539,8 +312,6 @@ func TestFetchRel(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "NSTRUCT<a: string>", p.GetRoots()[0].RecordType().String())
-
-	checkRoundTrip(t, expectedJSON, p)
 
 	_, err = fetch.Remap(0)
 	assert.NoError(t, err)
@@ -576,46 +347,6 @@ func TestFetchRelErrors(t *testing.T) {
 }
 
 func TestFilterRelation(t *testing.T) {
-	const expectedJSON = `{
-		` + versionStruct + `,
-		"relations": [
-			{
-				"root": {
-					"input": {
-						"filter": {
-							"common": {
-								"direct": {}
-							},
-							"input": {
-								"read": {
-									"common": {"direct": {}},
-									"baseSchema": {
-										"names": ["x", "y"],
-										"struct": {
-											"types": [
-												{"i32": { "nullability": "NULLABILITY_REQUIRED"}},
-												{"bool": { "nullability": "NULLABILITY_REQUIRED"}}
-											],
-											"nullability": "NULLABILITY_REQUIRED"
-										}
-									},
-									"namedTable": { "names": [ "test" ]}
-								}
-							},
-							"condition": {
-								"selection": {
-									"rootReference": {},
-									"directReference": { "structField": { "field": 1 }}
-								}
-							}
-						}
-					},
-					"names": ["a", "b"]
-				}
-			}
-		]
-	}`
-
 	b := plan.NewBuilderDefault()
 	scan := b.NamedScan([]string{"test"}, baseSchema2)
 	ref, err := b.RootFieldRef(scan, 1)
@@ -628,8 +359,6 @@ func TestFilterRelation(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "NSTRUCT<a: i32, b: boolean>", p.GetRoots()[0].RecordType().String())
-
-	checkRoundTrip(t, expectedJSON, p)
 
 	_, err = filter.Remap(0)
 	assert.NoError(t, err)
@@ -677,65 +406,6 @@ func TestFilterRelationErrors(t *testing.T) {
 }
 
 func TestJoinRelOutputRecordTypes(t *testing.T) {
-	const initialJSONFmt = `{
-		` + versionStruct + `,
-		"relations": [
-			{
-				"root": {
-					"input": {
-						"join": {
-							"common": {"direct": {}},
-							"left": {
-								"read": {
-									"common": {"direct": {}},
-									"baseSchema": {
-										"names": ["a", "b"],
-										"struct": {
-											"nullability": "NULLABILITY_REQUIRED",
-											"types": [
-												{ "string": { "nullability": "NULLABILITY_REQUIRED" }},
-												{ "fp32": { "nullability": "NULLABILITY_REQUIRED" }}
-											]
-										}
-									},
-									"namedTable": {
-										"names": [ "test" ]
-									}
-								}
-							},
-							"right": {
-								"read": {
-									"common": {"direct": {}},
-									"baseSchema": {
-										"names": ["x", "y"],
-										"struct": {
-											"nullability": "NULLABILITY_REQUIRED",
-											"types": [
-												{ "i32": { "nullability": "NULLABILITY_REQUIRED" }},
-												{ "bool": { "nullability": "NULLABILITY_REQUIRED" }}
-											]
-										}
-									},
-									"namedTable": {
-										"names": [ "test2" ]
-									}
-								}
-							},
-							"expression": {
-								"selection": {
-									"rootReference": {},
-									"directReference": { "structField": { "field": 3 }}
-								}
-							},
-							"type": "%s"
-						}
-					},
-					"names": %s
-				}
-			}
-		]
-	}`
-
 	tests := []struct {
 		joinString   string
 		joinType     plan.JoinType
@@ -767,93 +437,8 @@ func TestJoinRelOutputRecordTypes(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.recordString, p.GetRoots()[0].RecordType().String())
-
-			names, _ := json.Marshal(tt.fields)
-			checkRoundTrip(t, fmt.Sprintf(initialJSONFmt, tt.joinString, string(names)), p)
 		})
 	}
-}
-
-func TestJoinAndFilterRelation(t *testing.T) {
-	const expectedJSON = `{
-		` + versionStruct + `,
-		"relations": [
-			{
-				"root": {
-					"input": {
-						"join": {
-							"common": {"direct": {}},
-							"left": {
-								"read": {
-									"common": {"direct": {}},
-									"baseSchema": {
-										"names": ["a", "b"],
-										"struct": {
-											"nullability": "NULLABILITY_REQUIRED",
-											"types": [
-												{ "string": { "nullability": "NULLABILITY_REQUIRED" }},
-												{ "fp32": { "nullability": "NULLABILITY_REQUIRED" }}
-											]
-										}
-									},
-									"namedTable": {
-										"names": [ "test" ]
-									}
-								}
-							},
-							"right": {
-								"read": {
-									"common": {"direct": {}},
-									"baseSchema": {
-										"names": ["x", "y"],
-										"struct": {
-											"nullability": "NULLABILITY_REQUIRED",
-											"types": [
-												{ "i32": { "nullability": "NULLABILITY_REQUIRED" }},
-												{ "bool": { "nullability": "NULLABILITY_REQUIRED" }}
-											]
-										}
-									},
-									"namedTable": {
-										"names": [ "test2" ]
-									}
-								}
-							},
-							"expression": {
-								"selection": {
-									"rootReference": {},
-									"directReference": { "structField": { "field": 3 }}
-								}
-							},
-							"postJoinFilter": {
-								"selection": {
-									"rootReference": {},
-									"directReference": { "structField": { "field": 3 }}
-								}
-							},
-							"type": "JOIN_TYPE_INNER"
-						}
-					},
-					"names": ["a", "b", "c", "d"]
-				}
-			}
-		]
-	}`
-
-	b := plan.NewBuilderDefault()
-	left := b.NamedScan([]string{"test"}, baseSchema)
-	right := b.NamedScan([]string{"test2"}, baseSchema2)
-
-	cond, err := b.JoinedRecordFieldRef(left, right, 3)
-	require.NoError(t, err)
-
-	join, err := b.JoinAndFilter(left, right, cond, cond, plan.JoinTypeInner)
-	require.NoError(t, err)
-
-	p, err := b.Plan(join, []string{"a", "b", "c", "d"})
-	require.NoError(t, err)
-
-	checkRoundTrip(t, expectedJSON, p)
 }
 
 func TestJoinAndFilter(t *testing.T) {
@@ -928,49 +513,6 @@ func TestJoinRelationError(t *testing.T) {
 }
 
 func TestSortRelationsCoalesce(t *testing.T) {
-	const expectedJSON = `{
-		` + versionStruct + `,
-		"relations": [
-			{
-				"root": {
-					"input": {
-						"sort": {
-							"common": {"direct": {}},
-							"input": {
-								"read": {
-									"common": {"direct": {}},
-									"baseSchema": {
-										"names": ["a", "b"],
-										"struct": {
-											"types": [
-												{"string": { "nullability": "NULLABILITY_REQUIRED"}},
-												{"fp32": { "nullability": "NULLABILITY_REQUIRED"}}
-											],
-											"nullability": "NULLABILITY_REQUIRED"
-										}
-									},
-									"namedTable": { "names": [ "test" ]}
-								}
-							},
-							"sorts": [
-								{
-									"expr": {
-										"selection": {
-											"rootReference": {},
-											"directReference": { "structField": { "field": 0 }}
-										}
-									},
-									"direction": "SORT_DIRECTION_CLUSTERED"
-								}
-							]
-						}
-					},
-					"names": ["a", "b"]
-				}
-			}
-		]
-	}`
-
 	b := plan.NewBuilderDefault()
 	scan := b.NamedScan([]string{"test"}, baseSchema)
 
@@ -984,153 +526,6 @@ func TestSortRelationsCoalesce(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "NSTRUCT<a: string, b: fp32>", p.GetRoots()[0].RecordType().String())
-
-	checkRoundTrip(t, expectedJSON, p)
-}
-
-func TestSortRelationKeyEqual(t *testing.T) {
-	const expectedJSON = `{
-		` + versionStruct + `,
-		"extensionUrns": [
-			{
-				"extensionUrnAnchor": 1,
-				"urn": "extension:io.substrait:functions_comparison"
-			}
-		],
-		"extensions": [
-			{
-				"extensionFunction": {
-					"extensionUrnReference": 1,
-					"functionAnchor": 1,
-					"name": "equal"
-				}
-			}
-		],
-		"relations": [
-			{
-				"root": {
-					"input": {
-						"sort": {
-							"common": {"direct": {}},
-							"input": {
-								"read": {
-									"common": {"direct": {}},
-									"baseSchema": {
-										"names": ["a", "b"],
-										"struct": {
-											"types": [
-												{"string": { "nullability": "NULLABILITY_REQUIRED"}},
-												{"fp32": { "nullability": "NULLABILITY_REQUIRED"}}
-											],
-											"nullability": "NULLABILITY_REQUIRED"
-										}
-									},
-									"namedTable": { "names": [ "test" ]}
-								}
-							},
-							"sorts": [
-								{
-									"expr": {
-										"selection": {
-											"rootReference": {},
-											"directReference": {"structField": {"field": 0}}
-										}
-									},
-									"comparisonFunctionReference": 1
-								}
-							]
-						}
-					},
-					"names": ["a", "b"]
-				}
-			}
-		]
-	}`
-
-	b := plan.NewBuilderDefault()
-	scan := b.NamedScan([]string{"test"}, baseSchema)
-
-	ref, err := b.RootFieldRef(scan, 0)
-	require.NoError(t, err)
-
-	sort, err := b.Sort(scan, expr.SortField{Expr: ref, Kind: b.GetFunctionRef(extensions.SubstraitDefaultURNPrefix+"functions_comparison", "equal")})
-	require.NoError(t, err)
-
-	p, err := b.Plan(sort, []string{"a", "b"})
-	require.NoError(t, err)
-
-	checkRoundTrip(t, expectedJSON, p)
-}
-
-func TestSortRelationMultiple(t *testing.T) {
-	const expectedJSON = `{
-		` + versionStruct + `,
-		"relations": [
-			{
-				"root": {
-					"input": {
-						"sort": {
-							"common": {"direct": {}},
-							"input": {
-								"read": {
-									"common": {"direct": {}},
-									"baseSchema": {
-										"names": ["a", "b"],
-										"struct": {
-											"types": [
-												{"string": { "nullability": "NULLABILITY_REQUIRED"}},
-												{"fp32": { "nullability": "NULLABILITY_REQUIRED"}}
-											],
-											"nullability": "NULLABILITY_REQUIRED"
-										}
-									},
-									"namedTable": { "names": [ "test" ]}
-								}
-							},
-							"sorts": [
-								{
-									"expr": {
-										"selection": {
-											"rootReference": {},
-											"directReference": {"structField": {"field": 1}}
-										}
-									},
-									"direction": "SORT_DIRECTION_ASC_NULLS_LAST"
-								},
-								{
-									"expr": {
-										"selection": {
-											"rootReference": {},
-											"directReference": {"structField": {"field": 0}}
-										}
-									},
-									"direction": "SORT_DIRECTION_DESC_NULLS_FIRST"
-								}
-							]
-						}
-					},
-					"names": ["a", "b"]
-				}
-			}
-		]
-	}`
-
-	b := plan.NewBuilderDefault()
-	scan := b.NamedScan([]string{"test"}, baseSchema)
-
-	ref, err := b.RootFieldRef(scan, 0)
-	require.NoError(t, err)
-
-	ref1, err := b.RootFieldRef(scan, 1)
-	require.NoError(t, err)
-
-	sort, err := b.Sort(scan, expr.SortField{Expr: ref1, Kind: types.SortAscNullsLast}, expr.SortField{Expr: ref, Kind: types.SortDescNullsFirst})
-	require.NoError(t, err)
-
-	p, err := b.Plan(sort, []string{"a", "b"})
-	require.NoError(t, err)
-
-	checkRoundTrip(t, expectedJSON, p)
 }
 
 func TestSortRelationErrors(t *testing.T) {
@@ -1164,138 +559,6 @@ func TestSortRelationErrors(t *testing.T) {
 }
 
 func TestProjectExpressions(t *testing.T) {
-	const expectedJSON = `{
-		` + versionStruct + `,
-		"extensionUrns": [
-			{
-				"extensionUrnAnchor": 1,
-				"urn": "extension:io.substrait:functions_arithmetic"
-			}
-			],
-			"extensions": [
-			{
-				"extensionFunction": {
-				"extensionUrnReference": 1,
-				"functionAnchor": 1,
-				"name": "abs:fp32"
-				}
-			},
-			{
-				"extensionFunction": {
-				"extensionUrnReference": 1,
-				"functionAnchor": 2,
-				"name": "add:fp32_fp32"
-				}
-			}
-			],
-		"relations": [
-			{
-				"root": {
-				"input": {
-					"project": {
-					"common": {
-						"direct": {}
-					},
-					"input": {
-						"read": {
-						"common": {
-							"direct": {}
-						},
-						"baseSchema": {
-							"names": [
-							"a",
-							"b"
-							],
-							"struct": {
-							"types": [
-								{
-								"string": {
-									"nullability": "NULLABILITY_REQUIRED"
-								}
-								},
-								{
-								"fp32": {
-									"nullability": "NULLABILITY_REQUIRED"
-								}
-								}
-							],
-							"nullability": "NULLABILITY_REQUIRED"
-							}
-						},
-						"namedTable": {
-							"names": [
-							"test"
-							]
-						}
-						}
-					},
-					"expressions": [
-						{
-						"scalarFunction": {
-							"functionReference": 2,
-							"arguments": [
-							{
-								"value": {
-								"scalarFunction": {
-									"functionReference": 1,
-									"arguments": [
-									{
-										"value": {
-										"selection": {
-											"directReference": {
-											"structField": {
-												"field": 1
-											}
-											},
-											"rootReference": {}
-										}
-										}
-									}
-									],
-									"outputType": {
-									"fp32": {
-										"nullability": "NULLABILITY_REQUIRED"
-									}
-									}
-								}
-								}
-							},
-							{
-								"value": {
-								"selection": {
-									"directReference": {
-									"structField": {
-										"field": 1
-									}
-									},
-									"rootReference": {}
-								}
-								}
-							}
-							],
-							"options":  [
-							  {}
-							],
-							"outputType": {
-							"fp32": {
-								"nullability": "NULLABILITY_REQUIRED"
-							}
-							}
-						}
-						}
-					]
-					}
-				},
-				"names": [
-					"a",
-					"b",
-					"c"
-				]
-				}
-			}
-			]
-		}`
-
 	arithmeticURN := extensions.SubstraitDefaultURNPrefix + "functions_arithmetic"
 	b := plan.NewBuilderDefault()
 	scan := b.NamedScan([]string{"test"}, baseSchema)
@@ -1318,51 +581,9 @@ func TestProjectExpressions(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "NSTRUCT<a: string, b: fp32, c: fp32>", p.GetRoots()[0].RecordType().String())
-
-	checkRoundTrip(t, expectedJSON, p)
 }
 
 func TestProjectRelation(t *testing.T) {
-	const expectedJSON = `{
-		` + versionStruct + `,
-		"relations": [
-			{
-				"root": {
-					"input": {
-						"project": {
-							"common": {"direct": {}},
-							"input": {
-								"read": {
-									"common": {"direct": {}},
-									"baseSchema": {
-										"names": ["a", "b"],
-										"struct": {
-											"types": [
-												{"string": { "nullability": "NULLABILITY_REQUIRED"}},
-												{"fp32": { "nullability": "NULLABILITY_REQUIRED"}}
-											],
-											"nullability": "NULLABILITY_REQUIRED"
-										}
-									},
-									"namedTable": { "names": [ "test" ]}
-								}
-							},
-							"expressions": [
-								{
-									"selection": {
-										"rootReference": {},
-										"directReference": { "structField": { "field": 1 }}
-									}
-								}
-							]
-						}
-					},
-					"names": ["a", "b", "c"]
-				}
-			}
-		]
-	}`
-
 	b := plan.NewBuilderDefault()
 	scan := b.NamedScan([]string{"test"}, baseSchema)
 	ref, err := b.RootFieldRef(scan, 1)
@@ -1375,57 +596,9 @@ func TestProjectRelation(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "NSTRUCT<a: string, b: fp32, c: fp32>", p.GetRoots()[0].RecordType().String())
-
-	checkRoundTrip(t, expectedJSON, p)
 }
 
 func TestProjectMultipleRelation(t *testing.T) {
-	const expectedJSON = `{
-		` + versionStruct + `,
-		"relations": [
-			{
-				"root": {
-					"input": {
-						"project": {
-							"common": {"direct": {}},
-							"input": {
-								"read": {
-									"common": {"direct": {}},
-									"baseSchema": {
-										"names": ["a", "b"],
-										"struct": {
-											"types": [
-												{"string": { "nullability": "NULLABILITY_REQUIRED"}},
-												{"fp32": { "nullability": "NULLABILITY_REQUIRED"}}
-											],
-											"nullability": "NULLABILITY_REQUIRED"
-										}
-									},
-									"namedTable": { "names": [ "test" ]}
-								}
-							},
-							"expressions": [
-								{
-									"selection": {
-										"rootReference": {},
-										"directReference": { "structField": { "field": 1 }}
-									}
-								},
-								{
-									"selection": {
-										"rootReference": {},
-										"directReference": { "structField": { "field": 0 }}
-									}
-								}
-							]
-						}
-					},
-					"names": ["a", "b", "c", "d"]
-				}
-			}
-		]
-	}`
-
 	b := plan.NewBuilderDefault()
 	scan := b.NamedScan([]string{"test"}, baseSchema)
 	ref, err := b.RootFieldRef(scan, 1)
@@ -1441,8 +614,6 @@ func TestProjectMultipleRelation(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "NSTRUCT<a: string, b: fp32, c: fp32, d: string>", p.GetRoots()[0].RecordType().String())
-
-	checkRoundTrip(t, expectedJSON, p)
 }
 
 func TestProjectErrors(t *testing.T) {
@@ -1479,90 +650,6 @@ func TestProjectErrors(t *testing.T) {
 }
 
 func TestSetRelations(t *testing.T) {
-	const expectedJSON = `{
-		` + versionStruct + `,
-		"relations": [
-			{
-				"root": {
-					"input": {
-						"set": {
-							"common": {"direct": {}},
-							"inputs": [
-								{
-									"read": {
-										"common": {"direct": {}},
-										"baseSchema": {
-											"names": ["a", "b"],
-											"struct": {
-												"types": [
-													{"string": { "nullability": "NULLABILITY_REQUIRED"}},
-													{"fp32": { "nullability": "NULLABILITY_REQUIRED"}}
-												],
-												"nullability": "NULLABILITY_REQUIRED"
-											}
-										},
-										"namedTable": { "names": [ "test" ]}
-									}
-								},
-								{
-									"read": {
-										"common": {"direct": {}},
-										"baseSchema": {
-											"names": ["c", "d"],
-											"struct": {
-												"types": [
-													{"string": { "nullability": "NULLABILITY_REQUIRED"}},
-													{"fp32": { "nullability": "NULLABILITY_REQUIRED"}}
-												],
-												"nullability": "NULLABILITY_REQUIRED"
-											}
-										},
-										"virtualTable": {
-											"expressions": [
-												{
-													"fields": [
-														{"literal": { "string": "foo", "nullable": false }},
-														{"literal": { "fp32": 1.5, "nullable": false }}
-													]
-												},
-												{
-													"fields": [
-														{"literal": { "string": "bar", "nullable": false }},
-														{"literal": { "fp32": 3.5, "nullable": false }}
-													]
-												}
-											]
-										}
-									}
-								},
-								{
-									"read": {
-										"common": {"emit": {
-											"outputMapping": [1, 0]
-										}},
-										"baseSchema": {
-											"names": ["x", "y"],
-											"struct": {
-												"types": [
-													{"fp32": { "nullability": "NULLABILITY_REQUIRED"}},
-													{"string": { "nullability": "NULLABILITY_REQUIRED"}}
-												],
-												"nullability": "NULLABILITY_REQUIRED"
-											}
-										},
-										"namedTable": { "names": [ "test2" ]}
-									}
-								}
-							],
-							"op": "SET_OP_UNION_ALL"
-						}
-					},
-					"names": ["a", "b"]
-				}
-			}
-		]
-	}`
-
 	b := plan.NewBuilderDefault()
 	scan1 := b.NamedScan([]string{"test"}, baseSchema)
 	scan2, err := b.NamedScan([]string{"test2"}, baseSchemaReverse).Remap(1, 0)
@@ -1580,47 +667,6 @@ func TestSetRelations(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "NSTRUCT<a: string, b: fp32>", p.GetRoots()[0].RecordType().String())
-
-	checkRoundTrip(t, expectedJSON, p)
-}
-
-func TestColumnlessVirtualTable(t *testing.T) {
-	const expectedJSON = `{
-		` + versionStruct + `,
-		"relations": [
-			{
-				"root": {
-					"input": {
-						"read": {
-							"common": {"direct":{}},
-							"baseSchema": {
-								"struct": {
-									"nullability": "NULLABILITY_REQUIRED"
-								}
-							},
-							"virtualTable": {
-								"expressions": [
-									{},
-									{},
-									{}
-								]
-							}
-						}
-					}
-				}
-			}
-		]
-	}`
-
-	b := plan.NewBuilderDefault()
-
-	virtual, err := b.VirtualTable(nil, make([]expr.StructLiteralValue, 3)...)
-	require.NoError(t, err)
-
-	p, err := b.Plan(virtual, []string{})
-	require.NoError(t, err)
-
-	checkRoundTrip(t, expectedJSON, p)
 }
 
 func TestVirtualTable(t *testing.T) {
@@ -1639,45 +685,6 @@ func TestVirtualTable(t *testing.T) {
 	vtRemap, err := vt.Remap(1)
 	require.NoError(t, err)
 	assert.Equal(t, "struct<string>", vtRemap.RecordType().String())
-}
-
-func TestEmptyVirtualTable(t *testing.T) {
-	const expectedJSON = `{
-		` + versionStruct + `,
-		"relations": [
-			{
-				"root": {
-					"input": {
-						"read": {
-							"common": {"direct":{}},
-							"baseSchema": {
-								"names": ["i"],
-								"struct": {
-									"types": [
-										{"i32": {"nullability": "NULLABILITY_REQUIRED"}}
-									],
-									"nullability": "NULLABILITY_REQUIRED"
-								}
-							},
-							"virtualTable": {}
-						}
-					},
-					"names": ["i"]
-				}
-			}
-		]
-	}`
-
-	b := plan.NewBuilderDefault()
-
-	i32Type := types.Int32Type{Nullability: types.NullabilityRequired}
-	virtual, err := b.EmptyVirtualTable([]string{"i"}, []types.Type{&i32Type})
-	require.NoError(t, err)
-
-	p, err := b.Plan(virtual, []string{"i"})
-	require.NoError(t, err)
-
-	checkRoundTrip(t, expectedJSON, p)
 }
 
 func TestSetRelErrors(t *testing.T) {
@@ -2004,106 +1011,6 @@ func TestAggregateRelBuilder(t *testing.T) {
 	})
 }
 
-func expectedJsonWithIceberg(metadataURI string, snapshot plan.IcebergSnapshot) string {
-	snapshotId, _ := snapshot.(plan.SnapshotId)
-	snapshotTimestamp, _ := snapshot.(plan.SnapshotTimestamp)
-
-	expectedJson := `{
-		` + versionStruct + `,
-		"relations": [
-			{
-				"root":  {
-					"input":  {
-						"read":  {
-							"common":  {
-								"direct":  {}
-							},
-							"baseSchema":  {
-								"names":  [
-									"a",
-									"b"
-								],
-							  	"struct":  {
-									"types":  [
-								  		{
-											"string":  {
-											  	"nullability":  "NULLABILITY_REQUIRED"
-											}
-								  		},
-									  	{
-											"fp32":  {
-										  		"nullability":  "NULLABILITY_REQUIRED"
-											}
-									  	}
-									],
-									"nullability":  "NULLABILITY_REQUIRED"
-							  	}
-							},
-							"icebergTable":  {
-								"direct":  {`
-	// Add fields to icebergTable's direct node based on the snapshot type
-	if snapshotId != "" {
-		expectedJson += `
-									"metadataUri": "` + metadataURI + `",
-									"snapshotId": "` + string(snapshotId) + `"`
-	} else if snapshotTimestamp != 0 {
-		expectedJson += `
-									"metadataUri": "` + metadataURI + `",
-									"snapshotTimestamp": "` + strconv.FormatInt(int64(snapshotTimestamp), 10) + `"`
-	} else {
-		expectedJson += `
-									"metadataUri": "` + metadataURI + `"`
-	}
-	// Add the rest of the JSON
-	expectedJson += `			}
-							}
-						}
-					},
-					"names":  [
-					  "a",
-					  "b"
-					]
-				}
-			}
-		]
-	}`
-	return expectedJson
-}
-
-func TestIcebergTable(t *testing.T) {
-	const metadataURI = "s3://bucket/path/to/metadata.json"
-
-	for _, td := range []struct {
-		name              string
-		metadataURI       string
-		snapshotId        plan.SnapshotId
-		snapshotTimestamp plan.SnapshotTimestamp
-	}{
-		{"latest snapshot", metadataURI, "", 0},
-		{"snapshot id", metadataURI, "SnapshotId0", 0},
-		{"snapshot timestamp", metadataURI, "", 1010101},
-	} {
-		t.Run(td.name, func(t *testing.T) {
-			b := plan.NewBuilderDefault()
-
-			var snapshot plan.IcebergSnapshot
-			if td.snapshotId != "" {
-				snapshot = td.snapshotId
-			} else if td.snapshotTimestamp != 0 {
-				snapshot = td.snapshotTimestamp
-			}
-
-			iceberg, err := b.IcebergTableFromMetadataFile(td.metadataURI, snapshot, baseSchema)
-			require.NoError(t, err)
-
-			p, err := b.Plan(iceberg, []string{"a", "b"})
-			require.NoError(t, err)
-
-			checkRoundTrip(t, expectedJsonWithIceberg(td.metadataURI, snapshot), p)
-		})
-	}
-}
-
 // TestExtensionDefinition is a simple test implementation of ExtensionRelDefinition
 type TestExtensionDefinition struct {
 	schema types.RecordType
@@ -2129,42 +1036,6 @@ func (t *TestExtensionDefinition) Expressions(inputs []plan.Rel) []expr.Expressi
 }
 
 func TestExtensionSingleBuilder(t *testing.T) {
-	const expectedJSON = `{
-		` + versionStruct + `,
-		"relations": [
-			{
-				"root": {
-					"input": {
-						"extensionSingle": {
-							"common": {"direct": {}},
-							"input": {
-								"read": {
-									"common": {"direct": {}},
-									"baseSchema": {
-										"names": ["a", "b"],
-										"struct": {
-											"types": [
-												{"string": { "nullability": "NULLABILITY_REQUIRED"}},
-												{"fp32": { "nullability": "NULLABILITY_REQUIRED"}}
-											],
-											"nullability": "NULLABILITY_REQUIRED"
-										}
-									},
-									"namedTable": { "names": [ "test" ]}
-								}
-							},
-							"detail": {
-								"@type": "type.googleapis.com/google.protobuf.StringValue",
-								"value": "test-config"
-							}
-						}
-					},
-					"names": ["result"]
-				}
-			}
-		]
-	}`
-
 	b := plan.NewBuilderDefault()
 	scan := b.NamedScan([]string{"test"}, baseSchema)
 
@@ -2190,31 +1061,9 @@ func TestExtensionSingleBuilder(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "NSTRUCT<result: string>", p.GetRoots()[0].RecordType().String())
-
-	checkRoundTrip(t, expectedJSON, p)
 }
 
 func TestExtensionLeafBuilder(t *testing.T) {
-	const expectedJSON = `{
-		` + versionStruct + `,
-		"relations": [
-			{
-				"root": {
-					"input": {
-						"extensionLeaf": {
-							"common": {"direct": {}},
-							"detail": {
-								"@type": "type.googleapis.com/google.protobuf.StringValue",
-								"value": "leaf-config"
-							}
-						}
-					},
-					"names": ["x", "y"]
-				}
-			}
-		]
-	}`
-
 	b := plan.NewBuilderDefault()
 
 	// Create custom schema for leaf extension
@@ -2240,65 +1089,9 @@ func TestExtensionLeafBuilder(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "NSTRUCT<x: i32, y: boolean>", p.GetRoots()[0].RecordType().String())
-
-	checkRoundTrip(t, expectedJSON, p)
 }
 
 func TestExtensionMultiBuilder(t *testing.T) {
-	const expectedJSON = `{
-		` + versionStruct + `,
-		"relations": [
-			{
-				"root": {
-					"input": {
-						"extensionMulti": {
-							"common": {"direct": {}},
-							"inputs": [
-								{
-									"read": {
-										"common": {"direct": {}},
-										"baseSchema": {
-											"names": ["a", "b"],
-											"struct": {
-												"types": [
-													{"string": { "nullability": "NULLABILITY_REQUIRED"}},
-													{"fp32": { "nullability": "NULLABILITY_REQUIRED"}}
-												],
-												"nullability": "NULLABILITY_REQUIRED"
-											}
-										},
-										"namedTable": { "names": [ "test" ]}
-									}
-								},
-								{
-									"read": {
-										"common": {"direct": {}},
-										"baseSchema": {
-											"names": ["x", "y"],
-											"struct": {
-												"types": [
-													{"i32": { "nullability": "NULLABILITY_REQUIRED"}},
-													{"bool": { "nullability": "NULLABILITY_REQUIRED"}}
-												],
-												"nullability": "NULLABILITY_REQUIRED"
-											}
-										},
-										"namedTable": { "names": [ "test2" ]}
-									}
-								}
-							],
-							"detail": {
-								"@type": "type.googleapis.com/google.protobuf.StringValue",
-								"value": "multi-config"
-							}
-						}
-					},
-					"names": ["result"]
-				}
-			}
-		]
-	}`
-
 	b := plan.NewBuilderDefault()
 	left := b.NamedScan([]string{"test"}, baseSchema)
 	right := b.NamedScan([]string{"test2"}, baseSchema2)
@@ -2325,8 +1118,6 @@ func TestExtensionMultiBuilder(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "NSTRUCT<result: string>", p.GetRoots()[0].RecordType().String())
-
-	checkRoundTrip(t, expectedJSON, p)
 }
 
 func TestExtensionBuildersErrors(t *testing.T) {
@@ -2376,56 +1167,4 @@ func TestExtensionBuildersErrors(t *testing.T) {
 	_, err = b.ExtensionMulti([]plan.Rel{scan}, nil)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidArg)
 	assert.ErrorContains(t, err, "definition must not be nil")
-}
-
-func TestExtensionTable(t *testing.T) {
-	const expectedJSON = `{
-		` + versionStruct + `,
-		"relations": [
-			{
-				"root": {
-					"input": {
-						"read": {
-							"common": {"direct":{}},
-							"baseSchema": {
-								"names": ["a"],
-								"struct": {
-									"types": [
-										{"i32": {"nullability": "NULLABILITY_REQUIRED"}}
-									],
-									"nullability": "NULLABILITY_REQUIRED"
-								}
-							},
-							"extensionTable": {
-								"detail": {
-									"@type": "type.googleapis.com/google.protobuf.StringValue",
-									"value": "my_custom_table"
-								}
-							}
-						}
-					},
-					"names": ["a"]
-				}
-			}
-		]
-	}`
-
-	b := plan.NewBuilderDefault()
-
-	detail, err := anypb.New(wrapperspb.String("my_custom_table"))
-	require.NoError(t, err)
-
-	schema := types.NamedStruct{
-		Names: []string{"a"},
-		Struct: types.StructType{
-			Nullability: types.NullabilityRequired,
-			Types:       []types.Type{&types.Int32Type{Nullability: types.NullabilityRequired}},
-		},
-	}
-
-	ext := b.ExtensionTable(detail, schema)
-	p, err := b.Plan(ext, []string{"a"})
-	require.NoError(t, err)
-
-	checkRoundTrip(t, expectedJSON, p)
 }

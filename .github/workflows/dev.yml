@@ -60,7 +60,10 @@ jobs:
         working-directory: codec
       - name: Run codec Tests with Coverage
         if: runner.os == 'Linux'
-        run: go test -v -coverprofile=codec-coverage.out ./...
+        # -coverpkg spans core too: codec's tests exercise core conversions (e.g.
+        # Rel/Expression ToProto) that used to be covered by wire tests living in
+        # core. Without this, relocating those tests drops core's reported coverage.
+        run: go test -v -coverpkg=./...,github.com/substrait-io/substrait-go/v9/... -coverprofile=codec-coverage.out ./...
         working-directory: codec
       - name: Upload coverage to Codecov
         if: runner.os == 'Linux' && github.repository == 'substrait-io/substrait-go'

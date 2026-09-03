@@ -1,25 +1,15 @@
-package plan_test
+// SPDX-License-Identifier: Apache-2.0
+
+package codec_test
 
 import (
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/v9/literal"
 	"github.com/substrait-io/substrait-go/v9/plan"
 	"github.com/substrait-io/substrait-go/v9/types"
 )
-
-// getFilterForTest1 returns filter rel for "name LIKE 'Alice'"
-func getFilterForTest1(t *testing.T, b plan.Builder) plan.Rel {
-	namedTableReadRel := b.NamedScan([]string{"employee_salaries"}, employeeSalariesSchema)
-
-	// column 0 from the output of namedTableReadRel is name
-	// Build the filter with condition `name LIKE 'Alice'`
-	l := literal.NewString("Alice", false)
-	nameLikeAlice := makeConditionExprForLike(t, b, namedTableReadRel, 0, l)
-	return makeFilterRel(t, b, namedTableReadRel, nameLikeAlice)
-}
 
 // TestNamedTableInsertRoundTrip verifies that generated plans match the expected JSON.
 func TestNamedTableInsertRoundTrip(t *testing.T) {
@@ -33,7 +23,7 @@ func TestNamedTableInsertRoundTrip(t *testing.T) {
 	} {
 		t.Run(td.name, func(t *testing.T) {
 			// Load the expected JSON. This will be our baseline for comparison.
-			expectedJson, err := testdata.ReadFile(fmt.Sprintf("testdata/%s.json", td.name))
+			expectedJson, err := testdataFS.ReadFile(fmt.Sprintf("testdata/plan/%s.json", td.name))
 			require.NoError(t, err)
 
 			// build plan for Insert
@@ -61,7 +51,7 @@ func TestNamedTableDeleteRoundTrip(t *testing.T) {
 	} {
 		t.Run(td.name, func(t *testing.T) {
 			// Load the expected JSON. This will be our baseline for comparison.
-			expectedJson, err := testdata.ReadFile(fmt.Sprintf("testdata/%s.json", td.name))
+			expectedJson, err := testdataFS.ReadFile(fmt.Sprintf("testdata/plan/%s.json", td.name))
 			require.NoError(t, err)
 
 			// build plan for Delete

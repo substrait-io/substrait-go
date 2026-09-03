@@ -1,0 +1,36 @@
+relations:  {
+  root:  {
+    input:  {
+      read:  {
+        common:  {
+          emit:  {
+            output_mapping:  1
+            output_mapping:  0
+          }
+        }
+        base_schema:  {
+          names:  "x"
+          names:  "y"
+          struct:  {
+            types:  {
+              i32:  {
+                nullability:  NULLABILITY_REQUIRED
+              }
+            }
+            types:  {
+              bool:  {
+                nullability:  NULLABILITY_REQUIRED
+              }
+            }
+            nullability:  NULLABILITY_REQUIRED
+          }
+        }
+        named_table:  {
+          names:  "test"
+        }
+      }
+    }
+    names:  "a"
+    names:  "b"
+  }
+}
