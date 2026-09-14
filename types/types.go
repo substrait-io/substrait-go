@@ -336,7 +336,7 @@ type IntervalYearToMonth struct {
 // PrecisionTime is a time-of-day literal: the number of precision units past
 // midnight, mirroring the fields of the Substrait PrecisionTime literal message.
 type PrecisionTime struct {
-	Precision int32
+	Precision TimePrecision
 	Value     int64
 }
 
@@ -344,7 +344,7 @@ type PrecisionTime struct {
 // number of precision units since the UNIX epoch, mirroring the fields of the
 // Substrait PrecisionTimestamp literal message.
 type PrecisionTimestamp struct {
-	Precision int32
+	Precision TimePrecision
 	Value     int64
 }
 
@@ -352,7 +352,7 @@ type PrecisionTimestamp struct {
 // since the UNIX epoch, mirroring the fields of the Substrait PrecisionTimestamp
 // literal message that backs the precision_timestamp_tz field.
 type PrecisionTimestampTz struct {
-	Precision int32
+	Precision TimePrecision
 	Value     int64
 }
 
