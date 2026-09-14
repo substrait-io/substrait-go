@@ -82,14 +82,14 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 
 		decl, ok := reg.LookupScalarFunction(et.ScalarFunction.FunctionReference)
 		if !ok {
-			return NewCustomScalarFunc(reg, extensions.NewScalarFuncVariant(id), types.TypeFromProto(et.ScalarFunction.OutputType), et.ScalarFunction.Options, args...)
+			return NewCustomScalarFunc(reg, extensions.NewScalarFuncVariant(id), types.TypeFromProto(et.ScalarFunction.OutputType), types.FunctionOptionsFromProto(et.ScalarFunction.Options), args...)
 		}
 
 		return &ScalarFunction{
 			funcRef:     et.ScalarFunction.FunctionReference,
 			declaration: decl,
 			args:        args,
-			options:     et.ScalarFunction.Options,
+			options:     types.FunctionOptionsFromProto(et.ScalarFunction.Options),
 			outputType:  types.TypeFromProto(et.ScalarFunction.OutputType),
 		}, nil
 	case *proto.Expression_WindowFunction_:
@@ -126,7 +126,7 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 		decl, ok := reg.LookupWindowFunction(et.WindowFunction.FunctionReference)
 		if !ok {
 			fn, err := NewCustomWindowFunc(reg, extensions.NewWindowFuncVariant(id), types.TypeFromProto(et.WindowFunction.OutputType),
-				et.WindowFunction.Options, et.WindowFunction.Invocation, et.WindowFunction.Phase, args...)
+				types.FunctionOptionsFromProto(et.WindowFunction.Options), et.WindowFunction.Invocation, et.WindowFunction.Phase, args...)
 			if err != nil {
 				return nil, err
 			}
@@ -143,7 +143,7 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 			funcRef:     et.WindowFunction.FunctionReference,
 			declaration: decl,
 			args:        args,
-			options:     et.WindowFunction.Options,
+			options:     types.FunctionOptionsFromProto(et.WindowFunction.Options),
 			outputType:  types.TypeFromProto(et.WindowFunction.OutputType),
 			phase:       et.WindowFunction.Phase,
 			invocation:  et.WindowFunction.Invocation,
