@@ -4,6 +4,7 @@ package plan
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	substraitgo "github.com/substrait-io/substrait-go/v9"
@@ -51,7 +52,7 @@ func (r *ExpressionConverter) SubqueryFromProto(sub *proto.Expression_Subquery, 
 		if err != nil {
 			return nil, fmt.Errorf("error parsing tuples in set predicate: %w", err)
 		}
-		return NewSetPredicateSubquery(subType.SetPredicate.PredicateOp, tuples), nil
+		return NewSetPredicateSubquery(SetPredicateOp(subType.SetPredicate.PredicateOp), tuples), nil
 	case *proto.Expression_Subquery_SetComparison_:
 		left, err := expr.ExprFromProto(subType.SetComparison.Left, baseSchema, reg)
 		if err != nil {
@@ -256,13 +257,28 @@ func (s *InPredicateSubquery) GetSubqueryType() string {
 	return "in_predicate"
 }
 
-type SetPredicateOp = proto.Expression_Subquery_SetPredicate_PredicateOp
+// SetPredicateOp indicates the kind of set predicate (EXISTS/UNIQUE) applied to a subquery.
+type SetPredicateOp int32
 
 const (
-	SetPredicateOpUnspecified = proto.Expression_Subquery_SetPredicate_PREDICATE_OP_UNSPECIFIED
-	SetPredicateOpExists      = proto.Expression_Subquery_SetPredicate_PREDICATE_OP_EXISTS
-	SetPredicateOpUnique      = proto.Expression_Subquery_SetPredicate_PREDICATE_OP_UNIQUE
+	SetPredicateOpUnspecified SetPredicateOp = 0
+	SetPredicateOpExists      SetPredicateOp = 1
+	SetPredicateOpUnique      SetPredicateOp = 2
 )
+
+// String returns the protobuf enum name for the set predicate operation.
+func (o SetPredicateOp) String() string {
+	switch o {
+	case SetPredicateOpUnspecified:
+		return "PREDICATE_OP_UNSPECIFIED"
+	case SetPredicateOpExists:
+		return "PREDICATE_OP_EXISTS"
+	case SetPredicateOpUnique:
+		return "PREDICATE_OP_UNIQUE"
+	default:
+		return strconv.Itoa(int(o))
+	}
+}
 
 // SetPredicateSubquery is a predicate over a set of rows (EXISTS/UNIQUE)
 type SetPredicateSubquery struct {
@@ -283,9 +299,9 @@ func NewSetPredicateSubquery(op SetPredicateOp, tuples Rel) *SetPredicateSubquer
 func (s *SetPredicateSubquery) String() string {
 	var opStr string
 	switch s.Operation {
-	case proto.Expression_Subquery_SetPredicate_PREDICATE_OP_EXISTS:
+	case SetPredicateOpExists:
 		opStr = "EXISTS"
-	case proto.Expression_Subquery_SetPredicate_PREDICATE_OP_UNIQUE:
+	case SetPredicateOpUnique:
 		opStr = "UNIQUE"
 	default:
 		opStr = "UNKNOWN"
@@ -305,7 +321,7 @@ func (s *SetPredicateSubquery) ToProto() *proto.Expression {
 			Subquery: &proto.Expression_Subquery{
 				SubqueryType: &proto.Expression_Subquery_SetPredicate_{
 					SetPredicate: &proto.Expression_Subquery_SetPredicate{
-						PredicateOp: s.Operation,
+						PredicateOp: proto.Expression_Subquery_SetPredicate_PredicateOp(s.Operation),
 						Tuples:      s.Tuples.ToProto(),
 					},
 				},

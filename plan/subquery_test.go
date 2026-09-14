@@ -137,7 +137,7 @@ func TestSetPredicateSubquery(t *testing.T) {
 	mockRel := createMockReadRel()
 
 	subquery := plan.NewSetPredicateSubquery(
-		proto.Expression_Subquery_SetPredicate_PREDICATE_OP_EXISTS,
+		plan.SetPredicateOpExists,
 		mockRel,
 	)
 
@@ -162,37 +162,37 @@ func TestSetPredicateSubqueryValidConstruction(t *testing.T) {
 
 	// Test with EXISTS operation
 	existsSubquery := plan.NewSetPredicateSubquery(
-		proto.Expression_Subquery_SetPredicate_PREDICATE_OP_EXISTS,
+		plan.SetPredicateOpExists,
 		mockRel,
 	)
 	assert.NotNil(t, existsSubquery)
-	assert.Equal(t, proto.Expression_Subquery_SetPredicate_PREDICATE_OP_EXISTS, existsSubquery.Operation)
+	assert.Equal(t, plan.SetPredicateOpExists, existsSubquery.Operation)
 	assert.Equal(t, mockRel, existsSubquery.Tuples)
 
 	// Test with UNIQUE operation
 	uniqueSubquery := plan.NewSetPredicateSubquery(
-		proto.Expression_Subquery_SetPredicate_PREDICATE_OP_UNIQUE,
+		plan.SetPredicateOpUnique,
 		mockRel,
 	)
 	assert.NotNil(t, uniqueSubquery)
-	assert.Equal(t, proto.Expression_Subquery_SetPredicate_PREDICATE_OP_UNIQUE, uniqueSubquery.Operation)
+	assert.Equal(t, plan.SetPredicateOpUnique, uniqueSubquery.Operation)
 	assert.Equal(t, mockRel, uniqueSubquery.Tuples)
 
 	// Test with UNSPECIFIED operation
 	unspecifiedSubquery := plan.NewSetPredicateSubquery(
-		proto.Expression_Subquery_SetPredicate_PREDICATE_OP_UNSPECIFIED,
+		plan.SetPredicateOpUnspecified,
 		mockRel,
 	)
 	assert.NotNil(t, unspecifiedSubquery)
-	assert.Equal(t, proto.Expression_Subquery_SetPredicate_PREDICATE_OP_UNSPECIFIED, unspecifiedSubquery.Operation)
+	assert.Equal(t, plan.SetPredicateOpUnspecified, unspecifiedSubquery.Operation)
 
 	// Test with nil relation
 	nilRelSubquery := plan.NewSetPredicateSubquery(
-		proto.Expression_Subquery_SetPredicate_PREDICATE_OP_EXISTS,
+		plan.SetPredicateOpExists,
 		nil,
 	)
 	assert.NotNil(t, nilRelSubquery)
-	assert.Equal(t, proto.Expression_Subquery_SetPredicate_PREDICATE_OP_EXISTS, nilRelSubquery.Operation)
+	assert.Equal(t, plan.SetPredicateOpExists, nilRelSubquery.Operation)
 	assert.Nil(t, nilRelSubquery.Tuples)
 
 	// Test protobuf conversion with valid arguments
@@ -452,7 +452,7 @@ func TestSubqueryFromProto(t *testing.T) {
 
 		setPredicateSubquery, ok := result.(*plan.SetPredicateSubquery)
 		require.True(t, ok)
-		assert.Equal(t, proto.Expression_Subquery_SetPredicate_PREDICATE_OP_EXISTS, setPredicateSubquery.Operation)
+		assert.Equal(t, plan.SetPredicateOpExists, setPredicateSubquery.Operation)
 		assert.NotNil(t, setPredicateSubquery.Tuples)
 		assert.Equal(t, "set_predicate", setPredicateSubquery.GetSubqueryType())
 	})
@@ -472,7 +472,7 @@ func TestSubqueryFromProto(t *testing.T) {
 
 		setPredicateSubquery, ok := result.(*plan.SetPredicateSubquery)
 		require.True(t, ok)
-		assert.Equal(t, proto.Expression_Subquery_SetPredicate_PREDICATE_OP_UNIQUE, setPredicateSubquery.Operation)
+		assert.Equal(t, plan.SetPredicateOpUnique, setPredicateSubquery.Operation)
 		assert.NotNil(t, setPredicateSubquery.Tuples)
 	})
 
@@ -919,23 +919,23 @@ func TestSetPredicateSubqueryEquals(t *testing.T) {
 	mockRel2 := createMockReadRel()
 
 	existsSubquery1 := plan.NewSetPredicateSubquery(
-		proto.Expression_Subquery_SetPredicate_PREDICATE_OP_EXISTS,
+		plan.SetPredicateOpExists,
 		mockRel1,
 	)
 	existsSubquery2 := plan.NewSetPredicateSubquery(
-		proto.Expression_Subquery_SetPredicate_PREDICATE_OP_EXISTS,
+		plan.SetPredicateOpExists,
 		mockRel1,
 	)
 	uniqueSubquery := plan.NewSetPredicateSubquery(
-		proto.Expression_Subquery_SetPredicate_PREDICATE_OP_UNIQUE,
+		plan.SetPredicateOpUnique,
 		mockRel1,
 	)
 	existsSubqueryDiffRel := plan.NewSetPredicateSubquery(
-		proto.Expression_Subquery_SetPredicate_PREDICATE_OP_EXISTS,
+		plan.SetPredicateOpExists,
 		mockRel2,
 	)
 	unspecifiedSubquery := plan.NewSetPredicateSubquery(
-		proto.Expression_Subquery_SetPredicate_PREDICATE_OP_UNSPECIFIED,
+		plan.SetPredicateOpUnspecified,
 		mockRel1,
 	)
 
@@ -961,11 +961,11 @@ func TestSetPredicateSubqueryEquals(t *testing.T) {
 
 	t.Run("NilTuples", func(t *testing.T) {
 		nilTuples1 := plan.NewSetPredicateSubquery(
-			proto.Expression_Subquery_SetPredicate_PREDICATE_OP_EXISTS,
+			plan.SetPredicateOpExists,
 			nil,
 		)
 		nilTuples2 := plan.NewSetPredicateSubquery(
-			proto.Expression_Subquery_SetPredicate_PREDICATE_OP_EXISTS,
+			plan.SetPredicateOpExists,
 			nil,
 		)
 		assert.True(t, nilTuples1.Equals(nilTuples2))

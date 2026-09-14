@@ -608,14 +608,14 @@ func TestSubqueryExpressionRoundtrip(t *testing.T) {
 		{
 			name: "SetPredicateSubquery_EXISTS",
 			subExpr: plan.NewSetPredicateSubquery(
-				proto.Expression_Subquery_SetPredicate_PREDICATE_OP_EXISTS,
+				plan.SetPredicateOpExists,
 				mockRel,
 			),
 		},
 		{
 			name: "SetPredicateSubquery_UNIQUE",
 			subExpr: plan.NewSetPredicateSubquery(
-				proto.Expression_Subquery_SetPredicate_PREDICATE_OP_UNIQUE,
+				plan.SetPredicateOpUnique,
 				mockRel,
 			),
 		},
