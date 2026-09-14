@@ -329,7 +329,7 @@ func NewDecimalFromApdDecimal(value *apd.Decimal, nullable bool) (expr.Literal, 
 
 func NewPrecisionTime(precision types.TimePrecision, value int64, nullable bool) (expr.Literal, error) {
 	return expr.NewLiteral(&types.PrecisionTime{
-		Precision: int32(precision),
+		Precision: precision,
 		Value:     value,
 	}, nullable)
 }
@@ -358,10 +358,8 @@ func NewPrecisionTimestampFromTime(precision types.TimePrecision, tm time.Time, 
 // NewPrecisionTimestamp creates a new PrecisionTimestamp literal with given precision and value.
 func NewPrecisionTimestamp(precision types.TimePrecision, value int64, nullable bool) (expr.Literal, error) {
 	return expr.NewLiteral(&types.PrecisionTimestamp{
-		PrecisionTimestamp: &proto.Expression_Literal_PrecisionTimestamp{
-			Precision: int32(precision),
-			Value:     value,
-		},
+		Precision: precision,
+		Value:     value,
 	}, nullable)
 }
 
@@ -381,10 +379,8 @@ func NewPrecisionTimestampTzFromTime(precision types.TimePrecision, tm time.Time
 // NewPrecisionTimestampTz creates a new PrecisionTimestampTz literal with given precision and value.
 func NewPrecisionTimestampTz(precision types.TimePrecision, value int64, nullable bool) (expr.Literal, error) {
 	return expr.NewLiteral(&types.PrecisionTimestampTz{
-		PrecisionTimestampTz: &proto.Expression_Literal_PrecisionTimestamp{
-			Precision: int32(precision),
-			Value:     value,
-		},
+		Precision: precision,
+		Value:     value,
 	}, nullable)
 }
 
