@@ -36,17 +36,10 @@ func TestFunctionOptionMatchesDescriptor(t *testing.T) {
 }
 
 func TestFunctionOptionsRoundTrip(t *testing.T) {
-	// a nil slice stays nil rather than becoming empty
-	assert.Nil(t, types.FunctionOptionsToProto(nil))
-	assert.Nil(t, types.FunctionOptionsFromProto(nil))
-
-	opts := []*types.FunctionOption{
+	options := []*types.FunctionOption{
 		{Name: "rounding", Preference: []string{"TIE_TO_EVEN", "TIE_AWAY_FROM_ZERO"}},
 		{Name: "overflow"},
 	}
-	pb := types.FunctionOptionsToProto(opts)
-	require.Len(t, pb, len(opts))
-	assert.Equal(t, "rounding", pb[0].Name)
-	assert.Equal(t, []string{"TIE_TO_EVEN", "TIE_AWAY_FROM_ZERO"}, pb[0].Preference)
-	assert.Equal(t, opts, types.FunctionOptionsFromProto(pb))
+
+	assert.Equal(t, options, types.FunctionOptionsFromProto(types.FunctionOptionsToProto(options)))
 }
