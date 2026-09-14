@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/types"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
 func TestNewBool(t *testing.T) {
@@ -372,9 +371,7 @@ func createIntervalDaysLiteral(days, seconds int32, micros int64) *expr.ProtoLit
 			Days:       days,
 			Seconds:    seconds,
 			Subseconds: micros,
-			PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{
-				Precision: int32(types.PrecisionMicroSeconds),
-			},
+			Precision:  types.PrecisionMicroSeconds,
 		},
 		Type: &types.IntervalDayType{
 			Nullability: types.NullabilityRequired,
@@ -389,9 +386,7 @@ func createIntervalDaysLiteralWithNanos(days, seconds int32, nanos int64) *expr.
 			Days:       days,
 			Seconds:    seconds,
 			Subseconds: nanos,
-			PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{
-				Precision: int32(types.PrecisionNanoSeconds),
-			},
+			Precision:  types.PrecisionNanoSeconds,
 		},
 		Type: &types.IntervalDayType{
 			Nullability: types.NullabilityRequired,
