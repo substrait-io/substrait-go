@@ -372,9 +372,7 @@ func IntervalDayToSecondToProto(v *IntervalDayToSecond) *proto.Expression_Litera
 }
 
 // IntervalDayToSecondFromProto decodes a protobuf interval literal message into the domain type.
-// The deprecated microseconds precision_mode arm is normalized to microsecond precision so the
-// domain type never carries the deprecated representation. An absent precision_mode is malformed
-// (subseconds is only meaningful alongside a precision) and is rejected.
+// An absent precision_mode is rejected: subseconds has no scale without a precision.
 func IntervalDayToSecondFromProto(p *proto.Expression_Literal_IntervalDayToSecond) (*IntervalDayToSecond, error) {
 	if p == nil {
 		return nil, nil
