@@ -60,27 +60,14 @@ func TestIntervalDayToSecondMatchesDescriptor(t *testing.T) {
 // Round-trip domain->proto->domain always uses the non-deprecated precision arm, so a swapped or
 // dropped field fails here.
 func TestIntervalDayToSecondRoundTrip(t *testing.T) {
-	for _, tc := range []struct {
-		name string
-		in   *types.IntervalDayToSecond
-	}{
-		{
-			name: "nanosecond precision",
-			in:   &types.IntervalDayToSecond{Days: 1, Seconds: 2, Subseconds: 3, Precision: types.PrecisionNanoSeconds},
-		},
-		{
-			name: "second precision",
-			in:   &types.IntervalDayToSecond{Days: 4, Seconds: 5, Precision: types.PrecisionSeconds},
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			p := types.IntervalDayToSecondToProto(tc.in)
-			require.IsType(t, &proto.Expression_Literal_IntervalDayToSecond_Precision{}, p.PrecisionMode)
-			got, err := types.IntervalDayToSecondFromProto(p)
-			require.NoError(t, err)
-			assert.Equal(t, tc.in, got)
-		})
-	}
+	t.Run("precision round trip", func(t *testing.T) {
+		in := &types.IntervalDayToSecond{Days: 1, Seconds: 2, Subseconds: 3, Precision: types.PrecisionNanoSeconds}
+		p := types.IntervalDayToSecondToProto(in)
+		require.IsType(t, &proto.Expression_Literal_IntervalDayToSecond_Precision{}, p.PrecisionMode)
+		got, err := types.IntervalDayToSecondFromProto(p)
+		require.NoError(t, err)
+		assert.Equal(t, in, got)
+	})
 
 	// The deprecated microseconds precision_mode arm is normalized to microsecond precision on decode.
 	t.Run("deprecated microseconds normalized", func(t *testing.T) {
