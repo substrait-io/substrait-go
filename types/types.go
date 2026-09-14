@@ -5,6 +5,7 @@
 package types
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -371,12 +372,12 @@ func IntervalDayToSecondToProto(v *IntervalDayToSecond) *proto.Expression_Litera
 }
 
 // IntervalDayToSecondFromProto decodes a protobuf interval literal message into the domain type.
-// The deprecated microseconds precision_mode arm, and an absent precision_mode (the legacy
-// encoding), are both normalized to microsecond precision, matching IntervalDayType so the domain
-// type never carries the deprecated representation.
-func IntervalDayToSecondFromProto(p *proto.Expression_Literal_IntervalDayToSecond) *IntervalDayToSecond {
+// The deprecated microseconds precision_mode arm is normalized to microsecond precision so the
+// domain type never carries the deprecated representation. An absent precision_mode is malformed
+// (subseconds is only meaningful alongside a precision) and is rejected.
+func IntervalDayToSecondFromProto(p *proto.Expression_Literal_IntervalDayToSecond) (*IntervalDayToSecond, error) {
 	if p == nil {
-		return nil
+		return nil, nil
 	}
 	v := &IntervalDayToSecond{
 		Days:       p.GetDays(),
@@ -390,9 +391,9 @@ func IntervalDayToSecondFromProto(p *proto.Expression_Literal_IntervalDayToSecon
 		v.Subseconds = int64(m.Microseconds)
 		v.Precision = PrecisionMicroSeconds
 	default:
-		v.Precision = PrecisionMicroSeconds
+		return nil, errors.New("interval day to second literal is missing its precision_mode")
 	}
-	return v
+	return v, nil
 }
 
 // TypeFromProto returns the appropriate Type object from a protobuf

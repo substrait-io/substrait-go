@@ -76,7 +76,9 @@ func TestIntervalDayToSecondRoundTrip(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			p := types.IntervalDayToSecondToProto(tc.in)
 			require.IsType(t, &proto.Expression_Literal_IntervalDayToSecond_Precision{}, p.PrecisionMode)
-			assert.Equal(t, tc.in, types.IntervalDayToSecondFromProto(p))
+			got, err := types.IntervalDayToSecondFromProto(p)
+			require.NoError(t, err)
+			assert.Equal(t, tc.in, got)
 		})
 	}
 
@@ -87,22 +89,25 @@ func TestIntervalDayToSecondRoundTrip(t *testing.T) {
 			Seconds:       5,
 			PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Microseconds{Microseconds: 7},
 		}
+		got, err := types.IntervalDayToSecondFromProto(p)
+		require.NoError(t, err)
 		assert.Equal(t,
 			&types.IntervalDayToSecond{Days: 4, Seconds: 5, Subseconds: 7, Precision: types.PrecisionMicroSeconds},
-			types.IntervalDayToSecondFromProto(p))
+			got)
 	})
 
-	// An absent precision_mode is the legacy encoding and decodes as microsecond precision,
-	// matching IntervalDayType's default.
-	t.Run("absent precision_mode defaults to microseconds", func(t *testing.T) {
+	// An absent precision_mode is malformed: subseconds carries no scale without a precision, so
+	// decoding must fail rather than guess.
+	t.Run("absent precision_mode is rejected", func(t *testing.T) {
 		p := &proto.Expression_Literal_IntervalDayToSecond{Days: 1, Seconds: 2, Subseconds: 3}
-		assert.Equal(t,
-			&types.IntervalDayToSecond{Days: 1, Seconds: 2, Subseconds: 3, Precision: types.PrecisionMicroSeconds},
-			types.IntervalDayToSecondFromProto(p))
+		_, err := types.IntervalDayToSecondFromProto(p)
+		assert.Error(t, err)
 	})
 
 	assert.Nil(t, types.IntervalDayToSecondToProto(nil))
-	assert.Nil(t, types.IntervalDayToSecondFromProto(nil))
+	got, err := types.IntervalDayToSecondFromProto(nil)
+	require.NoError(t, err)
+	assert.Nil(t, got)
 
 	// GetPrecisionProtoVal is nil-safe and yields the precision's protobuf value.
 	assert.Zero(t, (*types.IntervalDayToSecond)(nil).GetPrecisionProtoVal())
