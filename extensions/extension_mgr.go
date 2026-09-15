@@ -101,8 +101,6 @@ func loadExtensionFile(collection *Collection, substraitFS embed.FS, ent fs.DirE
 type Collection struct {
 	urnSet map[string]struct{}
 
-	simpleNameMap map[FunctionID]string
-
 	scalarMap        map[FunctionID]*ScalarFunctionVariant
 	aggregateMap     map[FunctionID]*AggregateFunctionVariant
 	windowMap        map[FunctionID]*WindowFunctionVariant
@@ -135,58 +133,47 @@ type variants interface {
 	CompoundName() string
 }
 
-func checkMaps[T variants](id FunctionID, m map[FunctionID]T, simpleNames map[FunctionID]string) (T, bool) {
-	if sv, ok := m[id]; ok {
-		return sv, true
-	}
-
-	if compound, ok := simpleNames[id]; ok {
-		id.Name = compound
-		if sv, ok := m[id]; ok {
-			return sv, true
-		}
-	}
-
-	return nil, false
-}
-
 type extFn[T variants] interface {
 	GetVariants(urn string) []T
 }
 
-func addToMaps[T variants](id FunctionID, fn extFn[T], m map[FunctionID]T, simpleMap map[string]string) {
-	variants := fn.GetVariants(id.URN)
-	for _, v := range variants {
-		id.Name = v.CompoundName()
+func addToMaps[T variants](id FunctionID, fn extFn[T], m map[FunctionID]T) {
+	for _, v := range fn.GetVariants(id.URN) {
+		id.Signature = v.CompoundName()
 		m[id] = v
-	}
-
-	if len(variants) == 1 {
-		v := variants[0]
-		if _, ok := simpleMap[v.Name()]; ok {
-			delete(simpleMap, v.Name())
-		} else {
-			simpleMap[v.Name()] = v.CompoundName()
-		}
 	}
 }
 
 func (c *Collection) GetScalarFunc(id FunctionID) (*ScalarFunctionVariant, bool) {
-	return checkMaps(id, c.scalarMap, c.simpleNameMap)
+	fn, ok := c.scalarMap[id]
+	return fn, ok
 }
 
 func (c *Collection) GetAggregateFunc(id FunctionID) (*AggregateFunctionVariant, bool) {
-	return checkMaps(id, c.aggregateMap, c.simpleNameMap)
+	fn, ok := c.aggregateMap[id]
+	return fn, ok
 }
 
 func (c *Collection) GetWindowFunc(id FunctionID) (*WindowFunctionVariant, bool) {
-	return checkMaps(id, c.windowMap, c.simpleNameMap)
+	fn, ok := c.windowMap[id]
+	return fn, ok
+}
+
+// IsRegisteredFunction reports whether id resolves to a registered function variant.
+func (c *Collection) IsRegisteredFunction(id FunctionID) bool {
+	if _, ok := c.scalarMap[id]; ok {
+		return true
+	}
+	if _, ok := c.aggregateMap[id]; ok {
+		return true
+	}
+	_, ok := c.windowMap[id]
+	return ok
 }
 
 func (c *Collection) init() {
 	if c.urnSet == nil {
 		c.urnSet = make(map[string]struct{})
-		c.simpleNameMap = make(map[FunctionID]string)
 		c.scalarMap = make(map[FunctionID]*ScalarFunctionVariant)
 		c.aggregateMap = make(map[FunctionID]*AggregateFunctionVariant)
 		c.windowMap = make(map[FunctionID]*WindowFunctionVariant)
@@ -249,30 +236,25 @@ func (c *Collection) Load(r io.Reader) error {
 
 	id := FunctionID{URN: urn}
 
-	// if there is only one implementation for a given function
-	// it should be findable by its simple name in addition to the
-	// compound name.
-	simpleNames := make(map[string]string)
-
 	for _, f := range file.ScalarFunctions {
 		if err := defaults.Set(&f); err != nil {
 			return fmt.Errorf("failure setting defaults for scalar functions: %w", err)
 		}
-		addToMaps[*ScalarFunctionVariant](id, &f, c.scalarMap, simpleNames)
+		addToMaps[*ScalarFunctionVariant](id, &f, c.scalarMap)
 	}
 
 	for _, f := range file.AggregateFunctions {
 		if err := defaults.Set(&f); err != nil {
 			return fmt.Errorf("failure setting defaults for aggregate functions: %w", err)
 		}
-		addToMaps[*AggregateFunctionVariant](id, &f, c.aggregateMap, simpleNames)
+		addToMaps[*AggregateFunctionVariant](id, &f, c.aggregateMap)
 	}
 
 	for _, f := range file.WindowFunctions {
 		if err := defaults.Set(&f); err != nil {
 			return fmt.Errorf("failure setting defaults for window functions: %w", err)
 		}
-		addToMaps[*WindowFunctionVariant](id, &f, c.windowMap, simpleNames)
+		addToMaps[*WindowFunctionVariant](id, &f, c.windowMap)
 	}
 
 	// Aggregate functions can be used as Window Functions
@@ -295,13 +277,7 @@ func (c *Collection) Load(r io.Reader) error {
 		if err := defaults.Set(&wf); err != nil {
 			return fmt.Errorf("failure setting defaults for window functions: %w", err)
 		}
-		addToMaps[*WindowFunctionVariant](id, &wf, c.windowMap, simpleNames)
-	}
-
-	// add simple name aliases
-	for k, v := range simpleNames {
-		id.Name = k
-		c.simpleNameMap[id] = v
+		addToMaps[*WindowFunctionVariant](id, &wf, c.windowMap)
 	}
 
 	return nil
@@ -432,7 +408,7 @@ func (e *set) ToProto(c *Collection) ([]*extensions.SimpleExtensionURN, []*exten
 				ExtensionFunction: &extensions.SimpleExtensionDeclaration_ExtensionFunction{
 					ExtensionUrnReference: urnBackRef[id.URN],
 					FunctionAnchor:        anchor,
-					Name:                  id.Name,
+					Name:                  id.Signature,
 				},
 			},
 		})
@@ -651,8 +627,8 @@ func GetExtensionSet(plan TopLevel, c *Collection) (Set, error) {
 				return nil, err
 			}
 			ret.encodeFunc(ef.FunctionAnchor, FunctionID{
-				URN:  urn,
-				Name: ef.Name,
+				URN:       urn,
+				Signature: ef.Name,
 			})
 		}
 	}
