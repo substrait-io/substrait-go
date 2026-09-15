@@ -60,9 +60,8 @@ This is work in progress still, things still to do:
   - [ ] WriteRel
   - [ ] ExchangeRel
 
-As this is built out, you can expect refactors and other changes to the
+As this is built out, you can expect refactors and other changse to the
 structure of the package for the time being. **The API should not yet be
 considered stable.**
 
-Protobuf bindings come from [`substrait-protobuf`](https://github.com/substrait-io/substrait-protobuf). 
-
+Protobuf bindings come from [`substrait-protobuf`](https://github.com/substrait-io/substrait-protobuf).
