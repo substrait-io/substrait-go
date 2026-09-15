@@ -95,7 +95,7 @@ func TestBoundExpressions(t *testing.T) {
 			NewListExpr(false, MustExpr(NewRootFieldRef(NewStructFieldRef(3), types.NewRecordTypeFromStruct(boringSchema.Struct))),
 				NewPrimitiveLiteral(int32(10), true)))), false,
 			&types.Int64Type{Nullability: types.NullabilityNullable}},
-		{MustExpr(NewWindowFunc(extReg, rankID, nil, types.AggInvocationAll, types.AggPhaseInitialToResult)),
+		{MustExpr(NewWindowFunc(extReg, rankID, nil, types.AggregationInvocationAll, types.AggregationPhaseInitialToResult)),
 			false, &types.Int64Type{Nullability: types.NullabilityNullable}},
 		{MustExpr(NewScalarFunc(extReg, extractID, nil, types.Enum("YEAR"),
 			MustExpr(NewRootFieldRef(NewStructFieldRef(9), types.NewRecordTypeFromStruct(boringSchema.Struct))))), false,

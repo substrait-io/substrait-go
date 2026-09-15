@@ -68,30 +68,30 @@ func TestExprBuilder(t *testing.T) {
 		{"window func", "",
 			b.WindowFunc(rankID), "invalid expression: non-decomposable window or agg function '{extension:io.substrait:functions_arithmetic rank}' must use InitialToResult phase"},
 		{"window func", "rank(; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_UNSPECIFIED) => i64?",
-			b.WindowFunc(rankID).Phase(types.AggPhaseInitialToResult), ""},
+			b.WindowFunc(rankID).Phase(types.AggregationPhaseInitialToResult), ""},
 		{"window func",
 			"first_value(i32(3); partitions: [.field(0) => boolean]; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_UNSPECIFIED) => i32",
 			b.WindowFunc(firstValueID).Args(
 				b.Wrap(expr.NewLiteral(int32(3), false))).
-				Phase(types.AggPhaseInitialToResult).
+				Phase(types.AggregationPhaseInitialToResult).
 				Partitions(b.RootRef(expr.NewStructFieldRef(0))), ""},
 		{"agg as window", "sum(i32?(42); partitions: [.field(0) => boolean]; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_UNSPECIFIED) => i64?",
 			b.WindowFunc(sumID).Args(
 				b.Wrap(expr.NewLiteral(int32(42), true))).
-				Phase(types.AggPhaseInitialToResult).
+				Phase(types.AggregationPhaseInitialToResult).
 				Partitions(b.RootRef(expr.NewStructFieldRef(0))), ""},
 		{"nested funcs", "add(extract(YEAR, date(2000-01-01)) => i64, rank(; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_ALL) => i64?) => i64?",
 			b.ScalarFunc(addID).Args(
 				b.ScalarFunc(extractID).Args(b.Enum("YEAR"),
 					b.Wrap(expr.NewLiteral(types.Date(10957), false))),
-				b.WindowFunc(rankID).Phase(types.AggPhaseInitialToResult).Invocation(types.AggInvocationAll)), ""},
+				b.WindowFunc(rankID).Phase(types.AggregationPhaseInitialToResult).Invocation(types.AggregationInvocationAll)), ""},
 		{"nested propagate error", "",
 			b.ScalarFunc(addID).Args(
 				b.RootRef(expr.NewListElemRef(0)),
 				b.Literal(expr.NewPrimitiveLiteral(int32(5), false))), "error resolving ref type: invalid type"},
 		{"window func args", "ntile(i32(5); sort: [{expr: .field(1) => i8, SORT_DIRECTION_ASC_NULLS_FIRST}]; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_UNSPECIFIED) => i32?",
 			b.WindowFunc(ntileID).Args(b.Wrap(expr.NewLiteral(int32(5), false))).
-				Phase(types.AggPhaseInitialToResult).
+				Phase(types.AggregationPhaseInitialToResult).
 				Sort(expr.SortField{
 					Expr: expr.MustExpr(b.RootRef(expr.NewStructFieldRef(1)).Build()),
 					Kind: types.SortAscNullsFirst}), ""},
@@ -207,7 +207,7 @@ window_functions:
 		Name: "custom_window",
 	}).Args(
 		customLiteral,
-	).Phase(types.AggPhaseInitialToResult).Build()
+	).Phase(types.AggregationPhaseInitialToResult).Build()
 	require.NoError(t, err)
 	windowProto := window.ToProto()
 

@@ -40,7 +40,7 @@ func TestWindowFunctionBoundsType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			builder := b.WindowFunc(sumID).
 				Args(b.RootRef(expr.NewStructFieldRef(0))).
-				Phase(types.AggPhaseInitialToResult).
+				Phase(types.AggregationPhaseInitialToResult).
 				BoundsType(tt.boundsType).
 				Bounds(expr.PrecedingBound(5), expr.FollowingBound(5))
 
@@ -84,7 +84,7 @@ func TestWindowFunctionBoundsTypeDefault(t *testing.T) {
 	// Create a window function without explicitly setting bounds type
 	wf, err := b.WindowFunc(sumID).
 		Args(b.RootRef(expr.NewStructFieldRef(0))).
-		Phase(types.AggPhaseInitialToResult).
+		Phase(types.AggregationPhaseInitialToResult).
 		BuildExpr()
 
 	require.NoError(t, err)
@@ -117,7 +117,7 @@ func TestWindowFunctionRANGERequiresSingleSort(t *testing.T) {
 		// Create a window function with RANGE but no sort fields
 		_, err := b.WindowFunc(sumID).
 			Args(b.RootRef(expr.NewStructFieldRef(0))).
-			Phase(types.AggPhaseInitialToResult).
+			Phase(types.AggregationPhaseInitialToResult).
 			BoundsType(types.BoundsTypeRange).
 			BuildExpr()
 
@@ -130,7 +130,7 @@ func TestWindowFunctionRANGERequiresSingleSort(t *testing.T) {
 		// Create a window function with RANGE and exactly one sort field
 		wf, err := b.WindowFunc(sumID).
 			Args(b.RootRef(expr.NewStructFieldRef(0))).
-			Phase(types.AggPhaseInitialToResult).
+			Phase(types.AggregationPhaseInitialToResult).
 			BoundsType(types.BoundsTypeRange).
 			Sort(expr.SortField{
 				Expr: expr.MustExpr(b.RootRef(expr.NewStructFieldRef(0)).Build()),
@@ -151,7 +151,7 @@ func TestWindowFunctionRANGERequiresSingleSort(t *testing.T) {
 		// Create a window function with RANGE and two sort fields
 		_, err := b.WindowFunc(sumID).
 			Args(b.RootRef(expr.NewStructFieldRef(0))).
-			Phase(types.AggPhaseInitialToResult).
+			Phase(types.AggregationPhaseInitialToResult).
 			BoundsType(types.BoundsTypeRange).
 			Sort(
 				expr.SortField{
@@ -174,7 +174,7 @@ func TestWindowFunctionRANGERequiresSingleSort(t *testing.T) {
 		// ROWS bounds type has no restriction on number of sort fields
 		wf, err := b.WindowFunc(sumID).
 			Args(b.RootRef(expr.NewStructFieldRef(0))).
-			Phase(types.AggPhaseInitialToResult).
+			Phase(types.AggregationPhaseInitialToResult).
 			BoundsType(types.BoundsTypeRows).
 			BuildExpr()
 
@@ -191,7 +191,7 @@ func TestWindowFunctionRANGERequiresSingleSort(t *testing.T) {
 		// ROWS bounds type has no restriction on number of sort fields
 		wf, err := b.WindowFunc(sumID).
 			Args(b.RootRef(expr.NewStructFieldRef(0))).
-			Phase(types.AggPhaseInitialToResult).
+			Phase(types.AggregationPhaseInitialToResult).
 			BoundsType(types.BoundsTypeRows).
 			Sort(
 				expr.SortField{
@@ -218,7 +218,7 @@ func TestWindowFunctionRANGERequiresSingleSort(t *testing.T) {
 		// UNSPECIFIED bounds type has no restriction on number of sort fields
 		wf, err := b.WindowFunc(sumID).
 			Args(b.RootRef(expr.NewStructFieldRef(0))).
-			Phase(types.AggPhaseInitialToResult).
+			Phase(types.AggregationPhaseInitialToResult).
 			BoundsType(types.BoundsTypeUnspecified).
 			Sort(
 				expr.SortField{

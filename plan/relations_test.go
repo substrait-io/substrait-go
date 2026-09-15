@@ -60,12 +60,12 @@ func TestRelations_Copy(t *testing.T) {
 		Name: "avg",
 	}
 	aggregateFn, err := expr.NewAggregateFunc(extReg,
-		aggregateFnID, nil, types.AggInvocationAll,
-		types.AggPhaseInitialToResult, nil, createPrimitiveFloat(1.0))
+		aggregateFnID, nil, types.AggregationInvocationAll,
+		types.AggregationPhaseInitialToResult, nil, createPrimitiveFloat(1.0))
 	require.NoError(t, err)
 	aggregateFnRevised, err := expr.NewAggregateFunc(extReg,
-		aggregateFnID, nil, types.AggInvocationAll,
-		types.AggPhaseInitialToResult, nil, createPrimitiveFloat(9.0))
+		aggregateFnID, nil, types.AggregationInvocationAll,
+		types.AggregationPhaseInitialToResult, nil, createPrimitiveFloat(9.0))
 	require.NoError(t, err)
 
 	aggregateRel := &AggregateRel{input: createVirtualTableReadRel(1),
@@ -446,8 +446,8 @@ func TestRelations_AdvancedExtensions(t *testing.T) {
 		Name: "avg",
 	}
 	aggregateFn, err := expr.NewAggregateFunc(extReg,
-		aggregateFnID, nil, types.AggInvocationAll,
-		types.AggPhaseInitialToResult, nil, createPrimitiveFloat(1.0))
+		aggregateFnID, nil, types.AggregationInvocationAll,
+		types.AggregationPhaseInitialToResult, nil, createPrimitiveFloat(1.0))
 	require.NoError(t, err)
 
 	aggregateRel := &AggregateRel{input: createVirtualTableReadRel(1),
@@ -539,8 +539,8 @@ func TestAggregateRelToBuilder(t *testing.T) {
 		Name: "avg",
 	}
 	aggregateFn, err := expr.NewAggregateFunc(extReg,
-		aggregateFnID, nil, types.AggInvocationAll,
-		types.AggPhaseInitialToResult, nil, createPrimitiveFloat(1.0))
+		aggregateFnID, nil, types.AggregationInvocationAll,
+		types.AggregationPhaseInitialToResult, nil, createPrimitiveFloat(1.0))
 	require.NoError(t, err)
 
 	aggregateRel := &AggregateRel{input: createVirtualTableReadRel(1),

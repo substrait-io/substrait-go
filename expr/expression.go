@@ -126,7 +126,7 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 		decl, ok := reg.LookupWindowFunction(et.WindowFunction.FunctionReference)
 		if !ok {
 			fn, err := NewCustomWindowFunc(reg, extensions.NewWindowFuncVariant(id), types.TypeFromProto(et.WindowFunction.OutputType),
-				types.FunctionOptionsFromProto(et.WindowFunction.Options), et.WindowFunction.Invocation, et.WindowFunction.Phase, args...)
+				types.FunctionOptionsFromProto(et.WindowFunction.Options), types.AggregationInvocation(et.WindowFunction.Invocation), types.AggregationPhase(et.WindowFunction.Phase), args...)
 			if err != nil {
 				return nil, err
 			}
@@ -145,8 +145,8 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 			args:        args,
 			options:     types.FunctionOptionsFromProto(et.WindowFunction.Options),
 			outputType:  types.TypeFromProto(et.WindowFunction.OutputType),
-			phase:       et.WindowFunction.Phase,
-			invocation:  et.WindowFunction.Invocation,
+			phase:       types.AggregationPhase(et.WindowFunction.Phase),
+			invocation:  types.AggregationInvocation(et.WindowFunction.Invocation),
 			Partitions:  parts,
 			Sorts:       sorts,
 			BoundsType:  types.BoundsType(et.WindowFunction.BoundsType),

@@ -514,7 +514,7 @@ func NewWindowFunc(
 		return nil, err
 	}
 
-	if decl.Decomposability() == extensions.DecomposeNone && phase != types.AggPhaseInitialToResult {
+	if decl.Decomposability() == extensions.DecomposeNone && phase != types.AggregationPhaseInitialToResult {
 		return nil, fmt.Errorf("%w: non-decomposable window or agg function '%s' must use InitialToResult phase",
 			substraitgo.ErrInvalidExpr, id)
 	}
@@ -717,9 +717,9 @@ func (w *WindowFunction) ToProto() *proto.Expression {
 				Arguments:         args,
 				Options:           types.FunctionOptionsToProto(w.options),
 				OutputType:        types.TypeToProto(w.outputType),
-				Phase:             w.phase,
+				Phase:             proto.AggregationPhase(w.phase),
 				Sorts:             sorts,
-				Invocation:        w.invocation,
+				Invocation:        proto.AggregateFunction_AggregationInvocation(w.invocation),
 				Partitions:        parts,
 				BoundsType:        proto.Expression_WindowFunction_BoundsType(w.BoundsType),
 				LowerBound:        lowerBound,
@@ -855,7 +855,7 @@ func NewAggregateFunctionFromProto(
 	}
 	decl, ok := reg.LookupAggregateFunction(agg.FunctionReference)
 	if !ok {
-		return NewCustomAggregateFunc(reg, extensions.NewAggFuncVariant(id), types.TypeFromProto(agg.OutputType), types.FunctionOptionsFromProto(agg.Options), agg.Invocation, agg.Phase, sorts, args...)
+		return NewCustomAggregateFunc(reg, extensions.NewAggFuncVariant(id), types.TypeFromProto(agg.OutputType), types.FunctionOptionsFromProto(agg.Options), types.AggregationInvocation(agg.Invocation), types.AggregationPhase(agg.Phase), sorts, args...)
 	}
 
 	return &AggregateFunction{
@@ -864,8 +864,8 @@ func NewAggregateFunctionFromProto(
 		args:        args,
 		options:     types.FunctionOptionsFromProto(agg.Options),
 		outputType:  types.TypeFromProto(agg.OutputType),
-		phase:       agg.Phase,
-		invocation:  agg.Invocation,
+		phase:       types.AggregationPhase(agg.Phase),
+		invocation:  types.AggregationInvocation(agg.Invocation),
 		Sorts:       sorts,
 	}, nil
 }
@@ -971,8 +971,8 @@ func (a *AggregateFunction) ToProto() *proto.AggregateFunction {
 		Arguments:         args,
 		Options:           types.FunctionOptionsToProto(a.options),
 		OutputType:        types.TypeToProto(a.outputType),
-		Phase:             a.phase,
+		Phase:             proto.AggregationPhase(a.phase),
 		Sorts:             sorts,
-		Invocation:        a.invocation,
+		Invocation:        proto.AggregateFunction_AggregationInvocation(a.invocation),
 	}
 }
