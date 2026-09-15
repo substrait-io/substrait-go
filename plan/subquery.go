@@ -137,6 +137,8 @@ func (s *ScalarSubquery) Visit(visit expr.VisitFunc) expr.Expression {
 	return s
 }
 
+func (s *ScalarSubquery) GetExprs() []expr.Expression { return nil }
+
 // InPredicateSubquery checks that the left expressions are contained in the right subquery
 type InPredicateSubquery struct {
 	Needles  []expr.Expression // Expressions whose existence will be checked
@@ -230,6 +232,8 @@ func (s *InPredicateSubquery) Equals(other expr.Expression) bool {
 
 	return isRelEqual(s.Haystack, otherInPredicate.Haystack)
 }
+
+func (s *InPredicateSubquery) GetExprs() []expr.Expression { return s.Needles }
 
 func (s *InPredicateSubquery) Visit(visit expr.VisitFunc) expr.Expression {
 	var out *InPredicateSubquery
@@ -344,6 +348,8 @@ func (s *SetPredicateSubquery) Equals(other expr.Expression) bool {
 	return s.Operation == otherSetPredicate.Operation &&
 		isRelEqual(s.Tuples, otherSetPredicate.Tuples)
 }
+
+func (s *SetPredicateSubquery) GetExprs() []expr.Expression { return nil }
 
 func (s *SetPredicateSubquery) Visit(visit expr.VisitFunc) expr.Expression {
 	// SetPredicateSubquery doesn't contain expressions that need visiting
@@ -480,6 +486,8 @@ func (s *SetComparisonSubquery) Equals(other expr.Expression) bool {
 		s.Left.Equals(otherSetComparison.Left) &&
 		isRelEqual(s.Right, otherSetComparison.Right)
 }
+
+func (s *SetComparisonSubquery) GetExprs() []expr.Expression { return []expr.Expression{s.Left} }
 
 func (s *SetComparisonSubquery) Visit(visit expr.VisitFunc) expr.Expression {
 	afterLeft := visit(s.Left)

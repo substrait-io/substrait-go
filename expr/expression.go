@@ -434,6 +434,10 @@ type Expression interface {
 	//   }
 	//   newExpr := preOrderVisit(oldExpr)
 	Visit(VisitFunc) Expression
+	// GetExprs returns the immediate child expressions of this Expression.
+	// Leaf expressions (literals, DynamicParameter) return nil.
+	// Does not cross subquery boundaries.
+	GetExprs() []Expression
 }
 
 type IfThenPair struct {
@@ -616,6 +620,15 @@ func (ex *IfThen) Visit(visit VisitFunc) Expression {
 	return out
 }
 
+func (ex *IfThen) GetExprs() []Expression {
+	var out []Expression
+	for _, c := range ex.ifs {
+		out = append(out, c.If, c.Then)
+	}
+	out = append(out, ex.elseClause)
+	return out
+}
+
 type Cast struct {
 	Type            types.Type
 	Input           Expression
@@ -675,6 +688,8 @@ func (ex *Cast) Visit(visit VisitFunc) Expression {
 	return &newCast
 }
 
+func (ex *Cast) GetExprs() []Expression { return []Expression{ex.Input} }
+
 type DynamicParameter struct {
 	OutputType         types.Type
 	ParameterReference uint32
@@ -722,6 +737,8 @@ func (dp *DynamicParameter) Equals(other Expression) bool {
 func (dp *DynamicParameter) Visit(visit VisitFunc) Expression {
 	return dp
 }
+
+func (dp *DynamicParameter) GetExprs() []Expression { return nil }
 
 type SwitchExpr struct {
 	match Expression
@@ -976,6 +993,18 @@ func (ex *SwitchExpr) Visit(visit VisitFunc) Expression {
 	}
 
 	out.elseClause = afterElse
+	return out
+}
+
+func (ex *SwitchExpr) GetExprs() []Expression {
+	var out []Expression
+	out = append(out, ex.match)
+	for _, c := range ex.ifs {
+		out = append(out, c.If, c.Then)
+	}
+	if ex.elseClause != nil {
+		out = append(out, ex.elseClause)
+	}
 	return out
 }
 
@@ -1239,6 +1268,22 @@ func (ex *MultiOrList) Visit(visit VisitFunc) Expression {
 	return out
 }
 
+func (ex *SingularOrList) GetExprs() []Expression {
+	var out []Expression
+	out = append(out, ex.Value)
+	out = append(out, ex.Options...)
+	return out
+}
+
+func (ex *MultiOrList) GetExprs() []Expression {
+	var out []Expression
+	out = append(out, ex.Value...)
+	for _, opts := range ex.Options {
+		out = append(out, opts...)
+	}
+	return out
+}
+
 type NestedExpr interface {
 	Expression
 
@@ -1345,6 +1390,14 @@ func (ex *MapExpr) Equals(other Expression) bool {
 		func(l, r struct{ Key, Value Expression }) bool {
 			return l.Key.Equals(r.Key) && l.Value.Equals(r.Value)
 		})
+}
+
+func (ex *MapExpr) GetExprs() []Expression {
+	var out []Expression
+	for _, kv := range ex.KeyValues {
+		out = append(out, kv.Key, kv.Value)
+	}
+	return out
 }
 
 func (ex *MapExpr) Visit(visit VisitFunc) Expression {
@@ -1465,6 +1518,8 @@ func (ex *StructExpr) Equals(other Expression) bool {
 		slices.EqualFunc(ex.Fields, rhs.Fields, exprEqual)
 }
 
+func (ex *StructExpr) GetExprs() []Expression { return ex.Fields }
+
 func (ex *StructExpr) Visit(visit VisitFunc) Expression {
 	var out *StructExpr
 	for i, f := range ex.Fields {
@@ -1584,6 +1639,8 @@ func (ex *ListExpr) Equals(other Expression) bool {
 
 	return slices.EqualFunc(ex.Values, rhs.Values, exprEqual)
 }
+
+func (ex *ListExpr) GetExprs() []Expression { return ex.Values }
 
 func (ex *ListExpr) Visit(visit VisitFunc) Expression {
 	var out *ListExpr

@@ -585,6 +585,8 @@ func (f *fakeRel) GetInputs() []Rel {
 	panic("unused")
 }
 
+func (f *fakeRel) GetExprs() []expr.Expression { return nil }
+
 func (f *fakeRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error) {
 	panic("unused")
 }
