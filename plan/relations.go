@@ -1173,16 +1173,26 @@ type AggregateRel struct {
 }
 
 func (ar *AggregateRel) directOutputSchema() types.RecordType {
-	groupTypes := make([]types.Type, 0, len(ar.groupingReferences)+len(ar.measures))
-	for _, g := range ar.groupingReferences {
-		for _, e := range g {
-			expression := ar.groupingExpressions[e]
-			groupTypes = append(groupTypes, expression.GetType())
+	groupTypes := make([]types.Type, 0, len(ar.groupingExpressions)+len(ar.measures)+1)
+	// Each declared grouping expression contributes one column, regardless of
+	// its position or occurrence in the grouping sets.
+	for i, expression := range ar.groupingExpressions {
+		typ := expression.GetType()
+		for _, group := range ar.groupingReferences {
+			if !slices.Contains(group, uint32(i)) {
+				// Rows from this grouping set contain null for this column.
+				typ = typ.WithNullability(types.NullabilityNullable)
+				break
+			}
 		}
+		groupTypes = append(groupTypes, typ)
 	}
 
 	for _, m := range ar.measures {
 		groupTypes = append(groupTypes, m.measure.GetType())
+	}
+	if len(ar.groupingReferences) > 1 {
+		groupTypes = append(groupTypes, &types.Int32Type{Nullability: types.NullabilityRequired})
 	}
 
 	return *types.NewRecordTypeFromTypes(groupTypes)
