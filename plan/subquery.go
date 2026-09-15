@@ -65,8 +65,8 @@ func (r *ExpressionConverter) SubqueryFromProto(sub *proto.Expression_Subquery, 
 		}
 
 		return NewSetComparisonSubquery(
-			subType.SetComparison.ReductionOp,
-			subType.SetComparison.ComparisonOp,
+			SetComparisonReductionOp(subType.SetComparison.ReductionOp),
+			SetComparisonComparisonOp(subType.SetComparison.ComparisonOp),
 			left,
 			right,
 		), nil
@@ -354,25 +354,63 @@ func (s *SetPredicateSubquery) GetSubqueryType() string {
 	return "set_predicate"
 }
 
-type SetComparisonReductionOp = proto.Expression_Subquery_SetComparison_ReductionOp
+// SetComparisonReductionOp indicates how a set comparison reduces its results (ANY/ALL).
+type SetComparisonReductionOp int32
 
 const (
-	SetComparisonReductionOpUnspecified = proto.Expression_Subquery_SetComparison_REDUCTION_OP_UNSPECIFIED
-	SetComparisonReductionOpAny         = proto.Expression_Subquery_SetComparison_REDUCTION_OP_ANY
-	SetComparisonReductionOpAll         = proto.Expression_Subquery_SetComparison_REDUCTION_OP_ALL
+	SetComparisonReductionOpUnspecified SetComparisonReductionOp = 0
+	SetComparisonReductionOpAny         SetComparisonReductionOp = 1
+	SetComparisonReductionOpAll         SetComparisonReductionOp = 2
 )
 
-type SetComparisonComparisonOp = proto.Expression_Subquery_SetComparison_ComparisonOp
+// String returns the protobuf enum name for the set comparison reduction operation.
+func (o SetComparisonReductionOp) String() string {
+	switch o {
+	case SetComparisonReductionOpUnspecified:
+		return "REDUCTION_OP_UNSPECIFIED"
+	case SetComparisonReductionOpAny:
+		return "REDUCTION_OP_ANY"
+	case SetComparisonReductionOpAll:
+		return "REDUCTION_OP_ALL"
+	default:
+		return strconv.Itoa(int(o))
+	}
+}
+
+// SetComparisonComparisonOp indicates the comparison operator used in a set comparison.
+type SetComparisonComparisonOp int32
 
 const (
-	SetComparisonComparisonOpUnspecified = proto.Expression_Subquery_SetComparison_COMPARISON_OP_UNSPECIFIED
-	SetComparisonComparisonOpEq          = proto.Expression_Subquery_SetComparison_COMPARISON_OP_EQ
-	SetComparisonComparisonOpNe          = proto.Expression_Subquery_SetComparison_COMPARISON_OP_NE
-	SetComparisonComparisonOpLt          = proto.Expression_Subquery_SetComparison_COMPARISON_OP_LT
-	SetComparisonComparisonOpGt          = proto.Expression_Subquery_SetComparison_COMPARISON_OP_GT
-	SetComparisonComparisonOpLe          = proto.Expression_Subquery_SetComparison_COMPARISON_OP_LE
-	SetComparisonComparisonOpGe          = proto.Expression_Subquery_SetComparison_COMPARISON_OP_GE
+	SetComparisonComparisonOpUnspecified SetComparisonComparisonOp = 0
+	SetComparisonComparisonOpEq          SetComparisonComparisonOp = 1
+	SetComparisonComparisonOpNe          SetComparisonComparisonOp = 2
+	SetComparisonComparisonOpLt          SetComparisonComparisonOp = 3
+	SetComparisonComparisonOpGt          SetComparisonComparisonOp = 4
+	SetComparisonComparisonOpLe          SetComparisonComparisonOp = 5
+	SetComparisonComparisonOpGe          SetComparisonComparisonOp = 6
 )
+
+// String returns the protobuf enum name for the set comparison operation.
+func (o SetComparisonComparisonOp) String() string {
+	switch o {
+	case SetComparisonComparisonOpUnspecified:
+		return "COMPARISON_OP_UNSPECIFIED"
+	case SetComparisonComparisonOpEq:
+		return "COMPARISON_OP_EQ"
+	case SetComparisonComparisonOpNe:
+		return "COMPARISON_OP_NE"
+	case SetComparisonComparisonOpLt:
+		return "COMPARISON_OP_LT"
+	case SetComparisonComparisonOpGt:
+		return "COMPARISON_OP_GT"
+	case SetComparisonComparisonOpLe:
+		return "COMPARISON_OP_LE"
+	case SetComparisonComparisonOpGe:
+		return "COMPARISON_OP_GE"
+	default:
+		return strconv.Itoa(int(o))
+	}
+}
 
 // SetComparisonSubquery is a subquery comparison using ANY or ALL operations
 type SetComparisonSubquery struct {

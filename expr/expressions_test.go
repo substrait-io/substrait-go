@@ -622,8 +622,8 @@ func TestSubqueryExpressionRoundtrip(t *testing.T) {
 		{
 			name: "SetComparisonSubquery_ANY_EQ",
 			subExpr: plan.NewSetComparisonSubquery(
-				proto.Expression_Subquery_SetComparison_REDUCTION_OP_ANY,
-				proto.Expression_Subquery_SetComparison_COMPARISON_OP_EQ,
+				plan.SetComparisonReductionOpAny,
+				plan.SetComparisonComparisonOpEq,
 				expr.NewPrimitiveLiteral(int32(42), false),
 				mockRel,
 			),
@@ -631,8 +631,8 @@ func TestSubqueryExpressionRoundtrip(t *testing.T) {
 		{
 			name: "SetComparisonSubquery_ALL_GT",
 			subExpr: plan.NewSetComparisonSubquery(
-				proto.Expression_Subquery_SetComparison_REDUCTION_OP_ALL,
-				proto.Expression_Subquery_SetComparison_COMPARISON_OP_GT,
+				plan.SetComparisonReductionOpAll,
+				plan.SetComparisonComparisonOpGt,
 				expr.NewPrimitiveLiteral(int32(100), false),
 				mockRel,
 			),
@@ -640,8 +640,8 @@ func TestSubqueryExpressionRoundtrip(t *testing.T) {
 		{
 			name: "SetComparisonSubquery_ANY_NE",
 			subExpr: plan.NewSetComparisonSubquery(
-				proto.Expression_Subquery_SetComparison_REDUCTION_OP_ANY,
-				proto.Expression_Subquery_SetComparison_COMPARISON_OP_NE,
+				plan.SetComparisonReductionOpAny,
+				plan.SetComparisonComparisonOpNe,
 				expr.NewPrimitiveLiteral(int32(0), false),
 				mockRel,
 			),
@@ -649,8 +649,8 @@ func TestSubqueryExpressionRoundtrip(t *testing.T) {
 		{
 			name: "SetComparisonSubquery_ALL_LE",
 			subExpr: plan.NewSetComparisonSubquery(
-				proto.Expression_Subquery_SetComparison_REDUCTION_OP_ALL,
-				proto.Expression_Subquery_SetComparison_COMPARISON_OP_LE,
+				plan.SetComparisonReductionOpAll,
+				plan.SetComparisonComparisonOpLe,
 				expr.NewPrimitiveLiteral(int32(50), false),
 				mockRel,
 			),
