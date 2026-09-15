@@ -26,6 +26,7 @@ func TestEvaluateTypeExpression(t *testing.T) {
 		strNonNull, _   = parser.ParseType("string")
 		any1NonNull, _  = parser.ParseType("any1")
 		any1Nullable, _ = parser.ParseType("any1?")
+		any2Nullable, _ = parser.ParseType("any2?")
 		any1listNonNull = mkFuncArgList(any1NonNull)
 
 		// Few shortcut type definitions.
@@ -100,6 +101,23 @@ func TestEvaluateTypeExpression(t *testing.T) {
 			extArgs:  extensions.FuncParameterList{valArg(any1NonNull), valArg(any1NonNull)},
 			args:     []types.Type{i64TypeReq, i64TypeReq},
 			expected: &types.Int64Type{Nullability: types.NullabilityNullable},
+		},
+		{
+			name:  "map(list<any1?>, list<any2?>) -> map<any1, any2?>",
+			nulls: extensions.MirrorNullability,
+			ret:   mkFuncArgMap(any1NonNull, any2Nullable),
+			extArgs: extensions.FuncParameterList{
+				valArg(mkFuncArgList(any1Nullable)),
+				valArg(mkFuncArgList(any2Nullable)),
+			},
+			args: []types.Type{
+				mkList(&types.StringType{Nullability: types.NullabilityNullable}),
+				mkList(&types.Int64Type{Nullability: types.NullabilityNullable}),
+			},
+			expected: mkMap(
+				&types.StringType{Nullability: types.NullabilityRequired},
+				&types.Int64Type{Nullability: types.NullabilityNullable},
+			),
 		},
 		{
 			name:     "element_at(list<any1>, i64) -> any1",
