@@ -363,16 +363,20 @@ func NewSet() Set {
 }
 
 type set struct {
-	urns map[uint32]string
+	urns          map[uint32]string
+	nextURNAnchor uint32
 
-	typesMap map[uint32]TypeID
-	types    map[TypeID]uint32
+	typesMap       map[uint32]TypeID
+	types          map[TypeID]uint32
+	nextTypeAnchor uint32
 
-	typeVariationMap map[uint32]TypeVariationID
-	typeVariations   map[TypeVariationID]uint32
+	typeVariationMap        map[uint32]TypeVariationID
+	typeVariations          map[TypeVariationID]uint32
+	nextTypeVariationAnchor uint32
 
-	funcMap map[uint32]FunctionID
-	funcs   map[FunctionID]uint32
+	funcMap        map[uint32]FunctionID
+	funcs          map[FunctionID]uint32
+	nextFuncAnchor uint32
 }
 
 func (e *set) ToProto(c *Collection) ([]*extensions.SimpleExtensionURN, []*extensions.SimpleExtensionDeclaration) {
@@ -511,11 +515,8 @@ func (e *set) DecodeType(anchor uint32) (id TypeID, ok bool) {
 func (e *set) GetTypeAnchor(id TypeID) uint32 {
 	a, ok := e.types[id]
 	if !ok {
-		_, err := e.addOrGetURN(id.URN)
-		if err != nil {
-			panic(err)
-		}
-		a = uint32(len(e.types)) + 1
+		e.addOrGetURN(id.URN)
+		a = unusedAnchor(e.typesMap, &e.nextTypeAnchor)
 		e.encodeType(a, id)
 	}
 	return a
@@ -524,11 +525,8 @@ func (e *set) GetTypeAnchor(id TypeID) uint32 {
 func (e *set) GetFuncAnchor(id FunctionID) uint32 {
 	a, ok := e.funcs[id]
 	if !ok {
-		_, err := e.addOrGetURN(id.URN)
-		if err != nil {
-			panic(err)
-		}
-		a = uint32(len(e.funcs)) + 1
+		e.addOrGetURN(id.URN)
+		a = unusedAnchor(e.funcMap, &e.nextFuncAnchor)
 		e.encodeFunc(a, id)
 	}
 	return a
@@ -537,14 +535,8 @@ func (e *set) GetFuncAnchor(id FunctionID) uint32 {
 func (e *set) GetTypeVariationAnchor(id TypeVariationID) uint32 {
 	a, ok := e.typeVariations[id]
 	if !ok {
-		_, err := e.addOrGetURN(id.URN)
-		if err != nil {
-			panic(err)
-		}
-		// add 1 to the length to avoid an anchor of 0
-		// so that it's easier to tell when there is no
-		// type variation.
-		a = uint32(len(e.typeVariations)) + 1
+		e.addOrGetURN(id.URN)
+		a = unusedAnchor(e.typeVariationMap, &e.nextTypeVariationAnchor)
 		e.encodeTypeVariation(a, id)
 	}
 	return a
@@ -574,19 +566,36 @@ func (e *set) FindURN(urn string) (uint32, bool) {
 	return 0, false
 }
 
-func (e *set) addOrGetURN(urn string) (uint32, error) {
-	for k, v := range e.urns {
-		if v == urn {
-			return k, nil
+// unusedAnchor preserves the dense allocation sequence while avoiding collisions
+// with imported anchors. Zero is reserved for the system-preferred type variation.
+// The cursor skips previously scanned ranges on subsequent allocations.
+func unusedAnchor[T any](anchors map[uint32]T, next *uint32) uint32 {
+	if *next == 0 {
+		*next = uint32(len(anchors)) + 1
+	}
+	for anchor := *next; ; anchor++ {
+		if anchor == 0 {
+			continue
+		}
+		if _, exists := anchors[anchor]; !exists {
+			*next = anchor + 1
+			if *next == 0 {
+				*next = 1
+			}
+			return anchor
 		}
 	}
-	sz := uint32(len(e.urns)) + 1
-	if _, ok := e.urns[sz]; ok {
-		return 0, fmt.Errorf("%w: URN anchor %d already exists", substraitgo.ErrKeyExists, sz)
-	}
+}
 
-	e.urns[sz] = urn
-	return sz, nil
+func (e *set) addOrGetURN(urn string) uint32 {
+	for k, v := range e.urns {
+		if v == urn {
+			return k
+		}
+	}
+	anchor := unusedAnchor(e.urns, &e.nextURNAnchor)
+	e.urns[anchor] = urn
+	return anchor
 }
 
 type TopLevel interface {
