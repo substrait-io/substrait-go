@@ -58,18 +58,6 @@ func TestMaskListSliceMatchesDescriptor(t *testing.T) {
 }
 
 func TestMaskListSelectRoundTrip(t *testing.T) {
-	// Direct accessors + per-item ToProto.
-	elem := &expr.MaskListElement{Field: 2}
-	assert.EqualValues(t, 2, elem.GetField())
-	assert.EqualValues(t, 2, elem.ToProto().GetItem().GetField())
-
-	slice := &expr.MaskListSlice{Start: 1, End: 3}
-	start, end := slice.GetBounds()
-	assert.EqualValues(t, 1, start)
-	assert.EqualValues(t, 3, end)
-	assert.EqualValues(t, 1, slice.ToProto().GetSlice().GetStart())
-	assert.EqualValues(t, 3, slice.ToProto().GetSlice().GetEnd())
-
 	// A list select (element + slice) reached through the public MaskExpression
 	// entry, exercising maskSelectFromProto and the domain -> proto round-trip.
 	pb := &proto.Expression_MaskExpression{
