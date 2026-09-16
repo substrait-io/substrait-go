@@ -895,10 +895,9 @@ func (j *JoinRel) directOutputSchema() types.RecordType {
 		if j.joinType == JoinTypeRightMark {
 			input = j.right
 		}
-		schema := input.RecordType()
-		typeList = make([]types.Type, 0, schema.FieldCount()+1)
-		typeList = append(typeList, schema.Types()...)
-		typeList = append(typeList, &types.BooleanType{Nullability: types.NullabilityNullable})
+		mark := &types.BooleanType{Nullability: types.NullabilityNullable}
+		fields := slices.Concat(input.RecordType().Types(), []types.Type{mark})
+		return *types.NewRecordTypeFromTypes(fields)
 	}
 
 	return *types.NewRecordTypeFromTypes(typeList)
