@@ -65,8 +65,8 @@ func (r *ExpressionConverter) SubqueryFromProto(sub *proto.Expression_Subquery, 
 		}
 
 		return NewSetComparisonSubquery(
-			subType.SetComparison.ReductionOp,
-			subType.SetComparison.ComparisonOp,
+			SetComparisonReductionOp(subType.SetComparison.ReductionOp),
+			SetComparisonOp(subType.SetComparison.ComparisonOp),
 			left,
 			right,
 		), nil
@@ -354,30 +354,68 @@ func (s *SetPredicateSubquery) GetSubqueryType() string {
 	return "set_predicate"
 }
 
-type SetComparisonReductionOp = proto.Expression_Subquery_SetComparison_ReductionOp
+// SetComparisonReductionOp indicates how a set comparison reduces its results (ANY/ALL).
+type SetComparisonReductionOp int32
 
 const (
-	SetComparisonReductionOpUnspecified = proto.Expression_Subquery_SetComparison_REDUCTION_OP_UNSPECIFIED
-	SetComparisonReductionOpAny         = proto.Expression_Subquery_SetComparison_REDUCTION_OP_ANY
-	SetComparisonReductionOpAll         = proto.Expression_Subquery_SetComparison_REDUCTION_OP_ALL
+	SetComparisonReductionOpUnspecified SetComparisonReductionOp = 0
+	SetComparisonReductionOpAny         SetComparisonReductionOp = 1
+	SetComparisonReductionOpAll         SetComparisonReductionOp = 2
 )
 
-type SetComparisonComparisonOp = proto.Expression_Subquery_SetComparison_ComparisonOp
+// String returns the protobuf enum name for the set comparison reduction operation.
+func (o SetComparisonReductionOp) String() string {
+	switch o {
+	case SetComparisonReductionOpUnspecified:
+		return "REDUCTION_OP_UNSPECIFIED"
+	case SetComparisonReductionOpAny:
+		return "REDUCTION_OP_ANY"
+	case SetComparisonReductionOpAll:
+		return "REDUCTION_OP_ALL"
+	default:
+		return strconv.Itoa(int(o))
+	}
+}
+
+// SetComparisonOp indicates the comparison operator used in a set comparison.
+type SetComparisonOp int32
 
 const (
-	SetComparisonComparisonOpUnspecified = proto.Expression_Subquery_SetComparison_COMPARISON_OP_UNSPECIFIED
-	SetComparisonComparisonOpEq          = proto.Expression_Subquery_SetComparison_COMPARISON_OP_EQ
-	SetComparisonComparisonOpNe          = proto.Expression_Subquery_SetComparison_COMPARISON_OP_NE
-	SetComparisonComparisonOpLt          = proto.Expression_Subquery_SetComparison_COMPARISON_OP_LT
-	SetComparisonComparisonOpGt          = proto.Expression_Subquery_SetComparison_COMPARISON_OP_GT
-	SetComparisonComparisonOpLe          = proto.Expression_Subquery_SetComparison_COMPARISON_OP_LE
-	SetComparisonComparisonOpGe          = proto.Expression_Subquery_SetComparison_COMPARISON_OP_GE
+	SetComparisonOpUnspecified SetComparisonOp = 0
+	SetComparisonOpEq          SetComparisonOp = 1
+	SetComparisonOpNe          SetComparisonOp = 2
+	SetComparisonOpLt          SetComparisonOp = 3
+	SetComparisonOpGt          SetComparisonOp = 4
+	SetComparisonOpLe          SetComparisonOp = 5
+	SetComparisonOpGe          SetComparisonOp = 6
 )
+
+// String returns the protobuf enum name for the set comparison operation.
+func (o SetComparisonOp) String() string {
+	switch o {
+	case SetComparisonOpUnspecified:
+		return "COMPARISON_OP_UNSPECIFIED"
+	case SetComparisonOpEq:
+		return "COMPARISON_OP_EQ"
+	case SetComparisonOpNe:
+		return "COMPARISON_OP_NE"
+	case SetComparisonOpLt:
+		return "COMPARISON_OP_LT"
+	case SetComparisonOpGt:
+		return "COMPARISON_OP_GT"
+	case SetComparisonOpLe:
+		return "COMPARISON_OP_LE"
+	case SetComparisonOpGe:
+		return "COMPARISON_OP_GE"
+	default:
+		return strconv.Itoa(int(o))
+	}
+}
 
 // SetComparisonSubquery is a subquery comparison using ANY or ALL operations
 type SetComparisonSubquery struct {
 	ReductionOp  SetComparisonReductionOp
-	ComparisonOp SetComparisonComparisonOp
+	ComparisonOp SetComparisonOp
 	Left         expr.Expression
 	Right        Rel
 
@@ -387,7 +425,7 @@ type SetComparisonSubquery struct {
 
 func NewSetComparisonSubquery(
 	reductionOp SetComparisonReductionOp,
-	comparisonOp SetComparisonComparisonOp,
+	comparisonOp SetComparisonOp,
 	left expr.Expression,
 	right Rel,
 ) *SetComparisonSubquery {
@@ -412,17 +450,17 @@ func (s *SetComparisonSubquery) String() string {
 	}
 
 	switch s.ComparisonOp {
-	case SetComparisonComparisonOpEq:
+	case SetComparisonOpEq:
 		comparisonStr = "="
-	case SetComparisonComparisonOpNe:
+	case SetComparisonOpNe:
 		comparisonStr = "!="
-	case SetComparisonComparisonOpLt:
+	case SetComparisonOpLt:
 		comparisonStr = "<"
-	case SetComparisonComparisonOpGt:
+	case SetComparisonOpGt:
 		comparisonStr = ">"
-	case SetComparisonComparisonOpLe:
+	case SetComparisonOpLe:
 		comparisonStr = "<="
-	case SetComparisonComparisonOpGe:
+	case SetComparisonOpGe:
 		comparisonStr = ">="
 	default:
 		comparisonStr = "?"
