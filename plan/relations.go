@@ -890,6 +890,15 @@ func (j *JoinRel) directOutputSchema() types.RecordType {
 		typeList = j.left.RecordType().Types()
 	case JoinTypeRightSemi, JoinTypeRightAnti:
 		return j.right.RecordType()
+	case JoinTypeLeftMark, JoinTypeRightMark:
+		input := j.left
+		if j.joinType == JoinTypeRightMark {
+			input = j.right
+		}
+		schema := input.RecordType()
+		typeList = make([]types.Type, 0, schema.FieldCount()+1)
+		typeList = append(typeList, schema.Types()...)
+		typeList = append(typeList, &types.BooleanType{Nullability: types.NullabilityNullable})
 	}
 
 	return *types.NewRecordTypeFromTypes(typeList)

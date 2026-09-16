@@ -680,6 +680,8 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 		}
 
 		if rel.Join.PostJoinFilter != nil {
+			// Logical join post-filters reference the direct output, before emit.
+			base = out.directOutputSchema()
 			out.postJoinFilter, err = expr.ExprFromProto(rel.Join.PostJoinFilter, &base, reg)
 			if err != nil {
 				return nil, fmt.Errorf("error parsing PostJoinFilter for JoinRel: %w", err)
