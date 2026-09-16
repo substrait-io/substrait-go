@@ -1918,42 +1918,33 @@ const (
 	HashMergeRightMark
 )
 
-// hashMergeJoinOutputSchema applies the physical join type before emit mapping.
+// outputSchema applies the physical join type before emit mapping.
 // HashMergeJoinType and JoinType use different values for semi, anti and single joins.
-func hashMergeJoinOutputSchema(left, right types.RecordType, joinType HashMergeJoinType) types.RecordType {
-	var nullableLeft, nullableRight bool
-	switch joinType {
+func (t HashMergeJoinType) outputSchema(left, right types.RecordType) types.RecordType {
+	switch t {
 	case HashMergeLeftSemi, HashMergeLeftAnti:
 		return left
 	case HashMergeRightSemi, HashMergeRightAnti:
 		return right
 	case HashMergeOuter:
-		nullableLeft, nullableRight = true, true
+		return nullableRecordType(left).Concat(nullableRecordType(right))
 	case HashMergeLeft, HashMergeLeftSingle:
-		nullableRight = true
+		return left.Concat(nullableRecordType(right))
 	case HashMergeRight, HashMergeRightSingle:
-		nullableLeft = true
-	case HashMergeLeftMark, HashMergeRightMark:
-		if joinType == HashMergeRightMark {
-			left = right
-		}
-		right = *types.NewRecordTypeFromTypes([]types.Type{&types.BooleanType{Nullability: types.NullabilityNullable}})
+		return nullableRecordType(left).Concat(right)
+	case HashMergeLeftMark:
+		return left.Concat(*types.NewRecordTypeFromTypes([]types.Type{&types.BooleanType{Nullability: types.NullabilityNullable}}))
+	case HashMergeRightMark:
+		return right.Concat(*types.NewRecordTypeFromTypes([]types.Type{&types.BooleanType{Nullability: types.NullabilityNullable}}))
+	default:
+		return left.Concat(right)
 	}
+}
 
-	// Allocate a new slice: widening output fields must not mutate an input schema,
-	// even if its type slice has spare capacity.
-	fields := make([]types.Type, 0, left.FieldCount()+right.FieldCount())
-	for _, field := range left.Types() {
-		if nullableLeft {
-			field = field.WithNullability(types.NullabilityNullable)
-		}
-		fields = append(fields, field)
-	}
-	for _, field := range right.Types() {
-		if nullableRight {
-			field = field.WithNullability(types.NullabilityNullable)
-		}
-		fields = append(fields, field)
+func nullableRecordType(record types.RecordType) types.RecordType {
+	fields := make([]types.Type, record.FieldCount())
+	for i, field := range record.Types() {
+		fields[i] = field.WithNullability(types.NullabilityNullable)
 	}
 	return *types.NewRecordTypeFromTypes(fields)
 }
@@ -2180,7 +2171,7 @@ type HashJoinRel struct {
 }
 
 func (hr *HashJoinRel) directOutputSchema() types.RecordType {
-	return hashMergeJoinOutputSchema(hr.left.RecordType(), hr.right.RecordType(), hr.joinType)
+	return hr.joinType.outputSchema(hr.left.RecordType(), hr.right.RecordType())
 }
 
 func (hr *HashJoinRel) RecordType() types.RecordType {
@@ -2297,7 +2288,7 @@ type MergeJoinRel struct {
 }
 
 func (mr *MergeJoinRel) directOutputSchema() types.RecordType {
-	return hashMergeJoinOutputSchema(mr.left.RecordType(), mr.right.RecordType(), mr.joinType)
+	return mr.joinType.outputSchema(mr.left.RecordType(), mr.right.RecordType())
 }
 
 func (mr *MergeJoinRel) RecordType() types.RecordType {

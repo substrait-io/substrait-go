@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -2074,7 +2075,7 @@ func (r RecordType) Types() []Type {
 }
 
 func (r RecordType) Concat(other RecordType) RecordType {
-	return RecordType{types: append(r.Types(), other.Types()...)}
+	return RecordType{types: slices.Concat(r.Types(), other.Types())}
 }
 
 func (d Date) ToTimeString() string {
