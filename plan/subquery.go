@@ -381,7 +381,7 @@ func (o SetComparisonReductionOp) String() string {
 type SetComparisonComparisonOp int32
 
 const (
-	SetComparisonComparisonOpUnspecified SetComparisonComparisonOp = 0
+	SetComparisonOpUnspecified SetComparisonOp = 0
 	SetComparisonComparisonOpEq          SetComparisonComparisonOp = 1
 	SetComparisonComparisonOpNe          SetComparisonComparisonOp = 2
 	SetComparisonComparisonOpLt          SetComparisonComparisonOp = 3
