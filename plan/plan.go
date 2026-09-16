@@ -862,8 +862,8 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 		out.fromProtoCommon(rel.HashJoin.Common)
 
 		if rel.HashJoin.PostJoinFilter != nil {
-			// Filter references use input order, before semi/anti selection or emit.
-			base := leftBase.Concat(rightBase)
+			// Post-filters reference the join's direct output, before emit.
+			base := out.directOutputSchema()
 			out.postJoinFilter, err = expr.ExprFromProto(rel.HashJoin.PostJoinFilter, &base, reg)
 			if err != nil {
 				return nil, fmt.Errorf("error getting post join filter for HashJoinRel: %w", err)
@@ -900,8 +900,8 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 		out.fromProtoCommon(rel.MergeJoin.Common)
 
 		if rel.MergeJoin.PostJoinFilter != nil {
-			// Filter references use input order, before semi/anti selection or emit.
-			base := leftBase.Concat(rightBase)
+			// Post-filters reference the join's direct output, before emit.
+			base := out.directOutputSchema()
 			out.postJoinFilter, err = expr.ExprFromProto(rel.MergeJoin.PostJoinFilter, &base, reg)
 			if err != nil {
 				return nil, fmt.Errorf("error getting post join filter for MergeJoin: %w", err)
