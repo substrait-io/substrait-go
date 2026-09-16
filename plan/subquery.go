@@ -66,7 +66,7 @@ func (r *ExpressionConverter) SubqueryFromProto(sub *proto.Expression_Subquery, 
 
 		return NewSetComparisonSubquery(
 			SetComparisonReductionOp(subType.SetComparison.ReductionOp),
-			SetComparisonComparisonOp(subType.SetComparison.ComparisonOp),
+			SetComparisonOp(subType.SetComparison.ComparisonOp),
 			left,
 			right,
 		), nil
@@ -377,35 +377,35 @@ func (o SetComparisonReductionOp) String() string {
 	}
 }
 
-// SetComparisonComparisonOp indicates the comparison operator used in a set comparison.
-type SetComparisonComparisonOp int32
+// SetComparisonOp indicates the comparison operator used in a set comparison.
+type SetComparisonOp int32
 
 const (
 	SetComparisonOpUnspecified SetComparisonOp = 0
-	SetComparisonComparisonOpEq          SetComparisonComparisonOp = 1
-	SetComparisonComparisonOpNe          SetComparisonComparisonOp = 2
-	SetComparisonComparisonOpLt          SetComparisonComparisonOp = 3
-	SetComparisonComparisonOpGt          SetComparisonComparisonOp = 4
-	SetComparisonComparisonOpLe          SetComparisonComparisonOp = 5
-	SetComparisonComparisonOpGe          SetComparisonComparisonOp = 6
+	SetComparisonOpEq          SetComparisonOp = 1
+	SetComparisonOpNe          SetComparisonOp = 2
+	SetComparisonOpLt          SetComparisonOp = 3
+	SetComparisonOpGt          SetComparisonOp = 4
+	SetComparisonOpLe          SetComparisonOp = 5
+	SetComparisonOpGe          SetComparisonOp = 6
 )
 
 // String returns the protobuf enum name for the set comparison operation.
-func (o SetComparisonComparisonOp) String() string {
+func (o SetComparisonOp) String() string {
 	switch o {
-	case SetComparisonComparisonOpUnspecified:
+	case SetComparisonOpUnspecified:
 		return "COMPARISON_OP_UNSPECIFIED"
-	case SetComparisonComparisonOpEq:
+	case SetComparisonOpEq:
 		return "COMPARISON_OP_EQ"
-	case SetComparisonComparisonOpNe:
+	case SetComparisonOpNe:
 		return "COMPARISON_OP_NE"
-	case SetComparisonComparisonOpLt:
+	case SetComparisonOpLt:
 		return "COMPARISON_OP_LT"
-	case SetComparisonComparisonOpGt:
+	case SetComparisonOpGt:
 		return "COMPARISON_OP_GT"
-	case SetComparisonComparisonOpLe:
+	case SetComparisonOpLe:
 		return "COMPARISON_OP_LE"
-	case SetComparisonComparisonOpGe:
+	case SetComparisonOpGe:
 		return "COMPARISON_OP_GE"
 	default:
 		return strconv.Itoa(int(o))
@@ -415,7 +415,7 @@ func (o SetComparisonComparisonOp) String() string {
 // SetComparisonSubquery is a subquery comparison using ANY or ALL operations
 type SetComparisonSubquery struct {
 	ReductionOp  SetComparisonReductionOp
-	ComparisonOp SetComparisonComparisonOp
+	ComparisonOp SetComparisonOp
 	Left         expr.Expression
 	Right        Rel
 
@@ -425,7 +425,7 @@ type SetComparisonSubquery struct {
 
 func NewSetComparisonSubquery(
 	reductionOp SetComparisonReductionOp,
-	comparisonOp SetComparisonComparisonOp,
+	comparisonOp SetComparisonOp,
 	left expr.Expression,
 	right Rel,
 ) *SetComparisonSubquery {
@@ -450,17 +450,17 @@ func (s *SetComparisonSubquery) String() string {
 	}
 
 	switch s.ComparisonOp {
-	case SetComparisonComparisonOpEq:
+	case SetComparisonOpEq:
 		comparisonStr = "="
-	case SetComparisonComparisonOpNe:
+	case SetComparisonOpNe:
 		comparisonStr = "!="
-	case SetComparisonComparisonOpLt:
+	case SetComparisonOpLt:
 		comparisonStr = "<"
-	case SetComparisonComparisonOpGt:
+	case SetComparisonOpGt:
 		comparisonStr = ">"
-	case SetComparisonComparisonOpLe:
+	case SetComparisonOpLe:
 		comparisonStr = "<="
-	case SetComparisonComparisonOpGe:
+	case SetComparisonOpGe:
 		comparisonStr = ">="
 	default:
 		comparisonStr = "?"

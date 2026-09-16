@@ -623,7 +623,7 @@ func TestSubqueryExpressionRoundtrip(t *testing.T) {
 			name: "SetComparisonSubquery_ANY_EQ",
 			subExpr: plan.NewSetComparisonSubquery(
 				plan.SetComparisonReductionOpAny,
-				plan.SetComparisonComparisonOpEq,
+				plan.SetComparisonOpEq,
 				expr.NewPrimitiveLiteral(int32(42), false),
 				mockRel,
 			),
@@ -632,7 +632,7 @@ func TestSubqueryExpressionRoundtrip(t *testing.T) {
 			name: "SetComparisonSubquery_ALL_GT",
 			subExpr: plan.NewSetComparisonSubquery(
 				plan.SetComparisonReductionOpAll,
-				plan.SetComparisonComparisonOpGt,
+				plan.SetComparisonOpGt,
 				expr.NewPrimitiveLiteral(int32(100), false),
 				mockRel,
 			),
@@ -641,7 +641,7 @@ func TestSubqueryExpressionRoundtrip(t *testing.T) {
 			name: "SetComparisonSubquery_ANY_NE",
 			subExpr: plan.NewSetComparisonSubquery(
 				plan.SetComparisonReductionOpAny,
-				plan.SetComparisonComparisonOpNe,
+				plan.SetComparisonOpNe,
 				expr.NewPrimitiveLiteral(int32(0), false),
 				mockRel,
 			),
@@ -650,7 +650,7 @@ func TestSubqueryExpressionRoundtrip(t *testing.T) {
 			name: "SetComparisonSubquery_ALL_LE",
 			subExpr: plan.NewSetComparisonSubquery(
 				plan.SetComparisonReductionOpAll,
-				plan.SetComparisonComparisonOpLe,
+				plan.SetComparisonOpLe,
 				expr.NewPrimitiveLiteral(int32(50), false),
 				mockRel,
 			),

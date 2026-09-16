@@ -211,7 +211,7 @@ func TestSetComparisonSubquery(t *testing.T) {
 
 	subquery := plan.NewSetComparisonSubquery(
 		plan.SetComparisonReductionOpAny,
-		plan.SetComparisonComparisonOpEq,
+		plan.SetComparisonOpEq,
 		left,
 		mockRel,
 	)
@@ -239,35 +239,35 @@ func TestSetComparisonSubqueryValidConstruction(t *testing.T) {
 	// Test with ANY/EQ combination
 	anyEqSubquery := plan.NewSetComparisonSubquery(
 		plan.SetComparisonReductionOpAny,
-		plan.SetComparisonComparisonOpEq,
+		plan.SetComparisonOpEq,
 		left,
 		mockRel,
 	)
 	assert.NotNil(t, anyEqSubquery)
 	assert.Equal(t, plan.SetComparisonReductionOpAny, anyEqSubquery.ReductionOp)
-	assert.Equal(t, plan.SetComparisonComparisonOpEq, anyEqSubquery.ComparisonOp)
+	assert.Equal(t, plan.SetComparisonOpEq, anyEqSubquery.ComparisonOp)
 	assert.Equal(t, left, anyEqSubquery.Left)
 	assert.Equal(t, mockRel, anyEqSubquery.Right)
 
 	// Test with ALL/NE combination
 	allNeSubquery := plan.NewSetComparisonSubquery(
 		plan.SetComparisonReductionOpAll,
-		plan.SetComparisonComparisonOpNe,
+		plan.SetComparisonOpNe,
 		left,
 		mockRel,
 	)
 	assert.NotNil(t, allNeSubquery)
 	assert.Equal(t, plan.SetComparisonReductionOpAll, allNeSubquery.ReductionOp)
-	assert.Equal(t, plan.SetComparisonComparisonOpNe, allNeSubquery.ComparisonOp)
+	assert.Equal(t, plan.SetComparisonOpNe, allNeSubquery.ComparisonOp)
 
 	// Test with different comparison operations
-	comparisonOps := []plan.SetComparisonComparisonOp{
-		plan.SetComparisonComparisonOpEq,
-		plan.SetComparisonComparisonOpNe,
-		plan.SetComparisonComparisonOpLt,
-		plan.SetComparisonComparisonOpLe,
-		plan.SetComparisonComparisonOpGt,
-		plan.SetComparisonComparisonOpGe,
+	comparisonOps := []plan.SetComparisonOp{
+		plan.SetComparisonOpEq,
+		plan.SetComparisonOpNe,
+		plan.SetComparisonOpLt,
+		plan.SetComparisonOpLe,
+		plan.SetComparisonOpGt,
+		plan.SetComparisonOpGe,
 	}
 
 	for _, compOp := range comparisonOps {
@@ -284,18 +284,18 @@ func TestSetComparisonSubqueryValidConstruction(t *testing.T) {
 	// Test with UNSPECIFIED operations
 	unspecifiedSubquery := plan.NewSetComparisonSubquery(
 		plan.SetComparisonReductionOpUnspecified,
-		plan.SetComparisonComparisonOpUnspecified,
+		plan.SetComparisonOpUnspecified,
 		left,
 		mockRel,
 	)
 	assert.NotNil(t, unspecifiedSubquery)
 	assert.Equal(t, plan.SetComparisonReductionOpUnspecified, unspecifiedSubquery.ReductionOp)
-	assert.Equal(t, plan.SetComparisonComparisonOpUnspecified, unspecifiedSubquery.ComparisonOp)
+	assert.Equal(t, plan.SetComparisonOpUnspecified, unspecifiedSubquery.ComparisonOp)
 
 	// Test with nil left expression
 	nilLeftSubquery := plan.NewSetComparisonSubquery(
 		plan.SetComparisonReductionOpAny,
-		plan.SetComparisonComparisonOpEq,
+		plan.SetComparisonOpEq,
 		nil,
 		mockRel,
 	)
@@ -306,7 +306,7 @@ func TestSetComparisonSubqueryValidConstruction(t *testing.T) {
 	// Test with nil right relation
 	nilRightSubquery := plan.NewSetComparisonSubquery(
 		plan.SetComparisonReductionOpAny,
-		plan.SetComparisonComparisonOpEq,
+		plan.SetComparisonOpEq,
 		left,
 		nil,
 	)
@@ -317,7 +317,7 @@ func TestSetComparisonSubqueryValidConstruction(t *testing.T) {
 	// Test with both nil
 	bothNilSubquery := plan.NewSetComparisonSubquery(
 		plan.SetComparisonReductionOpAny,
-		plan.SetComparisonComparisonOpEq,
+		plan.SetComparisonOpEq,
 		nil,
 		nil,
 	)
@@ -496,7 +496,7 @@ func TestSubqueryFromProto(t *testing.T) {
 		setComparisonSubquery, ok := result.(*plan.SetComparisonSubquery)
 		require.True(t, ok)
 		assert.Equal(t, plan.SetComparisonReductionOpAny, setComparisonSubquery.ReductionOp)
-		assert.Equal(t, plan.SetComparisonComparisonOpEq, setComparisonSubquery.ComparisonOp)
+		assert.Equal(t, plan.SetComparisonOpEq, setComparisonSubquery.ComparisonOp)
 		assert.NotNil(t, setComparisonSubquery.Left)
 		assert.NotNil(t, setComparisonSubquery.Right)
 		assert.Equal(t, "set_comparison", setComparisonSubquery.GetSubqueryType())
@@ -522,7 +522,7 @@ func TestSubqueryFromProto(t *testing.T) {
 		setComparisonSubquery, ok := result.(*plan.SetComparisonSubquery)
 		require.True(t, ok)
 		assert.Equal(t, plan.SetComparisonReductionOpAll, setComparisonSubquery.ReductionOp)
-		assert.Equal(t, plan.SetComparisonComparisonOpLt, setComparisonSubquery.ComparisonOp)
+		assert.Equal(t, plan.SetComparisonOpLt, setComparisonSubquery.ComparisonOp)
 	})
 
 	t.Run("UnknownSubqueryType", func(t *testing.T) {
@@ -992,37 +992,37 @@ func TestSetComparisonSubqueryEquals(t *testing.T) {
 
 	subquery1 := plan.NewSetComparisonSubquery(
 		plan.SetComparisonReductionOpAny,
-		plan.SetComparisonComparisonOpEq,
+		plan.SetComparisonOpEq,
 		left1,
 		mockRel1,
 	)
 	subquery2 := plan.NewSetComparisonSubquery(
 		plan.SetComparisonReductionOpAny,
-		plan.SetComparisonComparisonOpEq,
+		plan.SetComparisonOpEq,
 		left2,
 		mockRel1,
 	)
 	subqueryDiffReduction := plan.NewSetComparisonSubquery(
 		plan.SetComparisonReductionOpAll,
-		plan.SetComparisonComparisonOpEq,
+		plan.SetComparisonOpEq,
 		left1,
 		mockRel1,
 	)
 	subqueryDiffComparison := plan.NewSetComparisonSubquery(
 		plan.SetComparisonReductionOpAny,
-		plan.SetComparisonComparisonOpNe,
+		plan.SetComparisonOpNe,
 		left1,
 		mockRel1,
 	)
 	subqueryDiffLeft := plan.NewSetComparisonSubquery(
 		plan.SetComparisonReductionOpAny,
-		plan.SetComparisonComparisonOpEq,
+		plan.SetComparisonOpEq,
 		left3,
 		mockRel1,
 	)
 	subqueryDiffRight := plan.NewSetComparisonSubquery(
 		plan.SetComparisonReductionOpAny,
-		plan.SetComparisonComparisonOpEq,
+		plan.SetComparisonOpEq,
 		left1,
 		mockRel2,
 	)
@@ -1052,13 +1052,13 @@ func TestSetComparisonSubqueryEquals(t *testing.T) {
 	})
 
 	t.Run("AllComparisonOperators", func(t *testing.T) {
-		comparisonOps := []plan.SetComparisonComparisonOp{
-			plan.SetComparisonComparisonOpEq,
-			plan.SetComparisonComparisonOpNe,
-			plan.SetComparisonComparisonOpLt,
-			plan.SetComparisonComparisonOpLe,
-			plan.SetComparisonComparisonOpGt,
-			plan.SetComparisonComparisonOpGe,
+		comparisonOps := []plan.SetComparisonOp{
+			plan.SetComparisonOpEq,
+			plan.SetComparisonOpNe,
+			plan.SetComparisonOpLt,
+			plan.SetComparisonOpLe,
+			plan.SetComparisonOpGt,
+			plan.SetComparisonOpGe,
 		}
 
 		for _, op := range comparisonOps {
@@ -1087,13 +1087,13 @@ func TestSetComparisonSubqueryEquals(t *testing.T) {
 		for _, op := range reductionOps {
 			subquery := plan.NewSetComparisonSubquery(
 				op,
-				plan.SetComparisonComparisonOpEq,
+				plan.SetComparisonOpEq,
 				left1,
 				mockRel1,
 			)
 			sameSub := plan.NewSetComparisonSubquery(
 				op,
-				plan.SetComparisonComparisonOpEq,
+				plan.SetComparisonOpEq,
 				left2,
 				mockRel1,
 			)
@@ -1104,7 +1104,7 @@ func TestSetComparisonSubqueryEquals(t *testing.T) {
 	t.Run("UnspecifiedOperations", func(t *testing.T) {
 		unspecifiedSubquery := plan.NewSetComparisonSubquery(
 			plan.SetComparisonReductionOpUnspecified,
-			plan.SetComparisonComparisonOpUnspecified,
+			plan.SetComparisonOpUnspecified,
 			left1,
 			mockRel1,
 		)
@@ -1114,13 +1114,13 @@ func TestSetComparisonSubqueryEquals(t *testing.T) {
 	t.Run("NilLeftExpression", func(t *testing.T) {
 		nilLeft1 := plan.NewSetComparisonSubquery(
 			plan.SetComparisonReductionOpAny,
-			plan.SetComparisonComparisonOpEq,
+			plan.SetComparisonOpEq,
 			nil,
 			mockRel1,
 		)
 		nilLeft2 := plan.NewSetComparisonSubquery(
 			plan.SetComparisonReductionOpAny,
-			plan.SetComparisonComparisonOpEq,
+			plan.SetComparisonOpEq,
 			nil,
 			mockRel1,
 		)
@@ -1131,13 +1131,13 @@ func TestSetComparisonSubqueryEquals(t *testing.T) {
 	t.Run("NilRightRelation", func(t *testing.T) {
 		nilRight1 := plan.NewSetComparisonSubquery(
 			plan.SetComparisonReductionOpAny,
-			plan.SetComparisonComparisonOpEq,
+			plan.SetComparisonOpEq,
 			left1,
 			nil,
 		)
 		nilRight2 := plan.NewSetComparisonSubquery(
 			plan.SetComparisonReductionOpAny,
-			plan.SetComparisonComparisonOpEq,
+			plan.SetComparisonOpEq,
 			left2,
 			nil,
 		)
