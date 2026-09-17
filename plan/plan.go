@@ -137,7 +137,7 @@ func (r *Relation) ToProto() *proto.PlanRel {
 
 type AdvancedExtension interface {
 	GetEnhancement() *anypb.Any
-	GetOptimization() []*anypb.Any
+	GetOptimizations() []*anypb.Any
 }
 
 // Plan describes a set of operations to complete. For

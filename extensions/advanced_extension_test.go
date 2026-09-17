@@ -39,8 +39,8 @@ func TestAdvancedExtensionMatchesDescriptor(t *testing.T) {
 // Round-trip through the proto boundary so a dropped/mismapped field fails here.
 func TestAdvancedExtensionRoundTrip(t *testing.T) {
 	d := &extensions.AdvancedExtension{
-		Optimization: []*anypb.Any{{TypeUrl: "opt", Value: []byte("o")}},
-		Enhancement:  &anypb.Any{TypeUrl: "enh", Value: []byte("e")},
+		Optimizations: []*anypb.Any{{TypeUrl: "opt", Value: []byte("o")}},
+		Enhancement:   &anypb.Any{TypeUrl: "enh", Value: []byte("e")},
 	}
 	assert.Equal(t, d, extensions.AdvancedExtensionFromProto(extensions.AdvancedExtensionToProto(d)))
 
@@ -51,12 +51,12 @@ func TestAdvancedExtensionRoundTrip(t *testing.T) {
 func TestAdvancedExtensionGetters(t *testing.T) {
 	// nil receiver is safe and returns zero values.
 	var nilExt *extensions.AdvancedExtension
-	assert.Nil(t, nilExt.GetOptimization())
+	assert.Nil(t, nilExt.GetOptimizations())
 	assert.Nil(t, nilExt.GetEnhancement())
 
 	opt := []*anypb.Any{{TypeUrl: "opt"}}
 	enh := &anypb.Any{TypeUrl: "enh"}
-	ext := &extensions.AdvancedExtension{Optimization: opt, Enhancement: enh}
-	assert.Equal(t, opt, ext.GetOptimization())
+	ext := &extensions.AdvancedExtension{Optimizations: opt, Enhancement: enh}
+	assert.Equal(t, opt, ext.GetOptimizations())
 	assert.Equal(t, enh, ext.GetEnhancement())
 }

@@ -24,16 +24,16 @@ import (
 // serialized Substrait plan. Optimizations may be ignored by a consumer;
 // enhancements alter semantics and cannot be ignored.
 type AdvancedExtension struct {
-	Optimization []*anypb.Any
-	Enhancement  *anypb.Any
+	Optimizations []*anypb.Any
+	Enhancement   *anypb.Any
 }
 
-// GetOptimization returns the optimization payloads, or nil for a nil receiver.
-func (a *AdvancedExtension) GetOptimization() []*anypb.Any {
+// GetOptimizations returns the optimization payloads, or nil for a nil receiver.
+func (a *AdvancedExtension) GetOptimizations() []*anypb.Any {
 	if a == nil {
 		return nil
 	}
-	return a.Optimization
+	return a.Optimizations
 }
 
 // GetEnhancement returns the enhancement payload, or nil for a nil receiver.
@@ -50,8 +50,8 @@ func AdvancedExtensionFromProto(a *extensions.AdvancedExtension) *AdvancedExtens
 		return nil
 	}
 	return &AdvancedExtension{
-		Optimization: a.Optimization,
-		Enhancement:  a.Enhancement,
+		Optimizations: a.Optimization,
+		Enhancement:   a.Enhancement,
 	}
 }
 
@@ -61,7 +61,7 @@ func AdvancedExtensionToProto(a *AdvancedExtension) *extensions.AdvancedExtensio
 		return nil
 	}
 	return &extensions.AdvancedExtension{
-		Optimization: a.Optimization,
+		Optimization: a.Optimizations,
 		Enhancement:  a.Enhancement,
 	}
 }
