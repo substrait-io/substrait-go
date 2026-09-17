@@ -132,8 +132,8 @@ type RelCommon struct {
 }
 
 func (rc *RelCommon) fromProtoCommon(c *proto.RelCommon) {
-	rc.hint = c.Hint
-	rc.advExtension = extensions.AdvancedExtensionFromProto(c.AdvancedExtension)
+	rc.hint = c.GetHint()
+	rc.advExtension = extensions.AdvancedExtensionFromProto(c.GetAdvancedExtension())
 
 	if emit, ok := c.GetEmitKind().(*proto.RelCommon_Emit_); ok {
 		rc.mapping = emit.Emit.OutputMapping

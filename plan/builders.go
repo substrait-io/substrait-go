@@ -135,7 +135,7 @@ type Builder interface {
 
 	// SetComparisonSubquery creates a set comparison subquery expression that checks
 	// if the left expression is contained in the right subquery.
-	SetComparisonSubquery(left expr.Expression, right Rel, reductionOp SetComparisonReductionOp, comparisonOp SetComparisonComparisonOp) (*SetComparisonSubquery, error)
+	SetComparisonSubquery(left expr.Expression, right Rel, reductionOp SetComparisonReductionOp, comparisonOp SetComparisonOp) (*SetComparisonSubquery, error)
 
 	// Extension builder methods
 
@@ -831,12 +831,12 @@ func (b *builder) SetComparisonSubquery(
 	left expr.Expression,
 	right Rel,
 	reductionOp SetComparisonReductionOp,
-	comparisonOp SetComparisonComparisonOp,
+	comparisonOp SetComparisonOp,
 ) (*SetComparisonSubquery, error) {
 	if reductionOp == SetComparisonReductionOpUnspecified {
 		return nil, fmt.Errorf("reductionOp must be specified")
 	}
-	if comparisonOp == SetComparisonComparisonOpUnspecified {
+	if comparisonOp == SetComparisonOpUnspecified {
 		return nil, fmt.Errorf("comparisonOp must be specified")
 	}
 
