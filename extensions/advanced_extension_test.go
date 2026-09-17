@@ -11,7 +11,6 @@ import (
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	extensionspb "github.com/substrait-io/substrait-protobuf/go/substraitpb/extensions"
 	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/types/known/anypb"
 )
 
 func TestAdvancedExtensionMatchesDescriptor(t *testing.T) {
@@ -39,13 +38,18 @@ func TestAdvancedExtensionMatchesDescriptor(t *testing.T) {
 // Round-trip through the proto boundary so a dropped/mismapped field fails here.
 func TestAdvancedExtensionRoundTrip(t *testing.T) {
 	d := &extensions.AdvancedExtension{
-		Optimizations: []*anypb.Any{{TypeUrl: "opt", Value: []byte("o")}},
-		Enhancement:   &anypb.Any{TypeUrl: "enh", Value: []byte("e")},
+		Optimizations: []*extensions.Optimization{{TypeUrl: "opt", Value: []byte("o")}},
+		Enhancement:   &extensions.Enhancement{TypeUrl: "enh", Value: []byte("e")},
 	}
 	assert.Equal(t, d, extensions.AdvancedExtensionFromProto(extensions.AdvancedExtensionToProto(d)))
 
 	assert.Nil(t, extensions.AdvancedExtensionToProto(nil))
 	assert.Nil(t, extensions.AdvancedExtensionFromProto(nil))
+
+	// Absent optimizations stay nil through the boundary rather than becoming an
+	// empty slice.
+	noOpt := &extensions.AdvancedExtension{Enhancement: &extensions.Enhancement{TypeUrl: "enh"}}
+	assert.Nil(t, extensions.AdvancedExtensionFromProto(extensions.AdvancedExtensionToProto(noOpt)).Optimizations)
 }
 
 func TestAdvancedExtensionGetters(t *testing.T) {
@@ -54,8 +58,8 @@ func TestAdvancedExtensionGetters(t *testing.T) {
 	assert.Nil(t, nilExt.GetOptimizations())
 	assert.Nil(t, nilExt.GetEnhancement())
 
-	opt := []*anypb.Any{{TypeUrl: "opt"}}
-	enh := &anypb.Any{TypeUrl: "enh"}
+	opt := []*extensions.Optimization{{TypeUrl: "opt"}}
+	enh := &extensions.Enhancement{TypeUrl: "enh"}
 	ext := &extensions.AdvancedExtension{Optimizations: opt, Enhancement: enh}
 	assert.Equal(t, opt, ext.GetOptimizations())
 	assert.Equal(t, enh, ext.GetEnhancement())
