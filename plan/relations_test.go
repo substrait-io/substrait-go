@@ -500,16 +500,16 @@ func TestRelations_AdvancedExtensions(t *testing.T) {
 	assert.NoError(t, err)
 
 	exampleAdvancedExtension1 := &extensions.AdvancedExtension{
-		Optimization: []*anypb.Any{val1},
-		Enhancement:  val1,
+		Optimizations: []*extensions.Optimization{(*extensions.Optimization)(val1)},
+		Enhancement:   (*extensions.Enhancement)(val1),
 	}
 
 	val2, err := anypb.New(expr.NewPrimitiveLiteral("bar", false).ToProto())
 	assert.NoError(t, err)
 
 	exampleAdvancedExtension2 := &extensions.AdvancedExtension{
-		Optimization: []*anypb.Any{val2},
-		Enhancement:  val2,
+		Optimizations: []*extensions.Optimization{(*extensions.Optimization)(val2)},
+		Enhancement:   (*extensions.Enhancement)(val2),
 	}
 
 	for _, relation := range relations {

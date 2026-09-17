@@ -17,9 +17,69 @@ import (
 	"github.com/substrait-io/substrait"
 	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-protobuf/go/substraitpb/extensions"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
-type AdvancedExtension = extensions.AdvancedExtension
+// Optimization is an advanced-extension payload a consumer may ignore.
+type Optimization anypb.Any
+
+// Enhancement is an advanced-extension payload that alters semantics and so
+// cannot be ignored by a consumer.
+type Enhancement anypb.Any
+
+// AdvancedExtension embeds additional, non-standard information into a
+// serialized Substrait plan. Optimizations may be ignored by a consumer;
+// enhancements alter semantics and cannot be ignored.
+type AdvancedExtension struct {
+	Optimizations []*Optimization
+	Enhancement   *Enhancement
+}
+
+// GetOptimizations returns the optimization payloads, or nil for a nil receiver.
+func (a *AdvancedExtension) GetOptimizations() []*Optimization {
+	if a == nil {
+		return nil
+	}
+	return a.Optimizations
+}
+
+// GetEnhancement returns the enhancement payload, or nil for a nil receiver.
+func (a *AdvancedExtension) GetEnhancement() *Enhancement {
+	if a == nil {
+		return nil
+	}
+	return a.Enhancement
+}
+
+// AdvancedExtensionFromProto converts a protobuf AdvancedExtension to the domain type.
+func AdvancedExtensionFromProto(a *extensions.AdvancedExtension) *AdvancedExtension {
+	if a == nil {
+		return nil
+	}
+	var optimizations []*Optimization
+	for _, o := range a.Optimization {
+		optimizations = append(optimizations, (*Optimization)(o))
+	}
+	return &AdvancedExtension{
+		Optimizations: optimizations,
+		Enhancement:   (*Enhancement)(a.Enhancement),
+	}
+}
+
+// AdvancedExtensionToProto encodes a domain AdvancedExtension as its protobuf message.
+func AdvancedExtensionToProto(a *AdvancedExtension) *extensions.AdvancedExtension {
+	if a == nil {
+		return nil
+	}
+	var optimizations []*anypb.Any
+	for _, o := range a.Optimizations {
+		optimizations = append(optimizations, (*anypb.Any)(o))
+	}
+	return &extensions.AdvancedExtension{
+		Optimization: optimizations,
+		Enhancement:  (*anypb.Any)(a.Enhancement),
+	}
+}
 
 const SubstraitDefaultURNPrefix = "extension:io.substrait:"
 

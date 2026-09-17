@@ -88,7 +88,7 @@ func (b *baseReadRel) fromProtoReadRel(rel *proto.ReadRel, reg expr.ExtensionReg
 		b.projection = expr.MaskExpressionFromProto(rel.Projection)
 	}
 
-	b.advExtension = rel.AdvancedExtension
+	b.advExtension = extensions.AdvancedExtensionFromProto(rel.AdvancedExtension)
 	return nil
 }
 
@@ -119,7 +119,7 @@ func (b *baseReadRel) toReadRelProto() *proto.ReadRel {
 	out := &proto.ReadRel{
 		Common:            b.RelCommon.toProto(),
 		BaseSchema:        b.baseSchema.ToProto(),
-		AdvancedExtension: b.advExtension,
+		AdvancedExtension: extensions.AdvancedExtensionToProto(b.advExtension),
 	}
 	if b.filter != nil {
 		out.Filter = b.filter.ToProto()
@@ -233,7 +233,7 @@ func (n *NamedTableReadRel) ToProto() *proto.Rel {
 	readRel.ReadType = &proto.ReadRel_NamedTable_{
 		NamedTable: &proto.ReadRel_NamedTable{
 			Names:             n.names,
-			AdvancedExtension: n.advExtension,
+			AdvancedExtension: extensions.AdvancedExtensionToProto(n.advExtension),
 		},
 	}
 	return &proto.Rel{
@@ -654,7 +654,7 @@ func (lf *LocalFileReadRel) ToProto() *proto.Rel {
 	readRel.ReadType = &proto.ReadRel_LocalFiles_{
 		LocalFiles: &proto.ReadRel_LocalFiles{
 			Items:             items,
-			AdvancedExtension: lf.advExtension,
+			AdvancedExtension: extensions.AdvancedExtensionToProto(lf.advExtension),
 		},
 	}
 	return &proto.Rel{
@@ -740,7 +740,7 @@ func (p *ProjectRel) ToProto() *proto.Rel {
 				Common:            p.toProto(),
 				Input:             p.input.ToProto(),
 				Expressions:       exprs,
-				AdvancedExtension: p.advExtension,
+				AdvancedExtension: extensions.AdvancedExtensionToProto(p.advExtension),
 			},
 		},
 	}
@@ -929,7 +929,7 @@ func (j *JoinRel) ToProto() *proto.Rel {
 		Right:             j.right.ToProto(),
 		Expression:        j.expr.ToProto(),
 		Type:              proto.JoinRel_JoinType(j.joinType),
-		AdvancedExtension: j.advExtension,
+		AdvancedExtension: extensions.AdvancedExtensionToProto(j.advExtension),
 	}
 
 	if j.postJoinFilter != nil {
@@ -1021,7 +1021,7 @@ func (c *CrossRel) ToProto() *proto.Rel {
 				Common:            c.toProto(),
 				Left:              c.left.ToProto(),
 				Right:             c.right.ToProto(),
-				AdvancedExtension: c.advExtension,
+				AdvancedExtension: extensions.AdvancedExtensionToProto(c.advExtension),
 			},
 		},
 	}
@@ -1097,7 +1097,7 @@ func (f *FetchRel) ToProto() *proto.Rel {
 				CountMode: &proto.FetchRel_Count{
 					Count: f.count,
 				},
-				AdvancedExtension: f.advExtension,
+				AdvancedExtension: extensions.AdvancedExtensionToProto(f.advExtension),
 			},
 		},
 	}
@@ -1232,7 +1232,7 @@ func (ar *AggregateRel) ToProto() *proto.Rel {
 				GroupingExpressions: groupingExpressionsProto,
 				Groupings:           groupings,
 				Measures:            measures,
-				AdvancedExtension:   ar.advExtension,
+				AdvancedExtension:   extensions.AdvancedExtensionToProto(ar.advExtension),
 			},
 		},
 	}
@@ -1388,7 +1388,7 @@ func (sr *SortRel) ToProto() *proto.Rel {
 				Common:            sr.toProto(),
 				Input:             sr.input.ToProto(),
 				Sorts:             sorts,
-				AdvancedExtension: sr.advExtension,
+				AdvancedExtension: extensions.AdvancedExtensionToProto(sr.advExtension),
 			},
 		},
 	}
@@ -1474,7 +1474,7 @@ func (fr *FilterRel) ToProto() *proto.Rel {
 				Common:            fr.toProto(),
 				Input:             fr.input.ToProto(),
 				Condition:         fr.cond.ToProto(),
-				AdvancedExtension: fr.advExtension,
+				AdvancedExtension: extensions.AdvancedExtensionToProto(fr.advExtension),
 			},
 		},
 	}
@@ -1598,7 +1598,7 @@ func (s *SetRel) ToProto() *proto.Rel {
 				Common:            s.toProto(),
 				Inputs:            inputs,
 				Op:                proto.SetRel_SetOp(s.op),
-				AdvancedExtension: s.advExtension,
+				AdvancedExtension: extensions.AdvancedExtensionToProto(s.advExtension),
 			},
 		},
 	}
@@ -2153,7 +2153,7 @@ func (hr *HashJoinRel) ToProto() *proto.Rel {
 			Right:             hr.right.ToProto(),
 			Keys:              comparisonJoinKeysToProto(hr.keys),
 			Type:              proto.HashJoinRel_JoinType(hr.joinType),
-			AdvancedExtension: hr.advExtension,
+			AdvancedExtension: extensions.AdvancedExtensionToProto(hr.advExtension),
 		},
 	}
 
@@ -2270,7 +2270,7 @@ func (mr *MergeJoinRel) ToProto() *proto.Rel {
 			Right:             mr.right.ToProto(),
 			Keys:              comparisonJoinKeysToProto(mr.keys),
 			Type:              proto.MergeJoinRel_JoinType(mr.joinType),
-			AdvancedExtension: mr.advExtension,
+			AdvancedExtension: extensions.AdvancedExtensionToProto(mr.advExtension),
 		},
 	}
 
@@ -2435,7 +2435,7 @@ func (wr *NamedTableWriteRel) ToProto() *proto.Rel {
 				WriteType: &proto.WriteRel_NamedTable{
 					NamedTable: &proto.NamedObjectWrite{
 						Names:             wr.names,
-						AdvancedExtension: wr.advExtension,
+						AdvancedExtension: extensions.AdvancedExtensionToProto(wr.advExtension),
 					},
 				},
 				TableSchema: wr.tableSchema.ToProto(),
