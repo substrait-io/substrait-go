@@ -3,6 +3,8 @@
 package expr
 
 import (
+	"fmt"
+
 	"github.com/substrait-io/substrait-go/v9/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -61,5 +63,7 @@ func setUserDefinedVal(ud *proto.Expression_Literal_UserDefined, v UserDefinedLi
 		ud.Val = &proto.Expression_Literal_UserDefined_Value{Value: val.Value}
 	case UserDefinedValueStruct:
 		ud.Val = &proto.Expression_Literal_UserDefined_Struct{Struct: val.Value.ToProto()}
+	default:
+		panic(fmt.Sprintf("unhandled UserDefinedLiteralValue %T", v))
 	}
 }

@@ -55,6 +55,9 @@ type (
 
 // Deprecated: use VirtualTableExprFromLiteralProto
 func StructLiteralFromProto(s *proto.Expression_Literal_Struct) StructLiteralValue {
+	if s == nil {
+		return nil
+	}
 	fields := make(StructLiteralValue, len(s.Fields))
 	for i, f := range s.Fields {
 		fields[i] = LiteralFromProto(f)

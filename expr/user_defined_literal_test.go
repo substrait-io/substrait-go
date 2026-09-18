@@ -330,6 +330,34 @@ func TestMixedRepresentationNestedUserDefinedLiteral(t *testing.T) {
 	require.Equal(t, triangle, result)
 }
 
+// TestUserDefinedLiteralNilStructDecodes verifies a UserDefined literal whose struct
+// oneof is selected but nil decodes without dereferencing the absent struct.
+func TestUserDefinedLiteralNilStructDecodes(t *testing.T) {
+	protoLit := &proto.Expression_Literal{
+		LiteralType: &proto.Expression_Literal_UserDefined_{
+			UserDefined: &proto.Expression_Literal_UserDefined{
+				TypeAnchorType: &proto.Expression_Literal_UserDefined_TypeReference{TypeReference: 1},
+				Val:            &proto.Expression_Literal_UserDefined_Struct{Struct: nil},
+			},
+		},
+	}
+	require.NotPanics(t, func() { expr.LiteralFromProto(protoLit) })
+}
+
+// TestUserDefinedLiteralPointerValuePanics verifies that a pointer form of a value
+// (which also satisfies UserDefinedLiteralValue via the value-receiver marker) fails
+// loud on serialization rather than silently dropping the payload.
+func TestUserDefinedLiteralPointerValuePanics(t *testing.T) {
+	anyValue, err := anypb.New(wrapperspb.String("data"))
+	require.NoError(t, err)
+
+	lit := &expr.ProtoLiteral{
+		Value: &expr.UserDefinedValueAny{Value: anyValue},
+		Type:  &types.UserDefinedType{Nullability: types.NullabilityRequired, TypeReference: 1},
+	}
+	require.Panics(t, func() { lit.ToProtoLiteral() })
+}
+
 // TestParameterizedVectorUDTRoundtrip verifies round-trip conversion of a parameterized
 // user-defined type with multiple fields of the same type parameter. Tests that type parameters
 // are correctly preserved during serialization and deserialization.
