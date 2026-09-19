@@ -1922,6 +1922,8 @@ const (
 // HashMergeJoinType and JoinType use different values for semi, anti and single joins.
 func (t HashMergeJoinType) outputSchema(left, right types.RecordType) types.RecordType {
 	switch t {
+	case HashMergeInner:
+		return left.Concat(right)
 	case HashMergeLeftSemi, HashMergeLeftAnti:
 		return left
 	case HashMergeRightSemi, HashMergeRightAnti:
