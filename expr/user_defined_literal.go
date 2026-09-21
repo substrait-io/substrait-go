@@ -61,7 +61,11 @@ func setUserDefinedVal(ud *proto.Expression_Literal_UserDefined, v UserDefinedLi
 	switch val := v.(type) {
 	case UserDefinedValueAny:
 		ud.Val = &proto.Expression_Literal_UserDefined_Value{Value: val.Value}
+	case *UserDefinedValueAny:
+		ud.Val = &proto.Expression_Literal_UserDefined_Value{Value: val.Value}
 	case UserDefinedValueStruct:
+		ud.Val = &proto.Expression_Literal_UserDefined_Struct{Struct: val.Value.ToProto()}
+	case *UserDefinedValueStruct:
 		ud.Val = &proto.Expression_Literal_UserDefined_Struct{Struct: val.Value.ToProto()}
 	default:
 		panic(fmt.Sprintf("unhandled UserDefinedLiteralValue %T", v))

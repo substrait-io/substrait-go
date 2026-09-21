@@ -344,10 +344,10 @@ func TestUserDefinedLiteralNilStructDecodes(t *testing.T) {
 	require.NotPanics(t, func() { expr.LiteralFromProto(protoLit) })
 }
 
-// TestUserDefinedLiteralPointerValuePanics verifies that a pointer form of a value
-// (which also satisfies UserDefinedLiteralValue via the value-receiver marker) fails
-// loud on serialization rather than silently dropping the payload.
-func TestUserDefinedLiteralPointerValuePanics(t *testing.T) {
+// TestUserDefinedLiteralPointerValueRoundtrip verifies that a pointer form of a
+// value, which also satisfies UserDefinedLiteralValue via the value-receiver
+// marker, serializes the same way as the value form.
+func TestUserDefinedLiteralPointerValueRoundtrip(t *testing.T) {
 	anyValue, err := anypb.New(wrapperspb.String("data"))
 	require.NoError(t, err)
 
@@ -355,7 +355,11 @@ func TestUserDefinedLiteralPointerValuePanics(t *testing.T) {
 		Value: &expr.UserDefinedValueAny{Value: anyValue},
 		Type:  &types.UserDefinedType{Nullability: types.NullabilityRequired, TypeReference: 1},
 	}
-	require.Panics(t, func() { lit.ToProtoLiteral() })
+	protoLit := lit.ToProtoLiteral()
+
+	userDefined := protoLit.GetUserDefined()
+	require.NotNil(t, userDefined)
+	require.Equal(t, anyValue, userDefined.GetValue())
 }
 
 // TestParameterizedVectorUDTRoundtrip verifies round-trip conversion of a parameterized
