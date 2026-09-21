@@ -380,8 +380,6 @@ func (b CastFailBehavior) String() string {
 	}
 }
 
-type UserDefinedLiteral = proto.Expression_Literal_UserDefined
-
 // VarChar is a variable-length character literal: its value and length, mirroring the fields of
 // the Substrait VarChar literal message.
 type VarChar struct {
