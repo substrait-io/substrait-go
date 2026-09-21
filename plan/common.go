@@ -120,25 +120,36 @@ func walkExpr(e expr.Expression, fn func(expr.Expression)) {
 
 // Stats are the statistics related to a Hint (physical properties of records).
 type Stats struct {
-	RowCount          float64
-	RecordSize        float64
+	// RowCount is the estimated number of records produced by the relation.
+	RowCount float64
+	// RecordSize is the estimated physical size of each record.
+	RecordSize float64
+	// AdvancedExtension carries implementation-specific statistics details.
 	AdvancedExtension *extensions.AdvancedExtension
 }
 
 // RuntimeConstraint describes constraints on the runtime environment carried by a Hint.
 type RuntimeConstraint struct {
+	// AdvancedExtension carries implementation-specific runtime constraints.
 	AdvancedExtension *extensions.AdvancedExtension
 }
 
 // Hint carries changes to an operation that can influence efficiency/performance
 // but should not impact correctness.
 type Hint struct {
-	Stats              *Stats
-	Constraint         *RuntimeConstraint
-	Alias              string
-	OutputNames        []string
-	AdvancedExtension  *extensions.AdvancedExtension
-	SavedComputations  []*SavedComputation
+	// Stats are the physical property estimates for records produced by the relation.
+	Stats *Stats
+	// Constraint describes runtime requirements for evaluating the relation.
+	Constraint *RuntimeConstraint
+	// Alias is a name for qualifying or debugging the relation.
+	Alias string
+	// OutputNames assigns alternative names to the relation's output fields.
+	OutputNames []string
+	// AdvancedExtension carries implementation-specific hint details.
+	AdvancedExtension *extensions.AdvancedExtension
+	// SavedComputations describe computations saved by this relation for later reuse.
+	SavedComputations []*SavedComputation
+	// LoadedComputations describe saved computations loaded by this relation.
 	LoadedComputations []*LoadedComputation
 }
 
@@ -169,8 +180,11 @@ func (c ComputationType) String() string {
 
 // SavedComputation is a computation the plan saves once and may load multiple times.
 type SavedComputation struct {
-	ComputationID     int32
-	Type              ComputationType
+	// ComputationID is the plan-unique identifier for the saved computation.
+	ComputationID int32
+	// Type identifies the kind of computation being saved.
+	Type ComputationType
+	// AdvancedExtension carries implementation-specific saved computation details.
 	AdvancedExtension *extensions.AdvancedExtension
 }
 
@@ -200,9 +214,12 @@ func SavedComputationToProto(s *SavedComputation) *proto.RelCommon_Hint_SavedCom
 
 // LoadedComputation references a previously SavedComputation by ID.
 type LoadedComputation struct {
+	// ComputationIDReference identifies a previously saved computation.
 	ComputationIDReference int32
-	Type                   ComputationType
-	AdvancedExtension      *extensions.AdvancedExtension
+	// Type identifies the kind of computation being loaded.
+	Type ComputationType
+	// AdvancedExtension carries implementation-specific loaded computation details.
+	AdvancedExtension *extensions.AdvancedExtension
 }
 
 // LoadedComputationFromProto converts a protobuf LoadedComputation message to the domain type.
