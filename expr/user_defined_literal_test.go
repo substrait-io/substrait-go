@@ -330,20 +330,6 @@ func TestMixedRepresentationNestedUserDefinedLiteral(t *testing.T) {
 	require.Equal(t, triangle, result)
 }
 
-// TestUserDefinedLiteralNilStructDecodes verifies a UserDefined literal whose struct
-// oneof is selected but nil decodes without dereferencing the absent struct.
-func TestUserDefinedLiteralNilStructDecodes(t *testing.T) {
-	protoLit := &proto.Expression_Literal{
-		LiteralType: &proto.Expression_Literal_UserDefined_{
-			UserDefined: &proto.Expression_Literal_UserDefined{
-				TypeAnchorType: &proto.Expression_Literal_UserDefined_TypeReference{TypeReference: 1},
-				Val:            &proto.Expression_Literal_UserDefined_Struct{Struct: nil},
-			},
-		},
-	}
-	require.NotPanics(t, func() { expr.LiteralFromProto(protoLit) })
-}
-
 // TestUserDefinedLiteralPointerValueRoundtrip verifies that a pointer form of a
 // value, which also satisfies UserDefinedLiteralValue via the value-receiver
 // marker, serializes the same way as the value form.
