@@ -348,6 +348,19 @@ func TestUserDefinedLiteralPointerValueRoundtrip(t *testing.T) {
 	require.Equal(t, anyValue, userDefined.GetValue())
 }
 
+func TestUserDefinedLiteralPointerStructRoundtrip(t *testing.T) {
+	structValue := expr.StructLiteralValue{literal.NewInt32(1, false)}
+	lit := &expr.ProtoLiteral{
+		Value: &expr.UserDefinedValueStruct{Value: structValue},
+		Type:  &types.UserDefinedType{Nullability: types.NullabilityRequired, TypeReference: 1},
+	}
+	protoLit := lit.ToProtoLiteral()
+
+	userDefined := protoLit.GetUserDefined()
+	require.NotNil(t, userDefined)
+	require.Equal(t, structValue.ToProto(), userDefined.GetStruct())
+}
+
 // TestParameterizedVectorUDTRoundtrip verifies round-trip conversion of a parameterized
 // user-defined type with multiple fields of the same type parameter. Tests that type parameters
 // are correctly preserved during serialization and deserialization.
