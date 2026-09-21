@@ -1251,17 +1251,11 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 		if err != nil {
 			return nil
 		}
-		if precTimeStamp.Value < 0 {
-			return nil
-		}
 		return NewPrecisionTimestampLiteral(precTimeStamp.Value, precision, nullability)
 	case *proto.Expression_Literal_PrecisionTimestampTz:
 		precTimeStamp := lit.PrecisionTimestampTz
 		precision, err := types.ProtoToTimePrecision(precTimeStamp.Precision)
 		if err != nil {
-			return nil
-		}
-		if precTimeStamp.Value < 0 {
 			return nil
 		}
 		return NewPrecisionTimestampTzLiteral(precTimeStamp.Value, precision, nullability)
