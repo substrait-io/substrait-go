@@ -109,6 +109,7 @@ func (m IntervalCompoundLiteral) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 
+func (m IntervalCompoundLiteral) GetExprs() []Expression     { return nil }
 func (m IntervalCompoundLiteral) Visit(VisitFunc) Expression { return m }
 func (IntervalCompoundLiteral) IsScalar() bool               { return true }
 
