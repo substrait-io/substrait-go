@@ -516,11 +516,14 @@ const (
 	URIFolder
 )
 
+// The Parquet, Arrow, Orc and Dwrf read-option messages carry no fields, so
+// their domain counterparts are empty structs. ExtensionReadOptions wraps an
+// arbitrary protobuf Any payload.
 type (
-	ParquetReadOptions   proto.ReadRel_LocalFiles_FileOrFiles_ParquetReadOptions
-	ArrowReadOptions     proto.ReadRel_LocalFiles_FileOrFiles_ArrowReadOptions
-	OrcReadOptions       proto.ReadRel_LocalFiles_FileOrFiles_OrcReadOptions
-	DwrfReadOptions      proto.ReadRel_LocalFiles_FileOrFiles_DwrfReadOptions
+	ParquetReadOptions   struct{}
+	ArrowReadOptions     struct{}
+	OrcReadOptions       struct{}
+	DwrfReadOptions      struct{}
 	ExtensionReadOptions anypb.Any
 
 	FileFormat interface {
@@ -568,15 +571,15 @@ func (f *FileOrFiles) fromProto(p *proto.ReadRel_LocalFiles_FileOrFiles) {
 
 	switch format := p.FileFormat.(type) {
 	case *proto.ReadRel_LocalFiles_FileOrFiles_Arrow:
-		f.Format = (*ArrowReadOptions)(format.Arrow)
+		f.Format = &ArrowReadOptions{}
 	case *proto.ReadRel_LocalFiles_FileOrFiles_Dwrf:
-		f.Format = (*DwrfReadOptions)(format.Dwrf)
+		f.Format = &DwrfReadOptions{}
 	case *proto.ReadRel_LocalFiles_FileOrFiles_Extension:
 		f.Format = (*ExtensionReadOptions)(format.Extension)
 	case *proto.ReadRel_LocalFiles_FileOrFiles_Orc:
-		f.Format = (*OrcReadOptions)(format.Orc)
+		f.Format = &OrcReadOptions{}
 	case *proto.ReadRel_LocalFiles_FileOrFiles_Parquet:
-		f.Format = (*ParquetReadOptions)(format.Parquet)
+		f.Format = &ParquetReadOptions{}
 	}
 }
 
@@ -600,19 +603,19 @@ func (f *FileOrFiles) ToProto() *proto.ReadRel_LocalFiles_FileOrFiles {
 	switch fm := f.Format.(type) {
 	case *ParquetReadOptions:
 		ret.FileFormat = &proto.ReadRel_LocalFiles_FileOrFiles_Parquet{
-			Parquet: (*proto.ReadRel_LocalFiles_FileOrFiles_ParquetReadOptions)(fm),
+			Parquet: &proto.ReadRel_LocalFiles_FileOrFiles_ParquetReadOptions{},
 		}
 	case *ArrowReadOptions:
 		ret.FileFormat = &proto.ReadRel_LocalFiles_FileOrFiles_Arrow{
-			Arrow: (*proto.ReadRel_LocalFiles_FileOrFiles_ArrowReadOptions)(fm),
+			Arrow: &proto.ReadRel_LocalFiles_FileOrFiles_ArrowReadOptions{},
 		}
 	case *OrcReadOptions:
 		ret.FileFormat = &proto.ReadRel_LocalFiles_FileOrFiles_Orc{
-			Orc: (*proto.ReadRel_LocalFiles_FileOrFiles_OrcReadOptions)(fm),
+			Orc: &proto.ReadRel_LocalFiles_FileOrFiles_OrcReadOptions{},
 		}
 	case *DwrfReadOptions:
 		ret.FileFormat = &proto.ReadRel_LocalFiles_FileOrFiles_Dwrf{
-			Dwrf: (*proto.ReadRel_LocalFiles_FileOrFiles_DwrfReadOptions)(fm),
+			Dwrf: &proto.ReadRel_LocalFiles_FileOrFiles_DwrfReadOptions{},
 		}
 	case *ExtensionReadOptions:
 		ret.FileFormat = &proto.ReadRel_LocalFiles_FileOrFiles_Extension{
