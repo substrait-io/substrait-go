@@ -18,16 +18,17 @@ func TestPhysicalJoinOutputSchema(t *testing.T) {
 	str := &types.StringType{Nullability: types.NullabilityRequired}
 	strNull := &types.StringType{Nullability: types.NullabilityNullable}
 	mark := &types.BooleanType{Nullability: types.NullabilityNullable}
-	left := &NamedTableReadRel{names: []string{"left"}, baseReadRel: baseReadRel{
-		baseSchema: types.NamedStruct{Names: []string{"l0", "l1"}, Struct: types.StructType{
+	b := NewBuilderDefault()
+	left := b.NamedScan([]string{"left"}, types.NamedStruct{
+		Names: []string{"l0", "l1"}, Struct: types.StructType{
 			Nullability: types.NullabilityRequired, Types: []types.Type{i64, strNull},
-		}},
-	}}
-	right := &NamedTableReadRel{names: []string{"right"}, baseReadRel: baseReadRel{
-		baseSchema: types.NamedStruct{Names: []string{"r0", "r1"}, Struct: types.StructType{
+		},
+	})
+	right := b.NamedScan([]string{"right"}, types.NamedStruct{
+		Names: []string{"r0", "r1"}, Struct: types.StructType{
 			Nullability: types.NullabilityRequired, Types: []types.Type{i64Null, str},
-		}},
-	}}
+		},
+	})
 	keys := comparisonJoinKeysToProto([]*ComparisonJoinKey{
 		NewEqualityJoinKey(keyRef(t, left, 0), keyRef(t, right, 0)),
 	})
