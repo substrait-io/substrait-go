@@ -179,6 +179,17 @@ func TestRelations_Copy(t *testing.T) {
 			expectedSameRel: true,
 		},
 		{
+			name:        "FetchRel Copy with same inputs and expression rewrite",
+			relation:    fetchRel,
+			newInputs:   fetchRel.GetInputs(),
+			rewriteFunc: func(e expr.Expression) (expr.Expression, error) { return createPrimitiveFloat(9.0), nil },
+			expectedRel: func() *FetchRel {
+				newOffset := expr.Expression(createPrimitiveFloat(9.0))
+				newCount := expr.Expression(createPrimitiveFloat(9.0))
+				return &FetchRel{input: createVirtualTableReadRel(1), offset: &newOffset, count: &newCount}
+			}(),
+		},
+		{
 			name:        "FilterRel Copy with new inputs",
 			relation:    filterRel,
 			newInputs:   []Rel{createVirtualTableReadRel(6)},

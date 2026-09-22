@@ -1125,22 +1125,34 @@ func (f *FetchRel) CopyWithExpressionRewrite(rewrite RewriteFunc, newInputs ...R
 	if len(newInputs) != 1 {
 		return nil, substraitgo.ErrInvalidInputCount
 	}
+
+	newOffset := f.offset
+	if f.offset != nil {
+		o, err := rewrite(*f.offset)
+		if err != nil {
+			return nil, err
+		}
+		newOffset = &o
+	}
+
+	newCount := f.count
+	if f.count != nil {
+		c, err := rewrite(*f.count)
+		if err != nil {
+			return nil, err
+		}
+		newCount = &c
+	}
+
+	offsetUnchanged := f.offset == nil || *newOffset == *f.offset
+	countUnchanged := f.count == nil || *newCount == *f.count
+	if newInputs[0] == f.input && offsetUnchanged && countUnchanged {
+		return f, nil
+	}
 	fetch := *f
 	fetch.input = newInputs[0]
-	if f.offset != nil {
-		newOffset, err := rewrite(*f.offset)
-		if err != nil {
-			return nil, err
-		}
-		fetch.offset = &newOffset
-	}
-	if f.count != nil {
-		newCount, err := rewrite(*f.count)
-		if err != nil {
-			return nil, err
-		}
-		fetch.count = &newCount
-	}
+	fetch.offset = newOffset
+	fetch.count = newCount
 	return &fetch, nil
 }
 
