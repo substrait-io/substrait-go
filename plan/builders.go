@@ -78,7 +78,7 @@ type Builder interface {
 	//
 	// offset must evaluate to a non-negative integer or Substrait null. Pass a Go nil for no offset.
 	// count must evaluate to a non-negative integer or Substrait null. Pass a Go nil to return all records.
-	Fetch(input Rel, offset, count *expr.Expression) (*FetchRel, error)
+	Fetch(input Rel, offset, count expr.Expression) (*FetchRel, error)
 	Filter(input Rel, condition expr.Expression) (*FilterRel, error)
 	Join(left, right Rel, condition expr.Expression, joinType JoinType) (*JoinRel, error)
 	JoinAndFilter(left, right Rel, condition, postJoinFilter expr.Expression, joinType JoinType) (*JoinRel, error)
@@ -321,19 +321,19 @@ func isIntegerType(t types.Type) bool {
 	return false
 }
 
-func (b *builder) Fetch(input Rel, offset, count *expr.Expression) (*FetchRel, error) {
+func (b *builder) Fetch(input Rel, offset, count expr.Expression) (*FetchRel, error) {
 	if input == nil {
 		return nil, errNilInputRel
 	}
 
-	if offset != nil && !isIntegerType((*offset).GetType()) {
+	if offset != nil && !isIntegerType(offset.GetType()) {
 		return nil, fmt.Errorf("%w: offset for Fetch Relation must yield an integer type, not %s",
-			substraitgo.ErrInvalidArg, (*offset).GetType())
+			substraitgo.ErrInvalidArg, offset.GetType())
 	}
 
-	if count != nil && !isIntegerType((*count).GetType()) {
+	if count != nil && !isIntegerType(count.GetType()) {
 		return nil, fmt.Errorf("%w: count for Fetch Relation must yield an integer type, not %s",
-			substraitgo.ErrInvalidArg, (*count).GetType())
+			substraitgo.ErrInvalidArg, count.GetType())
 	}
 
 	return &FetchRel{

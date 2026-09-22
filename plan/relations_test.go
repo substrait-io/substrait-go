@@ -76,7 +76,7 @@ func TestRelations_Copy(t *testing.T) {
 	extensionLeafRel := &ExtensionLeafRel{}
 	extensionMultiRel := &ExtensionMultiRel{inputs: []Rel{createVirtualTableReadRel(1), createVirtualTableReadRel(2)}}
 	fetchOffset, fetchCount := expr.Expression(expr.NewPrimitiveLiteral(int64(1), false)), expr.Expression(expr.NewPrimitiveLiteral(int64(2), false))
-	fetchRel := &FetchRel{input: createVirtualTableReadRel(1), offset: &fetchOffset, count: &fetchCount}
+	fetchRel := &FetchRel{input: createVirtualTableReadRel(1), offset: fetchOffset, count: fetchCount}
 	filterRel := &FilterRel{input: createVirtualTableReadRel(1), cond: expr.NewPrimitiveLiteral(true, false)}
 	hashJoinRel := &HashJoinRel{left: createVirtualTableReadRel(1), right: createVirtualTableReadRel(2), joinType: HashMergeInner, keys: []*ComparisonJoinKey{}, postJoinFilter: expr.NewPrimitiveLiteral(true, false)}
 	joinRel := &JoinRel{left: createVirtualTableReadRel(1), right: createVirtualTableReadRel(2), joinType: JoinTypeInner, expr: expr.NewPrimitiveLiteral(true, false), postJoinFilter: expr.NewPrimitiveLiteral(true, false)}
@@ -169,7 +169,7 @@ func TestRelations_Copy(t *testing.T) {
 			name:        "FetchRel Copy with new inputs",
 			relation:    fetchRel,
 			newInputs:   []Rel{createVirtualTableReadRel(6)},
-			expectedRel: &FetchRel{input: createVirtualTableReadRel(6), offset: &fetchOffset, count: &fetchCount},
+			expectedRel: &FetchRel{input: createVirtualTableReadRel(6), offset: fetchOffset, count: fetchCount},
 		},
 		{
 			name:            "FetchRel Copy with same inputs and noOpRewrite",
@@ -183,11 +183,7 @@ func TestRelations_Copy(t *testing.T) {
 			relation:    fetchRel,
 			newInputs:   fetchRel.GetInputs(),
 			rewriteFunc: func(e expr.Expression) (expr.Expression, error) { return createPrimitiveFloat(9.0), nil },
-			expectedRel: func() *FetchRel {
-				newOffset := expr.Expression(createPrimitiveFloat(9.0))
-				newCount := expr.Expression(createPrimitiveFloat(9.0))
-				return &FetchRel{input: createVirtualTableReadRel(1), offset: &newOffset, count: &newCount}
-			}(),
+			expectedRel: &FetchRel{input: createVirtualTableReadRel(1), offset: createPrimitiveFloat(9.0), count: createPrimitiveFloat(9.0)},
 		},
 		{
 			name:        "FilterRel Copy with new inputs",
@@ -470,7 +466,7 @@ func TestRelations_AdvancedExtensions(t *testing.T) {
 	extensionLeafRel := &ExtensionLeafRel{}
 	extensionMultiRel := &ExtensionMultiRel{inputs: []Rel{createVirtualTableReadRel(1), createVirtualTableReadRel(2)}}
 	fetchOffset, fetchCount := expr.Expression(expr.NewPrimitiveLiteral(int64(1), false)), expr.Expression(expr.NewPrimitiveLiteral(int64(2), false))
-	fetchRel := &FetchRel{input: createVirtualTableReadRel(1), offset: &fetchOffset, count: &fetchCount}
+	fetchRel := &FetchRel{input: createVirtualTableReadRel(1), offset: fetchOffset, count: fetchCount}
 	filterRel := &FilterRel{input: createVirtualTableReadRel(1), cond: expr.NewPrimitiveLiteral(true, false)}
 	hashJoinRel := &HashJoinRel{left: createVirtualTableReadRel(1), right: createVirtualTableReadRel(2), joinType: HashMergeInner, keys: []*ComparisonJoinKey{}, postJoinFilter: expr.NewPrimitiveLiteral(true, false)}
 	joinRel := &JoinRel{left: createVirtualTableReadRel(1), right: createVirtualTableReadRel(2), joinType: JoinTypeInner, expr: expr.NewPrimitiveLiteral(true, false), postJoinFilter: expr.NewPrimitiveLiteral(true, false)}

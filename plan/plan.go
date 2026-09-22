@@ -543,32 +543,30 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 
 		base := input.RecordType()
 
-		var offset *expr.Expression = nil
+		var offset expr.Expression
 		switch om := rel.Fetch.OffsetMode.(type) {
 		case *proto.FetchRel_Offset:
-			e := expr.Expression(expr.NewPrimitiveLiteral(om.Offset, false))
-			offset = &e
+			offset = expr.NewPrimitiveLiteral(om.Offset, false)
 		case *proto.FetchRel_OffsetExpr:
 			e, exprErr := expr.ExprFromProto(om.OffsetExpr, &base, reg)
 			if exprErr != nil {
 				return nil, fmt.Errorf("error getting offset expression for FetchRel: %w", exprErr)
 			}
-			offset = &e
+			offset = e
 		}
 
-		var count *expr.Expression = nil
+		var count expr.Expression
 		switch cm := rel.Fetch.CountMode.(type) {
 		case *proto.FetchRel_Count:
 			if cm.Count != FETCH_COUNT_ALL_RECORDS {
-				e := expr.Expression(expr.NewPrimitiveLiteral(cm.Count, false))
-				count = &e
+				count = expr.NewPrimitiveLiteral(cm.Count, false)
 			}
 		case *proto.FetchRel_CountExpr:
 			e, exprErr := expr.ExprFromProto(cm.CountExpr, &base, reg)
 			if exprErr != nil {
 				return nil, fmt.Errorf("error getting count expression for FetchRel: %w", exprErr)
 			}
-			count = &e
+			count = e
 		}
 
 		out := &FetchRel{

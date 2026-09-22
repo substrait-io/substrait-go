@@ -60,7 +60,7 @@ func TestFetchRelMigration_LegacyOffset(t *testing.T) {
 	fetch := fetchRelFromJSON(t, jsonStr)
 
 	require.NotNil(t, fetch.Offset())
-	assert.Equal(t, expr.NewPrimitiveLiteral(int64(42), false), *fetch.Offset())
+	assert.Equal(t, expr.NewPrimitiveLiteral(int64(42), false), fetch.Offset())
 	assert.Nil(t, fetch.Count())
 }
 
@@ -99,7 +99,7 @@ func TestFetchRelMigration_LegacyCount(t *testing.T) {
 
 	assert.Nil(t, fetch.Offset())
 	require.NotNil(t, fetch.Count())
-	assert.Equal(t, expr.NewPrimitiveLiteral(int64(10), false), *fetch.Count())
+	assert.Equal(t, expr.NewPrimitiveLiteral(int64(10), false), fetch.Count())
 }
 
 // TestFetchRelMigration_LegacyBoth verifies that a FetchRel with both legacy integer offset
@@ -137,9 +137,9 @@ func TestFetchRelMigration_LegacyBoth(t *testing.T) {
 	fetch := fetchRelFromJSON(t, jsonStr)
 
 	require.NotNil(t, fetch.Offset())
-	assert.Equal(t, expr.NewPrimitiveLiteral(int64(5), false), *fetch.Offset())
+	assert.Equal(t, expr.NewPrimitiveLiteral(int64(5), false), fetch.Offset())
 	require.NotNil(t, fetch.Count())
-	assert.Equal(t, expr.NewPrimitiveLiteral(int64(20), false), *fetch.Count())
+	assert.Equal(t, expr.NewPrimitiveLiteral(int64(20), false), fetch.Count())
 }
 
 // TestFetchRelMigration_Neither verifies that a FetchRel with neither offset nor count

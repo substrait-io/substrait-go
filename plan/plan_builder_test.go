@@ -532,7 +532,7 @@ func TestFetchRel(t *testing.T) {
 	})
 
 	offsetExpr := expr.Expression(expr.NewPrimitiveLiteral(int64(100), false))
-	fetch, err := b.Fetch(scan, &offsetExpr, nil)
+	fetch, err := b.Fetch(scan, offsetExpr, nil)
 	require.NoError(t, err)
 
 	p, err := b.Plan(fetch, []string{"a"})
@@ -550,9 +550,8 @@ func TestFetchRelErrors(t *testing.T) {
 	b := plan.NewBuilderDefault()
 
 	zeroExpr := expr.Expression(expr.NewPrimitiveLiteral(int64(0), false))
-	zero := &zeroExpr
 
-	_, err := b.Fetch(nil, zero, zero)
+	_, err := b.Fetch(nil, zeroExpr, zeroExpr)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "input Relation must not be nil")
 
@@ -565,13 +564,13 @@ func TestFetchRelErrors(t *testing.T) {
 		},
 	})
 
-	f, err := b.Fetch(scan, zero, zero)
+	f, err := b.Fetch(scan, zeroExpr, zeroExpr)
 	assert.NoError(t, err)
 	_, err = f.Remap(-1)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
-	f, err = b.Fetch(scan, zero, zero)
+	f, err = b.Fetch(scan, zeroExpr, zeroExpr)
 	assert.NoError(t, err)
 	_, err = f.Remap(2)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
@@ -593,11 +592,11 @@ func TestFetchRelTypeErrors(t *testing.T) {
 
 	strExpr := expr.Expression(expr.NewPrimitiveLiteral("hello", false))
 
-	_, err := b.Fetch(scan, &strExpr, nil)
+	_, err := b.Fetch(scan, strExpr, nil)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidArg)
 	assert.ErrorContains(t, err, "offset for Fetch Relation must yield an integer type")
 
-	_, err = b.Fetch(scan, nil, &strExpr)
+	_, err = b.Fetch(scan, nil, strExpr)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidArg)
 	assert.ErrorContains(t, err, "count for Fetch Relation must yield an integer type")
 
@@ -607,7 +606,7 @@ func TestFetchRelTypeErrors(t *testing.T) {
 	i32 := expr.Expression(expr.NewPrimitiveLiteral(int32(1), false))
 	i64 := expr.Expression(expr.NewPrimitiveLiteral(int64(10), false))
 
-	for _, e := range []*expr.Expression{&i8, &i16, &i32, &i64} {
+	for _, e := range []expr.Expression{i8, i16, i32, i64} {
 		_, err = b.Fetch(scan, e, e)
 		assert.NoError(t, err)
 	}

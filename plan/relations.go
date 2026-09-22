@@ -1065,7 +1065,7 @@ type FetchRel struct {
 	RelCommon
 
 	input         Rel
-	offset, count *expr.Expression
+	offset, count expr.Expression
 	advExtension  *extensions.AdvancedExtension
 }
 
@@ -1073,9 +1073,14 @@ func (f *FetchRel) directOutputSchema() types.RecordType { return f.input.Record
 func (f *FetchRel) RecordType() types.RecordType {
 	return f.remap(f.directOutputSchema())
 }
-func (f *FetchRel) Input() Rel               { return f.input }
-func (f *FetchRel) Offset() *expr.Expression { return f.offset }
-func (f *FetchRel) Count() *expr.Expression  { return f.count }
+func (f *FetchRel) Input() Rel { return f.input }
+
+// Offset returns nil if no offset is set, otherwise returns the offset expression
+func (f *FetchRel) Offset() expr.Expression { return f.offset }
+
+// Count returns nil if no count is set, otherwise returns the offset expression
+func (f *FetchRel) Count() expr.Expression { return f.count }
+
 func (f *FetchRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return f.advExtension
 }
@@ -1092,10 +1097,10 @@ func (f *FetchRel) ToProto() *proto.Rel {
 		AdvancedExtension: extensions.AdvancedExtensionToProto(f.advExtension),
 	}
 	if f.offset != nil {
-		fetchRel.OffsetMode = &proto.FetchRel_OffsetExpr{OffsetExpr: (*f.offset).ToProto()}
+		fetchRel.OffsetMode = &proto.FetchRel_OffsetExpr{OffsetExpr: f.offset.ToProto()}
 	}
 	if f.count != nil {
-		fetchRel.CountMode = &proto.FetchRel_CountExpr{CountExpr: (*f.count).ToProto()}
+		fetchRel.CountMode = &proto.FetchRel_CountExpr{CountExpr: f.count.ToProto()}
 	}
 	return &proto.Rel{RelType: &proto.Rel_Fetch{Fetch: fetchRel}}
 }
@@ -1128,24 +1133,24 @@ func (f *FetchRel) CopyWithExpressionRewrite(rewrite RewriteFunc, newInputs ...R
 
 	newOffset := f.offset
 	if f.offset != nil {
-		o, err := rewrite(*f.offset)
+		o, err := rewrite(f.offset)
 		if err != nil {
 			return nil, err
 		}
-		newOffset = &o
+		newOffset = o
 	}
 
 	newCount := f.count
 	if f.count != nil {
-		c, err := rewrite(*f.count)
+		c, err := rewrite(f.count)
 		if err != nil {
 			return nil, err
 		}
-		newCount = &c
+		newCount = c
 	}
 
-	offsetUnchanged := f.offset == nil || *newOffset == *f.offset
-	countUnchanged := f.count == nil || *newCount == *f.count
+	offsetUnchanged := f.offset == nil || newOffset == f.offset
+	countUnchanged := f.count == nil || newCount == f.count
 	if newInputs[0] == f.input && offsetUnchanged && countUnchanged {
 		return f, nil
 	}
