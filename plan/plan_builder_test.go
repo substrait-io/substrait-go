@@ -578,6 +578,110 @@ func TestFetchRelErrors(t *testing.T) {
 	assert.ErrorContains(t, err, "output mapping index out of range")
 }
 
+func TestLimit(t *testing.T) {
+	const expectedJSON = `{
+		` + versionStruct + `,
+		"relations": [
+			{
+				"root": {
+					"input": {
+						"fetch": {
+							"common": {"direct": {}},
+							"input": {
+								"read": {
+									"common": {"direct": {}},
+									"baseSchema": {
+										"names": ["a"],
+										"struct": {
+											"nullability": "NULLABILITY_REQUIRED",
+											"types": [
+												{"string": {"nullability": "NULLABILITY_REQUIRED"}}
+											]
+										}
+									},
+									"namedTable": {"names": ["test"]}
+								}
+							},
+							"countExpr": {"literal": {"i64": "50"}}
+						}
+					},
+					"names": ["a"]
+				}
+			}
+		]
+	}`
+
+	b := plan.NewBuilderDefault()
+	scan := b.NamedScan([]string{"test"}, types.NamedStruct{
+		Names: []string{"a"},
+		Struct: types.StructType{
+			Nullability: types.NullabilityRequired,
+			Types:       []types.Type{&types.StringType{Nullability: types.NullabilityRequired}},
+		},
+	})
+
+	fetch, err := b.Limit(scan, expr.NewPrimitiveLiteral(int64(50), false))
+	require.NoError(t, err)
+
+	p, err := b.Plan(fetch, []string{"a"})
+	require.NoError(t, err)
+
+	assert.Equal(t, "NSTRUCT<a: string>", p.GetRoots()[0].RecordType().String())
+	checkRoundTrip(t, expectedJSON, p)
+}
+
+func TestOffset(t *testing.T) {
+	const expectedJSON = `{
+		` + versionStruct + `,
+		"relations": [
+			{
+				"root": {
+					"input": {
+						"fetch": {
+							"common": {"direct": {}},
+							"input": {
+								"read": {
+									"common": {"direct": {}},
+									"baseSchema": {
+										"names": ["a"],
+										"struct": {
+											"nullability": "NULLABILITY_REQUIRED",
+											"types": [
+												{"string": {"nullability": "NULLABILITY_REQUIRED"}}
+											]
+										}
+									},
+									"namedTable": {"names": ["test"]}
+								}
+							},
+							"offsetExpr": {"literal": {"i64": "25"}}
+						}
+					},
+					"names": ["a"]
+				}
+			}
+		]
+	}`
+
+	b := plan.NewBuilderDefault()
+	scan := b.NamedScan([]string{"test"}, types.NamedStruct{
+		Names: []string{"a"},
+		Struct: types.StructType{
+			Nullability: types.NullabilityRequired,
+			Types:       []types.Type{&types.StringType{Nullability: types.NullabilityRequired}},
+		},
+	})
+
+	fetch, err := b.Offset(scan, expr.NewPrimitiveLiteral(int64(25), false))
+	require.NoError(t, err)
+
+	p, err := b.Plan(fetch, []string{"a"})
+	require.NoError(t, err)
+
+	assert.Equal(t, "NSTRUCT<a: string>", p.GetRoots()[0].RecordType().String())
+	checkRoundTrip(t, expectedJSON, p)
+}
+
 func TestFilterRelation(t *testing.T) {
 	const expectedJSON = `{
 		` + versionStruct + `,
