@@ -1093,10 +1093,6 @@ func (f *FetchRel) ToProto() *proto.Rel {
 	}
 	if f.offset != nil {
 		fetchRel.OffsetMode = &proto.FetchRel_OffsetExpr{OffsetExpr: (*f.offset).ToProto()}
-	} else {
-		// If the offset is unset, assume 0 offset.
-		zero := expr.Expression(expr.NewPrimitiveLiteral(int64(0), false))
-		fetchRel.OffsetMode = &proto.FetchRel_OffsetExpr{OffsetExpr: zero.ToProto()}
 	}
 	if f.count != nil {
 		fetchRel.CountMode = &proto.FetchRel_CountExpr{CountExpr: (*f.count).ToProto()}
