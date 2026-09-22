@@ -512,8 +512,7 @@ func TestFetchRel(t *testing.T) {
 									}
 								}
 							},
-							"offset": 100,
-							"count": -1
+							"offsetExpr": {"literal": {"i64": "100"}}
 						}
 					},
 					"names": ["a"]
@@ -532,7 +531,8 @@ func TestFetchRel(t *testing.T) {
 		},
 	})
 
-	fetch, err := b.Fetch(scan, 100, plan.FETCH_COUNT_ALL_RECORDS)
+	offsetExpr := expr.Expression(expr.NewPrimitiveLiteral(int64(100), false))
+	fetch, err := b.Fetch(scan, offsetExpr, nil)
 	require.NoError(t, err)
 
 	p, err := b.Plan(fetch, []string{"a"})
@@ -549,7 +549,9 @@ func TestFetchRel(t *testing.T) {
 func TestFetchRelErrors(t *testing.T) {
 	b := plan.NewBuilderDefault()
 
-	_, err := b.Fetch(nil, 0, 0)
+	zeroExpr := expr.Expression(expr.NewPrimitiveLiteral(int64(0), false))
+
+	_, err := b.Fetch(nil, zeroExpr, zeroExpr)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "input Relation must not be nil")
 
@@ -562,17 +564,52 @@ func TestFetchRelErrors(t *testing.T) {
 		},
 	})
 
-	f, err := b.Fetch(scan, 0, 0)
+	f, err := b.Fetch(scan, zeroExpr, zeroExpr)
 	assert.NoError(t, err)
 	_, err = f.Remap(-1)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
 
-	f, err = b.Fetch(scan, 0, 0)
+	f, err = b.Fetch(scan, zeroExpr, zeroExpr)
 	assert.NoError(t, err)
 	_, err = f.Remap(2)
 	assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	assert.ErrorContains(t, err, "output mapping index out of range")
+}
+
+func TestFetchRelTypeErrors(t *testing.T) {
+	b := plan.NewBuilderDefault()
+	scan := b.NamedScan([]string{"test"}, types.NamedStruct{
+		Names: []string{"a", "b"},
+		Struct: types.StructType{
+			Nullability: types.NullabilityRequired,
+			Types: []types.Type{
+				&types.StringType{Nullability: types.NullabilityRequired},
+				&types.BooleanType{Nullability: types.NullabilityRequired},
+			},
+		},
+	})
+
+	strExpr := expr.Expression(expr.NewPrimitiveLiteral("hello", false))
+
+	_, err := b.Fetch(scan, strExpr, nil)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidArg)
+	assert.ErrorContains(t, err, "offset for Fetch Relation must yield an integer type")
+
+	_, err = b.Fetch(scan, nil, strExpr)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidArg)
+	assert.ErrorContains(t, err, "count for Fetch Relation must yield an integer type")
+
+	// All four integer widths should be accepted.
+	i8 := expr.Expression(expr.NewPrimitiveLiteral(int8(1), false))
+	i16 := expr.Expression(expr.NewPrimitiveLiteral(int16(1), false))
+	i32 := expr.Expression(expr.NewPrimitiveLiteral(int32(1), false))
+	i64 := expr.Expression(expr.NewPrimitiveLiteral(int64(10), false))
+
+	for _, e := range []expr.Expression{i8, i16, i32, i64} {
+		_, err = b.Fetch(scan, e, e)
+		assert.NoError(t, err)
+	}
 }
 
 func TestFilterRelation(t *testing.T) {

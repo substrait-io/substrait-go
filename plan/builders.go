@@ -74,10 +74,13 @@ type Builder interface {
 	AggregateExprs(input Rel, measures []AggRelMeasure, groups ...[]expr.Expression) (*AggregateRel, error)
 	CreateTableAsSelect(input Rel, tableName []string, schema types.NamedStruct) (*NamedTableWriteRel, error)
 	Cross(left, right Rel) (*CrossRel, error)
-	// Fetch constructs a fetch relation providing an offset (skipping some number of
-	// rows) and a count (restricting output to a maximum number of rows).  If count
-	// is FETCH_COUNT_ALL_RECORDS (-1) all records will be returned.
-	Fetch(input Rel, offset, count int64) (*FetchRel, error)
+	// Fetch constructs a Fetch relation that skips offset rows and returns at most count rows from the input.
+	//
+	// offset must evaluate to a non-negative integer or Substrait null. Pass nil for no offset.
+	// A Substrait null offset is treated as 0.
+	// count must evaluate to a non-negative integer or Substrait null. Pass nil to return all records.
+	// A Substrait null count returns all records.
+	Fetch(input Rel, offset, count expr.Expression) (*FetchRel, error)
 	Filter(input Rel, condition expr.Expression) (*FilterRel, error)
 	Join(left, right Rel, condition expr.Expression, joinType JoinType) (*JoinRel, error)
 	JoinAndFilter(left, right Rel, condition, postJoinFilter expr.Expression, joinType JoinType) (*JoinRel, error)
@@ -312,9 +315,27 @@ func (b *builder) Cross(left, right Rel) (*CrossRel, error) {
 	}, nil
 }
 
-func (b *builder) Fetch(input Rel, offset, count int64) (*FetchRel, error) {
+func isIntegerType(t types.Type) bool {
+	switch t.(type) {
+	case *types.Int8Type, *types.Int16Type, *types.Int32Type, *types.Int64Type:
+		return true
+	}
+	return false
+}
+
+func (b *builder) Fetch(input Rel, offset, count expr.Expression) (*FetchRel, error) {
 	if input == nil {
 		return nil, errNilInputRel
+	}
+
+	if offset != nil && !isIntegerType(offset.GetType()) {
+		return nil, fmt.Errorf("%w: offset for Fetch Relation must yield an integer type, not %s",
+			substraitgo.ErrInvalidArg, offset.GetType())
+	}
+
+	if count != nil && !isIntegerType(count.GetType()) {
+		return nil, fmt.Errorf("%w: count for Fetch Relation must yield an integer type, not %s",
+			substraitgo.ErrInvalidArg, count.GetType())
 	}
 
 	return &FetchRel{
