@@ -79,10 +79,6 @@ type Builder interface {
 	// offset must evaluate to a non-negative integer or Substrait null. Pass a Go nil for no offset.
 	// count must evaluate to a non-negative integer or Substrait null. Pass a Go nil to return all records.
 	Fetch(input Rel, offset, count *expr.Expression) (*FetchRel, error)
-	// Limit constructs a Fetch relation that returns at most count rows from the input with no offset.
-	Limit(input Rel, count expr.Expression) (*FetchRel, error)
-	// Offset constructs a Fetch relation that skips offset rows from the input and returns all remaining rows.
-	Offset(input Rel, offset expr.Expression) (*FetchRel, error)
 	Filter(input Rel, condition expr.Expression) (*FilterRel, error)
 	Join(left, right Rel, condition expr.Expression, joinType JoinType) (*JoinRel, error)
 	JoinAndFilter(left, right Rel, condition, postJoinFilter expr.Expression, joinType JoinType) (*JoinRel, error)
@@ -327,14 +323,6 @@ func (b *builder) Fetch(input Rel, offset, count *expr.Expression) (*FetchRel, e
 		input:     input,
 		offset:    offset, count: count,
 	}, nil
-}
-
-func (b *builder) Limit(input Rel, count expr.Expression) (*FetchRel, error) {
-	return b.Fetch(input, nil, &count)
-}
-
-func (b *builder) Offset(input Rel, offset expr.Expression) (*FetchRel, error) {
-	return b.Fetch(input, &offset, nil)
 }
 
 func (b *builder) Filter(input Rel, condition expr.Expression) (*FilterRel, error) {
