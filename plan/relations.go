@@ -1078,7 +1078,7 @@ func (f *FetchRel) Input() Rel { return f.input }
 // Offset returns nil if no offset is set, otherwise returns the offset expression
 func (f *FetchRel) Offset() expr.Expression { return f.offset }
 
-// Count returns nil if no count is set, otherwise returns the offset expression
+// Count returns nil if no count is set, otherwise returns the count expression
 func (f *FetchRel) Count() expr.Expression { return f.count }
 
 func (f *FetchRel) GetAdvancedExtension() *extensions.AdvancedExtension {
