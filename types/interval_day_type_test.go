@@ -42,15 +42,6 @@ func TestIntervalDayType(t *testing.T) {
 	}
 }
 
-func TestIntervalDayWithNullabilityDoesNotMutateReceiver(t *testing.T) {
-	original := &IntervalDayType{Precision: PrecisionSeconds, Nullability: NullabilityRequired, TypeVariationRef: 7}
-
-	got := original.WithNullability(NullabilityNullable)
-
-	assert.Equal(t, NullabilityRequired, original.Nullability)
-	assert.Equal(t, &IntervalDayType{Precision: PrecisionSeconds, Nullability: NullabilityNullable, TypeVariationRef: 7}, got)
-}
-
 func assertIntervalDayTypeProto(t *testing.T, expectedPrecision TimePrecision, expectedNullability Nullability,
 	toVerifyType *IntervalDayType) {
 

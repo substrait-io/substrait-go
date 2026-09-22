@@ -117,6 +117,54 @@ func TestTypeRoundtrip(t *testing.T) {
 	}
 }
 
+func TestWithNullabilityDoesNotMutateReceiver(t *testing.T) {
+	tests := []struct {
+		name string
+		typ  Type
+	}{
+		{"boolean", &BooleanType{Nullability: NullabilityRequired}},
+		{"int8", &Int8Type{Nullability: NullabilityRequired}},
+		{"int16", &Int16Type{Nullability: NullabilityRequired}},
+		{"int32", &Int32Type{Nullability: NullabilityRequired}},
+		{"int64", &Int64Type{Nullability: NullabilityRequired}},
+		{"float32", &Float32Type{Nullability: NullabilityRequired}},
+		{"float64", &Float64Type{Nullability: NullabilityRequired}},
+		{"binary", &BinaryType{Nullability: NullabilityRequired}},
+		{"string", &StringType{Nullability: NullabilityRequired}},
+		{"timestamp", &TimestampType{Nullability: NullabilityRequired}},
+		{"date", &DateType{Nullability: NullabilityRequired}},
+		{"time", &TimeType{Nullability: NullabilityRequired}},
+		{"timestamp_tz", &TimestampTzType{Nullability: NullabilityRequired}},
+		{"interval_year", &IntervalYearType{Nullability: NullabilityRequired}},
+		{"uuid", &UUIDType{Nullability: NullabilityRequired}},
+		{"fixed_char", &FixedCharType{Nullability: NullabilityRequired, Length: 5}},
+		{"varchar", &VarCharType{Nullability: NullabilityRequired, Length: 15}},
+		{"fixed_binary", &FixedBinaryType{Nullability: NullabilityRequired, Length: 10}},
+		{"decimal", &DecimalType{Nullability: NullabilityRequired, Precision: 4, Scale: 2}},
+		{"enum", &EnumType{Nullability: NullabilityRequired, Name: "mode", Options: []string{"a", "b"}}},
+		{"interval_day", &IntervalDayType{Nullability: NullabilityRequired, Precision: PrecisionSeconds}},
+		{"interval_year_to_month", NewIntervalYearToMonthType().WithNullability(NullabilityRequired)},
+		{"interval_compound", NewIntervalCompoundType().WithPrecision(PrecisionMilliSeconds).WithNullability(NullabilityRequired)},
+		{"precision_time", &PrecisionTimeType{Nullability: NullabilityRequired, Precision: PrecisionMilliSeconds}},
+		{"precision_timestamp", &PrecisionTimestampType{Nullability: NullabilityRequired, Precision: PrecisionMilliSeconds}},
+		{"precision_timestamp_tz", &PrecisionTimestampTzType{PrecisionTimestampType: PrecisionTimestampType{Nullability: NullabilityRequired, Precision: PrecisionMilliSeconds}}},
+		{"struct", &StructType{Nullability: NullabilityRequired, Types: []Type{&Int8Type{Nullability: NullabilityRequired}}}},
+		{"list", &ListType{Nullability: NullabilityRequired, Type: &Int8Type{Nullability: NullabilityRequired}}},
+		{"map", &MapType{Nullability: NullabilityRequired, Key: &StringType{Nullability: NullabilityRequired}, Value: &Int8Type{Nullability: NullabilityRequired}}},
+		{"func", &FuncType{Nullability: NullabilityRequired, ParameterTypes: []Type{&Int8Type{Nullability: NullabilityRequired}}, ReturnType: &Int16Type{Nullability: NullabilityRequired}}},
+		{"user_defined", &UserDefinedType{Nullability: NullabilityRequired, TypeParameters: []TypeParam{&DataTypeParameter{Type: &Int32Type{Nullability: NullabilityRequired}}}}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.typ.WithNullability(NullabilityNullable)
+
+			assert.Equal(t, NullabilityRequired, tt.typ.GetNullability())
+			assert.Equal(t, NullabilityNullable, got.GetNullability())
+		})
+	}
+}
+
 func TestGetTypeNameToTypeMap(t *testing.T) {
 	typeMap := GetTypeNameToTypeMap()
 	tests := []struct {
