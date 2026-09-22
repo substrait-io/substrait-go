@@ -313,9 +313,27 @@ func (b *builder) Cross(left, right Rel) (*CrossRel, error) {
 	}, nil
 }
 
+func isIntegerType(t types.Type) bool {
+	switch t.(type) {
+	case *types.Int8Type, *types.Int16Type, *types.Int32Type, *types.Int64Type:
+		return true
+	}
+	return false
+}
+
 func (b *builder) Fetch(input Rel, offset, count *expr.Expression) (*FetchRel, error) {
 	if input == nil {
 		return nil, errNilInputRel
+	}
+
+	if offset != nil && !isIntegerType((*offset).GetType()) {
+		return nil, fmt.Errorf("%w: offset for Fetch Relation must yield an integer type, not %s",
+			substraitgo.ErrInvalidArg, (*offset).GetType())
+	}
+
+	if count != nil && !isIntegerType((*count).GetType()) {
+		return nil, fmt.Errorf("%w: count for Fetch Relation must yield an integer type, not %s",
+			substraitgo.ErrInvalidArg, (*count).GetType())
 	}
 
 	return &FetchRel{

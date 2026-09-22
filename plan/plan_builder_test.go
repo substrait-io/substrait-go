@@ -578,6 +578,41 @@ func TestFetchRelErrors(t *testing.T) {
 	assert.ErrorContains(t, err, "output mapping index out of range")
 }
 
+func TestFetchRelTypeErrors(t *testing.T) {
+	b := plan.NewBuilderDefault()
+	scan := b.NamedScan([]string{"test"}, types.NamedStruct{
+		Names: []string{"a", "b"},
+		Struct: types.StructType{
+			Nullability: types.NullabilityRequired,
+			Types: []types.Type{
+				&types.StringType{Nullability: types.NullabilityRequired},
+				&types.BooleanType{Nullability: types.NullabilityRequired},
+			},
+		},
+	})
+
+	strExpr := expr.Expression(expr.NewPrimitiveLiteral("hello", false))
+
+	_, err := b.Fetch(scan, &strExpr, nil)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidArg)
+	assert.ErrorContains(t, err, "offset for Fetch Relation must yield an integer type")
+
+	_, err = b.Fetch(scan, nil, &strExpr)
+	assert.ErrorIs(t, err, substraitgo.ErrInvalidArg)
+	assert.ErrorContains(t, err, "count for Fetch Relation must yield an integer type")
+
+	// All four integer widths should be accepted.
+	i8 := expr.Expression(expr.NewPrimitiveLiteral(int8(1), false))
+	i16 := expr.Expression(expr.NewPrimitiveLiteral(int16(1), false))
+	i32 := expr.Expression(expr.NewPrimitiveLiteral(int32(1), false))
+	i64 := expr.Expression(expr.NewPrimitiveLiteral(int64(10), false))
+
+	for _, e := range []*expr.Expression{&i8, &i16, &i32, &i64} {
+		_, err = b.Fetch(scan, e, e)
+		assert.NoError(t, err)
+	}
+}
+
 func TestFilterRelation(t *testing.T) {
 	const expectedJSON = `{
 		` + versionStruct + `,
