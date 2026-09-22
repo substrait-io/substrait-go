@@ -76,8 +76,10 @@ type Builder interface {
 	Cross(left, right Rel) (*CrossRel, error)
 	// Fetch constructs a Fetch relation that skips offset rows and returns at most count rows from the input.
 	//
-	// offset must evaluate to a non-negative integer or Substrait null. Pass a Go nil for no offset.
-	// count must evaluate to a non-negative integer or Substrait null. Pass a Go nil to return all records.
+	// offset must evaluate to a non-negative integer or Substrait null. Pass nil for no offset.
+	// A Substrait null offset is treated as 0.
+	// count must evaluate to a non-negative integer or Substrait null. Pass nil to return all records.
+	// A Substrait null count returns all records.
 	Fetch(input Rel, offset, count expr.Expression) (*FetchRel, error)
 	Filter(input Rel, condition expr.Expression) (*FilterRel, error)
 	Join(left, right Rel, condition expr.Expression, joinType JoinType) (*JoinRel, error)
