@@ -1912,7 +1912,44 @@ const (
 	HashMergeRightSemi
 	HashMergeLeftAnti
 	HashMergeRightAnti
+	HashMergeLeftSingle
+	HashMergeRightSingle
+	HashMergeLeftMark
+	HashMergeRightMark
 )
+
+// outputSchema applies the physical join type before emit mapping.
+// HashMergeJoinType and JoinType use different values for semi, anti and single joins.
+func (t HashMergeJoinType) outputSchema(left, right types.RecordType) types.RecordType {
+	switch t {
+	case HashMergeInner:
+		return left.Concat(right)
+	case HashMergeLeftSemi, HashMergeLeftAnti:
+		return left
+	case HashMergeRightSemi, HashMergeRightAnti:
+		return right
+	case HashMergeOuter:
+		return nullableRecordType(left).Concat(nullableRecordType(right))
+	case HashMergeLeft, HashMergeLeftSingle:
+		return left.Concat(nullableRecordType(right))
+	case HashMergeRight, HashMergeRightSingle:
+		return nullableRecordType(left).Concat(right)
+	case HashMergeLeftMark:
+		return left.Concat(*types.NewRecordTypeFromTypes([]types.Type{&types.BooleanType{Nullability: types.NullabilityNullable}}))
+	case HashMergeRightMark:
+		return right.Concat(*types.NewRecordTypeFromTypes([]types.Type{&types.BooleanType{Nullability: types.NullabilityNullable}}))
+	default:
+		return left.Concat(right)
+	}
+}
+
+func nullableRecordType(record types.RecordType) types.RecordType {
+	fields := make([]types.Type, record.FieldCount())
+	for i, field := range record.Types() {
+		fields[i] = field.WithNullability(types.NullabilityNullable)
+	}
+	return *types.NewRecordTypeFromTypes(fields)
+}
 
 // SimpleComparisonType describes one of the predefined comparison behaviors
 // used by a ComparisonJoinKey.
@@ -2136,7 +2173,7 @@ type HashJoinRel struct {
 }
 
 func (hr *HashJoinRel) directOutputSchema() types.RecordType {
-	return hr.left.RecordType().Concat(hr.right.RecordType())
+	return hr.joinType.outputSchema(hr.left.RecordType(), hr.right.RecordType())
 }
 
 func (hr *HashJoinRel) RecordType() types.RecordType {
@@ -2253,7 +2290,7 @@ type MergeJoinRel struct {
 }
 
 func (mr *MergeJoinRel) directOutputSchema() types.RecordType {
-	return mr.left.RecordType().Concat(mr.right.RecordType())
+	return mr.joinType.outputSchema(mr.left.RecordType(), mr.right.RecordType())
 }
 
 func (mr *MergeJoinRel) RecordType() types.RecordType {

@@ -15,6 +15,24 @@ import (
 	"github.com/substrait-io/substrait-go/v9/types/integer_parameters"
 )
 
+func TestRecordTypeConcatDoesNotShareStorage(t *testing.T) {
+	i64 := &Int64Type{Nullability: NullabilityRequired}
+	str := &StringType{Nullability: NullabilityRequired}
+	boolean := &BooleanType{Nullability: NullabilityRequired}
+	storage := []Type{i64, boolean}
+	left := NewRecordTypeFromTypes(storage[:1])
+	right := NewRecordTypeFromTypes([]Type{str})
+
+	result := left.Concat(*right)
+	assert.Equal(t, []Type{i64, str}, result.Types())
+	assert.Equal(t, []Type{i64, boolean}, storage)
+
+	result.Types()[0] = str
+	result.Types()[1] = boolean
+	assert.Equal(t, []Type{i64}, left.Types())
+	assert.Equal(t, []Type{str}, right.Types())
+}
+
 func TestTypeToString(t *testing.T) {
 	tests := []struct {
 		t        Type
