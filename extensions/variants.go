@@ -270,6 +270,13 @@ func getFuncDefFromArgList(paramTypeList FuncParameterList) ([]types.FuncDefArgT
 	return out, nil
 }
 
+// parseFuncName splits a compound name into its simple name and the argument
+// types its suffix lists. The name comes from a plan, and a suffix does not
+// always parse: a signature holds short type names, and ParseType rejects the
+// ones that stand for a parameterized type, such as the "dec" this library
+// writes for a decimal. Such a suffix leaves the arguments unknown, so the
+// variant keeps the compound name it was built from rather than deriving one
+// from arguments it does not have.
 func parseFuncName(compoundName string) (name string, args FuncParameterList) {
 	name, argsStr, _ := strings.Cut(compoundName, ":")
 	if len(argsStr) == 0 {
@@ -279,7 +286,7 @@ func parseFuncName(compoundName string) (name string, args FuncParameterList) {
 	for _, argStr := range splitArgs {
 		parsed, err := parser.ParseType(argStr)
 		if err != nil {
-			panic(err)
+			return name, nil
 		}
 		exp := ValueArg{Name: name, Value: &parser.TypeExpression{ValueType: parsed}}
 		args = append(args, exp)
@@ -311,9 +318,10 @@ func maxArgumentCount(paramTypeList FuncParameterList, variadicBehavior *Variadi
 func NewScalarFuncVariant(id FunctionID) *ScalarFunctionVariant {
 	simpleName, args := parseFuncName(id.Name)
 	return &ScalarFunctionVariant{
-		name: simpleName,
-		urn:  id.URN,
-		impl: ScalarFunctionImpl{Args: args},
+		name:         simpleName,
+		compoundName: id.Name,
+		urn:          id.URN,
+		impl:         ScalarFunctionImpl{Args: args},
 	}
 }
 
@@ -323,8 +331,9 @@ func NewScalarFuncVariant(id FunctionID) *ScalarFunctionVariant {
 func NewScalarFuncVariantWithProps(id FunctionID, variadic *VariadicBehavior, sessionDependant, deterministic bool) *ScalarFunctionVariant {
 	simpleName, args := parseFuncName(id.Name)
 	return &ScalarFunctionVariant{
-		name: simpleName,
-		urn:  id.URN,
+		name:         simpleName,
+		compoundName: id.Name,
+		urn:          id.URN,
 		impl: ScalarFunctionImpl{
 			Args:             args,
 			Variadic:         variadic,
@@ -335,11 +344,14 @@ func NewScalarFuncVariantWithProps(id FunctionID, variadic *VariadicBehavior, se
 }
 
 type ScalarFunctionVariant struct {
-	name        string
-	description string
-	urn         string
-	impl        ScalarFunctionImpl
-	metadata    map[string]any
+	name string
+	// compoundName is set for a variant built from a plan's function name,
+	// whose arguments the signature may not describe well enough to rebuild it.
+	compoundName string
+	description  string
+	urn          string
+	impl         ScalarFunctionImpl
+	metadata     map[string]any
 }
 
 func (s *ScalarFunctionVariant) Name() string                     { return s.name }
@@ -365,6 +377,9 @@ func (s *ScalarFunctionVariant) ResolveType(argumentTypes []types.Type, registry
 	return EvaluateTypeExpression(s.urn, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
 }
 func (s *ScalarFunctionVariant) CompoundName() string {
+	if s.compoundName != "" {
+		return s.compoundName
+	}
 	return s.name + ":" + s.impl.signatureKey()
 }
 func (s *ScalarFunctionVariant) ID() FunctionID {
@@ -396,8 +411,9 @@ func (s *ScalarFunctionVariant) MaxArgumentCount() int {
 func NewAggFuncVariant(id FunctionID) *AggregateFunctionVariant {
 	simpleName, args := parseFuncName(id.Name)
 	return &AggregateFunctionVariant{
-		name: simpleName,
-		urn:  id.URN,
+		name:         simpleName,
+		compoundName: id.Name,
+		urn:          id.URN,
 		impl: AggregateFunctionImpl{
 			ScalarFunctionImpl: ScalarFunctionImpl{
 				Args: args,
@@ -440,8 +456,9 @@ func NewAggFuncVariantOpts(id FunctionID, opts AggVariantOptions) *AggregateFunc
 
 	simpleName, args := parseFuncName(id.Name)
 	return &AggregateFunctionVariant{
-		name: simpleName,
-		urn:  id.URN,
+		name:         simpleName,
+		compoundName: id.Name,
+		urn:          id.URN,
 		impl: AggregateFunctionImpl{
 			ScalarFunctionImpl: ScalarFunctionImpl{
 				Args:             args,
@@ -458,11 +475,14 @@ func NewAggFuncVariantOpts(id FunctionID, opts AggVariantOptions) *AggregateFunc
 }
 
 type AggregateFunctionVariant struct {
-	name        string
-	description string
-	urn         string
-	impl        AggregateFunctionImpl
-	metadata    map[string]any
+	name string
+	// compoundName is set for a variant built from a plan's function name,
+	// whose arguments the signature may not describe well enough to rebuild it.
+	compoundName string
+	description  string
+	urn          string
+	impl         AggregateFunctionImpl
+	metadata     map[string]any
 }
 
 func (s *AggregateFunctionVariant) Name() string                     { return s.name }
@@ -489,6 +509,9 @@ func (s *AggregateFunctionVariant) ResolveType(argumentTypes []types.Type, regis
 	return EvaluateTypeExpression(s.urn, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
 }
 func (s *AggregateFunctionVariant) CompoundName() string {
+	if s.compoundName != "" {
+		return s.compoundName
+	}
 	return s.name + ":" + s.impl.signatureKey()
 }
 func (s *AggregateFunctionVariant) ID() FunctionID {
@@ -518,18 +541,22 @@ func (s *AggregateFunctionVariant) MaxArgumentCount() int {
 }
 
 type WindowFunctionVariant struct {
-	name        string
-	description string
-	urn         string
-	impl        WindowFunctionImpl
-	metadata    map[string]any
+	name string
+	// compoundName is set for a variant built from a plan's function name,
+	// whose arguments the signature may not describe well enough to rebuild it.
+	compoundName string
+	description  string
+	urn          string
+	impl         WindowFunctionImpl
+	metadata     map[string]any
 }
 
 func NewWindowFuncVariant(id FunctionID) *WindowFunctionVariant {
 	simpleName, args := parseFuncName(id.Name)
 	return &WindowFunctionVariant{
-		name: simpleName,
-		urn:  id.URN,
+		name:         simpleName,
+		compoundName: id.Name,
+		urn:          id.URN,
 		impl: WindowFunctionImpl{
 			AggregateFunctionImpl: AggregateFunctionImpl{
 				ScalarFunctionImpl: ScalarFunctionImpl{Args: args},
@@ -577,8 +604,9 @@ func NewWindowFuncVariantOpts(id FunctionID, opts WindowVariantOpts) *WindowFunc
 
 	simpleName, args := parseFuncName(id.Name)
 	return &WindowFunctionVariant{
-		name: simpleName,
-		urn:  id.URN,
+		name:         simpleName,
+		compoundName: id.Name,
+		urn:          id.URN,
 		impl: WindowFunctionImpl{
 			AggregateFunctionImpl: AggregateFunctionImpl{
 				ScalarFunctionImpl: ScalarFunctionImpl{
@@ -621,6 +649,9 @@ func (s *WindowFunctionVariant) ResolveType(argumentTypes []types.Type, registry
 	return EvaluateTypeExpression(s.urn, s.impl.Nullability, s.impl.Return.ValueType, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
 }
 func (s *WindowFunctionVariant) CompoundName() string {
+	if s.compoundName != "" {
+		return s.compoundName
+	}
 	return s.name + ":" + s.impl.signatureKey()
 }
 func (s *WindowFunctionVariant) ID() FunctionID {
