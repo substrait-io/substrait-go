@@ -51,13 +51,22 @@ func (m *AnyType) ShortString() string {
 }
 
 // unwrapAnyTypeWithName searches for AnyType in p with the specified name,
-// and if found, returns argType.  If p is a composite type,
-// recursively unwraps p to search for AnyType in p's parameters.
-// Returns nil Type if AnyType was not found.
+// and if found, returns the concrete type bound by that occurrence. A nullable
+// occurrence binds the required base type; ReturnType reapplies the return
+// occurrence's declared nullability. If p is a composite type, the search
+// recurses through its parameters. Returns nil Type if AnyType was not found.
 func unwrapAnyTypeWithName(name string, p FuncDefArgType, argType Type) (Type, error) {
 	switch arg := p.(type) {
 	case *AnyType:
 		if arg.Name == name {
+			// A nullable any occurrence represents a nullable use of the required
+			// base type. Strip the occurrence's nullability from the binding here;
+			// ReturnType reapplies the return occurrence's declared nullability.
+			// This lets a signature relate any1 and any1? across structures, for
+			// example j(any1, list<any1?>) -> any1.
+			if arg.Nullability == NullabilityNullable {
+				return argType.WithNullability(NullabilityRequired), nil
+			}
 			return argType, nil
 		}
 	case *ParameterizedListType:
