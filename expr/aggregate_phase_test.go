@@ -39,11 +39,11 @@ func TestAggregateFunctionPhases(t *testing.T) {
 		{"decimal_min", "functions_arithmetic_decimal/min:dec", "decimal?<12,2>", "decimal?<12,2>", "decimal?<12,2>"},
 	}
 	phases := []types.AggregationPhase{
-		types.AggPhaseInitialToIntermediate,
-		types.AggPhaseIntermediateToIntermediate,
-		types.AggPhaseInitialToResult,
-		types.AggPhaseIntermediateToResult,
-		types.AggPhaseUnspecified,
+		types.AggregationPhaseInitialToIntermediate,
+		types.AggregationPhaseIntermediateToIntermediate,
+		types.AggregationPhaseInitialToResult,
+		types.AggregationPhaseIntermediateToResult,
+		types.AggregationPhaseUnspecified,
 	}
 	for _, tt := range tests {
 		for _, phase := range phases {
@@ -57,7 +57,7 @@ func TestAggregateFunctionPhases(t *testing.T) {
 					urn, name, _ := strings.Cut(tt.function, "/")
 					id := extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + urn, Name: name}
 					input := tt.intermediate
-					if phase == types.AggPhaseInitialToIntermediate || phase == types.AggPhaseInitialToResult {
+					if phase == types.AggregationPhaseInitialToIntermediate || phase == types.AggregationPhaseInitialToResult {
 						input = tt.initial
 					}
 					var args []types.FuncArg
@@ -65,18 +65,18 @@ func TestAggregateFunctionPhases(t *testing.T) {
 						args = []types.FuncArg{&expr.DynamicParameter{OutputType: phaseType(t, input)}}
 					}
 					expected := tt.result
-					if phase == types.AggPhaseInitialToIntermediate || phase == types.AggPhaseIntermediateToIntermediate {
+					if phase == types.AggregationPhaseInitialToIntermediate || phase == types.AggregationPhaseIntermediateToIntermediate {
 						expected = tt.intermediate
 					}
 					if window {
-						fn, err := expr.NewWindowFunc(reg, id, nil, types.AggInvocationAll, phase, args...)
+						fn, err := expr.NewWindowFunc(reg, id, nil, types.AggregationInvocationAll, phase, args...)
 						require.NoError(t, err)
 						assert.Equal(t, phaseType(t, expected), fn.GetType())
 						assert.Equal(t, types.TypeToProto(phaseType(t, expected)), fn.ToProto().GetWindowFunction().OutputType)
 						assert.Equal(t, id, fn.ID())
 						assert.Equal(t, phase, fn.Phase())
 					} else {
-						fn, err := expr.NewAggregateFunc(reg, id, nil, types.AggInvocationAll, phase, nil, args...)
+						fn, err := expr.NewAggregateFunc(reg, id, nil, types.AggregationInvocationAll, phase, nil, args...)
 						require.NoError(t, err)
 						assert.Equal(t, phaseType(t, expected), fn.GetType())
 						assert.Equal(t, types.TypeToProto(phaseType(t, expected)), fn.ToProto().OutputType)
@@ -96,13 +96,13 @@ func TestAggregatePhaseRejectsInvalidArguments(t *testing.T) {
 		args           []string
 		target         error
 	}{
-		{"original_input", "avg:i32", types.AggPhaseIntermediateToResult, []string{"i32"}, substraitgo.ErrInvalidType},
-		{"missing_state", "avg:i32", types.AggPhaseIntermediateToResult, nil, substraitgo.ErrInvalidExpr},
-		{"multiple_states", "avg:i32", types.AggPhaseIntermediateToResult, []string{"struct<i64,i64>", "struct<i64,i64>"}, substraitgo.ErrInvalidExpr},
-		{"ambiguous_state", "avg", types.AggPhaseIntermediateToResult, []string{"struct<i64,i64>"}, substraitgo.ErrNotFound},
-		{"state_cannot_identify_sum_overload", "sum", types.AggPhaseIntermediateToResult, []string{"i64?"}, substraitgo.ErrNotFound},
-		{"nondecomposable", "mode:i32", types.AggPhaseInitialToIntermediate, []string{"i32"}, substraitgo.ErrInvalidExpr},
-		{"nondecomposable_unspecified", "mode:i32", types.AggPhaseUnspecified, []string{"i32"}, substraitgo.ErrInvalidExpr},
+		{"original_input", "avg:i32", types.AggregationPhaseIntermediateToResult, []string{"i32"}, substraitgo.ErrInvalidType},
+		{"missing_state", "avg:i32", types.AggregationPhaseIntermediateToResult, nil, substraitgo.ErrInvalidExpr},
+		{"multiple_states", "avg:i32", types.AggregationPhaseIntermediateToResult, []string{"struct<i64,i64>", "struct<i64,i64>"}, substraitgo.ErrInvalidExpr},
+		{"ambiguous_state", "avg", types.AggregationPhaseIntermediateToResult, []string{"struct<i64,i64>"}, substraitgo.ErrNotFound},
+		{"state_cannot_identify_sum_overload", "sum", types.AggregationPhaseIntermediateToResult, []string{"i64?"}, substraitgo.ErrNotFound},
+		{"nondecomposable", "mode:i32", types.AggregationPhaseInitialToIntermediate, []string{"i32"}, substraitgo.ErrInvalidExpr},
+		{"nondecomposable_unspecified", "mode:i32", types.AggregationPhaseUnspecified, []string{"i32"}, substraitgo.ErrInvalidExpr},
 		{"invalid_phase", "avg:i32", types.AggregationPhase(99), []string{"i32"}, substraitgo.ErrInvalidExpr},
 	}
 	for _, tt := range tests {
@@ -120,9 +120,9 @@ func TestAggregatePhaseRejectsInvalidArguments(t *testing.T) {
 				}
 				var err error
 				if window {
-					_, err = expr.NewWindowFunc(reg, id, nil, types.AggInvocationAll, tt.phase, args...)
+					_, err = expr.NewWindowFunc(reg, id, nil, types.AggregationInvocationAll, tt.phase, args...)
 				} else {
-					_, err = expr.NewAggregateFunc(reg, id, nil, types.AggInvocationAll, tt.phase, nil, args...)
+					_, err = expr.NewAggregateFunc(reg, id, nil, types.AggregationInvocationAll, tt.phase, nil, args...)
 				}
 				require.ErrorIs(t, err, tt.target)
 			})
@@ -183,18 +183,18 @@ aggregate_functions:
 		name, input, output string
 		phase               types.AggregationPhase
 	}{
-		{"nested:any", "string", "struct<string,i64>", types.AggPhaseInitialToIntermediate},
-		{"nested:any", "struct<string,i64>", "string", types.AggPhaseIntermediateToResult},
-		{"nested:any", "struct<string,i64>", "struct<string,i64>", types.AggPhaseIntermediateToIntermediate},
-		{"mirror:dec", "struct?<decimal<12,2>,i64>", "decimal?<12,2>", types.AggPhaseIntermediateToResult},
-		{"mirror:dec", "struct<decimal?<12,2>,i64>", "decimal<12,2>", types.AggPhaseIntermediateToResult},
-		{"discrete:dec", "struct<decimal<12,2>,i64>", "decimal?<12,2>", types.AggPhaseIntermediateToResult},
-		{"discrete:dec", "struct?<decimal<12,2>,i64>", "", types.AggPhaseIntermediateToResult},
-		{"discrete:dec", "struct<decimal?<12,2>,i64>", "", types.AggPhaseIntermediateToResult},
-		{"lost_parameter:dec", "decimal<12,2>", "decimal<38,2>", types.AggPhaseInitialToIntermediate},
-		{"lost_parameter:dec", "decimal<38,2>", "", types.AggPhaseIntermediateToResult},
-		{"derived_parameter:dec", "decimal<12,2>", "decimal<13,2>", types.AggPhaseInitialToIntermediate},
-		{"derived_parameter:dec", "decimal<13,2>", "", types.AggPhaseIntermediateToResult},
+		{"nested:any", "string", "struct<string,i64>", types.AggregationPhaseInitialToIntermediate},
+		{"nested:any", "struct<string,i64>", "string", types.AggregationPhaseIntermediateToResult},
+		{"nested:any", "struct<string,i64>", "struct<string,i64>", types.AggregationPhaseIntermediateToIntermediate},
+		{"mirror:dec", "struct?<decimal<12,2>,i64>", "decimal?<12,2>", types.AggregationPhaseIntermediateToResult},
+		{"mirror:dec", "struct<decimal?<12,2>,i64>", "decimal<12,2>", types.AggregationPhaseIntermediateToResult},
+		{"discrete:dec", "struct<decimal<12,2>,i64>", "decimal?<12,2>", types.AggregationPhaseIntermediateToResult},
+		{"discrete:dec", "struct?<decimal<12,2>,i64>", "", types.AggregationPhaseIntermediateToResult},
+		{"discrete:dec", "struct<decimal?<12,2>,i64>", "", types.AggregationPhaseIntermediateToResult},
+		{"lost_parameter:dec", "decimal<12,2>", "decimal<38,2>", types.AggregationPhaseInitialToIntermediate},
+		{"lost_parameter:dec", "decimal<38,2>", "", types.AggregationPhaseIntermediateToResult},
+		{"derived_parameter:dec", "decimal<12,2>", "decimal<13,2>", types.AggregationPhaseInitialToIntermediate},
+		{"derived_parameter:dec", "decimal<13,2>", "", types.AggregationPhaseIntermediateToResult},
 	}
 	for _, tt := range tests {
 		for _, window := range []bool{false, true} {
@@ -210,13 +210,13 @@ aggregate_functions:
 				var err error
 				if window {
 					var fn *expr.WindowFunction
-					fn, err = expr.NewWindowFunc(reg, id, nil, types.AggInvocationAll, tt.phase, arg)
+					fn, err = expr.NewWindowFunc(reg, id, nil, types.AggregationInvocationAll, tt.phase, arg)
 					if err == nil {
 						output = fn.GetType()
 					}
 				} else {
 					var fn *expr.AggregateFunction
-					fn, err = expr.NewAggregateFunc(reg, id, nil, types.AggInvocationAll, tt.phase, nil, arg)
+					fn, err = expr.NewAggregateFunc(reg, id, nil, types.AggregationInvocationAll, tt.phase, nil, arg)
 					if err == nil {
 						output = fn.GetType()
 					}
@@ -250,7 +250,7 @@ window_functions:
 	reg := expr.NewEmptyExtensionRegistry(&col)
 	id := extensions.FunctionID{URN: "extension:test:window_phase", Name: "partial"}
 	arg := &expr.DynamicParameter{OutputType: phaseType(t, "i64")}
-	window, err := expr.NewWindowFunc(reg, id, nil, types.AggInvocationAll, types.AggPhaseIntermediateToResult, arg)
+	window, err := expr.NewWindowFunc(reg, id, nil, types.AggregationInvocationAll, types.AggregationPhaseIntermediateToResult, arg)
 	require.NoError(t, err)
 	assert.Equal(t, "partial:i32", window.CompoundName())
 	assert.Equal(t, phaseType(t, "i32"), window.GetType())
@@ -292,7 +292,7 @@ aggregate_functions:
 		{"conflicting_any", "any_types:any_any", "struct<string,i64>", false},
 	} {
 		for _, phase := range []types.AggregationPhase{
-			types.AggPhaseIntermediateToResult, types.AggPhaseIntermediateToIntermediate, types.AggPhaseUnspecified,
+			types.AggregationPhaseIntermediateToResult, types.AggregationPhaseIntermediateToIntermediate, types.AggregationPhaseUnspecified,
 		} {
 			for _, window := range []bool{false, true} {
 				kind := "aggregate"
@@ -305,9 +305,9 @@ aggregate_functions:
 					arg := &expr.DynamicParameter{OutputType: phaseType(t, tt.state)}
 					var err error
 					if window {
-						_, err = expr.NewWindowFunc(reg, id, nil, types.AggInvocationAll, phase, arg)
+						_, err = expr.NewWindowFunc(reg, id, nil, types.AggregationInvocationAll, phase, arg)
 					} else {
-						_, err = expr.NewAggregateFunc(reg, id, nil, types.AggInvocationAll, phase, nil, arg)
+						_, err = expr.NewAggregateFunc(reg, id, nil, types.AggregationInvocationAll, phase, nil, arg)
 					}
 					if tt.valid {
 						require.NoError(t, err)
@@ -324,11 +324,11 @@ func TestAggregateInitialPhaseInfersSignature(t *testing.T) {
 	reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
 	id := extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Name: "avg"}
 	arg := expr.NewPrimitiveLiteral(int32(7), false)
-	agg, err := expr.NewAggregateFunc(reg, id, nil, types.AggInvocationAll, types.AggPhaseInitialToIntermediate, nil, arg)
+	agg, err := expr.NewAggregateFunc(reg, id, nil, types.AggregationInvocationAll, types.AggregationPhaseInitialToIntermediate, nil, arg)
 	require.NoError(t, err)
 	assert.Equal(t, "avg:i32", agg.CompoundName())
 	assert.Equal(t, phaseType(t, "struct<i64,i64>"), agg.GetType())
-	window, err := expr.NewWindowFunc(reg, id, nil, types.AggInvocationAll, types.AggPhaseInitialToIntermediate, arg)
+	window, err := expr.NewWindowFunc(reg, id, nil, types.AggregationInvocationAll, types.AggregationPhaseInitialToIntermediate, arg)
 	require.NoError(t, err)
 	assert.Equal(t, "avg:i32", window.CompoundName())
 	assert.Equal(t, phaseType(t, "struct<i64,i64>"), window.GetType())

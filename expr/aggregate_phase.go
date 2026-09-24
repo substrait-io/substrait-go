@@ -29,13 +29,13 @@ func resolveAggregateVariant[T aggregateVariant](
 ) (T, types.Type, error) {
 	var initial, intermediateOutput bool
 	switch phase {
-	case types.AggPhaseInitialToResult:
+	case types.AggregationPhaseInitialToResult:
 		initial = true
-	case types.AggPhaseInitialToIntermediate:
+	case types.AggregationPhaseInitialToIntermediate:
 		initial, intermediateOutput = true, true
-	case types.AggPhaseIntermediateToIntermediate:
+	case types.AggregationPhaseIntermediateToIntermediate:
 		intermediateOutput = true
-	case types.AggPhaseIntermediateToResult, types.AggPhaseUnspecified:
+	case types.AggregationPhaseIntermediateToResult, types.AggregationPhaseUnspecified:
 		// The protobuf definition specifies that UNSPECIFIED implies INTERMEDIATE_TO_RESULT.
 	default:
 		return nil, nil, fmt.Errorf("%w: invalid aggregation phase %d", substraitgo.ErrInvalidExpr, phase)
@@ -58,7 +58,7 @@ func resolveAggregateVariant[T aggregateVariant](
 			return nil, nil, fmt.Errorf("%w: intermediate-input phase requires a matching function id (use the original compound name): %s", substraitgo.ErrNotFound, id)
 		}
 	}
-	if decl.Decomposability() == extensions.DecomposeNone && phase != types.AggPhaseInitialToResult {
+	if decl.Decomposability() == extensions.DecomposeNone && phase != types.AggregationPhaseInitialToResult {
 		return nil, nil, fmt.Errorf("%w: non-decomposable window or agg function '%s' must use InitialToResult phase", substraitgo.ErrInvalidExpr, id)
 	}
 	if initial && !intermediateOutput {
