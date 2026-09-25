@@ -7,6 +7,19 @@ import (
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
+func relCommonToProto(rc *plan.RelCommon) *proto.RelCommon {
+	ret := &proto.RelCommon{
+		Hint:              hintToProto(rc.Hint()),
+		AdvancedExtension: advancedExtensionToProto(rc.GetAdvancedExtension()),
+	}
+	if mapping := rc.OutputMapping(); mapping == nil {
+		ret.EmitKind = &proto.RelCommon_Direct_{Direct: &proto.RelCommon_Direct{}}
+	} else {
+		ret.EmitKind = &proto.RelCommon_Emit_{Emit: &proto.RelCommon_Emit{OutputMapping: mapping}}
+	}
+	return ret
+}
+
 func statsToProto(s *plan.Stats) *proto.RelCommon_Hint_Stats {
 	if s == nil {
 		return nil
