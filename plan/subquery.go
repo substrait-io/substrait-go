@@ -14,22 +14,6 @@ import (
 // SubqueryFromProto creates a subquery expression from a protobuf message
 func (r *ExpressionConverter) SubqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordType, reg expr.ExtensionRegistry) (expr.Expression, error) {
 	switch subType := sub.SubqueryType.(type) {
-	case *proto.Expression_Subquery_InPredicate_:
-		needles := make([]expr.Expression, len(subType.InPredicate.Needles))
-		for i, needle := range subType.InPredicate.Needles {
-			expr, err := expr.ExprFromProto(needle, baseSchema, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error parsing needle %d in IN predicate: %w", i, err)
-			}
-			needles[i] = expr
-		}
-
-		rel, err := RelFromProto(subType.InPredicate.Haystack, reg)
-		if err != nil {
-			return nil, err
-		}
-
-		return NewInPredicateSubquery(needles, rel), nil
 	case *proto.Expression_Subquery_SetPredicate_:
 		tuples, err := RelFromProto(subType.SetPredicate.Tuples, reg)
 		if err != nil {
@@ -146,26 +130,6 @@ func (s *InPredicateSubquery) IsScalar() bool {
 
 func (s *InPredicateSubquery) GetType() types.Type {
 	return &types.BooleanType{Nullability: types.NullabilityRequired}
-}
-
-func (s *InPredicateSubquery) ToProto() *proto.Expression {
-	needles := make([]*proto.Expression, len(s.Needles))
-	for i, needle := range s.Needles {
-		needles[i] = needle.ToProto()
-	}
-
-	return &proto.Expression{
-		RexType: &proto.Expression_Subquery_{
-			Subquery: &proto.Expression_Subquery{
-				SubqueryType: &proto.Expression_Subquery_InPredicate_{
-					InPredicate: &proto.Expression_Subquery_InPredicate{
-						Needles:  needles,
-						Haystack: s.Haystack.ToProto(),
-					},
-				},
-			},
-		},
-	}
 }
 
 func (s *InPredicateSubquery) Equals(other expr.Expression) bool {
