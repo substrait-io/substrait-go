@@ -58,36 +58,6 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 	}
 
 	switch et := e.RexType.(type) {
-	case *proto.Expression_ScalarFunction_:
-		var err error
-		args := make([]types.FuncArg, len(et.ScalarFunction.Arguments))
-		for i, a := range et.ScalarFunction.Arguments {
-			if args[i], err = FuncArgFromProto(a, baseSchema, reg); err != nil {
-				return nil, err
-			}
-		}
-
-		if et.ScalarFunction.OutputType == nil {
-			return nil, fmt.Errorf("%w: scalar function missing output type", substraitgo.ErrInvalidExpr)
-		}
-
-		id, ok := reg.DecodeFunc(et.ScalarFunction.FunctionReference)
-		if !ok {
-			return nil, substraitgo.ErrNotFound
-		}
-
-		decl, ok := reg.LookupScalarFunction(et.ScalarFunction.FunctionReference)
-		if !ok {
-			return NewCustomScalarFunc(reg, extensions.NewScalarFuncVariant(id), types.TypeFromProto(et.ScalarFunction.OutputType), types.FunctionOptionsFromProto(et.ScalarFunction.Options), args...)
-		}
-
-		return &ScalarFunction{
-			funcRef:     et.ScalarFunction.FunctionReference,
-			declaration: decl,
-			args:        args,
-			options:     types.FunctionOptionsFromProto(et.ScalarFunction.Options),
-			outputType:  types.TypeFromProto(et.ScalarFunction.OutputType),
-		}, nil
 	case *proto.Expression_WindowFunction_:
 		var err error
 		args := make([]types.FuncArg, len(et.WindowFunction.Arguments))
