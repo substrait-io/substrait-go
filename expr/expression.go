@@ -58,8 +58,6 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 	}
 
 	switch et := e.RexType.(type) {
-	case *proto.Expression_Selection:
-		return FieldReferenceFromProto(et.Selection, baseSchema, reg)
 	case *proto.Expression_ScalarFunction_:
 		var err error
 		args := make([]types.FuncArg, len(et.ScalarFunction.Arguments))

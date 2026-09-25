@@ -172,6 +172,54 @@ func maskMapSelectToProto(m *expr.MaskMapSelect) *proto.Expression_MaskExpressio
 	return &proto.Expression_MaskExpression_Select{Type: mapSelect}
 }
 
+// FieldReferenceToProto encodes a field reference as its protobuf message.
+func FieldReferenceToProto(f *expr.FieldReference) *proto.Expression {
+	return &proto.Expression{
+		RexType: &proto.Expression_Selection{Selection: fieldReferenceRefToProto(f)},
+	}
+}
+
+func fieldReferenceRefToProto(f *expr.FieldReference) *proto.Expression_FieldReference {
+	ret := &proto.Expression_FieldReference{}
+	switch r := f.Reference.(type) {
+	case expr.ReferenceSegment:
+		ret.ReferenceType = &proto.Expression_FieldReference_DirectReference{
+			DirectReference: RefSegmentToProto(r),
+		}
+	case *expr.MaskExpression:
+		ret.ReferenceType = &proto.Expression_FieldReference_MaskedReference{
+			MaskedReference: MaskExpressionToProto(r),
+		}
+	}
+
+	if f.Root != expr.RootReference {
+		switch r := f.Root.(type) {
+		case expr.Expression:
+			ret.RootType = &proto.Expression_FieldReference_Expression{
+				Expression: ExprToProto(r),
+			}
+		case expr.OuterReference:
+			ret.RootType = &proto.Expression_FieldReference_OuterReference_{
+				OuterReference: &proto.Expression_FieldReference_OuterReference{
+					StepsOut: uint32(r),
+				},
+			}
+		case expr.LambdaParameterReference:
+			ret.RootType = &proto.Expression_FieldReference_LambdaParameterReference_{
+				LambdaParameterReference: &proto.Expression_FieldReference_LambdaParameterReference{
+					StepsOut: r.StepsOut,
+				},
+			}
+		}
+	} else {
+		ret.RootType = &proto.Expression_FieldReference_RootReference_{
+			RootReference: &proto.Expression_FieldReference_RootReference{},
+		}
+	}
+
+	return ret
+}
+
 // RefSegmentFromProto decodes a reference segment from its protobuf message.
 func RefSegmentFromProto(p *proto.Expression_ReferenceSegment) expr.ReferenceSegment {
 	if p == nil {
@@ -250,4 +298,51 @@ func maskSelectFromProto(p *proto.Expression_MaskExpression_Select) expr.MaskSel
 		return expr.NewMaskMapSelect(expr.MapSelectKey, "", child)
 	}
 	panic("unimplemented mask select type")
+}
+
+// FieldReferenceFromProto decodes a field reference from its protobuf message.
+func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema *types.RecordType, reg expr.ExtensionRegistry) (*expr.FieldReference, error) {
+	var (
+		ref       expr.Reference
+		root      expr.RootRefType
+		knownType types.Type
+		err       error
+	)
+
+	switch rt := p.RootType.(type) {
+	case *proto.Expression_FieldReference_Expression:
+		if root, err = ExprFromProto(rt.Expression, baseSchema, reg); err != nil {
+			return nil, err
+		}
+	case *proto.Expression_FieldReference_OuterReference_:
+		root = expr.OuterReference(rt.OuterReference.StepsOut)
+	case *proto.Expression_FieldReference_RootReference_:
+		root = expr.RootReference
+	case *proto.Expression_FieldReference_LambdaParameterReference_:
+		root = expr.LambdaParameterReference{StepsOut: rt.LambdaParameterReference.StepsOut}
+	}
+
+	switch rt := p.ReferenceType.(type) {
+	case *proto.Expression_FieldReference_DirectReference:
+		refseg := RefSegmentFromProto(rt.DirectReference)
+		if root == expr.RootReference && baseSchema != nil {
+			baseType := baseSchema.AsStructType()
+			knownType, err = refseg.GetType(baseType)
+			if err != nil {
+				return nil, err
+			}
+		} else if rootExpr, ok := root.(expr.Expression); ok {
+			knownType, err = refseg.GetType(rootExpr.GetType())
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		ref = refseg
+
+	case *proto.Expression_FieldReference_MaskedReference:
+		ref = MaskExpressionFromProto(rt.MaskedReference)
+	}
+
+	return expr.NewFieldReference(root, ref, knownType), nil
 }
