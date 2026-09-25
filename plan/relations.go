@@ -485,6 +485,10 @@ type ProjectRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
+func NewProjectRel(input Rel, exprs []expr.Expression, common RelCommon, advExtension *extensions.AdvancedExtension) *ProjectRel {
+	return &ProjectRel{RelCommon: common, input: input, exprs: exprs, advExtension: advExtension}
+}
+
 func (p *ProjectRel) directOutputSchema() types.RecordType {
 	initial := p.input.RecordType()
 	output := slices.Grow(slices.Clone(initial.Types()), len(p.exprs))
@@ -507,32 +511,6 @@ func (p *ProjectRel) SetAdvancedExtension(advExtension *extensions.AdvancedExten
 	existing := p.advExtension
 	p.advExtension = advExtension
 	return existing
-}
-
-func (p *ProjectRel) ToProto() *proto.Rel {
-	exprs := make([]*proto.Expression, len(p.exprs))
-	for i, e := range p.exprs {
-		exprs[i] = e.ToProto()
-	}
-
-	return &proto.Rel{
-		RelType: &proto.Rel_Project{
-			Project: &proto.ProjectRel{
-				Common:            p.toProto(),
-				Input:             p.input.ToProto(),
-				Expressions:       exprs,
-				AdvancedExtension: extensions.AdvancedExtensionToProto(p.advExtension),
-			},
-		},
-	}
-}
-
-func (p *ProjectRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: p.ToProto(),
-		},
-	}
 }
 
 func (p *ProjectRel) GetInputs() []Rel {
