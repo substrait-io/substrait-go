@@ -23,6 +23,8 @@ func RelToProto(rel plan.Rel) *proto.Rel {
 		return virtualTableReadRelToProto(r)
 	case *plan.ExtensionTableReadRel:
 		return extensionTableReadRelToProto(r)
+	case *plan.IcebergTableReadRel:
+		return icebergTableReadRelToProto(r)
 	default:
 		panic(fmt.Sprintf("wire: unhandled relation %T", rel))
 	}
@@ -81,6 +83,32 @@ func extensionTableReadRelToProto(e *plan.ExtensionTableReadRel) *proto.Rel {
 	readRel.ReadType = &proto.ReadRel_ExtensionTable_{
 		ExtensionTable: &proto.ReadRel_ExtensionTable{Detail: e.Detail()},
 	}
+	return &proto.Rel{RelType: &proto.Rel_Read{Read: readRel}}
+}
+
+func icebergTableReadRelToProto(n *plan.IcebergTableReadRel) *proto.Rel {
+	readRel := baseReadRelToProto(&n.RelCommon, n.GetAdvancedExtension(), n)
+
+	if directTableType, ok := n.TableType().(*plan.Direct); ok {
+		direct := &proto.ReadRel_IcebergTable_MetadataFileRead{
+			MetadataUri: directTableType.MetadataUri,
+		}
+		if directTableType.SnapshotId != "" {
+			direct.Snapshot = &proto.ReadRel_IcebergTable_MetadataFileRead_SnapshotId{
+				SnapshotId: string(directTableType.SnapshotId),
+			}
+		} else if directTableType.SnapshotTimestamp != 0 {
+			direct.Snapshot = &proto.ReadRel_IcebergTable_MetadataFileRead_SnapshotTimestamp{
+				SnapshotTimestamp: int64(directTableType.SnapshotTimestamp),
+			}
+		}
+		readRel.ReadType = &proto.ReadRel_IcebergTable_{
+			IcebergTable: &proto.ReadRel_IcebergTable{
+				TableType: &proto.ReadRel_IcebergTable_Direct{Direct: direct},
+			},
+		}
+	}
+
 	return &proto.Rel{RelType: &proto.Rel_Read{Read: readRel}}
 }
 
@@ -198,6 +226,29 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 			}
 			build = func(b decodedReadRelBase) plan.Rel {
 				return plan.NewVirtualTableReadRel(plan.NewBaseReadRel(b.common, b.baseSchema, b.filter, b.bestEffortFilter, b.projection, b.advExtension), values)
+			}
+		case *proto.ReadRel_IcebergTable_:
+			icebergTableType := readType.IcebergTable.TableType
+			if icebergTableType == nil {
+				return nil, fmt.Errorf("%w: IcebergTableType is required for IcebergTableReadRel", substraitgo.ErrInvalidRel)
+			}
+			if _, ok := icebergTableType.(plan.IcebergTableType); ok {
+				return nil, fmt.Errorf("%w: IcebergTableType must be a string", substraitgo.ErrInvalidRel)
+			}
+			direct, ok := icebergTableType.(*proto.ReadRel_IcebergTable_Direct)
+			if !ok {
+				return nil, fmt.Errorf("%w: only IcebergTableType Direct is supported", substraitgo.ErrInvalidRel)
+			}
+			tableType := &plan.Direct{
+				MetadataUri: direct.Direct.MetadataUri,
+			}
+			if snapshotId, ok := direct.Direct.Snapshot.(*proto.ReadRel_IcebergTable_MetadataFileRead_SnapshotId); ok {
+				tableType.SnapshotId = plan.SnapshotId(snapshotId.SnapshotId)
+			} else if snapshotTimestamp, ok := direct.Direct.Snapshot.(*proto.ReadRel_IcebergTable_MetadataFileRead_SnapshotTimestamp); ok {
+				tableType.SnapshotTimestamp = plan.SnapshotTimestamp(snapshotTimestamp.SnapshotTimestamp)
+			}
+			build = func(b decodedReadRelBase) plan.Rel {
+				return plan.NewIcebergTableReadRel(plan.NewBaseReadRel(b.common, b.baseSchema, b.filter, b.bestEffortFilter, b.projection, b.advExtension), tableType)
 			}
 		default:
 			return nil, fmt.Errorf("%w: unknown ReadRel type", substraitgo.ErrInvalidRel)
