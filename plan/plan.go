@@ -429,8 +429,6 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 	case *proto.Rel_Read:
 		var out ReadRel
 		switch readType := rel.Read.ReadType.(type) {
-		case *proto.ReadRel_ExtensionTable_:
-			out = &ExtensionTableReadRel{detail: readType.ExtensionTable.Detail}
 		case *proto.ReadRel_LocalFiles_:
 			items := make([]FileOrFiles, len(readType.LocalFiles.Items))
 			for i, item := range readType.LocalFiles.Items {
