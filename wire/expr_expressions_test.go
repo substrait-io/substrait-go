@@ -45,6 +45,23 @@ func TestScalarFunctionMissingOutputTypeReturnsError(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestWindowFunctionMissingOutputTypeReturnsError(t *testing.T) {
+	registry := expr.NewEmptyExtensionRegistry(ext.GetDefaultCollectionWithNoError())
+	functionReference := registry.GetFuncAnchor(ext.FunctionID{
+		URN:  "extension:io.substrait:functions_arithmetic",
+		Name: "sum:i64",
+	})
+
+	_, err := wire.ExprFromProto(&proto.Expression{
+		RexType: &proto.Expression_WindowFunction_{WindowFunction: &proto.Expression_WindowFunction{
+			FunctionReference: functionReference,
+			// OutputType intentionally omitted.
+		}},
+	}, nil, registry)
+
+	require.Error(t, err)
+}
+
 func literalI64Arg(value int64) *proto.FunctionArgument {
 	return &proto.FunctionArgument{ArgType: &proto.FunctionArgument_Value{Value: &proto.Expression{
 		RexType: &proto.Expression_Literal_{Literal: &proto.Expression_Literal{
