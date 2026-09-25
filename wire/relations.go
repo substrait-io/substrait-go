@@ -41,6 +41,8 @@ func RelToProto(rel plan.Rel) *proto.Rel {
 		return setRelToProto(r)
 	case *plan.CrossRel:
 		return crossRelToProto(r)
+	case *plan.JoinRel:
+		return joinRelToProto(r)
 	default:
 		panic(fmt.Sprintf("wire: unhandled relation %T", rel))
 	}
@@ -344,6 +346,21 @@ func crossRelToProto(c *plan.CrossRel) *proto.Rel {
 			},
 		},
 	}
+}
+
+func joinRelToProto(j *plan.JoinRel) *proto.Rel {
+	outRel := &proto.JoinRel{
+		Common:            relCommonToProto(&j.RelCommon),
+		Left:              RelToProto(j.Left()),
+		Right:             RelToProto(j.Right()),
+		Expression:        ExprToProto(j.Expr()),
+		Type:              proto.JoinRel_JoinType(j.Type()),
+		AdvancedExtension: advancedExtensionToProto(j.GetAdvancedExtension()),
+	}
+	if f := j.RawPostJoinFilter(); f != nil {
+		outRel.PostJoinFilter = ExprToProto(f)
+	}
+	return &proto.Rel{RelType: &proto.Rel_Join{Join: outRel}}
 }
 
 // relCommonFromProto decodes the common fields shared by every relation.
@@ -731,6 +748,39 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 
 		common := relCommonFromProto(rel.Cross.Common)
 		return plan.NewCrossRel(left, right, common, advancedExtensionFromProto(rel.Cross.AdvancedExtension)), nil
+	case *proto.Rel_Join:
+		if plan.JoinType(rel.Join.Type) == plan.JoinTypeUnspecified {
+			return nil, fmt.Errorf("%w: JoinRel must not have unspecified join type", substraitgo.ErrInvalidRel)
+		}
+
+		left, err := RelFromProto(rel.Join.Left, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error getting left input to JoinRel: %w", err)
+		}
+
+		right, err := RelFromProto(rel.Join.Right, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error getting right input to JoinRel: %w", err)
+		}
+
+		common := relCommonFromProto(rel.Join.Common)
+		// The joined record type depends only on the inputs and join type, so a
+		// key-less relation gives the base schema for decoding the expressions.
+		base := plan.NewJoinRel(left, right, plan.JoinType(rel.Join.Type), nil, nil, common, advancedExtensionFromProto(rel.Join.AdvancedExtension)).JoinedRecordType()
+		cond, err := ExprFromProto(rel.Join.Expression, &base, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error getting expr for JoinRel: %w", err)
+		}
+
+		var postJoinFilter expr.Expression
+		if rel.Join.PostJoinFilter != nil {
+			postJoinFilter, err = ExprFromProto(rel.Join.PostJoinFilter, &base, reg)
+			if err != nil {
+				return nil, fmt.Errorf("error parsing PostJoinFilter for JoinRel: %w", err)
+			}
+		}
+
+		return plan.NewJoinRel(left, right, plan.JoinType(rel.Join.Type), cond, postJoinFilter, common, advancedExtensionFromProto(rel.Join.AdvancedExtension)), nil
 	case nil:
 		return nil, fmt.Errorf("%w: got nil", substraitgo.ErrInvalidRel)
 	}
