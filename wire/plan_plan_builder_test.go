@@ -81,6 +81,112 @@ func checkRoundTrip(t *testing.T, expectedJSON string, p *plan.Plan) {
 		protojson.Format(protoPlan), protojson.Format(roundTripProto))
 }
 
+func TestAggregateRelPlan(t *testing.T) {
+	const expectedJSON = `{
+		` + versionStruct + `,
+		"extensionUrns": [
+			{
+				"extensionUrnAnchor": 1,
+				"urn": "extension:io.substrait:functions_aggregate_generic"
+			}
+		],
+		"extensions": [
+			{
+				"extensionFunction": {
+					"extensionUrnReference": 1,
+					"functionAnchor": 1,
+					"name": "count:"
+				}
+			}
+		],
+		"relations": [
+			{
+				"root": {
+					"input": {
+						"aggregate": {
+							"common": {"direct": {}},
+							"input": {
+								"read": {
+									"common": {"direct": {}},
+									"baseSchema": {
+										"names": ["a", "b"],
+										"struct": {
+											"types": [
+												{"string": { "nullability": "NULLABILITY_REQUIRED"}},
+												{"fp32": { "nullability": "NULLABILITY_REQUIRED"}}
+											],
+											"nullability": "NULLABILITY_REQUIRED"
+										}
+									},
+									"namedTable": { "names": [ "test" ]}
+								}
+							},
+							"groupingExpressions": [
+								{
+									"selection": {
+										"rootReference": {},
+										"directReference": { "structField": { "field": 0 }}
+									}
+								}
+							],
+							"groupings": [
+								{
+									"expressionReferences": [
+										0
+									]
+								}
+							],
+							"measures": [
+								{
+									"measure": {
+										"functionReference": 1,
+										"outputType": {
+											"i64": {
+												"nullability": "NULLABILITY_REQUIRED"
+											}
+										},
+										"phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+										"invocation": "AGGREGATION_INVOCATION_ALL"
+									}
+								}
+							]
+						}
+					},
+					"names": ["val", "cnt"]
+				}
+			}
+		]
+	}`
+
+	b := plan.NewBuilderDefault()
+	aggCount, err := b.AggregateFn(extensions.SubstraitDefaultURNPrefix+"functions_aggregate_generic",
+		"count", nil)
+	require.NoError(t, err)
+	scan := b.NamedScan([]string{"test"}, baseSchema)
+	root, err := b.AggregateColumns(scan, []plan.AggRelMeasure{b.Measure(aggCount, nil)}, 0)
+	require.NoError(t, err)
+
+	p, err := b.Plan(root, []string{"val", "cnt"})
+	require.NoError(t, err)
+	assert.Equal(t, "NSTRUCT<val: string, cnt: i64>", p.GetRoots()[0].RecordType().String())
+
+	checkRoundTrip(t, expectedJSON, p)
+
+	// Test with grouping expressions and references
+	ref, err := b.RootFieldRef(scan, 0)
+	require.NoError(t, err)
+	exprs := make([]expr.Expression, 0)
+	exprs = append(exprs, ref)
+	root, err = b.AggregateExprs(scan, []plan.AggRelMeasure{b.Measure(aggCount, nil)}, [][]expr.Expression{exprs}...)
+	require.NoError(t, err)
+
+	p, err = b.Plan(root, []string{"val", "cnt"})
+	require.NoError(t, err)
+	assert.Equal(t, "NSTRUCT<val: string, cnt: i64>", p.GetRoots()[0].RecordType().String())
+
+	checkRoundTrip(t, expectedJSON, p)
+}
+
 func TestFetchRel(t *testing.T) {
 	const expectedJSON = `{
 		` + versionStruct + `,
