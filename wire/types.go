@@ -73,6 +73,36 @@ func VersionFromProto(v *proto.Version) types.Version {
 	}
 }
 
+// FunctionOptionsToProto encodes domain FunctionOptions as their protobuf messages.
+func FunctionOptionsToProto(opts []*types.FunctionOption) []*proto.FunctionOption {
+	if opts == nil {
+		return nil
+	}
+	out := make([]*proto.FunctionOption, len(opts))
+	for i, o := range opts {
+		if o == nil {
+			continue
+		}
+		out[i] = &proto.FunctionOption{Name: o.Name, Preference: o.Preference}
+	}
+	return out
+}
+
+// FunctionOptionsFromProto decodes function option messages into domain FunctionOptions.
+func FunctionOptionsFromProto(opts []*proto.FunctionOption) []*types.FunctionOption {
+	if opts == nil {
+		return nil
+	}
+	out := make([]*types.FunctionOption, len(opts))
+	for i, o := range opts {
+		if o == nil {
+			continue
+		}
+		out[i] = &types.FunctionOption{Name: o.Name, Preference: o.Preference}
+	}
+	return out
+}
+
 // NamedStructFromProto decodes a named struct from its protobuf message.
 func NamedStructFromProto(n *proto.NamedStruct) types.NamedStruct {
 	if n == nil {
