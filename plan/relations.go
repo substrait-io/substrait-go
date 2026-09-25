@@ -1386,6 +1386,10 @@ type ExtensionLeafRel struct {
 	definition ExtensionRelDefinition
 }
 
+func NewExtensionLeafRel(definition ExtensionRelDefinition, common RelCommon) *ExtensionLeafRel {
+	return &ExtensionLeafRel{RelCommon: common, definition: definition}
+}
+
 func (el *ExtensionLeafRel) directOutputSchema() types.RecordType {
 	return el.definition.Schema([]Rel{})
 }
@@ -1400,25 +1404,6 @@ func (el *ExtensionLeafRel) Detail() *anypb.Any {
 
 // Definition returns the extension definition if present.
 func (el *ExtensionLeafRel) Definition() ExtensionRelDefinition { return el.definition }
-
-func (el *ExtensionLeafRel) ToProto() *proto.Rel {
-	return &proto.Rel{
-		RelType: &proto.Rel_ExtensionLeaf{
-			ExtensionLeaf: &proto.ExtensionLeafRel{
-				Common: el.toProto(),
-				Detail: el.Detail(),
-			},
-		},
-	}
-}
-
-func (el *ExtensionLeafRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: el.ToProto(),
-		},
-	}
-}
 
 func (el *ExtensionLeafRel) GetInputs() []Rel {
 	return []Rel{}

@@ -420,17 +420,6 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 		out.fromProtoCommon(rel.ExtensionMulti.Common)
 
 		return out, nil
-	case *proto.Rel_ExtensionLeaf:
-		definition, err := decodeExtensionDef(reg, rel.ExtensionLeaf.Detail)
-		if err != nil {
-			return nil, fmt.Errorf("error decoding ExtensionLeaf detail: %w", err)
-		}
-		out := &ExtensionLeafRel{
-			definition: definition,
-		}
-		out.fromProtoCommon(rel.ExtensionLeaf.Common)
-
-		return out, nil
 	}
 
 	return nil, substraitgo.ErrNotImplemented
