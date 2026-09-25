@@ -219,6 +219,42 @@ func listExprToProto(ex *expr.ListExpr) *proto.Expression {
 	}
 }
 
+// ExpressionReferenceToProto encodes an expression reference as its protobuf
+// message.
+func ExpressionReferenceToProto(er *expr.ExpressionReference) *proto.ExpressionReference {
+	out := &proto.ExpressionReference{OutputNames: er.OutputNames}
+	switch {
+	case er.GetExpr() != nil:
+		out.ExprType = &proto.ExpressionReference_Expression{
+			Expression: ExprToProto(er.GetExpr()),
+		}
+	case er.GetMeasure() != nil:
+		out.ExprType = &proto.ExpressionReference_Measure{
+			Measure: AggregateFunctionToProto(er.GetMeasure()),
+		}
+	}
+	return out
+}
+
+// ExtendedToProto encodes an extended expression as its protobuf message.
+func ExtendedToProto(ex *expr.Extended) *proto.ExtendedExpression {
+	urns, decls := ExtensionsToProto(*ex.Registry())
+	refs := make([]*proto.ExpressionReference, len(ex.ReferredExpr))
+	for i := range ex.ReferredExpr {
+		refs[i] = ExpressionReferenceToProto(&ex.ReferredExpr[i])
+	}
+
+	return &proto.ExtendedExpression{
+		Version:            VersionToProto(ex.Version),
+		ExtensionUrns:      urns,
+		Extensions:         decls,
+		BaseSchema:         NamedStructToProto(ex.BaseSchema),
+		AdvancedExtensions: advancedExtensionToProto(ex.AdvancedExts),
+		ExpectedTypeUrls:   ex.ExpectedTypeURLs,
+		ReferredExpr:       refs,
+	}
+}
+
 // VirtualTableExpressionValueToProto encodes a virtual-table row of expressions.
 func VirtualTableExpressionValueToProto(s expr.VirtualTableExpressionValue) *proto.Expression_Nested_Struct {
 	fields := make([]*proto.Expression, len(s))
@@ -552,4 +588,47 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 		return &expr.Lambda{Parameters: params, Body: body}, nil
 	}
 	return nil, fmt.Errorf("%w: ExprFromProto: %s", substraitgo.ErrNotImplemented, e)
+}
+
+// ExtendedFromProto decodes an extended expression from its protobuf message.
+func ExtendedFromProto(ex *proto.ExtendedExpression, c *extensions.Collection) (*expr.Extended, error) {
+	extSet, err := GetExtensionSet(ex, c)
+	if err != nil {
+		return nil, err
+	}
+	var (
+		base = NamedStructFromProto(ex.BaseSchema)
+		reg  = expr.NewExtensionRegistry(extSet, c)
+		refs = make([]expr.ExpressionReference, len(ex.ReferredExpr))
+	)
+
+	for i, r := range ex.ReferredExpr {
+		refs[i].OutputNames = r.OutputNames
+		switch et := r.ExprType.(type) {
+		case *proto.ExpressionReference_Expression:
+			thisType := types.NewRecordTypeFromStruct(base.Struct)
+			e, err := ExprFromProto(et.Expression, thisType, reg)
+			if err != nil {
+				return nil, err
+			}
+			refs[i].SetExpr(e)
+		case *proto.ExpressionReference_Measure:
+			thisType := types.NewRecordTypeFromStruct(base.Struct)
+			agg, err := AggregateFunctionFromProto(et.Measure, thisType, reg)
+			if err != nil {
+				return nil, err
+			}
+			refs[i].SetMeasure(agg)
+		}
+	}
+
+	return expr.NewExtendedFromParts(
+		VersionFromProto(ex.Version),
+		extSet,
+		refs,
+		base,
+		advancedExtensionFromProto(ex.AdvancedExtensions),
+		ex.ExpectedTypeUrls,
+		reg,
+	), nil
 }

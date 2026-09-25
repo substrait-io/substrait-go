@@ -87,6 +87,40 @@ func literalI64Arg(value int64) *proto.FunctionArgument {
 	}}}
 }
 
+func TestRoundTripExtendedExpression(t *testing.T) {
+	f, err := os.Open("./testdata/extended_exprs.yaml")
+	require.NoError(t, err)
+	defer f.Close()
+
+	dec := yaml.NewDecoder(f)
+	var tmp map[string]any
+	require.NoError(t, dec.Decode(&tmp))
+
+	for _, tc := range tmp["tests"].([]any) {
+		tt := tc.(map[string]any)
+
+		var buf bytes.Buffer
+		enc := json.NewEncoder(&buf)
+		require.NoError(t, enc.Encode(tt))
+		var ex proto.ExtendedExpression
+		require.NoError(t, protojson.Unmarshal(buf.Bytes(), &ex))
+
+		result, err := wire.ExtendedFromProto(&ex, ext.GetDefaultCollectionWithNoError())
+		require.NoError(t, err)
+
+		out := wire.ExtendedToProto(result)
+		// because we read the extensions into a map, we can't guarantee
+		// the order of the extensions. But we also don't care about the
+		// order, so we can just sort them by functionAnchor to ensure
+		// they match for pb.Equal
+		sort.Slice(out.Extensions, func(i, j int) bool {
+			return out.Extensions[i].GetExtensionFunction().FunctionAnchor <
+				out.Extensions[j].GetExtensionFunction().FunctionAnchor
+		})
+		assert.Truef(t, pb.Equal(&ex, out), "expected: %s\ngot: %s", &ex, out)
+	}
+}
+
 func TestCastVisit(t *testing.T) {
 	var builder = plan.NewBuilderDefault()
 	castExpr := expr.MustExpr(builder.GetExprBuilder().Cast(builder.GetExprBuilder().Wrap(
