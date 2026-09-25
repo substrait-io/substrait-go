@@ -15,6 +15,32 @@ func LiteralToProto(l expr.Literal) *proto.Expression_Literal {
 	switch l := l.(type) {
 	case *expr.NullLiteral:
 		return nullLiteralToProto(l)
+	case *expr.PrimitiveLiteral[bool]:
+		return primitiveLiteralToProto(l)
+	case *expr.PrimitiveLiteral[int8]:
+		return primitiveLiteralToProto(l)
+	case *expr.PrimitiveLiteral[int16]:
+		return primitiveLiteralToProto(l)
+	case *expr.PrimitiveLiteral[int32]:
+		return primitiveLiteralToProto(l)
+	case *expr.PrimitiveLiteral[int64]:
+		return primitiveLiteralToProto(l)
+	case *expr.PrimitiveLiteral[float32]:
+		return primitiveLiteralToProto(l)
+	case *expr.PrimitiveLiteral[float64]:
+		return primitiveLiteralToProto(l)
+	case *expr.PrimitiveLiteral[string]:
+		return primitiveLiteralToProto(l)
+	case *expr.PrimitiveLiteral[types.Timestamp]:
+		return primitiveLiteralToProto(l)
+	case *expr.PrimitiveLiteral[types.Date]:
+		return primitiveLiteralToProto(l)
+	case *expr.PrimitiveLiteral[types.Time]:
+		return primitiveLiteralToProto(l)
+	case *expr.PrimitiveLiteral[types.FixedChar]:
+		return primitiveLiteralToProto(l)
+	case *expr.PrimitiveLiteral[types.TimestampTz]:
+		return primitiveLiteralToProto(l)
 	default:
 		panic(fmt.Sprintf("wire: unhandled literal %T", l))
 	}
@@ -28,12 +54,152 @@ func nullLiteralToProto(n *expr.NullLiteral) *proto.Expression_Literal {
 	}
 }
 
+func primitiveLiteralToProto[T expr.PrimitiveLiteralValue](l *expr.PrimitiveLiteral[T]) *proto.Expression_Literal {
+	lit := &proto.Expression_Literal{
+		Nullable:               l.Type.GetNullability() == types.NullabilityNullable,
+		TypeVariationReference: l.Type.GetTypeVariationReference(),
+	}
+
+	switch v := any(l.Value).(type) {
+	case bool:
+		lit.LiteralType = &proto.Expression_Literal_Boolean{Boolean: v}
+	case int8:
+		lit.LiteralType = &proto.Expression_Literal_I8{I8: int32(v)}
+	case int16:
+		lit.LiteralType = &proto.Expression_Literal_I16{I16: int32(v)}
+	case int32:
+		lit.LiteralType = &proto.Expression_Literal_I32{I32: v}
+	case int64:
+		lit.LiteralType = &proto.Expression_Literal_I64{I64: v}
+	case float32:
+		lit.LiteralType = &proto.Expression_Literal_Fp32{Fp32: v}
+	case float64:
+		lit.LiteralType = &proto.Expression_Literal_Fp64{Fp64: v}
+	case string:
+		lit.LiteralType = &proto.Expression_Literal_String_{String_: v}
+	case types.Timestamp:
+		lit.LiteralType = &proto.Expression_Literal_Timestamp{Timestamp: int64(v)}
+	case types.Date:
+		lit.LiteralType = &proto.Expression_Literal_Date{Date: int32(v)}
+	case types.Time:
+		lit.LiteralType = &proto.Expression_Literal_Time{Time: int64(v)}
+	case types.FixedChar:
+		lit.LiteralType = &proto.Expression_Literal_FixedChar{FixedChar: string(v)}
+	case types.TimestampTz:
+		lit.LiteralType = &proto.Expression_Literal_TimestampTz{TimestampTz: int64(v)}
+	default:
+		panic("invalid primitive literal type")
+	}
+
+	return lit
+}
+
+func nullabilityFromBool(nullable bool) types.Nullability {
+	if nullable {
+		return types.NullabilityNullable
+	}
+	return types.NullabilityRequired
+}
+
 // LiteralFromProto constructs the appropriate Literal from a protobuf message.
 func LiteralFromProto(l *proto.Expression_Literal) expr.Literal {
+	nullability := nullabilityFromBool(l.Nullable)
 
 	switch lit := l.LiteralType.(type) {
 	case *proto.Expression_Literal_Null:
 		return &expr.NullLiteral{Type: TypeFromProto(lit.Null)}
+	case *proto.Expression_Literal_Boolean:
+		return &expr.PrimitiveLiteral[bool]{
+			Value: lit.Boolean,
+			Type: &types.BooleanType{
+				TypeVariationRef: l.TypeVariationReference,
+				Nullability:      nullability,
+			}}
+	case *proto.Expression_Literal_I8:
+		return &expr.PrimitiveLiteral[int8]{
+			Value: int8(lit.I8),
+			Type: &types.Int8Type{
+				TypeVariationRef: l.TypeVariationReference,
+				Nullability:      nullability,
+			}}
+	case *proto.Expression_Literal_I16:
+		return &expr.PrimitiveLiteral[int16]{
+			Value: int16(lit.I16),
+			Type: &types.Int16Type{
+				TypeVariationRef: l.TypeVariationReference,
+				Nullability:      nullability,
+			}}
+	case *proto.Expression_Literal_I32:
+		return &expr.PrimitiveLiteral[int32]{
+			Value: lit.I32,
+			Type: &types.Int32Type{
+				TypeVariationRef: l.TypeVariationReference,
+				Nullability:      nullability,
+			}}
+	case *proto.Expression_Literal_I64:
+		return &expr.PrimitiveLiteral[int64]{
+			Value: lit.I64,
+			Type: &types.Int64Type{
+				TypeVariationRef: l.TypeVariationReference,
+				Nullability:      nullability,
+			}}
+	case *proto.Expression_Literal_Fp32:
+		return &expr.PrimitiveLiteral[float32]{
+			Value: lit.Fp32,
+			Type: &types.Float32Type{
+				TypeVariationRef: l.TypeVariationReference,
+				Nullability:      nullability,
+			}}
+	case *proto.Expression_Literal_Fp64:
+		return &expr.PrimitiveLiteral[float64]{
+			Value: lit.Fp64,
+			Type: &types.Float64Type{
+				TypeVariationRef: l.TypeVariationReference,
+				Nullability:      nullability,
+			}}
+	case *proto.Expression_Literal_String_:
+		return &expr.PrimitiveLiteral[string]{
+			Value: lit.String_,
+			Type: &types.StringType{
+				TypeVariationRef: l.TypeVariationReference,
+				Nullability:      nullability,
+			}}
+	case *proto.Expression_Literal_Timestamp:
+		return &expr.PrimitiveLiteral[types.Timestamp]{
+			Value: types.Timestamp(lit.Timestamp),
+			Type: &types.TimestampType{
+				TypeVariationRef: l.TypeVariationReference,
+				Nullability:      nullability,
+			}}
+	case *proto.Expression_Literal_Date:
+		return &expr.PrimitiveLiteral[types.Date]{
+			Value: types.Date(lit.Date),
+			Type: &types.DateType{
+				TypeVariationRef: l.TypeVariationReference,
+				Nullability:      nullability,
+			}}
+	case *proto.Expression_Literal_Time:
+		return &expr.PrimitiveLiteral[types.Time]{
+			Value: types.Time(lit.Time),
+			Type: &types.TimeType{
+				TypeVariationRef: l.TypeVariationReference,
+				Nullability:      nullability,
+			}}
+	case *proto.Expression_Literal_FixedChar:
+		return &expr.PrimitiveLiteral[types.FixedChar]{
+			Value: types.FixedChar(lit.FixedChar),
+			Type: &types.FixedCharType{
+				Length:           int32(len(lit.FixedChar)),
+				TypeVariationRef: l.TypeVariationReference,
+				Nullability:      nullability,
+			}}
+	case *proto.Expression_Literal_TimestampTz:
+		return &expr.PrimitiveLiteral[types.TimestampTz]{
+			Value: types.TimestampTz(lit.TimestampTz),
+			Type: &types.TimestampTzType{
+				TypeVariationRef: l.TypeVariationReference,
+				Nullability:      nullability,
+			}}
 	}
 	panic("unimplemented literal type")
 }
