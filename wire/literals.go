@@ -264,6 +264,30 @@ func protoLiteralToProto(l *expr.ProtoLiteral) *proto.Expression_Literal {
 				Scale:     literalType.Scale,
 			},
 		}
+	case *types.PrecisionTimeType:
+		v := l.Value.(int64)
+		lit.LiteralType = &proto.Expression_Literal_PrecisionTime_{
+			PrecisionTime: &proto.Expression_Literal_PrecisionTime{
+				Precision: literalType.GetPrecisionProtoVal(),
+				Value:     v,
+			},
+		}
+	case *types.PrecisionTimestampType:
+		v := l.Value.(int64)
+		lit.LiteralType = &proto.Expression_Literal_PrecisionTimestamp_{
+			PrecisionTimestamp: &proto.Expression_Literal_PrecisionTimestamp{
+				Precision: literalType.GetPrecisionProtoVal(),
+				Value:     v,
+			},
+		}
+	case *types.PrecisionTimestampTzType:
+		v := l.Value.(int64)
+		lit.LiteralType = &proto.Expression_Literal_PrecisionTimestampTz{
+			PrecisionTimestampTz: &proto.Expression_Literal_PrecisionTimestamp{
+				Precision: literalType.GetPrecisionProtoVal(),
+				Value:     v,
+			},
+		}
 	}
 
 	return lit
@@ -375,6 +399,30 @@ func LiteralFromProto(l *proto.Expression_Literal) expr.Literal {
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
 			}}
+	case *proto.Expression_Literal_PrecisionTime_:
+		precTime := lit.PrecisionTime
+		precision, err := types.ProtoToTimePrecision(precTime.Precision)
+		if err != nil {
+			return nil
+		}
+		if precTime.Value < 0 {
+			return nil
+		}
+		return expr.NewPrecisionTimeLiteral(precTime.Value, precision, nullability)
+	case *proto.Expression_Literal_PrecisionTimestamp_:
+		precTimeStamp := lit.PrecisionTimestamp
+		precision, err := types.ProtoToTimePrecision(precTimeStamp.Precision)
+		if err != nil {
+			return nil
+		}
+		return expr.NewPrecisionTimestampLiteral(precTimeStamp.Value, precision, nullability)
+	case *proto.Expression_Literal_PrecisionTimestampTz:
+		precTimeStamp := lit.PrecisionTimestampTz
+		precision, err := types.ProtoToTimePrecision(precTimeStamp.Precision)
+		if err != nil {
+			return nil
+		}
+		return expr.NewPrecisionTimestampTzLiteral(precTimeStamp.Value, precision, nullability)
 	case *proto.Expression_Literal_Struct_:
 		typeList := make([]types.Type, len(lit.Struct.Fields))
 		fields := make([]expr.Literal, len(lit.Struct.Fields))

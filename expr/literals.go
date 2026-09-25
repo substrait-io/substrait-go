@@ -748,40 +748,6 @@ func NewLiteral[T allLiteralTypes](val T, nullable bool) (Literal, error) {
 	return nil, substraitgo.ErrNotImplemented
 }
 
-// LiteralFromProto constructs the appropriate Literal struct from
-// a protobuf message.
-func LiteralFromProto(l *proto.Expression_Literal) Literal {
-	nullability := getNullability(l.Nullable)
-
-	switch lit := l.LiteralType.(type) {
-	case *proto.Expression_Literal_PrecisionTime_:
-		precTime := lit.PrecisionTime
-		precision, err := types.ProtoToTimePrecision(precTime.Precision)
-		if err != nil {
-			return nil
-		}
-		if precTime.Value < 0 {
-			return nil
-		}
-		return NewPrecisionTimeLiteral(precTime.Value, precision, nullability)
-	case *proto.Expression_Literal_PrecisionTimestamp_:
-		precTimeStamp := lit.PrecisionTimestamp
-		precision, err := types.ProtoToTimePrecision(precTimeStamp.Precision)
-		if err != nil {
-			return nil
-		}
-		return NewPrecisionTimestampLiteral(precTimeStamp.Value, precision, nullability)
-	case *proto.Expression_Literal_PrecisionTimestampTz:
-		precTimeStamp := lit.PrecisionTimestampTz
-		precision, err := types.ProtoToTimePrecision(precTimeStamp.Precision)
-		if err != nil {
-			return nil
-		}
-		return NewPrecisionTimestampTzLiteral(precTimeStamp.Value, precision, nullability)
-	}
-	panic("unimplemented literal type")
-}
-
 // NewPrecisionTimeLiteral creates a new PrecisionTime from an integer value, representing time since
 // midnight, in the specified precision (nanoseconds to seconds).
 func NewPrecisionTimeLiteral(value int64, precision types.TimePrecision, n types.Nullability) Literal {
