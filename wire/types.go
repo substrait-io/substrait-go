@@ -139,6 +139,8 @@ func TypeToProto(t types.Type) *proto.Type {
 		return precisionTimeTypeToProto(t)
 	case *types.PrecisionTimestampType:
 		return precisionTimestampTypeToProto(t)
+	case *types.PrecisionTimestampTzType:
+		return precisionTimestampTzTypeToProto(t)
 	case *types.StructType:
 		return structTypeToProto(t)
 	case *types.FuncType:
@@ -472,6 +474,16 @@ func TypeFromProto(t *proto.Type) types.Type {
 			TypeVariationRef: t.PrecisionTimestamp.TypeVariationReference,
 			Precision:        precision,
 		}
+	case *proto.Type_PrecisionTimestampTz:
+		precision, err := types.ProtoToTimePrecision(t.PrecisionTimestampTz.Precision)
+		if err != nil {
+			panic(fmt.Sprintf("Invalid precision %v", err))
+		}
+		return &types.PrecisionTimestampTzType{PrecisionTimestampType: types.PrecisionTimestampType{
+			Nullability:      types.Nullability(t.PrecisionTimestampTz.Nullability),
+			TypeVariationRef: t.PrecisionTimestampTz.TypeVariationReference,
+			Precision:        precision,
+		}}
 	case *proto.Type_Struct_:
 		fields := make([]types.Type, len(t.Struct.Types))
 		for i, f := range t.Struct.Types {
