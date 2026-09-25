@@ -58,8 +58,6 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 	}
 
 	switch et := e.RexType.(type) {
-	case *proto.Expression_Literal_:
-		return LiteralFromProto(et.Literal), nil
 	case *proto.Expression_Selection:
 		return FieldReferenceFromProto(et.Selection, baseSchema, reg)
 	case *proto.Expression_ScalarFunction_:
@@ -336,8 +334,6 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 			OutputType:         types.TypeFromProto(et.DynamicParameter.Type),
 			ParameterReference: et.DynamicParameter.ParameterReference,
 		}, nil
-	case *proto.Expression_Enum_:
-		return nil, fmt.Errorf("%w: deprecated", substraitgo.ErrNotImplemented)
 	case *proto.Expression_Subquery_:
 		if reg.subqueryConverter == nil {
 			return nil, fmt.Errorf("%w: subquery expressions require a subquery converter to be configured", substraitgo.ErrNotImplemented)
@@ -1725,15 +1721,5 @@ func (ex *Extended) ToProto() *proto.ExtendedExpression {
 		AdvancedExtensions: extensions.AdvancedExtensionToProto(ex.AdvancedExts),
 		ExpectedTypeUrls:   ex.ExpectedTypeURLs,
 		ReferredExpr:       refs,
-	}
-}
-
-func (s VirtualTableExpressionValue) ToProto() *proto.Expression_Nested_Struct {
-	fields := make([]*proto.Expression, len(s))
-	for i, f := range s {
-		fields[i] = f.ToProto()
-	}
-	return &proto.Expression_Nested_Struct{
-		Fields: fields,
 	}
 }
