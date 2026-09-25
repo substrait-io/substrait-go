@@ -38,6 +38,12 @@ func subqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordT
 		}
 
 		return plan.NewInPredicateSubquery(needles, rel), nil
+	case *proto.Expression_Subquery_SetPredicate_:
+		tuples, err := RelFromProto(subType.SetPredicate.Tuples, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing tuples in set predicate: %w", err)
+		}
+		return plan.NewSetPredicateSubquery(plan.SetPredicateOp(subType.SetPredicate.PredicateOp), tuples), nil
 	default:
 		return nil, fmt.Errorf("%w: unknown subquery type: %T", substraitgo.ErrNotImplemented, subType)
 	}
@@ -70,6 +76,21 @@ func inPredicateSubqueryToProto(s *plan.InPredicateSubquery) *proto.Expression {
 					InPredicate: &proto.Expression_Subquery_InPredicate{
 						Needles:  needles,
 						Haystack: RelToProto(s.Haystack),
+					},
+				},
+			},
+		},
+	}
+}
+
+func setPredicateSubqueryToProto(s *plan.SetPredicateSubquery) *proto.Expression {
+	return &proto.Expression{
+		RexType: &proto.Expression_Subquery_{
+			Subquery: &proto.Expression_Subquery{
+				SubqueryType: &proto.Expression_Subquery_SetPredicate_{
+					SetPredicate: &proto.Expression_Subquery_SetPredicate{
+						PredicateOp: proto.Expression_Subquery_SetPredicate_PredicateOp(s.Operation),
+						Tuples:      RelToProto(s.Tuples),
 					},
 				},
 			},
