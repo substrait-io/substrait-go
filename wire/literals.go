@@ -3,6 +3,7 @@
 package wire
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/substrait-io/substrait-go/v9/expr"
@@ -53,6 +54,8 @@ func LiteralToProto(l expr.Literal) *proto.Expression_Literal {
 		return byteSliceLiteralToProto(l)
 	case *expr.MapLiteral:
 		return mapLiteralToProto(l)
+	case *expr.ProtoLiteral:
+		return protoLiteralToProto(l)
 	default:
 		panic(fmt.Sprintf("wire: unhandled literal %T", l))
 	}
@@ -176,6 +179,48 @@ func byteSliceLiteralToProto[T ~[]byte](l *expr.ByteSliceLiteral[T]) *proto.Expr
 		lit.LiteralType = &proto.Expression_Literal_FixedBinary{FixedBinary: v}
 	case types.UUID:
 		lit.LiteralType = &proto.Expression_Literal_Uuid{Uuid: v}
+	}
+
+	return lit
+}
+
+func protoLiteralToProto(l *expr.ProtoLiteral) *proto.Expression_Literal {
+	lit := &proto.Expression_Literal{
+		Nullable:               l.Type.GetNullability() == types.NullabilityNullable,
+		TypeVariationReference: l.Type.GetTypeVariationReference(),
+	}
+
+	switch literalType := l.Type.(type) {
+	case *types.IntervalYearType:
+		v := l.Value.(*types.IntervalYearToMonth)
+		lit.LiteralType = &proto.Expression_Literal_IntervalYearToMonth_{
+			IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{
+				Years:  v.Years,
+				Months: v.Months,
+			},
+		}
+	case *types.IntervalDayType:
+		v := l.Value.(*types.IntervalDayToSecond)
+		lit.LiteralType = &proto.Expression_Literal_IntervalDayToSecond_{
+			IntervalDayToSecond: IntervalDayToSecondToProto(v),
+		}
+	case *types.VarCharType:
+		v := l.Value.(string)
+		lit.LiteralType = &proto.Expression_Literal_VarChar_{
+			VarChar: &proto.Expression_Literal_VarChar{
+				Value:  v,
+				Length: uint32(literalType.Length),
+			},
+		}
+	case *types.DecimalType:
+		v := l.Value.([]byte)
+		lit.LiteralType = &proto.Expression_Literal_Decimal_{
+			Decimal: &proto.Expression_Literal_Decimal{
+				Value:     v,
+				Precision: literalType.Precision,
+				Scale:     literalType.Scale,
+			},
+		}
 	}
 
 	return lit
@@ -367,6 +412,42 @@ func LiteralFromProto(l *proto.Expression_Literal) expr.Literal {
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
 			}}
+	case *proto.Expression_Literal_IntervalDayToSecond_:
+		value, err := IntervalDayToSecondFromProto(lit.IntervalDayToSecond)
+		if err != nil {
+			return nil
+		}
+		precision, err := types.ProtoToTimePrecision(value.GetPrecisionProtoVal())
+		if err != nil {
+			return nil
+		}
+		return &expr.ProtoLiteral{
+			Value: value,
+			Type: &types.IntervalDayType{
+				Precision:        precision,
+				Nullability:      nullability,
+				TypeVariationRef: l.TypeVariationReference,
+			},
+		}
+	case *proto.Expression_Literal_VarChar_:
+		return &expr.ProtoLiteral{
+			Value: lit.VarChar.Value,
+			Type: &types.VarCharType{
+				Length:           int32(lit.VarChar.Length),
+				Nullability:      nullability,
+				TypeVariationRef: l.TypeVariationReference,
+			},
+		}
+	case *proto.Expression_Literal_Decimal_:
+		return &expr.ProtoLiteral{
+			Value: lit.Decimal.Value,
+			Type: &types.DecimalType{
+				Scale:            lit.Decimal.Scale,
+				Precision:        lit.Decimal.Precision,
+				Nullability:      nullability,
+				TypeVariationRef: l.TypeVariationReference,
+			},
+		}
 	}
 	panic("unimplemented literal type")
 }
