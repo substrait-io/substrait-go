@@ -251,13 +251,6 @@ type MaskExpression struct {
 }
 
 func (*MaskExpression) isRefType() {}
-func (e *MaskExpression) ToProto() *proto.Expression_MaskExpression {
-	return &proto.Expression_MaskExpression{
-		Select:                 e.sel.toProtoStructSelect(),
-		MaintainSingularStruct: e.maintainSingular,
-	}
-}
-
 func (e *MaskExpression) MaintainSingularStruct() bool {
 	return e.maintainSingular
 }
@@ -266,28 +259,8 @@ func (e *MaskExpression) Select() MaskStructSelect {
 	return slices.Clone(e.sel)
 }
 
-func MaskExpressionFromProto(p *proto.Expression_MaskExpression) *MaskExpression {
-	sel := make(MaskStructSelect, len(p.Select.StructItems))
-	for i, item := range p.Select.StructItems {
-		sel[i].field = item.Field
-		if item.Child != nil {
-			sel[i].child = maskSelectFromProto(item.Child)
-		}
-	}
-	return &MaskExpression{sel: sel, maintainSingular: p.MaintainSingularStruct}
-}
-
 func maskSelectFromProto(p *proto.Expression_MaskExpression_Select) MaskSelect {
 	switch s := p.Type.(type) {
-	case *proto.Expression_MaskExpression_Select_Struct:
-		items := make(MaskStructSelect, len(s.Struct.StructItems))
-		for i, item := range s.Struct.StructItems {
-			items[i].field = item.Field
-			if item.Child != nil {
-				items[i].child = maskSelectFromProto(item.Child)
-			}
-		}
-		return items
 	case *proto.Expression_MaskExpression_Select_List:
 		selection := make([]MaskListSelectItem, len(s.List.Selection))
 		for i, sel := range s.List.Selection {
@@ -327,24 +300,6 @@ type MaskSelect interface {
 
 type MaskStructSelect []MaskStructItem
 
-func (m MaskStructSelect) toProtoStructSelect() *proto.Expression_MaskExpression_StructSelect {
-	items := make([]*proto.Expression_MaskExpression_StructItem, len(m))
-	for i, item := range m {
-		items[i] = item.ToProto()
-	}
-	return &proto.Expression_MaskExpression_StructSelect{
-		StructItems: items,
-	}
-}
-
-func (m MaskStructSelect) ToProto() *proto.Expression_MaskExpression_Select {
-	return &proto.Expression_MaskExpression_Select{
-		Type: &proto.Expression_MaskExpression_Select_Struct{
-			Struct: m.toProtoStructSelect(),
-		},
-	}
-}
-
 type MaskStructItem struct {
 	field int32
 	child MaskSelect
@@ -352,17 +307,6 @@ type MaskStructItem struct {
 
 func (m *MaskStructItem) Field() int32      { return m.field }
 func (m *MaskStructItem) Child() MaskSelect { return m.child }
-func (m *MaskStructItem) ToProto() *proto.Expression_MaskExpression_StructItem {
-	var childProto *proto.Expression_MaskExpression_Select
-	if m.child != nil {
-		childProto = m.child.ToProto()
-	}
-
-	return &proto.Expression_MaskExpression_StructItem{
-		Field: m.field,
-		Child: childProto,
-	}
-}
 
 type MaskListSelect struct {
 	selection []MaskListSelectItem
@@ -556,6 +500,14 @@ func NewFieldRefFromType(root RootRefType, ref Reference, t types.Type) (*FieldR
 	}
 
 	return nil, substraitgo.ErrNotImplemented
+}
+
+func NewMaskExpression(sel MaskStructSelect, maintainSingular bool) *MaskExpression {
+	return &MaskExpression{sel: sel, maintainSingular: maintainSingular}
+}
+
+func NewMaskStructItem(field int32, child MaskSelect) MaskStructItem {
+	return MaskStructItem{field: field, child: child}
 }
 
 func (*FieldReference) isRootRef() {}
