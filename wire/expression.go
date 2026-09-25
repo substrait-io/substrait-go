@@ -15,6 +15,8 @@ import (
 // ExprToProto encodes an expression as its protobuf message.
 func ExprToProto(e expr.Expression) *proto.Expression {
 	switch e := e.(type) {
+	case *expr.Cast:
+		return castToProto(e)
 	case *expr.Lambda:
 		return lambdaToProto(e)
 	case *expr.ScalarFunction:
@@ -29,6 +31,18 @@ func ExprToProto(e expr.Expression) *proto.Expression {
 		}
 	default:
 		panic(fmt.Sprintf("wire: unhandled expression %T", e))
+	}
+}
+
+func castToProto(ex *expr.Cast) *proto.Expression {
+	return &proto.Expression{
+		RexType: &proto.Expression_Cast_{
+			Cast: &proto.Expression_Cast{
+				Type:            TypeToProto(ex.Type),
+				Input:           ExprToProto(ex.Input),
+				FailureBehavior: proto.Expression_Cast_FailureBehavior(ex.FailureBehavior),
+			},
+		},
 	}
 }
 
@@ -158,6 +172,21 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 		), nil
 	case *proto.Expression_Enum_:
 		return nil, fmt.Errorf("%w: deprecated", substraitgo.ErrNotImplemented)
+	case *proto.Expression_Cast_:
+		if et.Cast.Type == nil {
+			return nil, fmt.Errorf("%w: cast expression missing type", substraitgo.ErrInvalidExpr)
+		}
+
+		input, err := ExprFromProto(et.Cast.Input, baseSchema, reg)
+		if err != nil {
+			return nil, err
+		}
+
+		return &expr.Cast{
+			Type:            TypeFromProto(et.Cast.Type),
+			Input:           input,
+			FailureBehavior: types.CastFailBehavior(et.Cast.FailureBehavior),
+		}, nil
 	case *proto.Expression_Lambda_:
 		if et.Lambda.Parameters == nil {
 			return nil, fmt.Errorf("%w: lambda parameters cannot be nil", substraitgo.ErrInvalidExpr)
