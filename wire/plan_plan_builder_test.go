@@ -159,6 +159,130 @@ func TestEmptyVirtualTable(t *testing.T) {
 	checkRoundTrip(t, expectedJSON, p)
 }
 
+func expectedJsonWithIceberg(metadataURI string, snapshot plan.IcebergSnapshot) string {
+	snapshotId, _ := snapshot.(plan.SnapshotId)
+	snapshotTimestamp, _ := snapshot.(plan.SnapshotTimestamp)
+
+	expectedJson := `{
+		` + versionStruct + `,
+		"relations": [
+			{
+				"root":  {
+					"input":  {
+						"read":  {
+							"common":  {
+								"direct":  {}
+							},
+							"baseSchema":  {
+								"names":  [
+									"a",
+									"b"
+								],
+							  	"struct":  {
+									"types":  [
+								  		{
+											"string":  {
+											  	"nullability":  "NULLABILITY_REQUIRED"
+											}
+								  		},
+									  	{
+											"fp32":  {
+										  		"nullability":  "NULLABILITY_REQUIRED"
+											}
+									  	}
+									],
+									"nullability":  "NULLABILITY_REQUIRED"
+							  	}
+							},
+							"icebergTable":  {
+								"direct":  {`
+	// Add fields to icebergTable's direct node based on the snapshot type
+	if snapshotId != "" {
+		expectedJson += `
+									"metadataUri": "` + metadataURI + `",
+									"snapshotId": "` + string(snapshotId) + `"`
+	} else if snapshotTimestamp != 0 {
+		expectedJson += `
+									"metadataUri": "` + metadataURI + `",
+									"snapshotTimestamp": "` + strconv.FormatInt(int64(snapshotTimestamp), 10) + `"`
+	} else {
+		expectedJson += `
+									"metadataUri": "` + metadataURI + `"`
+	}
+	// Add the rest of the JSON
+	expectedJson += `			}
+							}
+						}
+					},
+					"names":  [
+					  "a",
+					  "b"
+					]
+				}
+			}
+		]
+	}`
+	return expectedJson
+}
+
+func TestIcebergTable(t *testing.T) {
+	const metadataURI = "s3://bucket/path/to/metadata.json"
+
+	for _, td := range []struct {
+		name              string
+		metadataURI       string
+		snapshotId        plan.SnapshotId
+		snapshotTimestamp plan.SnapshotTimestamp
+	}{
+		{"latest snapshot", metadataURI, "", 0},
+		{"snapshot id", metadataURI, "SnapshotId0", 0},
+		{"snapshot timestamp", metadataURI, "", 1010101},
+	} {
+		t.Run(td.name, func(t *testing.T) {
+			b := plan.NewBuilderDefault()
+
+			var snapshot plan.IcebergSnapshot
+			if td.snapshotId != "" {
+				snapshot = td.snapshotId
+			} else if td.snapshotTimestamp != 0 {
+				snapshot = td.snapshotTimestamp
+			}
+
+			iceberg, err := b.IcebergTableFromMetadataFile(td.metadataURI, snapshot, baseSchema)
+			require.NoError(t, err)
+
+			p, err := b.Plan(iceberg, []string{"a", "b"})
+			require.NoError(t, err)
+
+			checkRoundTrip(t, expectedJsonWithIceberg(td.metadataURI, snapshot), p)
+		})
+	}
+}
+
+// TestExtensionDefinition is a simple test implementation of ExtensionRelDefinition
+type TestExtensionDefinition struct {
+	schema types.RecordType
+	detail []byte
+	exprs  []expr.Expression
+}
+
+func (t *TestExtensionDefinition) Schema(inputs []plan.Rel) types.RecordType {
+	return t.schema
+}
+
+func (t *TestExtensionDefinition) Build(inputs []plan.Rel) *anypb.Any {
+	if t.detail == nil {
+		return nil
+	}
+	message := &wrapperspb.StringValue{Value: string(t.detail)}
+	any, _ := anypb.New(message)
+	return any
+}
+
+func (t *TestExtensionDefinition) Expressions(inputs []plan.Rel) []expr.Expression {
+	return t.exprs
+}
+
 func TestExtensionTable(t *testing.T) {
 	const expectedJSON = `{
 		` + versionStruct + `,
