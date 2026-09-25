@@ -25,6 +25,8 @@ func ExprToProto(e expr.Expression) *proto.Expression {
 		return switchExprToProto(e)
 	case *expr.SingularOrList:
 		return singularOrListToProto(e)
+	case *expr.MultiOrList:
+		return multiOrListToProto(e)
 	case *expr.Lambda:
 		return lambdaToProto(e)
 	case *expr.ScalarFunction:
@@ -124,6 +126,30 @@ func singularOrListToProto(ex *expr.SingularOrList) *proto.Expression {
 		RexType: &proto.Expression_SingularOrList_{
 			SingularOrList: &proto.Expression_SingularOrList{
 				Value:   ExprToProto(ex.Value),
+				Options: opts,
+			},
+		},
+	}
+}
+
+func multiOrListToProto(ex *expr.MultiOrList) *proto.Expression {
+	toSlice := func(exprs []expr.Expression) []*proto.Expression {
+		out := make([]*proto.Expression, len(exprs))
+		for i, e := range exprs {
+			out[i] = ExprToProto(e)
+		}
+		return out
+	}
+
+	opts := make([]*proto.Expression_MultiOrList_Record, len(ex.Options))
+	for i, o := range ex.Options {
+		opts[i] = &proto.Expression_MultiOrList_Record{Fields: toSlice(o)}
+	}
+
+	return &proto.Expression{
+		RexType: &proto.Expression_MultiOrList_{
+			MultiOrList: &proto.Expression_MultiOrList{
+				Value:   toSlice(ex.Value),
 				Options: opts,
 			},
 		},
@@ -340,6 +366,31 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 		return &expr.SingularOrList{
 			Value:   val,
 			Options: opts,
+		}, nil
+	case *proto.Expression_MultiOrList_:
+		var err error
+		val := make([]expr.Expression, len(et.MultiOrList.Value))
+		for i, v := range et.MultiOrList.Value {
+			val[i], err = ExprFromProto(v, baseSchema, reg)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		options := make([][]expr.Expression, len(et.MultiOrList.Options))
+		for i, opts := range et.MultiOrList.Options {
+			options[i] = make([]expr.Expression, len(opts.Fields))
+			for j, o := range opts.Fields {
+				options[i][j], err = ExprFromProto(o, baseSchema, reg)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+
+		return &expr.MultiOrList{
+			Value:   val,
+			Options: options,
 		}, nil
 	case *proto.Expression_Lambda_:
 		if et.Lambda.Parameters == nil {
