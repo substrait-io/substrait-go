@@ -14,8 +14,6 @@ import (
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/types"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
-	"google.golang.org/protobuf/types/known/anypb"
 )
 
 var CurrentVersion = types.Version{
@@ -56,6 +54,12 @@ type Relation struct {
 	rel  Rel
 }
 
+// NewRelation builds a top-level plan relation from either a root or a plain
+// relation (exactly one is non-nil).
+func NewRelation(root *Root, rel Rel) Relation {
+	return Relation{root: root, rel: rel}
+}
+
 // IsRoot returns true if this is the root of the plan Relation tree.
 func (r *Relation) IsRoot() bool {
 	return r.root != nil
@@ -82,6 +86,20 @@ type Plan struct {
 	reg expr.ExtensionRegistry
 }
 
+// NewPlan assembles a decoded plan from its finished parts. The registry is
+// built by the caller.
+func NewPlan(version types.Version, extSet extensions.Set, advExtension *extensions.AdvancedExtension, expectedTypeURLs []string, relations []Relation, parameterBindings []DynamicParameterBinding, reg expr.ExtensionRegistry) *Plan {
+	return &Plan{
+		version:           version,
+		extensions:        extSet,
+		advExtension:      advExtension,
+		expectedTypeURLs:  expectedTypeURLs,
+		relations:         relations,
+		parameterBindings: parameterBindings,
+		reg:               reg,
+	}
+}
+
 // Version returns the plan's version.
 func (p *Plan) Version() types.Version { return p.version }
 
@@ -104,6 +122,10 @@ func (p *Plan) ExpectedTypeURLs() []string {
 // AdvancedExtension returns optional additional extensions associated with
 // this plan such as optimizations or enhancements.
 func (p *Plan) AdvancedExtension() AdvancedExtension { return p.advExtension }
+
+// GetAdvancedExtension returns the plan's advanced extension as its concrete
+// type, matching the accessor the relations expose.
+func (p *Plan) GetAdvancedExtension() *extensions.AdvancedExtension { return p.advExtension }
 
 // Relations returns the full slice of relation trees that are in this plan.
 //
@@ -145,87 +167,16 @@ func (p *Plan) ParameterBindings() []DynamicParameterBinding {
 	return slices.Clone(p.parameterBindings)
 }
 
-func FromProto(plan *proto.Plan, c *extensions.Collection) (*Plan, error) {
-	return FromProtoWithDecoder(plan, c, nil)
-}
-
-// FromProtoWithDecoder is like FromProto but registers per-typeURL ExtensionRelDecoders
-// on the registry before parsing relations, allowing extension rels to be
-// decoded into typed ExtensionRelDefinitions rather than UndecodedExtension.
-func FromProtoWithDecoder(plan *proto.Plan, c *extensions.Collection, decoders map[string]expr.ExtensionRelDecoder) (*Plan, error) {
-	extSet, err := extensions.GetExtensionSet(plan, c)
-	if err != nil {
-		return nil, err
-	}
-	version := types.VersionFromProto(plan.Version)
-	ret := &Plan{
-		version:          version,
-		extensions:       extSet,
-		advExtension:     extensions.AdvancedExtensionFromProto(plan.AdvancedExtensions),
-		expectedTypeURLs: plan.ExpectedTypeUrls,
-		relations:        make([]Relation, len(plan.Relations)),
-	}
-
-	ret.reg = expr.NewExtensionRegistry(ret.extensions, c)
-	ret.reg.SetSubqueryConverter(&ExpressionConverter{ExtensionRegistry: ret.reg})
-	for typeURL, dec := range decoders {
-		if err := ret.reg.SetExtensionRelDecoder(typeURL, dec); err != nil {
-			return nil, err
-		}
-	}
-	for i, r := range plan.Relations {
-		if err := ret.relations[i].FromProto(r, ret.reg); err != nil {
-			return nil, err
-		}
-	}
-
-	if len(plan.ParameterBindings) > 0 {
-		ret.parameterBindings = make([]DynamicParameterBinding, len(plan.ParameterBindings))
-		for i, pb := range plan.ParameterBindings {
-			ret.parameterBindings[i] = DynamicParameterBinding{
-				ParameterAnchor: pb.ParameterAnchor,
-				Value:           expr.LiteralFromProto(pb.Value),
-			}
-		}
-	}
-
-	return ret, nil
-}
-
-func (p *Plan) ToProto() (*proto.Plan, error) {
-	urns, decls := p.reg.ExtensionsToProto()
-	relations := make([]*proto.PlanRel, len(p.relations))
-	for i, r := range p.relations {
-		relations[i] = r.ToProto()
-	}
-
-	var bindings []*proto.DynamicParameterBinding
-	if len(p.parameterBindings) > 0 {
-		bindings = make([]*proto.DynamicParameterBinding, len(p.parameterBindings))
-		for i, b := range p.parameterBindings {
-			bindings[i] = &proto.DynamicParameterBinding{
-				ParameterAnchor: b.ParameterAnchor,
-				Value:           b.Value.ToProtoLiteral(),
-			}
-		}
-	}
-
-	return &proto.Plan{
-		Version:            types.VersionToProto(p.version),
-		ExpectedTypeUrls:   p.expectedTypeURLs,
-		AdvancedExtensions: extensions.AdvancedExtensionToProto(p.advExtension),
-		Relations:          relations,
-		Extensions:         decls,
-		ExtensionUrns:      urns,
-		ParameterBindings:  bindings,
-	}, nil
-}
-
 // Root is a relation with output field names.
 // This is used as the root of a Rel tree.
 type Root struct {
 	input Rel
 	names []string
+}
+
+// NewRoot builds a root relation from its input and output names.
+func NewRoot(input Rel, names []string) *Root {
+	return &Root{input: input, names: names}
 }
 
 func (r *Root) Input() Rel { return r.input }
@@ -296,9 +247,6 @@ type Rel interface {
 	// SetAdvancedExtension sets an AdvancedExtension on this Rel, returning any existing one on this Rel. Use `nil` to remove any existing AdvancedExtension.
 	SetAdvancedExtension(extension *extensions.AdvancedExtension) (existing *extensions.AdvancedExtension)
 
-	ToProto() *proto.Rel
-	ToProtoPlanRel() *proto.PlanRel
-
 	// Copy creates a copy of this relation with new inputs
 	Copy(newInputs ...Rel) (Rel, error)
 
@@ -308,4 +256,13 @@ type Rel interface {
 	// CopyWithExpressionRewrite rewrites all expression trees in this Rel. Returns original Rel
 	// if no changes were made, otherwise a newly created rel that includes the given expressions
 	CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error)
+}
+
+func validateRootNamesForSchema(recordType types.RecordType, names []string) error {
+	expected := recordType.AsStructType().DepthFirstNameCount()
+	if len(names) != expected {
+		return fmt.Errorf("%w: root relation has %d output name(s) but the output schema requires %d",
+			substraitgo.ErrInvalidRel, len(names), expected)
+	}
+	return nil
 }

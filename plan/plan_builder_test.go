@@ -3,9 +3,6 @@
 package plan_test
 
 import (
-	"encoding/json"
-	"fmt"
-	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,19 +12,9 @@ import (
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/plan"
 	"github.com/substrait-io/substrait-go/v9/types"
-	substraitproto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
-
-const versionStruct = `"version": {
-	"majorNumber": 0,
-	"minorNumber": 29,
-	"patchNumber": 0,
-	"producer": "substrait-go"
-}`
 
 var baseSchema = types.NamedStruct{Names: []string{"a", "b"},
 	Struct: types.StructType{
@@ -55,55 +42,6 @@ var baseSchemaReverse = types.NamedStruct{Names: []string{"x", "y"},
 			&types.StringType{Nullability: types.NullabilityRequired},
 		},
 	}}
-
-func TestBasicEmitPlan(t *testing.T) {
-	b := plan.NewBuilderDefault()
-	root, err := b.NamedScan([]string{"test"}, baseSchema).Remap(1, 0)
-	require.NoError(t, err)
-	p, err := b.Plan(root, []string{"a", "b"})
-	require.NoError(t, err)
-
-	protoPlan, err := p.ToProto()
-	require.NoError(t, err)
-
-	roundTrip, err := plan.FromProto(protoPlan, extensions.GetDefaultCollectionWithNoError())
-	require.NoError(t, err)
-
-	assert.Equal(t, p, roundTrip)
-	assert.Equal(t, "NSTRUCT<a: fp32, b: string>", p.GetRoots()[0].RecordType().String())
-	assert.Equal(t, roundTrip.GetRoots()[0].RecordType(), p.GetRoots()[0].RecordType())
-}
-
-func TestEmitEmptyPlan(t *testing.T) {
-	b := plan.NewBuilderDefault()
-	root := b.NamedScan([]string{"test"}, baseSchema)
-	newRoot, err := root.Remap()
-	require.NoError(t, err)
-	_, err = b.Plan(newRoot, []string{})
-	require.NoError(t, err)
-
-	b = plan.NewBuilderDefault()
-	root = b.NamedScan([]string{"test"}, baseSchema)
-	newRoot, err = root.Remap(1, 0)
-	require.NoError(t, err)
-	p, err := b.Plan(newRoot, []string{"a", "b"})
-	require.NoError(t, err)
-
-	assert.Equal(t, "NSTRUCT<a: fp32, b: string>", p.GetRoots()[0].RecordType().String())
-
-	// Verify the mapping remains the same after receiving an error.
-	_, err = root.Remap(-1)
-	require.Error(t, err)
-	assert.Equal(t, "NSTRUCT<a: fp32, b: string>", p.GetRoots()[0].RecordType().String())
-
-	protoPlan, err := p.ToProto()
-	require.NoError(t, err)
-
-	roundTrip, err := plan.FromProto(protoPlan, extensions.GetDefaultCollectionWithNoError())
-	require.NoError(t, err)
-
-	assert.Equal(t, p, roundTrip)
-}
 
 func TestBuildEmitOutOfRangePlan(t *testing.T) {
 	b := plan.NewBuilderDefault()
