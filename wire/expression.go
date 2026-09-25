@@ -21,6 +21,8 @@ func ExprToProto(e expr.Expression) *proto.Expression {
 		return dynamicParameterToProto(e)
 	case *expr.IfThen:
 		return ifThenToProto(e)
+	case *expr.SwitchExpr:
+		return switchExprToProto(e)
 	case *expr.Lambda:
 		return lambdaToProto(e)
 	case *expr.ScalarFunction:
@@ -80,6 +82,32 @@ func ifThenToProto(ex *expr.IfThen) *proto.Expression {
 			IfThen: &proto.Expression_IfThen{
 				Ifs:  clauses,
 				Else: elseClause,
+			},
+		},
+	}
+}
+
+func switchExprToProto(ex *expr.SwitchExpr) *proto.Expression {
+	var elseExpr *proto.Expression
+	if e := ex.Else(); e != nil {
+		elseExpr = ExprToProto(e)
+	}
+
+	cases := make([]*proto.Expression_SwitchExpression_IfValue, ex.NCases())
+	for i := range cases {
+		c := ex.Case(i)
+		cases[i] = &proto.Expression_SwitchExpression_IfValue{
+			If:   LiteralToProto(c.If),
+			Then: ExprToProto(c.Then),
+		}
+	}
+
+	return &proto.Expression{
+		RexType: &proto.Expression_SwitchExpression_{
+			SwitchExpression: &proto.Expression_SwitchExpression{
+				Match: ExprToProto(ex.MatchExpr()),
+				Ifs:   cases,
+				Else:  elseExpr,
 			},
 		},
 	}
@@ -254,6 +282,30 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 		}
 
 		return expr.NewIfThenFromParts(ifs, elseExpr), nil
+	case *proto.Expression_SwitchExpression_:
+		matched, err := ExprFromProto(et.SwitchExpression.Match, baseSchema, reg)
+		if err != nil {
+			return nil, err
+		}
+
+		elseExpr, err := ExprFromProto(et.SwitchExpression.Else, baseSchema, reg)
+		if err != nil {
+			return nil, err
+		}
+
+		ifs := make([]struct {
+			If   expr.Literal
+			Then expr.Expression
+		}, len(et.SwitchExpression.Ifs))
+		for i, clause := range et.SwitchExpression.Ifs {
+			ifs[i].If = LiteralFromProto(clause.If)
+			ifs[i].Then, err = ExprFromProto(clause.Then, baseSchema, reg)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		return expr.NewSwitchExprFromParts(matched, ifs, elseExpr), nil
 	case *proto.Expression_Lambda_:
 		if et.Lambda.Parameters == nil {
 			return nil, fmt.Errorf("%w: lambda parameters cannot be nil", substraitgo.ErrInvalidExpr)
