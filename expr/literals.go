@@ -215,47 +215,6 @@ func (t *NestedLiteral[T]) ValueString() string {
 	return fmt.Sprintf("%v", t.Value)
 }
 func (t *NestedLiteral[T]) GetType() types.Type { return t.Type }
-func (t *NestedLiteral[T]) ToProtoLiteral() *proto.Expression_Literal {
-	lit := &proto.Expression_Literal{
-		Nullable:               t.Type.GetNullability() == types.NullabilityNullable,
-		TypeVariationReference: t.Type.GetTypeVariationReference(),
-	}
-
-	vals := make([]*proto.Expression_Literal, len(t.Value))
-	for i, l := range t.Value {
-		vals[i] = l.ToProtoLiteral()
-	}
-
-	switch any(t.Value).(type) {
-	case StructLiteralValue:
-		lit.LiteralType = &proto.Expression_Literal_Struct_{
-			Struct: &proto.Expression_Literal_Struct{
-				Fields: vals,
-			},
-		}
-	case ListLiteralValue:
-		if len(vals) == 0 {
-			lit.LiteralType = &proto.Expression_Literal_EmptyList{
-				EmptyList: types.TypeToProto(t.Type).GetList(),
-			}
-		} else {
-			lit.LiteralType = &proto.Expression_Literal_List_{
-				List: &proto.Expression_Literal_List{
-					Values: vals,
-				},
-			}
-		}
-	}
-
-	return lit
-}
-
-func (t *NestedLiteral[T]) ToProto() *proto.Expression {
-	return &proto.Expression{
-		RexType: &proto.Expression_Literal_{Literal: t.ToProtoLiteral()},
-	}
-}
-
 func (t *NestedLiteral[T]) Equals(rhs Expression) bool {
 	if other, ok := rhs.(*NestedLiteral[T]); ok {
 		return t.Type.Equals(other.Type) && slices.EqualFunc(t.Value, other.Value, func(a, b Literal) bool {
@@ -1004,21 +963,6 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
 			}}
-	case *proto.Expression_Literal_Struct_:
-		typeList := make([]types.Type, len(lit.Struct.Fields))
-		fields := make([]Literal, len(lit.Struct.Fields))
-		for i, f := range lit.Struct.Fields {
-			fields[i] = LiteralFromProto(f)
-			typeList[i] = fields[i].GetType()
-		}
-
-		return &NestedLiteral[StructLiteralValue]{
-			Value: StructLiteralValue(fields),
-			Type: &types.StructType{
-				Nullability:      nullability,
-				TypeVariationRef: l.TypeVariationReference,
-				Types:            typeList,
-			}}
 	case *proto.Expression_Literal_Map_:
 		ret := make(MapLiteralValue, len(lit.Map.KeyValues))
 		for i, kv := range lit.Map.KeyValues {
@@ -1032,26 +976,6 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 				TypeVariationRef: l.TypeVariationReference,
 				Key:              ret[0].Key.GetType(),
 				Value:            ret[0].Value.GetType(),
-			}}
-	case *proto.Expression_Literal_List_:
-		ret := make(ListLiteralValue, len(lit.List.Values))
-		for i, v := range lit.List.Values {
-			ret[i] = LiteralFromProto(v)
-		}
-		return &NestedLiteral[ListLiteralValue]{
-			Value: ListLiteralValue(ret),
-			Type: &types.ListType{
-				Nullability:      nullability,
-				TypeVariationRef: l.TypeVariationReference,
-				Type:             ret[0].GetType(),
-			}}
-	case *proto.Expression_Literal_EmptyList:
-		return &NestedLiteral[ListLiteralValue]{
-			Value: nil,
-			Type: &types.ListType{
-				Nullability:      nullability,
-				TypeVariationRef: l.TypeVariationReference,
-				Type:             types.TypeFromProto(lit.EmptyList.Type),
 			}}
 	case *proto.Expression_Literal_EmptyMap:
 		return &MapLiteral{
