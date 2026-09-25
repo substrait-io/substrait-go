@@ -53,6 +53,8 @@ func RelToProto(rel plan.Rel) *proto.Rel {
 		return extensionSingleRelToProto(r)
 	case *plan.ExtensionLeafRel:
 		return extensionLeafRelToProto(r)
+	case *plan.ExtensionMultiRel:
+		return extensionMultiRelToProto(r)
 	default:
 		panic(fmt.Sprintf("wire: unhandled relation %T", rel))
 	}
@@ -523,6 +525,22 @@ func extensionLeafRelToProto(el *plan.ExtensionLeafRel) *proto.Rel {
 			ExtensionLeaf: &proto.ExtensionLeafRel{
 				Common: relCommonToProto(&el.RelCommon),
 				Detail: el.Detail(),
+			},
+		},
+	}
+}
+
+func extensionMultiRelToProto(em *plan.ExtensionMultiRel) *proto.Rel {
+	inputs := make([]*proto.Rel, len(em.Inputs()))
+	for i, in := range em.Inputs() {
+		inputs[i] = RelToProto(in)
+	}
+	return &proto.Rel{
+		RelType: &proto.Rel_ExtensionMulti{
+			ExtensionMulti: &proto.ExtensionMultiRel{
+				Common: relCommonToProto(&em.RelCommon),
+				Inputs: inputs,
+				Detail: em.Detail(),
 			},
 		},
 	}
@@ -1132,6 +1150,22 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 		}
 		common := relCommonFromProto(rel.ExtensionLeaf.Common)
 		return plan.NewExtensionLeafRel(definition, common), nil
+	case *proto.Rel_ExtensionMulti:
+		inputs := make([]plan.Rel, len(rel.ExtensionMulti.Inputs))
+		var err error
+		for i, r := range rel.ExtensionMulti.Inputs {
+			inputs[i], err = RelFromProto(r, reg)
+			if err != nil {
+				return nil, fmt.Errorf("error getting input %d for ExtensionMultiRel: %w", i, err)
+			}
+		}
+
+		definition, err := decodeExtensionDef(reg, rel.ExtensionMulti.Detail)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding ExtensionMulti detail: %w", err)
+		}
+		common := relCommonFromProto(rel.ExtensionMulti.Common)
+		return plan.NewExtensionMultiRel(inputs, definition, common), nil
 	case nil:
 		return nil, fmt.Errorf("%w: got nil", substraitgo.ErrInvalidRel)
 	}

@@ -1429,6 +1429,10 @@ type ExtensionMultiRel struct {
 	definition ExtensionRelDefinition
 }
 
+func NewExtensionMultiRel(inputs []Rel, definition ExtensionRelDefinition, common RelCommon) *ExtensionMultiRel {
+	return &ExtensionMultiRel{RelCommon: common, inputs: inputs, definition: definition}
+}
+
 func (em *ExtensionMultiRel) directOutputSchema() types.RecordType {
 	return em.definition.Schema(em.inputs)
 }
@@ -1444,30 +1448,6 @@ func (em *ExtensionMultiRel) Detail() *anypb.Any {
 
 // Definition returns the extension definition if present.
 func (em *ExtensionMultiRel) Definition() ExtensionRelDefinition { return em.definition }
-
-func (em *ExtensionMultiRel) ToProto() *proto.Rel {
-	inputs := make([]*proto.Rel, len(em.inputs))
-	for i, in := range em.inputs {
-		inputs[i] = in.ToProto()
-	}
-	return &proto.Rel{
-		RelType: &proto.Rel_ExtensionMulti{
-			ExtensionMulti: &proto.ExtensionMultiRel{
-				Common: em.toProto(),
-				Inputs: inputs,
-				Detail: em.Detail(),
-			},
-		},
-	}
-}
-
-func (em *ExtensionMultiRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: em.ToProto(),
-		},
-	}
-}
 
 func (em *ExtensionMultiRel) GetInputs() []Rel {
 	return em.inputs
