@@ -3,7 +3,6 @@
 package plan
 
 import (
-	"fmt"
 	"slices"
 	"strconv"
 
@@ -11,7 +10,6 @@ import (
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/types"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -45,8 +43,6 @@ type SingleInputRel interface {
 type ReadRel interface {
 	Rel
 
-	fromProtoReadRel(*proto.ReadRel, expr.ExtensionRegistry) error
-
 	BaseSchema() types.NamedStruct
 	Filter() expr.Expression
 	BestEffortFilter() expr.Expression
@@ -63,33 +59,18 @@ type baseReadRel struct {
 	advExtension     *extensions.AdvancedExtension
 }
 
-func (b *baseReadRel) fromProtoReadRel(rel *proto.ReadRel, reg expr.ExtensionRegistry) error {
-	if rel.Common != nil {
-		b.RelCommon.fromProtoCommon(rel.Common)
+// NewBaseReadRel builds the base shared by all read relations. The returned
+// value is opaque to callers outside this package and is only meant to be
+// passed to one of the read-relation constructors below.
+func NewBaseReadRel(common RelCommon, baseSchema types.NamedStruct, filter, bestEffortFilter expr.Expression, projection *expr.MaskExpression, advExtension *extensions.AdvancedExtension) baseReadRel {
+	return baseReadRel{
+		RelCommon:        common,
+		baseSchema:       baseSchema,
+		filter:           filter,
+		bestEffortFilter: bestEffortFilter,
+		projection:       projection,
+		advExtension:     advExtension,
 	}
-
-	b.baseSchema = types.NewNamedStructFromProto(rel.BaseSchema)
-	var err error
-	if rel.Filter != nil {
-		b.filter, err = expr.ExprFromProto(rel.Filter, types.NewRecordTypeFromStruct(b.baseSchema.Struct), reg)
-		if err != nil {
-			return err
-		}
-	}
-
-	if rel.BestEffortFilter != nil {
-		b.bestEffortFilter, err = expr.ExprFromProto(rel.BestEffortFilter, types.NewRecordTypeFromStruct(b.baseSchema.Struct), reg)
-		if err != nil {
-			return err
-		}
-	}
-
-	if rel.Projection != nil {
-		b.projection = expr.MaskExpressionFromProto(rel.Projection)
-	}
-
-	b.advExtension = extensions.AdvancedExtensionFromProto(rel.AdvancedExtension)
-	return nil
 }
 
 func (b *baseReadRel) directOutputSchema() types.RecordType {
@@ -113,25 +94,6 @@ func (b *baseReadRel) SetAdvancedExtension(advExtension *extensions.AdvancedExte
 
 func (b *baseReadRel) SetProjection(p *expr.MaskExpression) {
 	b.projection = p
-}
-
-func (b *baseReadRel) toReadRelProto() *proto.ReadRel {
-	out := &proto.ReadRel{
-		Common:            b.RelCommon.toProto(),
-		BaseSchema:        b.baseSchema.ToProto(),
-		AdvancedExtension: extensions.AdvancedExtensionToProto(b.advExtension),
-	}
-	if b.filter != nil {
-		out.Filter = b.filter.ToProto()
-	}
-	if b.bestEffortFilter != nil {
-		out.BestEffortFilter = b.bestEffortFilter.ToProto()
-	}
-	if b.projection != nil {
-		out.Projection = b.projection.ToProto()
-	}
-
-	return out
 }
 
 func (b *baseReadRel) GetInputs() []Rel {
@@ -641,6 +603,9 @@ func (lf *LocalFileReadRel) GetAdvancedExtension() *extensions.AdvancedExtension
 	return lf.advExtension
 }
 
+// ReadRelAdvancedExtension returns the advanced extension on the enclosing read
+// relation, which GetAdvancedExtension shadows with the local-files one.
+
 func (lf *LocalFileReadRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
 	existing := lf.advExtension
 	lf.advExtension = advExtension
@@ -915,6 +880,7 @@ func (j *JoinRel) PostJoinFilter() expr.Expression {
 	}
 	return j.postJoinFilter
 }
+
 func (j *JoinRel) Type() JoinType { return j.joinType }
 func (j *JoinRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return j.advExtension
@@ -1172,6 +1138,8 @@ type AggRelMeasure struct {
 	measure *expr.AggregateFunction
 	filter  expr.Expression
 }
+
+// NewAggRelMeasure builds a single aggregate measure with its optional filter.
 
 func (am *AggRelMeasure) Measure() *expr.AggregateFunction { return am.measure }
 func (am *AggRelMeasure) Filter() expr.Expression {
@@ -1683,6 +1651,11 @@ type UndecodedExtension struct {
 	detail *anypb.Any
 }
 
+// NewUndecodedExtension wraps an extension detail that no decoder claimed.
+func NewUndecodedExtension(detail *anypb.Any) *UndecodedExtension {
+	return &UndecodedExtension{detail: detail}
+}
+
 // Schema returns an empty record type for unknown extensions.
 func (ue *UndecodedExtension) Schema(inputs []Rel) types.RecordType {
 	if len(inputs) == 1 {
@@ -1948,13 +1921,15 @@ func (t SimpleComparisonType) String() string {
 // compared. It is either a SimpleComparison or a CustomComparison. The
 // unexported toProto method seals it to this package.
 type JoinKeyComparison interface {
-	toProto() *proto.ComparisonJoinKey_ComparisonType
+	isJoinKeyComparison()
 }
 
 // SimpleComparison uses one of the predefined SimpleComparisonType behaviors.
 type SimpleComparison struct {
 	Type SimpleComparisonType
 }
+
+func (SimpleComparison) isJoinKeyComparison() {}
 
 func (c SimpleComparison) toProto() *proto.ComparisonJoinKey_ComparisonType {
 	return &proto.ComparisonJoinKey_ComparisonType{
@@ -1967,6 +1942,8 @@ func (c SimpleComparison) toProto() *proto.ComparisonJoinKey_ComparisonType {
 type CustomComparison struct {
 	FunctionReference uint32
 }
+
+func (CustomComparison) isJoinKeyComparison() {}
 
 func (c CustomComparison) toProto() *proto.ComparisonJoinKey_ComparisonType {
 	return &proto.ComparisonJoinKey_ComparisonType{
@@ -2165,6 +2142,7 @@ func (hr *HashJoinRel) PostJoinFilter() expr.Expression {
 	}
 	return hr.postJoinFilter
 }
+
 func (hr *HashJoinRel) Type() HashMergeJoinType { return hr.joinType }
 func (hr *HashJoinRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return hr.advExtension
@@ -2282,6 +2260,7 @@ func (mr *MergeJoinRel) PostJoinFilter() expr.Expression {
 	}
 	return mr.postJoinFilter
 }
+
 func (mr *MergeJoinRel) Type() HashMergeJoinType { return mr.joinType }
 func (mr *MergeJoinRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return mr.advExtension

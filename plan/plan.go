@@ -425,23 +425,6 @@ type Rel interface {
 	CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error)
 }
 
-// decodeExtensionDef dispatches to the decoder registered for detail's type URL (if any).
-// Falls back to UndecodedExtension for unregistered type URLs.
-func decodeExtensionDef(reg expr.ExtensionRegistry, detail *anypb.Any) (ExtensionRelDefinition, error) {
-	if dec := reg.ExtensionRelDecoderFor(detail.GetTypeUrl()); dec != nil {
-		raw, err := dec.DecodeExtensionRel(detail)
-		if err != nil {
-			return nil, err
-		}
-		def, ok := raw.(ExtensionRelDefinition)
-		if !ok {
-			return nil, fmt.Errorf("ExtensionRelDecoder returned %T which does not implement ExtensionRelDefinition", raw)
-		}
-		return def, nil
-	}
-	return &UndecodedExtension{detail: detail}, nil
-}
-
 func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 	switch rel := rel.RelType.(type) {
 	case *proto.Rel_Read:
