@@ -15,6 +15,8 @@ import (
 // ExprToProto encodes an expression as its protobuf message.
 func ExprToProto(e expr.Expression) *proto.Expression {
 	switch e := e.(type) {
+	case *expr.Lambda:
+		return lambdaToProto(e)
 	case *expr.ScalarFunction:
 		return scalarFunctionToProto(e)
 	case *expr.WindowFunction:
@@ -156,6 +158,35 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 		), nil
 	case *proto.Expression_Enum_:
 		return nil, fmt.Errorf("%w: deprecated", substraitgo.ErrNotImplemented)
+	case *proto.Expression_Lambda_:
+		if et.Lambda.Parameters == nil {
+			return nil, fmt.Errorf("%w: lambda parameters cannot be nil", substraitgo.ErrInvalidExpr)
+		}
+		if et.Lambda.Body == nil {
+			return nil, fmt.Errorf("%w: lambda body cannot be nil", substraitgo.ErrInvalidExpr)
+		}
+
+		paramTypes := make([]types.Type, len(et.Lambda.Parameters.Types))
+		for i, pt := range et.Lambda.Parameters.Types {
+			paramTypes[i] = TypeFromProto(pt)
+		}
+		params := &types.StructType{
+			Types:            paramTypes,
+			TypeVariationRef: et.Lambda.Parameters.TypeVariationReference,
+			Nullability:      types.Nullability(et.Lambda.Parameters.Nullability),
+		}
+
+		if params.Nullability != types.NullabilityRequired {
+			return nil, fmt.Errorf("%w: lambda parameters struct must have NULLABILITY_REQUIRED", substraitgo.ErrInvalidExpr)
+		}
+
+		body, err := ExprFromProto(et.Lambda.Body, baseSchema, reg)
+		if err != nil {
+			return nil, err
+		}
+
+		// TODO (#189): add validation and type resolution for lambda parameter references
+		return &expr.Lambda{Parameters: params, Body: body}, nil
 	}
 	return nil, fmt.Errorf("%w: ExprFromProto: %s", substraitgo.ErrNotImplemented, e)
 }
