@@ -21,6 +21,7 @@ import (
 	"github.com/substrait-io/substrait-go/v9/plan"
 	"github.com/substrait-io/substrait-go/v9/types"
 	"github.com/substrait-io/substrait-go/v9/types/parser"
+	"github.com/substrait-io/substrait-go/v9/wire"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/encoding/protojson"
 	pb "google.golang.org/protobuf/proto"
@@ -424,7 +425,7 @@ func TestRoundTripUsingTestData(t *testing.T) {
 	raw, err := json.Marshal(tmp["baseSchema"])
 	require.NoError(t, err)
 	require.NoError(t, protojson.Unmarshal(raw, &protoSchema))
-	baseSchema := types.NewNamedStructFromProto(&protoSchema)
+	baseSchema := wire.NewNamedStructFromProto(&protoSchema)
 	reg := expr.NewExtensionRegistry(extSet, collection)
 	for _, tc := range tmp["cases"].([]any) {
 		tt := tc.(map[string]any)
