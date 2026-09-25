@@ -17,7 +17,6 @@ import (
 	"github.com/google/uuid"
 	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/types"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
 // PrimitiveLiteralValue is a type constraint that represents
@@ -432,97 +431,6 @@ func (t *ProtoLiteral) GetType() types.Type { return t.Type }
 func (t *ProtoLiteral) String() string {
 	return fmt.Sprintf("%s(%s)", t.Type, t.ValueString())
 }
-func (t *ProtoLiteral) ToProtoLiteral() *proto.Expression_Literal {
-	lit := &proto.Expression_Literal{
-		Nullable:               t.Type.GetNullability() == types.NullabilityNullable,
-		TypeVariationReference: t.Type.GetTypeVariationReference(),
-	}
-
-	switch literalType := t.Type.(type) {
-	case *types.UserDefinedType:
-		params := make([]*proto.Type_Parameter, len(literalType.TypeParameters))
-		for i, p := range literalType.TypeParameters {
-			params[i] = p.ToProto()
-		}
-
-		udt := &proto.Expression_Literal_UserDefined{
-			TypeAnchorType: &proto.Expression_Literal_UserDefined_TypeReference{
-				TypeReference: literalType.TypeReference},
-			TypeParameters: params,
-		}
-		val, ok := t.Value.(UserDefinedLiteralValue)
-		if !ok {
-			panic(fmt.Sprintf("unexpected UserDefined literal value type: %T", t.Value))
-		}
-		setUserDefinedVal(udt, val)
-
-		lit.LiteralType = &proto.Expression_Literal_UserDefined_{
-			UserDefined: udt,
-		}
-	case *types.IntervalYearType:
-		v := t.Value.(*types.IntervalYearToMonth)
-		lit.LiteralType = &proto.Expression_Literal_IntervalYearToMonth_{
-			IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{
-				Years:  v.Years,
-				Months: v.Months,
-			},
-		}
-	case *types.IntervalDayType:
-		v := t.Value.(*types.IntervalDayToSecond)
-		lit.LiteralType = &proto.Expression_Literal_IntervalDayToSecond_{
-			IntervalDayToSecond: types.IntervalDayToSecondToProto(v),
-		}
-	case *types.VarCharType:
-		v := t.Value.(string)
-		lit.LiteralType = &proto.Expression_Literal_VarChar_{
-			VarChar: &proto.Expression_Literal_VarChar{
-				Value:  v,
-				Length: uint32(literalType.Length),
-			},
-		}
-	case *types.DecimalType:
-		v := t.Value.([]byte)
-		lit.LiteralType = &proto.Expression_Literal_Decimal_{
-			Decimal: &proto.Expression_Literal_Decimal{
-				Value:     v,
-				Precision: literalType.Precision,
-				Scale:     literalType.Scale,
-			},
-		}
-	case *types.PrecisionTimeType:
-		v := t.Value.(int64)
-		lit.LiteralType = &proto.Expression_Literal_PrecisionTime_{
-			PrecisionTime: &proto.Expression_Literal_PrecisionTime{
-				Precision: literalType.GetPrecisionProtoVal(),
-				Value:     v,
-			},
-		}
-	case *types.PrecisionTimestampType:
-		v := t.Value.(int64)
-		lit.LiteralType = &proto.Expression_Literal_PrecisionTimestamp_{
-			PrecisionTimestamp: &proto.Expression_Literal_PrecisionTimestamp{
-				Precision: literalType.GetPrecisionProtoVal(),
-				Value:     v,
-			},
-		}
-	case *types.PrecisionTimestampTzType:
-		v := t.Value.(int64)
-		lit.LiteralType = &proto.Expression_Literal_PrecisionTimestampTz{
-			PrecisionTimestampTz: &proto.Expression_Literal_PrecisionTimestamp{
-				Precision: literalType.GetPrecisionProtoVal(),
-				Value:     v,
-			},
-		}
-	}
-	return lit
-}
-
-func (t *ProtoLiteral) ToProto() *proto.Expression {
-	return &proto.Expression{RexType: &proto.Expression_Literal_{
-		Literal: t.ToProtoLiteral(),
-	}}
-}
-
 func (t *ProtoLiteral) Equals(rhs Expression) bool {
 	if other, ok := rhs.(*ProtoLiteral); ok {
 		return t.Type.Equals(other.Type) &&
@@ -848,57 +756,6 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 	nullability := getNullability(l.Nullable)
 
 	switch lit := l.LiteralType.(type) {
-	case *proto.Expression_Literal_IntervalDayToSecond_:
-		value, err := types.IntervalDayToSecondFromProto(lit.IntervalDayToSecond)
-		if err != nil {
-			return nil
-		}
-		precision, err := types.ProtoToTimePrecision(value.GetPrecisionProtoVal())
-		if err != nil {
-			return nil
-		}
-		return &ProtoLiteral{
-			Value: value,
-			Type: &types.IntervalDayType{
-				Precision:        precision,
-				Nullability:      nullability,
-				TypeVariationRef: l.TypeVariationReference,
-			},
-		}
-	case *proto.Expression_Literal_VarChar_:
-		return &ProtoLiteral{
-			Value: lit.VarChar.Value,
-			Type: &types.VarCharType{
-				Length:           int32(lit.VarChar.Length),
-				Nullability:      nullability,
-				TypeVariationRef: l.TypeVariationReference,
-			},
-		}
-	case *proto.Expression_Literal_Decimal_:
-		return &ProtoLiteral{
-			Value: lit.Decimal.Value,
-			Type: &types.DecimalType{
-				Scale:            lit.Decimal.Scale,
-				Precision:        lit.Decimal.Precision,
-				Nullability:      nullability,
-				TypeVariationRef: l.TypeVariationReference,
-			},
-		}
-	case *proto.Expression_Literal_UserDefined_:
-		params := make([]types.TypeParam, len(lit.UserDefined.TypeParameters))
-		for i, p := range lit.UserDefined.TypeParameters {
-			params[i] = types.TypeParamFromProto(p)
-		}
-
-		return &ProtoLiteral{
-			Value: userDefinedValueFromProto(lit.UserDefined),
-			Type: &types.UserDefinedType{
-				Nullability:      nullability,
-				TypeVariationRef: l.TypeVariationReference,
-				TypeReference:    lit.UserDefined.GetTypeReference(),
-				TypeParameters:   params,
-			},
-		}
 	case *proto.Expression_Literal_PrecisionTime_:
 		precTime := lit.PrecisionTime
 		precision, err := types.ProtoToTimePrecision(precTime.Precision)
