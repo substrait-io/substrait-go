@@ -1098,6 +1098,10 @@ type SortRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
+func NewSortRel(input Rel, sorts []expr.SortField, common RelCommon, advExtension *extensions.AdvancedExtension) *SortRel {
+	return &SortRel{RelCommon: common, input: input, sorts: sorts, advExtension: advExtension}
+}
+
 func (sr *SortRel) directOutputSchema() types.RecordType { return sr.input.RecordType() }
 func (sr *SortRel) RecordType() types.RecordType {
 	return sr.remap(sr.directOutputSchema())
@@ -1111,31 +1115,6 @@ func (sr *SortRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtensi
 	existing := sr.advExtension
 	sr.advExtension = advExtension
 	return existing
-}
-
-func (sr *SortRel) ToProto() *proto.Rel {
-	sorts := make([]*proto.SortField, len(sr.sorts))
-	for i, s := range sr.sorts {
-		sorts[i] = s.ToProto()
-	}
-	return &proto.Rel{
-		RelType: &proto.Rel_Sort{
-			Sort: &proto.SortRel{
-				Common:            sr.toProto(),
-				Input:             sr.input.ToProto(),
-				Sorts:             sorts,
-				AdvancedExtension: extensions.AdvancedExtensionToProto(sr.advExtension),
-			},
-		},
-	}
-}
-
-func (sr *SortRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: sr.ToProto(),
-		},
-	}
 }
 
 func (sr *SortRel) GetInputs() []Rel {

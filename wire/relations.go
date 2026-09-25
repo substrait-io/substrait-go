@@ -35,6 +35,8 @@ func RelToProto(rel plan.Rel) *proto.Rel {
 		return projectRelToProto(r)
 	case *plan.AggregateRel:
 		return aggregateRelToProto(r)
+	case *plan.SortRel:
+		return sortRelToProto(r)
 	default:
 		panic(fmt.Sprintf("wire: unhandled relation %T", rel))
 	}
@@ -290,6 +292,24 @@ func aggRelMeasureToProto(am *plan.AggRelMeasure) *proto.AggregateRel_Measure {
 		ret.Filter = ExprToProto(f)
 	}
 	return ret
+}
+
+func sortRelToProto(sr *plan.SortRel) *proto.Rel {
+	sorts := make([]*proto.SortField, len(sr.Sorts()))
+	for i := range sr.Sorts() {
+		s := sr.Sorts()[i]
+		sorts[i] = SortFieldToProto(&s)
+	}
+	return &proto.Rel{
+		RelType: &proto.Rel_Sort{
+			Sort: &proto.SortRel{
+				Common:            relCommonToProto(&sr.RelCommon),
+				Input:             RelToProto(sr.Input()),
+				Sorts:             sorts,
+				AdvancedExtension: advancedExtensionToProto(sr.GetAdvancedExtension()),
+			},
+		},
+	}
 }
 
 // relCommonFromProto decodes the common fields shared by every relation.
@@ -613,6 +633,27 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 
 		common := relCommonFromProto(rel.Aggregate.Common)
 		return plan.NewAggregateRel(input, measures, groupingExpressions, groupingReferences, common, advancedExtensionFromProto(rel.Aggregate.AdvancedExtension)), nil
+	case *proto.Rel_Sort:
+		input, err := RelFromProto(rel.Sort.Input, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error getting input to SortRel: %w", err)
+		}
+
+		base := input.RecordType()
+		sorts := make([]expr.SortField, len(rel.Sort.Sorts))
+		for i, s := range rel.Sort.Sorts {
+			sorts[i], err = SortFieldFromProto(s, &base, reg)
+			if err != nil {
+				return nil, fmt.Errorf("error getting SortField %d for SortRel: %w", i, err)
+			}
+		}
+
+		if len(sorts) == 0 {
+			return nil, fmt.Errorf("%w: missing required field Sorts for Sort Relation", substraitgo.ErrInvalidRel)
+		}
+
+		common := relCommonFromProto(rel.Sort.Common)
+		return plan.NewSortRel(input, sorts, common, advancedExtensionFromProto(rel.Sort.AdvancedExtension)), nil
 	case nil:
 		return nil, fmt.Errorf("%w: got nil", substraitgo.ErrInvalidRel)
 	}
