@@ -399,32 +399,6 @@ type Rel interface {
 
 func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 	switch rel := rel.RelType.(type) {
-	case *proto.Rel_Sort:
-		input, err := RelFromProto(rel.Sort.Input, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting input to SortRel: %w", err)
-		}
-
-		base := input.RecordType()
-		sorts := make([]expr.SortField, len(rel.Sort.Sorts))
-		for i, s := range rel.Sort.Sorts {
-			sorts[i], err = expr.SortFieldFromProto(s, &base, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error getting SortField %d for SortRel: %w", i, err)
-			}
-		}
-
-		if len(sorts) == 0 {
-			return nil, fmt.Errorf("%w: missing required field Sorts for Sort Relation", substraitgo.ErrInvalidRel)
-		}
-
-		out := &SortRel{
-			input:        input,
-			sorts:        sorts,
-			advExtension: extensions.AdvancedExtensionFromProto(rel.Sort.AdvancedExtension),
-		}
-		out.fromProtoCommon(rel.Sort.Common)
-		return out, nil
 	case *proto.Rel_Join:
 		if JoinType(rel.Join.Type) == JoinTypeUnspecified {
 			return nil, fmt.Errorf("%w: JoinRel must not have unspecified join type", substraitgo.ErrInvalidRel)
