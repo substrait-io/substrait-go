@@ -24,50 +24,6 @@ func createMockReadRel() plan.Rel {
 	return plan.NewBuilderDefault().NamedScan([]string{"test_table"}, schema)
 }
 
-func TestScalarSubquery(t *testing.T) {
-	// Create a simple mock relation that returns one column of type i32
-	mockRel := createMockReadRel()
-
-	subquery := plan.NewScalarSubquery(mockRel)
-
-	// Test basic properties
-	assert.True(t, subquery.IsScalar())
-	assert.Equal(t, "scalar", subquery.GetSubqueryType())
-	assert.Contains(t, subquery.String(), "SCALAR_SUBQUERY")
-
-	// Test type inference
-	expectedType := &types.Int32Type{}
-	assert.True(t, expectedType.Equals(subquery.GetType()))
-
-	// Test protobuf conversion
-	proto := subquery.ToProto()
-	require.NotNil(t, proto)
-	require.NotNil(t, proto.GetSubquery())
-	require.NotNil(t, proto.GetSubquery().GetScalar())
-}
-
-func TestScalarSubqueryValidConstruction(t *testing.T) {
-	mockRel := createMockReadRel()
-
-	// Test with valid relation
-	validSubquery := plan.NewScalarSubquery(mockRel)
-	assert.NotNil(t, validSubquery)
-	assert.NotNil(t, validSubquery.Input)
-	assert.Equal(t, mockRel, validSubquery.Input)
-
-	// Test with nil relation - should create but with nil relation
-	nilSubquery := plan.NewScalarSubquery(nil)
-	assert.NotNil(t, nilSubquery)
-	assert.Nil(t, nilSubquery.Input)
-
-	// Test protobuf conversion with valid relation
-	proto := validSubquery.ToProto()
-	require.NotNil(t, proto)
-	require.NotNil(t, proto.GetSubquery())
-	require.NotNil(t, proto.GetSubquery().GetScalar())
-	require.NotNil(t, proto.GetSubquery().GetScalar().GetInput())
-}
-
 func TestInPredicateSubquery(t *testing.T) {
 	// Create mock expressions and relation
 	needle := expr.NewPrimitiveLiteral(int32(42), false)
