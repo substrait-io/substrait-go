@@ -140,21 +140,6 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 			Value:   val,
 			Options: options,
 		}, nil
-	case *proto.Expression_Cast_:
-		if et.Cast.Type == nil {
-			return nil, fmt.Errorf("%w: cast expression missing type", substraitgo.ErrInvalidExpr)
-		}
-
-		input, err := ExprFromProto(et.Cast.Input, baseSchema, reg)
-		if err != nil {
-			return nil, err
-		}
-
-		return &Cast{
-			Type:            types.TypeFromProto(et.Cast.Type),
-			Input:           input,
-			FailureBehavior: types.CastFailBehavior(et.Cast.FailureBehavior),
-		}, nil
 	case *proto.Expression_Nested_:
 		var err error
 		nullable, typevar := et.Nested.Nullable, et.Nested.TypeVariationReference
@@ -489,18 +474,6 @@ func (ex *Cast) IsScalar() bool {
 
 func (ex *Cast) GetType() types.Type {
 	return ex.Type
-}
-
-func (ex *Cast) ToProto() *proto.Expression {
-	return &proto.Expression{
-		RexType: &proto.Expression_Cast_{
-			Cast: &proto.Expression_Cast{
-				Type:            types.TypeToProto(ex.Type),
-				Input:           ex.Input.ToProto(),
-				FailureBehavior: proto.Expression_Cast_FailureBehavior(ex.FailureBehavior),
-			},
-		},
-	}
 }
 
 func (ex *Cast) Equals(other Expression) bool {

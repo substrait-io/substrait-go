@@ -249,23 +249,6 @@ func TestExpressionsRoundtrip(t *testing.T) {
 	}
 }
 
-func TestCastMissingTypeReturnsError(t *testing.T) {
-	registry := expr.NewEmptyExtensionRegistry(ext.GetDefaultCollectionWithNoError())
-
-	_, err := expr.ExprFromProto(&proto.Expression{
-		RexType: &proto.Expression_Cast_{Cast: &proto.Expression_Cast{
-			// Type intentionally omitted.
-			Input: &proto.Expression{
-				RexType: &proto.Expression_Literal_{Literal: &proto.Expression_Literal{
-					LiteralType: &proto.Expression_Literal_I64{I64: 1},
-				}},
-			},
-		}},
-	}, nil, registry)
-
-	require.Error(t, err)
-}
-
 func ExampleExpression_Visit() {
 	const substraitExtURN = "extension:io.substrait:functions_arithmetic"
 	var (
@@ -449,36 +432,6 @@ func TestRoundTripExtendedExpression(t *testing.T) {
 				out.Extensions[j].GetExtensionFunction().FunctionAnchor
 		})
 		assert.Truef(t, pb.Equal(&ex, out), "expected: %s\ngot: %s", &ex, out)
-	}
-}
-
-func TestCastVisit(t *testing.T) {
-	var builder = plan.NewBuilderDefault()
-	castExpr := expr.MustExpr(builder.GetExprBuilder().Cast(builder.GetExprBuilder().Wrap(
-		expr.NewLiteral[float64](12.0, true)),
-		&types.Float64Type{Nullability: types.NullabilityRequired}).FailBehavior(
-		types.CastFailBehaviorThrowException).BuildExpr())
-
-	type relationTestCase struct {
-		name            string
-		rewriteFunction func(rex expr.Expression) expr.Expression
-		want            float64
-	}
-	testCases := []relationTestCase{
-		{"no change", func(ex expr.Expression) expr.Expression { return ex }, 12},
-		{"changed", func(ex expr.Expression) expr.Expression {
-			lit, err := expr.NewLiteral[float64](16.0, true)
-			require.NoError(t, err)
-			return lit
-		}, 16},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			visitedCastExpr := castExpr.Visit(tc.rewriteFunction)
-			visitedCastProto := visitedCastExpr.ToProto()
-			assert.IsType(t, &proto.Expression_Cast_{}, visitedCastProto.GetRexType())
-			assert.Equal(t, tc.want, visitedCastProto.GetCast().GetInput().GetLiteral().GetFp64())
-		})
 	}
 }
 
