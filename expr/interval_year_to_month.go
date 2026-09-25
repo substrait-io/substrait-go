@@ -32,11 +32,5 @@ func (m IntervalYearToMonthLiteral) Equals(rhs Expression) bool {
 	return false
 }
 
-func (m IntervalYearToMonthLiteral) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Value{Value: m.ToProto()},
-	}
-}
-
 func (m IntervalYearToMonthLiteral) Visit(VisitFunc) Expression { return m }
 func (IntervalYearToMonthLiteral) IsScalar() bool               { return true }

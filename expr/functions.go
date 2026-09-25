@@ -10,7 +10,6 @@ import (
 	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/types"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
 func FuncArgsEqual(a, b types.FuncArg) bool {
@@ -311,14 +310,6 @@ func (s *ScalarFunction) GetArgTypes() []types.Type {
 }
 
 func (s *ScalarFunction) GetType() types.Type { return s.outputType }
-func (s *ScalarFunction) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Value{
-			Value: s.ToProto(),
-		},
-	}
-}
-
 func (s *ScalarFunction) Equals(rhs Expression) bool {
 	other, ok := rhs.(*ScalarFunction)
 	if !ok {
@@ -604,14 +595,6 @@ func (w *WindowFunction) Equals(other Expression) bool {
 	}
 
 	return true
-}
-
-func (w *WindowFunction) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Value{
-			Value: w.ToProto(),
-		},
-	}
 }
 
 func (w *WindowFunction) Visit(visit VisitFunc) Expression {

@@ -443,12 +443,6 @@ func (f *FieldReference) String() string {
 	return b.String() + f.Reference.(ReferenceSegment).String() + typ
 }
 
-func (f *FieldReference) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Value{Value: f.ToProto()},
-	}
-}
-
 func (f *FieldReference) Equals(rhs Expression) bool {
 	if rhs, ok := rhs.(*FieldReference); ok {
 		switch root := f.Root.(type) {
