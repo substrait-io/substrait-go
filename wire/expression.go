@@ -7,6 +7,7 @@ import (
 
 	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/expr"
+	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
@@ -14,6 +15,8 @@ import (
 // ExprToProto encodes an expression as its protobuf message.
 func ExprToProto(e expr.Expression) *proto.Expression {
 	switch e := e.(type) {
+	case *expr.ScalarFunction:
+		return scalarFunctionToProto(e)
 	case *expr.FieldReference:
 		return FieldReferenceToProto(e)
 	case expr.Literal:
@@ -58,6 +61,36 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 		return LiteralFromProto(et.Literal), nil
 	case *proto.Expression_Selection:
 		return FieldReferenceFromProto(et.Selection, baseSchema, reg)
+	case *proto.Expression_ScalarFunction_:
+		var err error
+		args := make([]types.FuncArg, len(et.ScalarFunction.Arguments))
+		for i, a := range et.ScalarFunction.Arguments {
+			if args[i], err = FuncArgFromProto(a, baseSchema, reg); err != nil {
+				return nil, err
+			}
+		}
+
+		if et.ScalarFunction.OutputType == nil {
+			return nil, fmt.Errorf("%w: scalar function missing output type", substraitgo.ErrInvalidExpr)
+		}
+
+		id, ok := reg.DecodeFunc(et.ScalarFunction.FunctionReference)
+		if !ok {
+			return nil, substraitgo.ErrNotFound
+		}
+
+		decl, ok := reg.LookupScalarFunction(et.ScalarFunction.FunctionReference)
+		if !ok {
+			return expr.NewCustomScalarFunc(reg, extensions.NewScalarFuncVariant(id), TypeFromProto(et.ScalarFunction.OutputType), FunctionOptionsFromProto(et.ScalarFunction.Options), args...)
+		}
+
+		return expr.NewScalarFunctionFromParts(
+			et.ScalarFunction.FunctionReference,
+			decl,
+			args,
+			FunctionOptionsFromProto(et.ScalarFunction.Options),
+			TypeFromProto(et.ScalarFunction.OutputType),
+		), nil
 	case *proto.Expression_Enum_:
 		return nil, fmt.Errorf("%w: deprecated", substraitgo.ErrNotImplemented)
 	}
