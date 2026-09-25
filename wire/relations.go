@@ -27,6 +27,8 @@ func RelToProto(rel plan.Rel) *proto.Rel {
 		return icebergTableReadRelToProto(r)
 	case *plan.LocalFileReadRel:
 		return localFileReadRelToProto(r)
+	case *plan.FilterRel:
+		return filterRelToProto(r)
 	default:
 		panic(fmt.Sprintf("wire: unhandled relation %T", rel))
 	}
@@ -171,6 +173,19 @@ func fileOrFilesToProto(f *plan.FileOrFiles) *proto.ReadRel_LocalFiles_FileOrFil
 		}
 	}
 	return ret
+}
+
+func filterRelToProto(fr *plan.FilterRel) *proto.Rel {
+	return &proto.Rel{
+		RelType: &proto.Rel_Filter{
+			Filter: &proto.FilterRel{
+				Common:            relCommonToProto(&fr.RelCommon),
+				Input:             RelToProto(fr.Input()),
+				Condition:         ExprToProto(fr.Condition()),
+				AdvancedExtension: advancedExtensionToProto(fr.GetAdvancedExtension()),
+			},
+		},
+	}
 }
 
 // relCommonFromProto decodes the common fields shared by every relation.
@@ -359,6 +374,23 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 			return nil, err
 		}
 		return build(base), nil
+	case *proto.Rel_Filter:
+		input, err := RelFromProto(rel.Filter.Input, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error getting input to FilterRel: %w", err)
+		}
+
+		base := input.RecordType()
+		cond, err := ExprFromProto(rel.Filter.Condition, &base, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error getting condition for FilterRel: %w", err)
+		}
+
+		var common plan.RelCommon
+		if rel.Filter.Common != nil {
+			common = relCommonFromProto(rel.Filter.Common)
+		}
+		return plan.NewFilterRel(input, cond, common, advancedExtensionFromProto(rel.Filter.AdvancedExtension)), nil
 	case nil:
 		return nil, fmt.Errorf("%w: got nil", substraitgo.ErrInvalidRel)
 	}

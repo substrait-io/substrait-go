@@ -426,27 +426,6 @@ type Rel interface {
 
 func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 	switch rel := rel.RelType.(type) {
-	case *proto.Rel_Filter:
-		input, err := RelFromProto(rel.Filter.Input, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting input to FilterRel: %w", err)
-		}
-
-		base := input.RecordType()
-		cond, err := expr.ExprFromProto(rel.Filter.Condition, &base, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting condition for FilterRel: %w", err)
-		}
-
-		out := &FilterRel{
-			input:        input,
-			cond:         cond,
-			advExtension: extensions.AdvancedExtensionFromProto(rel.Filter.AdvancedExtension),
-		}
-		if rel.Filter.Common != nil {
-			out.fromProtoCommon(rel.Filter.Common)
-		}
-		return out, nil
 	case *proto.Rel_Fetch:
 		input, err := RelFromProto(rel.Fetch.Input, reg)
 		if err != nil {
