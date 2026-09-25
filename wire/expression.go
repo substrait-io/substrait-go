@@ -19,6 +19,8 @@ func ExprToProto(e expr.Expression) *proto.Expression {
 		return castToProto(e)
 	case *expr.DynamicParameter:
 		return dynamicParameterToProto(e)
+	case *expr.IfThen:
+		return ifThenToProto(e)
 	case *expr.Lambda:
 		return lambdaToProto(e)
 	case *expr.ScalarFunction:
@@ -54,6 +56,30 @@ func dynamicParameterToProto(dp *expr.DynamicParameter) *proto.Expression {
 			DynamicParameter: &proto.DynamicParameter{
 				Type:               TypeToProto(dp.OutputType),
 				ParameterReference: dp.ParameterReference,
+			},
+		},
+	}
+}
+
+func ifThenToProto(ex *expr.IfThen) *proto.Expression {
+	clauses := make([]*proto.Expression_IfThen_IfClause, ex.NIfs())
+	for i := range clauses {
+		pair := ex.IfPair(i)
+		clauses[i] = &proto.Expression_IfThen_IfClause{
+			If:   ExprToProto(pair.If),
+			Then: ExprToProto(pair.Then),
+		}
+	}
+
+	var elseClause *proto.Expression
+	if e := ex.Else(); e != nil {
+		elseClause = ExprToProto(e)
+	}
+	return &proto.Expression{
+		RexType: &proto.Expression_IfThen_{
+			IfThen: &proto.Expression_IfThen{
+				Ifs:  clauses,
+				Else: elseClause,
 			},
 		},
 	}
@@ -208,6 +234,26 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 			OutputType:         TypeFromProto(et.DynamicParameter.Type),
 			ParameterReference: et.DynamicParameter.ParameterReference,
 		}, nil
+	case *proto.Expression_IfThen_:
+		elseExpr, err := ExprFromProto(et.IfThen.Else, baseSchema, reg)
+		if err != nil {
+			return nil, err
+		}
+
+		ifs := make([]expr.IfThenPair, len(et.IfThen.Ifs))
+		for i, clause := range et.IfThen.Ifs {
+			ifs[i].If, err = ExprFromProto(clause.If, baseSchema, reg)
+			if err != nil {
+				return nil, err
+			}
+
+			ifs[i].Then, err = ExprFromProto(clause.Then, baseSchema, reg)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		return expr.NewIfThenFromParts(ifs, elseExpr), nil
 	case *proto.Expression_Lambda_:
 		if et.Lambda.Parameters == nil {
 			return nil, fmt.Errorf("%w: lambda parameters cannot be nil", substraitgo.ErrInvalidExpr)
