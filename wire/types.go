@@ -20,6 +20,14 @@ func VersionToProto(v types.Version) *proto.Version {
 	}
 }
 
+// NamedStructToProto encodes a named struct as its protobuf message.
+func NamedStructToProto(n types.NamedStruct) *proto.NamedStruct {
+	return &proto.NamedStruct{
+		Names:  n.Names,
+		Struct: structTypeToProto(&n.Struct).GetStruct(),
+	}
+}
+
 // TypeToProto constructs the protobuf message for the given type.
 func TypeToProto(t types.Type) *proto.Type {
 	switch t := t.(type) {
@@ -38,6 +46,27 @@ func VersionFromProto(v *proto.Version) types.Version {
 		PatchNumber: v.PatchNumber,
 		GitHash:     v.GitHash,
 		Producer:    v.Producer,
+	}
+}
+
+// NamedStructFromProto decodes a named struct from its protobuf message.
+func NamedStructFromProto(n *proto.NamedStruct) types.NamedStruct {
+	if n == nil {
+		return types.NamedStruct{}
+	}
+
+	fields := make([]types.Type, len(n.Struct.Types))
+	for i, f := range n.Struct.Types {
+		fields[i] = TypeFromProto(f)
+	}
+
+	return types.NamedStruct{
+		Names: n.Names,
+		Struct: types.StructType{
+			Nullability:      types.Nullability(n.Struct.Nullability),
+			TypeVariationRef: n.Struct.TypeVariationReference,
+			Types:            fields,
+		},
 	}
 }
 
