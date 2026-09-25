@@ -33,6 +33,8 @@ func RelToProto(rel plan.Rel) *proto.Rel {
 		return fetchRelToProto(r)
 	case *plan.ProjectRel:
 		return projectRelToProto(r)
+	case *plan.AggregateRel:
+		return aggregateRelToProto(r)
 	default:
 		panic(fmt.Sprintf("wire: unhandled relation %T", rel))
 	}
@@ -222,6 +224,72 @@ func projectRelToProto(p *plan.ProjectRel) *proto.Rel {
 			},
 		},
 	}
+}
+
+func aggregateRelToProto(ar *plan.AggregateRel) *proto.Rel {
+	groupingExprs := make([]*proto.Expression, len(ar.GroupingExpressions()))
+	for i, e := range ar.GroupingExpressions() {
+		groupingExprs[i] = ExprToProto(e)
+	}
+
+	refs := ar.GroupingReferences()
+	groupings := make([]*proto.AggregateRel_Grouping, len(refs))
+	for i := range refs {
+		groupings[i] = &proto.AggregateRel_Grouping{ExpressionReferences: refs[i]}
+	}
+
+	measures := make([]*proto.AggregateRel_Measure, len(ar.Measures()))
+	for i := range ar.Measures() {
+		m := ar.Measures()[i]
+		measures[i] = aggRelMeasureToProto(&m)
+	}
+
+	return &proto.Rel{
+		RelType: &proto.Rel_Aggregate{
+			Aggregate: &proto.AggregateRel{
+				Common:              relCommonToProto(&ar.RelCommon),
+				Input:               RelToProto(ar.Input()),
+				GroupingExpressions: groupingExprs,
+				Groupings:           groupings,
+				Measures:            measures,
+				AdvancedExtension:   advancedExtensionToProto(ar.GetAdvancedExtension()),
+			},
+		},
+	}
+}
+
+func groupingExprs(groups [][]expr.Expression) ([]expr.Expression, [][]uint32) {
+	groupingExpressions := make([]expr.Expression, 0)
+	groupingReferences := make([][]uint32, 0)
+	for _, group := range groups {
+		refs := make([]uint32, 0)
+		for _, e := range group {
+			existingExpr := false
+			for eIndex, existing := range groupingExpressions {
+				if existing.Equals(e) {
+					existingExpr = true
+					refs = append(refs, uint32(eIndex))
+					break
+				}
+			}
+			if !existingExpr {
+				groupingExpressions = append(groupingExpressions, e)
+				refs = append(refs, uint32(len(groupingExpressions)-1))
+			}
+		}
+		groupingReferences = append(groupingReferences, refs)
+	}
+	return groupingExpressions, groupingReferences
+}
+
+func aggRelMeasureToProto(am *plan.AggRelMeasure) *proto.AggregateRel_Measure {
+	ret := &proto.AggregateRel_Measure{
+		Measure: AggregateFunctionToProto(am.Measure()),
+	}
+	if f := am.RawFilter(); f != nil {
+		ret.Filter = ExprToProto(f)
+	}
+	return ret
 }
 
 // relCommonFromProto decodes the common fields shared by every relation.
@@ -491,6 +559,60 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 			common = relCommonFromProto(rel.Project.Common)
 		}
 		return plan.NewProjectRel(input, exprs, common, advancedExtensionFromProto(rel.Project.AdvancedExtension)), nil
+	case *proto.Rel_Aggregate:
+		input, err := RelFromProto(rel.Aggregate.Input, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error getting input to AggregateRel: %w", err)
+		}
+
+		base := input.RecordType()
+		var groupingExpressions []expr.Expression
+		var groupingReferences [][]uint32
+		if len(rel.Aggregate.GroupingExpressions) > 0 {
+			for _, e := range rel.Aggregate.GroupingExpressions {
+				ge, err := ExprFromProto(e, &base, reg)
+				if err != nil {
+					return nil, fmt.Errorf("error getting grouping expr for AggregateRel: %w", err)
+				}
+				groupingExpressions = append(groupingExpressions, ge)
+			}
+			for _, g := range rel.Aggregate.Groupings {
+				groupingReferences = append(groupingReferences, g.ExpressionReferences)
+			}
+		} else { // support old style grouping for backward compatibility
+			groups := make([][]expr.Expression, len(rel.Aggregate.Groupings))
+			for i, g := range rel.Aggregate.Groupings {
+				groups[i] = make([]expr.Expression, len(g.GroupingExpressions))
+				for j, e := range g.GroupingExpressions {
+					groups[i][j], err = ExprFromProto(e, &base, reg)
+					if err != nil {
+						return nil, fmt.Errorf("error getting grouping expr [%d][%d] for AggregateRel: %w",
+							i, j, err)
+					}
+				}
+			}
+			groupingExpressions, groupingReferences = groupingExprs(groups)
+		}
+
+		measures := make([]plan.AggRelMeasure, len(rel.Aggregate.Measures))
+		for i, m := range rel.Aggregate.Measures {
+			measure, err := AggregateFunctionFromProto(m.Measure, &base, reg)
+			if err != nil {
+				return nil, fmt.Errorf("error getting AggregateFunction for measure %d: %w", i, err)
+			}
+
+			var filter expr.Expression
+			if m.Filter != nil {
+				filter, err = ExprFromProto(m.Filter, &base, reg)
+				if err != nil {
+					return nil, fmt.Errorf("error getting filter for Aggregate Measure %d: %w", i, err)
+				}
+			}
+			measures[i] = plan.NewAggRelMeasure(measure, filter)
+		}
+
+		common := relCommonFromProto(rel.Aggregate.Common)
+		return plan.NewAggregateRel(input, measures, groupingExpressions, groupingReferences, common, advancedExtensionFromProto(rel.Aggregate.AdvancedExtension)), nil
 	case nil:
 		return nil, fmt.Errorf("%w: got nil", substraitgo.ErrInvalidRel)
 	}
