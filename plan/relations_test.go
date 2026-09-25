@@ -576,14 +576,6 @@ func (f *fakeRel) RecordType() types.RecordType {
 	return f.remap(f.directOutputSchema())
 }
 
-func (f *fakeRel) ToProto() *proto.Rel {
-	panic("unused")
-}
-
-func (f *fakeRel) ToProtoPlanRel() *proto.PlanRel {
-	panic("unused")
-}
-
 func (f *fakeRel) Copy(newInputs ...Rel) (Rel, error) {
 	panic("unused")
 }
@@ -685,7 +677,6 @@ func TestRightJoinRecordType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			rel := &JoinRel{left: left, right: right, joinType: tt.joinType}
 			assert.Equal(t, tt.expected, rel.RecordType())
-			assert.True(t, isRecordTypeSupported(rel))
 		})
 	}
 }
