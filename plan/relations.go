@@ -172,6 +172,10 @@ type NamedTableReadRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
+func NewNamedTableReadRel(base baseReadRel, names []string, advExtension *extensions.AdvancedExtension) *NamedTableReadRel {
+	return &NamedTableReadRel{baseReadRel: base, names: names, advExtension: advExtension}
+}
+
 func (n *NamedTableReadRel) Names() []string { return n.names }
 
 func (n *NamedTableReadRel) NamedTableAdvancedExtension() *extensions.AdvancedExtension {
@@ -180,29 +184,6 @@ func (n *NamedTableReadRel) NamedTableAdvancedExtension() *extensions.AdvancedEx
 
 func (n *NamedTableReadRel) RecordType() types.RecordType {
 	return n.remap(n.directOutputSchema())
-}
-
-func (n *NamedTableReadRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: n.ToProto(),
-		},
-	}
-}
-
-func (n *NamedTableReadRel) ToProto() *proto.Rel {
-	readRel := n.toReadRelProto()
-	readRel.ReadType = &proto.ReadRel_NamedTable_{
-		NamedTable: &proto.ReadRel_NamedTable{
-			Names:             n.names,
-			AdvancedExtension: extensions.AdvancedExtensionToProto(n.advExtension),
-		},
-	}
-	return &proto.Rel{
-		RelType: &proto.Rel_Read{
-			Read: readRel,
-		},
-	}
 }
 
 func (n *NamedTableReadRel) Copy(_ ...Rel) (Rel, error) {
