@@ -45,6 +45,12 @@ func LiteralToProto(l expr.Literal) *proto.Expression_Literal {
 		return nestedLiteralToProto(l)
 	case *expr.NestedLiteral[expr.ListLiteralValue]:
 		return nestedLiteralToProto(l)
+	case *expr.ByteSliceLiteral[[]byte]:
+		return byteSliceLiteralToProto(l)
+	case *expr.ByteSliceLiteral[types.FixedBinary]:
+		return byteSliceLiteralToProto(l)
+	case *expr.ByteSliceLiteral[types.UUID]:
+		return byteSliceLiteralToProto(l)
 	case *expr.MapLiteral:
 		return mapLiteralToProto(l)
 	default:
@@ -152,6 +158,24 @@ func mapLiteralToProto(l *expr.MapLiteral) *proto.Expression_Literal {
 		lit.LiteralType = &proto.Expression_Literal_Map_{
 			Map: &proto.Expression_Literal_Map{KeyValues: kv},
 		}
+	}
+
+	return lit
+}
+
+func byteSliceLiteralToProto[T ~[]byte](l *expr.ByteSliceLiteral[T]) *proto.Expression_Literal {
+	lit := &proto.Expression_Literal{
+		Nullable:               l.Type.GetNullability() == types.NullabilityNullable,
+		TypeVariationReference: l.Type.GetTypeVariationReference(),
+	}
+
+	switch v := any(l.Value).(type) {
+	case []byte:
+		lit.LiteralType = &proto.Expression_Literal_Binary{Binary: v}
+	case types.FixedBinary:
+		lit.LiteralType = &proto.Expression_Literal_FixedBinary{FixedBinary: v}
+	case types.UUID:
+		lit.LiteralType = &proto.Expression_Literal_Uuid{Uuid: v}
 	}
 
 	return lit
@@ -320,6 +344,28 @@ func LiteralFromProto(l *proto.Expression_Literal) expr.Literal {
 				TypeVariationRef: l.TypeVariationReference,
 				Key:              TypeFromProto(lit.EmptyMap.Key),
 				Value:            TypeFromProto(lit.EmptyMap.Value),
+			}}
+	case *proto.Expression_Literal_Binary:
+		return &expr.ByteSliceLiteral[[]byte]{
+			Value: lit.Binary,
+			Type: &types.BinaryType{
+				TypeVariationRef: l.TypeVariationReference,
+				Nullability:      nullability,
+			}}
+	case *proto.Expression_Literal_FixedBinary:
+		return &expr.ByteSliceLiteral[types.FixedBinary]{
+			Value: lit.FixedBinary,
+			Type: &types.FixedBinaryType{
+				Length:           int32(len(lit.FixedBinary)),
+				TypeVariationRef: l.TypeVariationReference,
+				Nullability:      nullability,
+			}}
+	case *proto.Expression_Literal_Uuid:
+		return &expr.ByteSliceLiteral[types.UUID]{
+			Value: lit.Uuid,
+			Type: &types.UUIDType{
+				TypeVariationRef: l.TypeVariationReference,
+				Nullability:      nullability,
 			}}
 	}
 	panic("unimplemented literal type")
