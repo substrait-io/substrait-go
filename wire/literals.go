@@ -234,6 +234,24 @@ func protoLiteralToProto(l *expr.ProtoLiteral) *proto.Expression_Literal {
 	}
 
 	switch literalType := l.Type.(type) {
+	case *types.UserDefinedType:
+		params := make([]*proto.Type_Parameter, len(literalType.TypeParameters))
+		for i, p := range literalType.TypeParameters {
+			params[i] = TypeParamToProto(p)
+		}
+
+		udt := &proto.Expression_Literal_UserDefined{
+			TypeAnchorType: &proto.Expression_Literal_UserDefined_TypeReference{
+				TypeReference: literalType.TypeReference},
+			TypeParameters: params,
+		}
+		val, ok := l.Value.(expr.UserDefinedLiteralValue)
+		if !ok {
+			panic(fmt.Sprintf("unexpected UserDefined literal value type: %T", l.Value))
+		}
+		setUserDefinedVal(udt, val)
+
+		lit.LiteralType = &proto.Expression_Literal_UserDefined_{UserDefined: udt}
 	case *types.IntervalYearType:
 		v := l.Value.(*types.IntervalYearToMonth)
 		lit.LiteralType = &proto.Expression_Literal_IntervalYearToMonth_{
@@ -293,11 +311,34 @@ func protoLiteralToProto(l *expr.ProtoLiteral) *proto.Expression_Literal {
 	return lit
 }
 
+// StructLiteralValueToProto encodes a struct literal's fields.
+func StructLiteralValueToProto(s expr.StructLiteralValue) *proto.Expression_Literal_Struct {
+	fields := make([]*proto.Expression_Literal, len(s))
+	for i, f := range s {
+		fields[i] = LiteralToProto(f)
+	}
+	return &proto.Expression_Literal_Struct{Fields: fields}
+}
+
 func nullabilityFromBool(nullable bool) types.Nullability {
 	if nullable {
 		return types.NullabilityNullable
 	}
 	return types.NullabilityRequired
+}
+
+// StructLiteralFromProto decodes the fields of a protobuf struct literal.
+//
+// Deprecated: use VirtualTableExprFromLiteralProto
+func StructLiteralFromProto(s *proto.Expression_Literal_Struct) expr.StructLiteralValue {
+	if s == nil {
+		return nil
+	}
+	fields := make(expr.StructLiteralValue, len(s.Fields))
+	for i, f := range s.Fields {
+		fields[i] = LiteralFromProto(f)
+	}
+	return fields
 }
 
 // LiteralFromProto constructs the appropriate Literal from a protobuf message.
@@ -539,10 +580,54 @@ func LiteralFromProto(l *proto.Expression_Literal) expr.Literal {
 				TypeVariationRef: l.TypeVariationReference,
 			},
 		}
+	case *proto.Expression_Literal_UserDefined_:
+		params := make([]types.TypeParam, len(lit.UserDefined.TypeParameters))
+		for i, p := range lit.UserDefined.TypeParameters {
+			params[i] = TypeParamFromProto(p)
+		}
+
+		return &expr.ProtoLiteral{
+			Value: userDefinedValueFromProto(lit.UserDefined),
+			Type: &types.UserDefinedType{
+				Nullability:      nullability,
+				TypeVariationRef: l.TypeVariationReference,
+				TypeReference:    lit.UserDefined.GetTypeReference(),
+				TypeParameters:   params,
+			},
+		}
 	case *proto.Expression_Literal_IntervalCompound_:
 		return intervalCompoundLiteralFromProto(l)
 	case *proto.Expression_Literal_IntervalYearToMonth_:
 		return intervalYearToMonthLiteralFromProto(l)
 	}
 	panic("unimplemented literal type")
+}
+
+// userDefinedValueFromProto decodes the val oneof of a UserDefined literal into
+// its domain form.
+func userDefinedValueFromProto(ud *proto.Expression_Literal_UserDefined) expr.UserDefinedLiteralValue {
+	switch v := ud.Val.(type) {
+	case *proto.Expression_Literal_UserDefined_Value:
+		return expr.UserDefinedValueAny{Value: v.Value}
+	case *proto.Expression_Literal_UserDefined_Struct:
+		return expr.UserDefinedValueStruct{Value: StructLiteralFromProto(v.Struct)}
+	}
+	return nil
+}
+
+// setUserDefinedVal encodes a domain UserDefinedLiteralValue onto the val oneof of
+// a protobuf UserDefined literal.
+func setUserDefinedVal(ud *proto.Expression_Literal_UserDefined, v expr.UserDefinedLiteralValue) {
+	switch val := v.(type) {
+	case expr.UserDefinedValueAny:
+		ud.Val = &proto.Expression_Literal_UserDefined_Value{Value: val.Value}
+	case *expr.UserDefinedValueAny:
+		ud.Val = &proto.Expression_Literal_UserDefined_Value{Value: val.Value}
+	case expr.UserDefinedValueStruct:
+		ud.Val = &proto.Expression_Literal_UserDefined_Struct{Struct: StructLiteralValueToProto(val.Value)}
+	case *expr.UserDefinedValueStruct:
+		ud.Val = &proto.Expression_Literal_UserDefined_Struct{Struct: StructLiteralValueToProto(val.Value)}
+	default:
+		panic(fmt.Sprintf("unhandled UserDefinedLiteralValue %T", v))
+	}
 }
