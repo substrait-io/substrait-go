@@ -24,6 +24,108 @@ import (
 	pb "google.golang.org/protobuf/proto"
 )
 
+func sampleNestedExpr(reg expr.ExtensionRegistry, substraitExtURN string) expr.Expression {
+	var (
+		add = ext.NewScalarFuncVariant(ext.FunctionID{URN: substraitExtURN, Name: "add"})
+		sub = ext.NewScalarFuncVariant(ext.FunctionID{URN: substraitExtURN, Name: "subtract"})
+		mul = ext.NewScalarFuncVariant(ext.FunctionID{URN: substraitExtURN, Name: "multiply"})
+	)
+
+	baseSchema := types.NewRecordTypeFromTypes(
+		[]types.Type{
+			&types.BooleanType{},
+			&types.Int32Type{},
+			&types.Int64Type{},
+			&types.Float32Type{},
+		})
+
+	// add(literal, sub(ref, mul(literal, ref)))
+	exp := expr.MustExpr(expr.NewCustomScalarFunc(reg, add, &types.Float64Type{}, nil,
+		expr.NewPrimitiveLiteral(float64(1.0), false),
+		expr.MustExpr(expr.NewCustomScalarFunc(reg, sub, &types.Float32Type{}, nil,
+			expr.MustExpr(expr.NewRootFieldRef(expr.NewStructFieldRef(3), baseSchema)),
+			expr.MustExpr(expr.NewCustomScalarFunc(reg, mul, &types.Int64Type{}, nil,
+				expr.NewPrimitiveLiteral(int64(2), false),
+				expr.MustExpr(expr.NewFieldRef(expr.NewNestedLiteral(expr.StructLiteralValue{
+					expr.NewByteSliceLiteral([]byte("baz"), true),
+					expr.NewPrimitiveLiteral("foobar", false),
+					expr.NewPrimitiveLiteral(int32(5), false),
+				}, false), expr.NewStructFieldRef(2), nil)),
+			)),
+		)),
+	))
+
+	return exp
+}
+
+func TestExpressionsRoundtrip(t *testing.T) {
+	const substraitExtURN = "extension:io.substrait:functions_arithmetic"
+	// define extensions with no plan for now
+	const planExt = `{
+		"extensionUrns": [
+			{
+				"extensionUrnAnchor": 1,
+				"urn": "` + substraitExtURN + `"
+			}
+		],
+		"extensions": [
+			{
+				"extensionFunction": {
+					"extensionUrnReference": 1,
+					"functionAnchor": 2,
+					"name": "add:fp64_fp64"
+				}
+			},
+			{
+				"extensionFunction": {
+					"extensionUrnReference": 1,
+					"functionAnchor": 3,
+					"name": "subtract:fp32_fp32"
+				}
+			},
+			{
+				"extensionFunction": {
+					"extensionUrnReference": 1,
+					"functionAnchor": 4,
+					"name": "multiply:i64_i64"
+				}
+			},
+			{
+				"extensionFunction": {
+					"extensionUrnReference": 1,
+					"functionAnchor": 5,
+					"name": "ntile:"
+				}
+			}
+		],
+		"relations": []
+	}`
+
+	var (
+		plan proto.Plan
+	)
+	if err := protojson.Unmarshal([]byte(planExt), &plan); err != nil {
+		panic(err)
+	}
+	// get the extension set
+	collection := ext.GetDefaultCollectionWithNoError()
+	extSet, err := wire.GetExtensionSet(&plan, collection)
+	if err != nil {
+		panic(err)
+	}
+	reg := expr.NewExtensionRegistry(extSet, collection)
+	tests := []expr.Expression{
+		sampleNestedExpr(reg, substraitExtURN),
+	}
+
+	for _, exp := range tests {
+		protoExpr := wire.ExprToProto(exp)
+		out, err := wire.ExprFromProto(protoExpr, nil, reg)
+		require.NoError(t, err)
+		assert.Truef(t, exp.Equals(out), "expected: %s\ngot: %s", exp, out)
+	}
+}
+
 func TestScalarFunctionMissingOutputTypeReturnsError(t *testing.T) {
 	registry := expr.NewEmptyExtensionRegistry(ext.GetDefaultCollectionWithNoError())
 	functionReference := registry.GetFuncAnchor(ext.FunctionID{
@@ -85,6 +187,116 @@ func literalI64Arg(value int64) *proto.FunctionArgument {
 			LiteralType: &proto.Expression_Literal_I64{I64: value},
 		}},
 	}}}
+}
+
+func TestRoundTripUsingTestData(t *testing.T) {
+	const substraitExtURN = "extension:io.substrait:functions_arithmetic"
+	// define extensions with no plan for now
+	const planExt = `{
+		"extensionUrns": [
+			{
+				"extensionUrnAnchor": 1,
+				"urn": "` + substraitExtURN + `"
+			}
+		],
+		"extensions": [
+			{
+				"extensionFunction": {
+					"extensionUrnReference": 1,
+					"functionAnchor": 2,
+					"name": "add:fp64_fp64"
+				}
+			},
+			{
+				"extensionFunction": {
+					"extensionUrnReference": 1,
+					"functionAnchor": 3,
+					"name": "subtract:fp64_fp64"
+				}
+			},
+			{
+				"extensionFunction": {
+					"extensionUrnReference": 1,
+					"functionAnchor": 4,
+					"name": "multiply:fp64_fp64"
+				}
+			},
+			{
+				"extensionFunction": {
+					"extensionUrnReference": 1,
+					"functionAnchor": 5,
+					"name": "ntile:i32"
+				}
+			}
+		],
+		"relations": []
+	}`
+
+	var (
+		plan proto.Plan
+	)
+	if err := protojson.Unmarshal([]byte(planExt), &plan); err != nil {
+		panic(err)
+	}
+	// get the extension set
+	collection := ext.GetDefaultCollectionWithNoError()
+	extSet, err := wire.GetExtensionSet(&plan, collection)
+	if err != nil {
+		panic(err)
+	}
+
+	f, err := os.Open("./testdata/expressions.yaml")
+	require.NoError(t, err)
+	defer f.Close()
+
+	dec := yaml.NewDecoder(f)
+	var tmp map[string]any
+	require.NoError(t, dec.Decode(&tmp))
+
+	var (
+		protoSchema proto.NamedStruct
+	)
+
+	raw, err := json.Marshal(tmp["baseSchema"])
+	require.NoError(t, err)
+	require.NoError(t, protojson.Unmarshal(raw, &protoSchema))
+	baseSchema := wire.NamedStructFromProto(&protoSchema)
+	reg := expr.NewExtensionRegistry(extSet, collection)
+	for _, tc := range tmp["cases"].([]any) {
+		tt := tc.(map[string]any)
+		t.Run(tt["name"].(string), func(t *testing.T) {
+			test := tt["__test"].(map[string]any)
+
+			var buf bytes.Buffer
+			enc := json.NewEncoder(&buf)
+			require.NoError(t, enc.Encode(tt["expression"]))
+			var ex proto.Expression
+			require.NoError(t, protojson.Unmarshal(buf.Bytes(), &ex))
+
+			e, err := wire.ExprFromProto(&ex, types.NewRecordTypeFromStruct(baseSchema.Struct), reg)
+			require.NoError(t, err)
+
+			result := wire.ExprToProto(e)
+			assert.Truef(t, pb.Equal(&ex, result), "expected: %s\ngot: %s", &ex, result)
+
+			assert.True(t, e.Equals(e))
+
+			if typTest, ok := test["type"].(string); ok {
+				exp, err := parser.ParseType(typTest)
+				require.NoError(t, err)
+
+				assert.Equal(t, exp.String(), e.GetType().String())
+			}
+
+			strvalue, ok := test["string"].(string)
+			if ok {
+				strvalue = strings.TrimSpace(strvalue)
+				t.Run("tostring", func(t *testing.T) {
+					assert.Equal(t, strvalue, e.String())
+				})
+			}
+		})
+	}
 }
 
 func TestRoundTripExtendedExpression(t *testing.T) {
