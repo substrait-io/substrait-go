@@ -548,35 +548,6 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 		}
 
 		return out, nil
-	case *proto.Rel_Project:
-		input, err := RelFromProto(rel.Project.Input, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting input to ProjectRel: %w", err)
-		}
-
-		baseSchema := input.RecordType()
-
-		exprs := make([]expr.Expression, len(rel.Project.Expressions))
-		for i, e := range rel.Project.Expressions {
-			exprs[i], err = expr.ExprFromProto(e, &baseSchema, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error getting expr %d for ProjectRel: %w", i, err)
-			}
-		}
-
-		if len(exprs) == 0 {
-			return nil, fmt.Errorf("%w: missing required Expressions field for Project relation", substraitgo.ErrInvalidRel)
-		}
-
-		out := &ProjectRel{
-			input:        input,
-			exprs:        exprs,
-			advExtension: extensions.AdvancedExtensionFromProto(rel.Project.AdvancedExtension),
-		}
-		if rel.Project.Common != nil {
-			out.fromProtoCommon(rel.Project.Common)
-		}
-		return out, nil
 	case *proto.Rel_Set:
 		inputs := make([]Rel, len(rel.Set.Inputs))
 		if len(inputs) < 2 {
