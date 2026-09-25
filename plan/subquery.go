@@ -7,18 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/types"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
-
-// ExpressionConverter resolves extensions and subqueries as used in expressions.
-// It extends the base ExtensionRegistry to handle subquery expressions
-// that may appear within other expressions.
-type ExpressionConverter struct {
-	expr.ExtensionRegistry
-}
 
 // SubqueryFromProto creates a subquery expression from a protobuf message
 func (r *ExpressionConverter) SubqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordType, reg expr.ExtensionRegistry) (expr.Expression, error) {
@@ -29,7 +20,6 @@ func (r *ExpressionConverter) SubqueryFromProto(sub *proto.Expression_Subquery, 
 			return nil, err
 		}
 		return NewScalarSubquery(rel), nil
-
 	case *proto.Expression_Subquery_InPredicate_:
 		needles := make([]expr.Expression, len(subType.InPredicate.Needles))
 		for i, needle := range subType.InPredicate.Needles {
@@ -46,7 +36,6 @@ func (r *ExpressionConverter) SubqueryFromProto(sub *proto.Expression_Subquery, 
 		}
 
 		return NewInPredicateSubquery(needles, rel), nil
-
 	case *proto.Expression_Subquery_SetPredicate_:
 		tuples, err := RelFromProto(subType.SetPredicate.Tuples, reg)
 		if err != nil {
@@ -70,7 +59,6 @@ func (r *ExpressionConverter) SubqueryFromProto(sub *proto.Expression_Subquery, 
 			left,
 			right,
 		), nil
-
 	default:
 		return nil, fmt.Errorf("%w: unknown subquery type: %T", substraitgo.ErrNotImplemented, subType)
 	}
