@@ -14,12 +14,6 @@ import (
 // SubqueryFromProto creates a subquery expression from a protobuf message
 func (r *ExpressionConverter) SubqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordType, reg expr.ExtensionRegistry) (expr.Expression, error) {
 	switch subType := sub.SubqueryType.(type) {
-	case *proto.Expression_Subquery_SetPredicate_:
-		tuples, err := RelFromProto(subType.SetPredicate.Tuples, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing tuples in set predicate: %w", err)
-		}
-		return NewSetPredicateSubquery(SetPredicateOp(subType.SetPredicate.PredicateOp), tuples), nil
 	case *proto.Expression_Subquery_SetComparison_:
 		left, err := expr.ExprFromProto(subType.SetComparison.Left, baseSchema, reg)
 		if err != nil {
@@ -233,21 +227,6 @@ func (s *SetPredicateSubquery) IsScalar() bool { return true }
 
 func (s *SetPredicateSubquery) GetType() types.Type {
 	return &types.BooleanType{Nullability: types.NullabilityRequired}
-}
-
-func (s *SetPredicateSubquery) ToProto() *proto.Expression {
-	return &proto.Expression{
-		RexType: &proto.Expression_Subquery_{
-			Subquery: &proto.Expression_Subquery{
-				SubqueryType: &proto.Expression_Subquery_SetPredicate_{
-					SetPredicate: &proto.Expression_Subquery_SetPredicate{
-						PredicateOp: proto.Expression_Subquery_SetPredicate_PredicateOp(s.Operation),
-						Tuples:      s.Tuples.ToProto(),
-					},
-				},
-			},
-		},
-	}
 }
 
 func (s *SetPredicateSubquery) Equals(other expr.Expression) bool {
