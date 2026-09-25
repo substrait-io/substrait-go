@@ -44,24 +44,7 @@ type ReferenceSegment interface {
 	fmt.Stringer
 	GetChild() ReferenceSegment
 	GetType(types.Type) (types.Type, error)
-	ToProto() *proto.Expression_ReferenceSegment
 	Equals(ReferenceSegment) bool
-}
-
-func RefSegmentFromProto(p *proto.Expression_ReferenceSegment) ReferenceSegment {
-	if p == nil {
-		return nil
-	}
-
-	switch seg := p.ReferenceType.(type) {
-	case *proto.Expression_ReferenceSegment_ListElement_:
-		return &ListElementRef{
-			Offset: seg.ListElement.Offset,
-			Child:  RefSegmentFromProto(seg.ListElement.Child),
-		}
-	}
-
-	return nil
 }
 
 func FlattenRefSegments(refs ...ReferenceSegment) ReferenceSegment {
@@ -227,22 +210,6 @@ func (r *ListElementRef) GetType(parentType types.Type) (types.Type, error) {
 		return r.Child.GetType(lt.Type)
 	}
 	return lt.Type, nil
-}
-
-func (r *ListElementRef) ToProto() *proto.Expression_ReferenceSegment {
-	var c *proto.Expression_ReferenceSegment
-	if r.Child != nil {
-		c = r.Child.ToProto()
-	}
-
-	return &proto.Expression_ReferenceSegment{
-		ReferenceType: &proto.Expression_ReferenceSegment_ListElement_{
-			ListElement: &proto.Expression_ReferenceSegment_ListElement{
-				Offset: r.Offset,
-				Child:  c,
-			},
-		},
-	}
 }
 
 func (r *ListElementRef) GetChild() ReferenceSegment { return r.Child }
