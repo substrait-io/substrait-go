@@ -53,7 +53,6 @@ type (
 
 	Bound interface {
 		fmt.Stringer
-		ToProto() *proto.Expression_WindowFunction_Bound
 	}
 
 	PrecedingBound int64
@@ -62,71 +61,20 @@ type (
 	Unbounded      struct{}
 )
 
-func (fb PrecedingBound) ToProto() *proto.Expression_WindowFunction_Bound {
-	return &proto.Expression_WindowFunction_Bound{
-		Kind: &proto.Expression_WindowFunction_Bound_Preceding_{
-			Preceding: &proto.Expression_WindowFunction_Bound_Preceding{Offset: int64(fb)},
-		},
-	}
-}
-
 func (fb PrecedingBound) String() string {
 	return fmt.Sprintf("%d PRECEDING", fb)
-}
-
-func (fb FollowingBound) ToProto() *proto.Expression_WindowFunction_Bound {
-	return &proto.Expression_WindowFunction_Bound{
-		Kind: &proto.Expression_WindowFunction_Bound_Following_{
-			Following: &proto.Expression_WindowFunction_Bound_Following{Offset: int64(fb)},
-		},
-	}
 }
 
 func (fb FollowingBound) String() string {
 	return fmt.Sprintf("%d FOLLOWING", fb)
 }
 
-func (CurrentRow) ToProto() *proto.Expression_WindowFunction_Bound {
-	return &proto.Expression_WindowFunction_Bound{
-		Kind: &proto.Expression_WindowFunction_Bound_CurrentRow_{
-			CurrentRow: &proto.Expression_WindowFunction_Bound_CurrentRow{},
-		},
-	}
-}
-
 func (CurrentRow) String() string {
 	return "CURRENT ROW"
 }
 
-func (Unbounded) ToProto() *proto.Expression_WindowFunction_Bound {
-	return &proto.Expression_WindowFunction_Bound{
-		Kind: &proto.Expression_WindowFunction_Bound_Unbounded_{
-			Unbounded: &proto.Expression_WindowFunction_Bound_Unbounded{},
-		}}
-}
-
 func (Unbounded) String() string {
 	return "UNBOUNDED"
-}
-
-func BoundFromProto(b *proto.Expression_WindowFunction_Bound) Bound {
-	if b == nil {
-		return nil
-	}
-
-	switch t := b.Kind.(type) {
-	case *proto.Expression_WindowFunction_Bound_Preceding_:
-		return PrecedingBound(t.Preceding.Offset)
-	case *proto.Expression_WindowFunction_Bound_CurrentRow_:
-		return CurrentRow{}
-	case *proto.Expression_WindowFunction_Bound_Following_:
-		return FollowingBound(t.Following.Offset)
-	case *proto.Expression_WindowFunction_Bound_Unbounded_:
-		return Unbounded{}
-	}
-
-	// bound is optional
-	return nil
 }
 
 type FunctionInvocation interface {
