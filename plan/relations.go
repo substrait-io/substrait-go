@@ -1333,6 +1333,10 @@ type ExtensionSingleRel struct {
 	definition ExtensionRelDefinition
 }
 
+func NewExtensionSingleRel(input Rel, definition ExtensionRelDefinition, common RelCommon) *ExtensionSingleRel {
+	return &ExtensionSingleRel{RelCommon: common, input: input, definition: definition}
+}
+
 func (es *ExtensionSingleRel) directOutputSchema() types.RecordType {
 	return es.definition.Schema([]Rel{es.input})
 }
@@ -1350,26 +1354,6 @@ func (es *ExtensionSingleRel) Detail() *anypb.Any {
 
 // Definition returns the extension definition if present.
 func (es *ExtensionSingleRel) Definition() ExtensionRelDefinition { return es.definition }
-
-func (es *ExtensionSingleRel) ToProto() *proto.Rel {
-	return &proto.Rel{
-		RelType: &proto.Rel_ExtensionSingle{
-			ExtensionSingle: &proto.ExtensionSingleRel{
-				Common: es.toProto(),
-				Input:  es.input.ToProto(),
-				Detail: es.Detail(),
-			},
-		},
-	}
-}
-
-func (es *ExtensionSingleRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: es.ToProto(),
-		},
-	}
-}
 
 func (es *ExtensionSingleRel) GetInputs() []Rel {
 	return []Rel{es.input}

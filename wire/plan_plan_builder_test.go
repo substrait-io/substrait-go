@@ -1355,6 +1355,72 @@ func (t *TestExtensionDefinition) Expressions(inputs []plan.Rel) []expr.Expressi
 	return t.exprs
 }
 
+func TestExtensionSingleBuilder(t *testing.T) {
+	const expectedJSON = `{
+		` + versionStruct + `,
+		"relations": [
+			{
+				"root": {
+					"input": {
+						"extensionSingle": {
+							"common": {"direct": {}},
+							"input": {
+								"read": {
+									"common": {"direct": {}},
+									"baseSchema": {
+										"names": ["a", "b"],
+										"struct": {
+											"types": [
+												{"string": { "nullability": "NULLABILITY_REQUIRED"}},
+												{"fp32": { "nullability": "NULLABILITY_REQUIRED"}}
+											],
+											"nullability": "NULLABILITY_REQUIRED"
+										}
+									},
+									"namedTable": { "names": [ "test" ]}
+								}
+							},
+							"detail": {
+								"@type": "type.googleapis.com/google.protobuf.StringValue",
+								"value": "test-config"
+							}
+						}
+					},
+					"names": ["result"]
+				}
+			}
+		]
+	}`
+
+	b := plan.NewBuilderDefault()
+	scan := b.NamedScan([]string{"test"}, baseSchema)
+
+	// Create custom schema for extension
+	customSchema := types.StructType{
+		Nullability: types.NullabilityRequired,
+		Types: []types.Type{
+			&types.StringType{Nullability: types.NullabilityRequired},
+		},
+	}
+
+	// Create extension definition
+	extensionDef := &TestExtensionDefinition{
+		schema: *types.NewRecordTypeFromStruct(customSchema),
+		detail: []byte("test-config"),
+		exprs:  nil,
+	}
+
+	extRel, err := b.ExtensionSingle(scan, extensionDef)
+	require.NoError(t, err)
+
+	p, err := b.Plan(extRel, []string{"result"})
+	require.NoError(t, err)
+
+	assert.Equal(t, "NSTRUCT<result: string>", p.GetRoots()[0].RecordType().String())
+
+	checkRoundTrip(t, expectedJSON, p)
+}
+
 func TestExtensionTable(t *testing.T) {
 	const expectedJSON = `{
 		` + versionStruct + `,
