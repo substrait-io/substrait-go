@@ -49,6 +49,8 @@ func RelToProto(rel plan.Rel) *proto.Rel {
 		return mergeJoinRelToProto(r)
 	case *plan.NamedTableWriteRel:
 		return namedTableWriteRelToProto(r)
+	case *plan.ExtensionSingleRel:
+		return extensionSingleRelToProto(r)
 	default:
 		panic(fmt.Sprintf("wire: unhandled relation %T", rel))
 	}
@@ -501,6 +503,18 @@ func namedTableWriteRelToProto(wr *plan.NamedTableWriteRel) *proto.Rel {
 	}
 }
 
+func extensionSingleRelToProto(es *plan.ExtensionSingleRel) *proto.Rel {
+	return &proto.Rel{
+		RelType: &proto.Rel_ExtensionSingle{
+			ExtensionSingle: &proto.ExtensionSingleRel{
+				Common: relCommonToProto(&es.RelCommon),
+				Input:  RelToProto(es.Input()),
+				Detail: es.Detail(),
+			},
+		},
+	}
+}
+
 // relCommonFromProto decodes the common fields shared by every relation.
 func relCommonFromProto(c *proto.RelCommon) plan.RelCommon {
 	if c == nil {
@@ -665,6 +679,21 @@ func comparisonJoinKeysFromProto(
 		out[i] = plan.NewEqualityJoinKey(left, right)
 	}
 	return out, nil
+}
+
+func decodeExtensionDef(reg expr.ExtensionRegistry, detail *anypb.Any) (plan.ExtensionRelDefinition, error) {
+	if dec := reg.ExtensionRelDecoderFor(detail.GetTypeUrl()); dec != nil {
+		raw, err := dec.DecodeExtensionRel(detail)
+		if err != nil {
+			return nil, err
+		}
+		def, ok := raw.(plan.ExtensionRelDefinition)
+		if !ok {
+			return nil, fmt.Errorf("ExtensionRelDecoder returned %T which does not implement ExtensionRelDefinition", raw)
+		}
+		return def, nil
+	}
+	return plan.NewUndecodedExtension(detail), nil
 }
 
 // RelFromProto decodes a relation and all of its inputs from protobuf.
@@ -1071,6 +1100,18 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 			return nil, fmt.Errorf("%w: WriteRel not supported for optype %v", substraitgo.ErrInvalidRel, rel.Write.Op)
 		}
 		return plan.NewNamedTableWriteRel(tableSchema, plan.WriteOp(rel.Write.Op), input, plan.OutputMode(rel.Write.Output), common, names, advExtension), nil
+	case *proto.Rel_ExtensionSingle:
+		input, err := RelFromProto(rel.ExtensionSingle.Input, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error getting input to ExtensionSingle: %w", err)
+		}
+
+		definition, err := decodeExtensionDef(reg, rel.ExtensionSingle.Detail)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding ExtensionSingle detail: %w", err)
+		}
+		common := relCommonFromProto(rel.ExtensionSingle.Common)
+		return plan.NewExtensionSingleRel(input, definition, common), nil
 	case nil:
 		return nil, fmt.Errorf("%w: got nil", substraitgo.ErrInvalidRel)
 	}

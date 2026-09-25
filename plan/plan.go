@@ -399,23 +399,6 @@ type Rel interface {
 
 func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 	switch rel := rel.RelType.(type) {
-	case *proto.Rel_ExtensionSingle:
-		input, err := RelFromProto(rel.ExtensionSingle.Input, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting input to ExtensionSingle: %w", err)
-		}
-
-		definition, err := decodeExtensionDef(reg, rel.ExtensionSingle.Detail)
-		if err != nil {
-			return nil, fmt.Errorf("error decoding ExtensionSingle detail: %w", err)
-		}
-		out := &ExtensionSingleRel{
-			input:      input,
-			definition: definition,
-		}
-		out.fromProtoCommon(rel.ExtensionSingle.Common)
-
-		return out, nil
 	case *proto.Rel_ExtensionMulti:
 		inputs := make([]Rel, len(rel.ExtensionMulti.Inputs))
 		var err error
