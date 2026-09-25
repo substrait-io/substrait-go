@@ -17,6 +17,8 @@ func RefSegmentToProto(r expr.ReferenceSegment) *proto.Expression_ReferenceSegme
 		return mapKeyRefToProto(r)
 	case *expr.StructFieldRef:
 		return structFieldRefToProto(r)
+	case *expr.ListElementRef:
+		return listElementRefToProto(r)
 	default:
 		panic(fmt.Sprintf("wire: unhandled reference segment %T", r))
 	}
@@ -52,6 +54,21 @@ func structFieldRefToProto(r *expr.StructFieldRef) *proto.Expression_ReferenceSe
 	}
 }
 
+func listElementRefToProto(r *expr.ListElementRef) *proto.Expression_ReferenceSegment {
+	var child *proto.Expression_ReferenceSegment
+	if r.Child != nil {
+		child = RefSegmentToProto(r.Child)
+	}
+	return &proto.Expression_ReferenceSegment{
+		ReferenceType: &proto.Expression_ReferenceSegment_ListElement_{
+			ListElement: &proto.Expression_ReferenceSegment_ListElement{
+				Offset: r.Offset,
+				Child:  child,
+			},
+		},
+	}
+}
+
 // RefSegmentFromProto decodes a reference segment from its protobuf message.
 func RefSegmentFromProto(p *proto.Expression_ReferenceSegment) expr.ReferenceSegment {
 	if p == nil {
@@ -68,6 +85,11 @@ func RefSegmentFromProto(p *proto.Expression_ReferenceSegment) expr.ReferenceSeg
 		return &expr.StructFieldRef{
 			Field: seg.StructField.Field,
 			Child: RefSegmentFromProto(seg.StructField.Child),
+		}
+	case *proto.Expression_ReferenceSegment_ListElement_:
+		return &expr.ListElementRef{
+			Offset: seg.ListElement.Offset,
+			Child:  RefSegmentFromProto(seg.ListElement.Child),
 		}
 	}
 
