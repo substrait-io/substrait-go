@@ -912,6 +912,9 @@ type AggRelMeasure struct {
 }
 
 // NewAggRelMeasure builds a single aggregate measure with its optional filter.
+func NewAggRelMeasure(measure *expr.AggregateFunction, filter expr.Expression) AggRelMeasure {
+	return AggRelMeasure{measure: measure, filter: filter}
+}
 
 func (am *AggRelMeasure) Measure() *expr.AggregateFunction { return am.measure }
 func (am *AggRelMeasure) Filter() expr.Expression {
@@ -921,15 +924,7 @@ func (am *AggRelMeasure) Filter() expr.Expression {
 	return am.filter
 }
 
-func (am *AggRelMeasure) ToProto() *proto.AggregateRel_Measure {
-	ret := &proto.AggregateRel_Measure{
-		Measure: am.measure.ToProto(),
-	}
-	if am.filter != nil {
-		ret.Filter = am.filter.ToProto()
-	}
-	return ret
-}
+func (am *AggRelMeasure) RawFilter() expr.Expression { return am.filter }
 
 // AggregateRel is a relational operator representing a GROUP BY aggregate.
 type AggregateRel struct {
@@ -940,6 +935,17 @@ type AggregateRel struct {
 	groupingExpressions []expr.Expression
 	groupingReferences  [][]uint32
 	advExtension        *extensions.AdvancedExtension
+}
+
+func NewAggregateRel(input Rel, measures []AggRelMeasure, groupingExpressions []expr.Expression, groupingReferences [][]uint32, common RelCommon, advExtension *extensions.AdvancedExtension) *AggregateRel {
+	return &AggregateRel{
+		RelCommon:           common,
+		input:               input,
+		measures:            measures,
+		groupingExpressions: groupingExpressions,
+		groupingReferences:  groupingReferences,
+		advExtension:        advExtension,
+	}
 }
 
 func (ar *AggregateRel) directOutputSchema() types.RecordType {
@@ -974,46 +980,6 @@ func (ar *AggregateRel) SetAdvancedExtension(advExtension *extensions.AdvancedEx
 	existing := ar.advExtension
 	ar.advExtension = advExtension
 	return existing
-}
-
-func (ar *AggregateRel) ToProto() *proto.Rel {
-	groupingExpressionsProto := make([]*proto.Expression, len(ar.groupingExpressions))
-	for i, e := range ar.groupingExpressions {
-		groupingExpressionsProto[i] = e.ToProto()
-	}
-
-	groupings := make([]*proto.AggregateRel_Grouping, len(ar.groupingReferences))
-	for i := range ar.groupingReferences {
-		groupings[i] = &proto.AggregateRel_Grouping{
-			ExpressionReferences: ar.groupingReferences[i],
-		}
-	}
-
-	measures := make([]*proto.AggregateRel_Measure, len(ar.measures))
-	for i, m := range ar.measures {
-		measures[i] = m.ToProto()
-	}
-
-	return &proto.Rel{
-		RelType: &proto.Rel_Aggregate{
-			Aggregate: &proto.AggregateRel{
-				Common:              ar.toProto(),
-				Input:               ar.input.ToProto(),
-				GroupingExpressions: groupingExpressionsProto,
-				Groupings:           groupings,
-				Measures:            measures,
-				AdvancedExtension:   extensions.AdvancedExtensionToProto(ar.advExtension),
-			},
-		},
-	}
-}
-
-func (ar *AggregateRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: ar.ToProto(),
-		},
-	}
 }
 
 func (ar *AggregateRel) GetInputs() []Rel {
