@@ -458,11 +458,6 @@ func TypeFromProto(t *proto.Type) Type {
 			typeVariationRef: t.IntervalCompound.TypeVariationReference,
 			precision:        precision,
 		}
-	case *proto.Type_Uuid:
-		return &UUIDType{
-			Nullability:      Nullability(t.Uuid.Nullability),
-			TypeVariationRef: t.Uuid.TypeVariationReference,
-		}
 	case *proto.Type_FixedBinary_:
 		return &FixedBinaryType{
 			Nullability:      Nullability(t.FixedBinary.Nullability),
@@ -818,11 +813,6 @@ func TypeToProto(t Type) *proto.Type {
 				Precision:              precision,
 				Nullability:            proto.Type_Nullability(t.nullability),
 				TypeVariationReference: t.typeVariationRef}}}
-	case *UUIDType:
-		return &proto.Type{Kind: &proto.Type_Uuid{
-			Uuid: &proto.Type_UUID{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
 	case *FixedCharType:
 		return &proto.Type{Kind: &proto.Type_FixedChar_{
 			FixedChar: &proto.Type_FixedChar{
