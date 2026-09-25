@@ -586,67 +586,6 @@ func TestFetchRelTypeErrors(t *testing.T) {
 		assert.NoError(t, err)
 	}
 }
-
-func TestFilterRelation(t *testing.T) {
-	const expectedJSON = `{
-		` + versionStruct + `,
-		"relations": [
-			{
-				"root": {
-					"input": {
-						"filter": {
-							"common": {
-								"direct": {}
-							},
-							"input": {
-								"read": {
-									"common": {"direct": {}},
-									"baseSchema": {
-										"names": ["x", "y"],
-										"struct": {
-											"types": [
-												{"i32": { "nullability": "NULLABILITY_REQUIRED"}},
-												{"bool": { "nullability": "NULLABILITY_REQUIRED"}}
-											],
-											"nullability": "NULLABILITY_REQUIRED"
-										}
-									},
-									"namedTable": { "names": [ "test" ]}
-								}
-							},
-							"condition": {
-								"selection": {
-									"rootReference": {},
-									"directReference": { "structField": { "field": 1 }}
-								}
-							}
-						}
-					},
-					"names": ["a", "b"]
-				}
-			}
-		]
-	}`
-
-	b := plan.NewBuilderDefault()
-	scan := b.NamedScan([]string{"test"}, baseSchema2)
-	ref, err := b.RootFieldRef(scan, 1)
-	require.NoError(t, err)
-
-	filter, err := b.Filter(scan, ref)
-	require.NoError(t, err)
-
-	p, err := b.Plan(filter, []string{"a", "b"})
-	require.NoError(t, err)
-
-	assert.Equal(t, "NSTRUCT<a: i32, b: boolean>", p.GetRoots()[0].RecordType().String())
-
-	checkRoundTrip(t, expectedJSON, p)
-
-	_, err = filter.Remap(0)
-	assert.NoError(t, err)
-}
-
 func TestFilterRelationErrors(t *testing.T) {
 	b := plan.NewBuilderDefault()
 

@@ -1263,6 +1263,10 @@ type FilterRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
+func NewFilterRel(input Rel, cond expr.Expression, common RelCommon, advExtension *extensions.AdvancedExtension) *FilterRel {
+	return &FilterRel{RelCommon: common, input: input, cond: cond, advExtension: advExtension}
+}
+
 func (fr *FilterRel) directOutputSchema() types.RecordType { return fr.input.RecordType() }
 func (fr *FilterRel) RecordType() types.RecordType {
 	return fr.remap(fr.directOutputSchema())
@@ -1276,27 +1280,6 @@ func (fr *FilterRel) SetAdvancedExtension(advExtension *extensions.AdvancedExten
 	existing := fr.advExtension
 	fr.advExtension = advExtension
 	return existing
-}
-
-func (fr *FilterRel) ToProto() *proto.Rel {
-	return &proto.Rel{
-		RelType: &proto.Rel_Filter{
-			Filter: &proto.FilterRel{
-				Common:            fr.toProto(),
-				Input:             fr.input.ToProto(),
-				Condition:         fr.cond.ToProto(),
-				AdvancedExtension: extensions.AdvancedExtensionToProto(fr.advExtension),
-			},
-		},
-	}
-}
-
-func (fr *FilterRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: fr.ToProto(),
-		},
-	}
 }
 
 func (fr *FilterRel) GetInputs() []Rel {
