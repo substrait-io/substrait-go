@@ -789,47 +789,21 @@ func NewCustomAggregateFunc(
 	}, nil
 }
 
-func NewAggregateFunctionFromProto(
-	agg *proto.AggregateFunction, baseSchema *types.RecordType, reg ExtensionRegistry,
-) (*AggregateFunction, error) {
-	if agg.OutputType == nil {
-		return nil, fmt.Errorf("%w: missing output type", substraitgo.ErrInvalidExpr)
-	}
-
-	var err error
-	args := make([]types.FuncArg, len(agg.Arguments))
-	for i, a := range agg.Arguments {
-		if args[i], err = FuncArgFromProto(a, baseSchema, reg); err != nil {
-			return nil, err
-		}
-	}
-
-	sorts := make([]SortField, len(agg.Sorts))
-	for i, s := range agg.Sorts {
-		if sorts[i], err = SortFieldFromProto(s, baseSchema, reg); err != nil {
-			return nil, err
-		}
-	}
-
-	id, ok := reg.DecodeFunc(agg.FunctionReference)
-	if !ok {
-		return nil, substraitgo.ErrNotFound
-	}
-	decl, ok := reg.LookupAggregateFunction(agg.FunctionReference)
-	if !ok {
-		return NewCustomAggregateFunc(reg, extensions.NewAggFuncVariant(id), types.TypeFromProto(agg.OutputType), types.FunctionOptionsFromProto(agg.Options), types.AggregationInvocation(agg.Invocation), types.AggregationPhase(agg.Phase), sorts, args...)
-	}
-
+func NewAggregateFunctionFromParts(
+	funcRef uint32, declaration *extensions.AggregateFunctionVariant,
+	args []types.FuncArg, options []*types.FunctionOption, outputType types.Type,
+	phase types.AggregationPhase, invocation types.AggregationInvocation, sorts []SortField,
+) *AggregateFunction {
 	return &AggregateFunction{
-		funcRef:     agg.FunctionReference,
-		declaration: decl,
+		funcRef:     funcRef,
+		declaration: declaration,
 		args:        args,
-		options:     types.FunctionOptionsFromProto(agg.Options),
-		outputType:  types.TypeFromProto(agg.OutputType),
-		phase:       types.AggregationPhase(agg.Phase),
-		invocation:  types.AggregationInvocation(agg.Invocation),
+		options:     options,
+		outputType:  outputType,
+		phase:       phase,
+		invocation:  invocation,
 		Sorts:       sorts,
-	}, nil
+	}
 }
 
 func (a *AggregateFunction) Name() string                            { return a.declaration.Name() }
@@ -840,6 +814,7 @@ func (a *AggregateFunction) SessionDependant() bool                  { return a.
 func (a *AggregateFunction) Deterministic() bool                     { return a.declaration.Deterministic() }
 func (a *AggregateFunction) NArgs() int                              { return len(a.args) }
 func (a *AggregateFunction) Arg(i int) types.FuncArg                 { return a.args[i] }
+func (a *AggregateFunction) FuncRef() uint32                         { return a.funcRef }
 func (a *AggregateFunction) Phase() types.AggregationPhase           { return a.phase }
 func (a *AggregateFunction) Invocation() types.AggregationInvocation { return a.invocation }
 func (a *AggregateFunction) Decomposable() extensions.DecomposeType {
@@ -908,33 +883,3 @@ func (a *AggregateFunction) GetArgTypes() []types.Type {
 }
 
 func (a *AggregateFunction) GetType() types.Type { return a.outputType }
-
-func (a *AggregateFunction) ToProto() *proto.AggregateFunction {
-	var (
-		args  []*proto.FunctionArgument
-		sorts []*proto.SortField
-	)
-	if len(a.args) > 0 {
-		args = make([]*proto.FunctionArgument, len(a.args))
-		for i, arg := range a.args {
-			args[i] = arg.ToProtoFuncArg()
-		}
-	}
-
-	if len(a.Sorts) > 0 {
-		sorts = make([]*proto.SortField, len(a.Sorts))
-		for i, s := range a.Sorts {
-			sorts[i] = s.ToProto()
-		}
-	}
-
-	return &proto.AggregateFunction{
-		FunctionReference: a.funcRef,
-		Arguments:         args,
-		Options:           types.FunctionOptionsToProto(a.options),
-		OutputType:        types.TypeToProto(a.outputType),
-		Phase:             proto.AggregationPhase(a.phase),
-		Sorts:             sorts,
-		Invocation:        proto.AggregateFunction_AggregationInvocation(a.invocation),
-	}
-}
