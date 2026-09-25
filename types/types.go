@@ -487,13 +487,6 @@ func TypeFromProto(t *proto.Type) Type {
 			TypeVariationRef: t.PrecisionTimestampTz.TypeVariationReference,
 			Precision:        precision,
 		}}
-	case *proto.Type_Map_:
-		return &MapType{
-			Nullability:      Nullability(t.Map.Nullability),
-			TypeVariationRef: t.Map.TypeVariationReference,
-			Key:              TypeFromProto(t.Map.Key),
-			Value:            TypeFromProto(t.Map.Value),
-		}
 	case *proto.Type_UserDefined_:
 		params := make([]TypeParam, len(t.UserDefined.TypeParameters))
 		for i, p := range t.UserDefined.TypeParameters {
@@ -779,8 +772,6 @@ func TypeToProto(t Type) *proto.Type {
 				Precision:              int32(t.Precision),
 				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
-	case *MapType:
-		return t.ToProto()
 	case *UserDefinedType:
 		return t.ToProto()
 	}
@@ -1381,14 +1372,6 @@ func (t *MapType) Equals(rhs Type) bool {
 		return t.Key.Equals(b.Key) && t.Value.Equals(b.Value)
 	}
 	return false
-}
-
-func (t *MapType) ToProto() *proto.Type {
-	return &proto.Type{Kind: &proto.Type_Map_{
-		Map: &proto.Type_Map{Nullability: proto.Type_Nullability(t.Nullability),
-			TypeVariationReference: t.TypeVariationRef,
-			Key:                    TypeToProto(t.Key),
-			Value:                  TypeToProto(t.Value)}}}
 }
 
 func (t *MapType) ToProtoFuncArg() *proto.FunctionArgument {
