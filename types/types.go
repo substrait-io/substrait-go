@@ -487,12 +487,6 @@ func TypeFromProto(t *proto.Type) Type {
 			TypeVariationRef: t.PrecisionTimestampTz.TypeVariationReference,
 			Precision:        precision,
 		}}
-	case *proto.Type_List_:
-		return &ListType{
-			Nullability:      Nullability(t.List.Nullability),
-			TypeVariationRef: t.List.TypeVariationReference,
-			Type:             TypeFromProto(t.List.Type),
-		}
 	case *proto.Type_Map_:
 		return &MapType{
 			Nullability:      Nullability(t.Map.Nullability),
@@ -785,8 +779,6 @@ func TypeToProto(t Type) *proto.Type {
 				Precision:              int32(t.Precision),
 				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
-	case *ListType:
-		return t.ToProto()
 	case *MapType:
 		return t.ToProto()
 	case *UserDefinedType:
@@ -1334,13 +1326,6 @@ func (t *ListType) Equals(rhs Type) bool {
 		return t.Type.Equals(b.Type)
 	}
 	return false
-}
-
-func (t *ListType) ToProto() *proto.Type {
-	return &proto.Type{Kind: &proto.Type_List_{
-		List: &proto.Type_List{Nullability: proto.Type_Nullability(t.Nullability),
-			Type:                   TypeToProto(t.Type),
-			TypeVariationReference: t.TypeVariationRef}}}
 }
 
 func (t *ListType) ToProtoFuncArg() *proto.FunctionArgument {
