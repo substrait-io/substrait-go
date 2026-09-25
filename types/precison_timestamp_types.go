@@ -119,14 +119,6 @@ func (m *PrecisionTimestampType) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 
-func (m *PrecisionTimestampType) ToProto() *proto.Type {
-	return &proto.Type{Kind: &proto.Type_PrecisionTimestamp_{
-		PrecisionTimestamp: &proto.Type_PrecisionTimestamp{
-			Precision:              m.Precision.ToProtoVal(),
-			Nullability:            proto.Type_Nullability(m.Nullability),
-			TypeVariationReference: m.TypeVariationRef}}}
-}
-
 func (*PrecisionTimestampType) ShortString() string {
 	return GetShortTypeName(TypeNamePrecisionTimestamp)
 }
