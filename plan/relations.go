@@ -1638,6 +1638,18 @@ type HashJoinRel struct {
 	advExtension   *extensions.AdvancedExtension
 }
 
+func NewHashJoinRel(left, right Rel, keys []*ComparisonJoinKey, joinType HashMergeJoinType, postJoinFilter expr.Expression, common RelCommon, advExtension *extensions.AdvancedExtension) *HashJoinRel {
+	return &HashJoinRel{
+		RelCommon:      common,
+		left:           left,
+		right:          right,
+		keys:           keys,
+		postJoinFilter: postJoinFilter,
+		joinType:       joinType,
+		advExtension:   advExtension,
+	}
+}
+
 func (hr *HashJoinRel) directOutputSchema() types.RecordType {
 	return hr.left.RecordType().Concat(hr.right.RecordType())
 }
@@ -1665,8 +1677,8 @@ func (hr *HashJoinRel) PostJoinFilter() expr.Expression {
 	}
 	return hr.postJoinFilter
 }
-
-func (hr *HashJoinRel) Type() HashMergeJoinType { return hr.joinType }
+func (hr *HashJoinRel) RawPostJoinFilter() expr.Expression { return hr.postJoinFilter }
+func (hr *HashJoinRel) Type() HashMergeJoinType            { return hr.joinType }
 func (hr *HashJoinRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return hr.advExtension
 }
@@ -1674,39 +1686,6 @@ func (hr *HashJoinRel) SetAdvancedExtension(advExtension *extensions.AdvancedExt
 	existing := hr.advExtension
 	hr.advExtension = advExtension
 	return existing
-}
-
-func (hr *HashJoinRel) ToProto() *proto.Rel {
-	ret := &proto.Rel_HashJoin{
-		HashJoin: &proto.HashJoinRel{
-			Common:            hr.toProto(),
-			Left:              hr.left.ToProto(),
-			Right:             hr.right.ToProto(),
-			Keys:              comparisonJoinKeysToProto(hr.keys),
-			Type:              proto.HashJoinRel_JoinType(hr.joinType),
-			AdvancedExtension: extensions.AdvancedExtensionToProto(hr.advExtension),
-		},
-	}
-
-	if leftKeys, rightKeys, ok := tryEqualityJoinKeysToLegacyProto(hr.keys); ok {
-		ret.HashJoin.LeftKeys = leftKeys
-		ret.HashJoin.RightKeys = rightKeys
-	}
-
-	if hr.postJoinFilter != nil {
-		ret.HashJoin.PostJoinFilter = hr.postJoinFilter.ToProto()
-	}
-
-	return &proto.Rel{
-		RelType: ret}
-}
-
-func (hr *HashJoinRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: hr.ToProto(),
-		},
-	}
 }
 
 func (hr *HashJoinRel) GetInputs() []Rel {

@@ -30,3 +30,13 @@ func TestJoinRelNilPostJoinFilterOmitted(t *testing.T) {
 	assert.Nil(t, wire.RelToProto(rel).GetJoin().GetPostJoinFilter(),
 		"a nil post-join filter must be absent from the encoded proto")
 }
+
+func TestHashJoinRelNilPostJoinFilterOmitted(t *testing.T) {
+	left, right := nilFilterInputs()
+	rel := plan.NewHashJoinRel(left, right, nil, plan.HashMergeInner, nil, plan.RelCommon{}, nil)
+
+	assert.Nil(t, rel.RawPostJoinFilter())
+	assert.NotNil(t, rel.PostJoinFilter())
+	assert.Nil(t, wire.RelToProto(rel).GetHashJoin().GetPostJoinFilter(),
+		"a nil post-join filter must be absent from the encoded proto")
+}
