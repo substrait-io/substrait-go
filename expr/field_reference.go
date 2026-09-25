@@ -9,7 +9,6 @@ import (
 
 	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/types"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
 // RootRefType is a marker interface for types that can be used as a Root
@@ -44,34 +43,7 @@ type ReferenceSegment interface {
 	fmt.Stringer
 	GetChild() ReferenceSegment
 	GetType(types.Type) (types.Type, error)
-	ToProto() *proto.Expression_ReferenceSegment
 	Equals(ReferenceSegment) bool
-}
-
-func RefSegmentFromProto(p *proto.Expression_ReferenceSegment) ReferenceSegment {
-	if p == nil {
-		return nil
-	}
-
-	switch seg := p.ReferenceType.(type) {
-	case *proto.Expression_ReferenceSegment_MapKey_:
-		return &MapKeyRef{
-			MapKey: LiteralFromProto(seg.MapKey.MapKey),
-			Child:  RefSegmentFromProto(seg.MapKey.Child),
-		}
-	case *proto.Expression_ReferenceSegment_StructField_:
-		return &StructFieldRef{
-			Field: seg.StructField.Field,
-			Child: RefSegmentFromProto(seg.StructField.Child),
-		}
-	case *proto.Expression_ReferenceSegment_ListElement_:
-		return &ListElementRef{
-			Offset: seg.ListElement.Offset,
-			Child:  RefSegmentFromProto(seg.ListElement.Child),
-		}
-	}
-
-	return nil
 }
 
 func FlattenRefSegments(refs ...ReferenceSegment) ReferenceSegment {
@@ -112,22 +84,6 @@ func (r *MapKeyRef) String() string {
 		c = r.Child.String()
 	}
 	return ".[" + r.MapKey.String() + "]" + c
-}
-
-func (r *MapKeyRef) ToProto() *proto.Expression_ReferenceSegment {
-	var c *proto.Expression_ReferenceSegment
-	if r.Child != nil {
-		c = r.Child.ToProto()
-	}
-
-	return &proto.Expression_ReferenceSegment{
-		ReferenceType: &proto.Expression_ReferenceSegment_MapKey_{
-			MapKey: &proto.Expression_ReferenceSegment_MapKey{
-				MapKey: r.MapKey.ToProtoLiteral(),
-				Child:  c,
-			},
-		},
-	}
 }
 
 func (r *MapKeyRef) GetType(parentType types.Type) (types.Type, error) {
@@ -203,22 +159,6 @@ func (r *StructFieldRef) GetType(parentType types.Type) (types.Type, error) {
 	return st.Types[r.Field], nil
 }
 
-func (r *StructFieldRef) ToProto() *proto.Expression_ReferenceSegment {
-	var c *proto.Expression_ReferenceSegment
-	if r.Child != nil {
-		c = r.Child.ToProto()
-	}
-
-	return &proto.Expression_ReferenceSegment{
-		ReferenceType: &proto.Expression_ReferenceSegment_StructField_{
-			StructField: &proto.Expression_ReferenceSegment_StructField{
-				Field: r.Field,
-				Child: c,
-			},
-		},
-	}
-}
-
 func (r *StructFieldRef) GetChild() ReferenceSegment { return r.Child }
 func (r *StructFieldRef) Equals(rhs ReferenceSegment) bool {
 	if rhs, ok := rhs.(*StructFieldRef); ok {
@@ -271,22 +211,6 @@ func (r *ListElementRef) GetType(parentType types.Type) (types.Type, error) {
 	return lt.Type, nil
 }
 
-func (r *ListElementRef) ToProto() *proto.Expression_ReferenceSegment {
-	var c *proto.Expression_ReferenceSegment
-	if r.Child != nil {
-		c = r.Child.ToProto()
-	}
-
-	return &proto.Expression_ReferenceSegment{
-		ReferenceType: &proto.Expression_ReferenceSegment_ListElement_{
-			ListElement: &proto.Expression_ReferenceSegment_ListElement{
-				Offset: r.Offset,
-				Child:  c,
-			},
-		},
-	}
-}
-
 func (r *ListElementRef) GetChild() ReferenceSegment { return r.Child }
 func (r *ListElementRef) Equals(rhs ReferenceSegment) bool {
 	if rhs, ok := rhs.(*ListElementRef); ok {
@@ -326,13 +250,6 @@ type MaskExpression struct {
 }
 
 func (*MaskExpression) isRefType() {}
-func (e *MaskExpression) ToProto() *proto.Expression_MaskExpression {
-	return &proto.Expression_MaskExpression{
-		Select:                 e.sel.toProtoStructSelect(),
-		MaintainSingularStruct: e.maintainSingular,
-	}
-}
-
 func (e *MaskExpression) MaintainSingularStruct() bool {
 	return e.maintainSingular
 }
@@ -341,84 +258,10 @@ func (e *MaskExpression) Select() MaskStructSelect {
 	return slices.Clone(e.sel)
 }
 
-func MaskExpressionFromProto(p *proto.Expression_MaskExpression) *MaskExpression {
-	sel := make(MaskStructSelect, len(p.Select.StructItems))
-	for i, item := range p.Select.StructItems {
-		sel[i].field = item.Field
-		if item.Child != nil {
-			sel[i].child = maskSelectFromProto(item.Child)
-		}
-	}
-	return &MaskExpression{sel: sel, maintainSingular: p.MaintainSingularStruct}
-}
-
-func maskSelectFromProto(p *proto.Expression_MaskExpression_Select) MaskSelect {
-	switch s := p.Type.(type) {
-	case *proto.Expression_MaskExpression_Select_Struct:
-		items := make(MaskStructSelect, len(s.Struct.StructItems))
-		for i, item := range s.Struct.StructItems {
-			items[i].field = item.Field
-			if item.Child != nil {
-				items[i].child = maskSelectFromProto(item.Child)
-			}
-		}
-		return items
-	case *proto.Expression_MaskExpression_Select_List:
-		selection := make([]MaskListSelectItem, len(s.List.Selection))
-		for i, sel := range s.List.Selection {
-			switch s := sel.Type.(type) {
-			case *proto.Expression_MaskExpression_ListSelect_ListSelectItem_Item:
-				selection[i] = &MaskListElement{Field: s.Item.Field}
-			case *proto.Expression_MaskExpression_ListSelect_ListSelectItem_Slice:
-				selection[i] = &MaskListSlice{Start: s.Slice.Start, End: s.Slice.End}
-			}
-		}
-		return &MaskListSelect{
-			selection: selection,
-			child:     maskSelectFromProto(s.List.Child),
-		}
-	case *proto.Expression_MaskExpression_Select_Map:
-		var ret MaskMapSelect
-		if s.Map.Child != nil {
-			ret.child = maskSelectFromProto(s.Map.Child)
-		}
-
-		switch sk := s.Map.Select.(type) {
-		case *proto.Expression_MaskExpression_MapSelect_Expression:
-			ret.key = sk.Expression.MapKeyExpression
-			ret.kind = MapSelectExpr
-		case *proto.Expression_MaskExpression_MapSelect_Key:
-			ret.key = sk.Key.MapKey
-			ret.kind = MapSelectKey
-		}
-		return &ret
-	}
-	panic("unimplemented mask select type")
-}
-
 type MaskSelect interface {
-	ToProto() *proto.Expression_MaskExpression_Select
 }
 
 type MaskStructSelect []MaskStructItem
-
-func (m MaskStructSelect) toProtoStructSelect() *proto.Expression_MaskExpression_StructSelect {
-	items := make([]*proto.Expression_MaskExpression_StructItem, len(m))
-	for i, item := range m {
-		items[i] = item.ToProto()
-	}
-	return &proto.Expression_MaskExpression_StructSelect{
-		StructItems: items,
-	}
-}
-
-func (m MaskStructSelect) ToProto() *proto.Expression_MaskExpression_Select {
-	return &proto.Expression_MaskExpression_Select{
-		Type: &proto.Expression_MaskExpression_Select_Struct{
-			Struct: m.toProtoStructSelect(),
-		},
-	}
-}
 
 type MaskStructItem struct {
 	field int32
@@ -427,37 +270,10 @@ type MaskStructItem struct {
 
 func (m *MaskStructItem) Field() int32      { return m.field }
 func (m *MaskStructItem) Child() MaskSelect { return m.child }
-func (m *MaskStructItem) ToProto() *proto.Expression_MaskExpression_StructItem {
-	var childProto *proto.Expression_MaskExpression_Select
-	if m.child != nil {
-		childProto = m.child.ToProto()
-	}
-
-	return &proto.Expression_MaskExpression_StructItem{
-		Field: m.field,
-		Child: childProto,
-	}
-}
 
 type MaskListSelect struct {
 	selection []MaskListSelectItem
 	child     MaskSelect
-}
-
-func (m *MaskListSelect) ToProto() *proto.Expression_MaskExpression_Select {
-	selection := make([]*proto.Expression_MaskExpression_ListSelect_ListSelectItem, len(m.selection))
-	for i, s := range m.selection {
-		selection[i] = s.ToProto()
-	}
-
-	return &proto.Expression_MaskExpression_Select{
-		Type: &proto.Expression_MaskExpression_Select_List{
-			List: &proto.Expression_MaskExpression_ListSelect{
-				Selection: selection,
-				Child:     m.child.ToProto(),
-			},
-		},
-	}
 }
 
 func (m *MaskListSelect) Child() MaskSelect { return m.child }
@@ -466,7 +282,6 @@ func (m *MaskListSelect) Selection() []MaskListSelectItem {
 }
 
 type MaskListSelectItem interface {
-	ToProto() *proto.Expression_MaskExpression_ListSelect_ListSelectItem
 }
 
 // MaskListElement selects a single element of a list by its field index, mirroring the fields of
@@ -479,16 +294,6 @@ func (m *MaskListElement) GetField() int32 {
 	return m.Field
 }
 
-func (m *MaskListElement) ToProto() *proto.Expression_MaskExpression_ListSelect_ListSelectItem {
-	return &proto.Expression_MaskExpression_ListSelect_ListSelectItem{
-		Type: &proto.Expression_MaskExpression_ListSelect_ListSelectItem_Item{
-			Item: &proto.Expression_MaskExpression_ListSelect_ListSelectItem_ListElement{
-				Field: m.Field,
-			},
-		},
-	}
-}
-
 // MaskListSlice selects a contiguous range of list elements by start and end bounds, mirroring the
 // fields of the Substrait mask expression ListSlice message.
 type MaskListSlice struct {
@@ -498,17 +303,6 @@ type MaskListSlice struct {
 
 func (m *MaskListSlice) GetBounds() (start, end int32) {
 	return m.Start, m.End
-}
-
-func (m *MaskListSlice) ToProto() *proto.Expression_MaskExpression_ListSelect_ListSelectItem {
-	return &proto.Expression_MaskExpression_ListSelect_ListSelectItem{
-		Type: &proto.Expression_MaskExpression_ListSelect_ListSelectItem_Slice{
-			Slice: &proto.Expression_MaskExpression_ListSelect_ListSelectItem_ListSlice{
-				Start: m.Start,
-				End:   m.End,
-			},
-		},
-	}
 }
 
 type MapSelectKind int8
@@ -529,31 +323,6 @@ func (m *MaskMapSelect) Key() string            { return m.key }
 
 func (m *MaskMapSelect) Child() MaskSelect {
 	return m.child
-}
-
-func (m *MaskMapSelect) ToProto() *proto.Expression_MaskExpression_Select {
-	ret := &proto.Expression_MaskExpression_Select_Map{
-		Map: &proto.Expression_MaskExpression_MapSelect{
-			Child: m.child.ToProto(),
-		},
-	}
-
-	if m.kind == MapSelectKey {
-		ret.Map.Select = &proto.Expression_MaskExpression_MapSelect_Key{
-			Key: &proto.Expression_MaskExpression_MapSelect_MapKey{
-				MapKey: m.key,
-			},
-		}
-	} else {
-		ret.Map.Select = &proto.Expression_MaskExpression_MapSelect_Expression{
-			Expression: &proto.Expression_MaskExpression_MapSelect_MapKeyExpression{
-				MapKeyExpression: m.key,
-			},
-		}
-	}
-	return &proto.Expression_MaskExpression_Select{
-		Type: ret,
-	}
 }
 
 type Reference interface {
@@ -633,6 +402,26 @@ func NewFieldRefFromType(root RootRefType, ref Reference, t types.Type) (*FieldR
 	return nil, substraitgo.ErrNotImplemented
 }
 
+func NewFieldReference(root RootRefType, ref Reference, knownType types.Type) *FieldReference {
+	return &FieldReference{Root: root, Reference: ref, knownType: knownType}
+}
+
+func NewMaskExpression(sel MaskStructSelect, maintainSingular bool) *MaskExpression {
+	return &MaskExpression{sel: sel, maintainSingular: maintainSingular}
+}
+
+func NewMaskStructItem(field int32, child MaskSelect) MaskStructItem {
+	return MaskStructItem{field: field, child: child}
+}
+
+func NewMaskListSelect(selection []MaskListSelectItem, child MaskSelect) *MaskListSelect {
+	return &MaskListSelect{selection: selection, child: child}
+}
+
+func NewMaskMapSelect(kind MapSelectKind, key string, child MaskSelect) *MaskMapSelect {
+	return &MaskMapSelect{kind: kind, key: key, child: child}
+}
+
 func (*FieldReference) isRootRef() {}
 
 func (f *FieldReference) String() string {
@@ -652,59 +441,6 @@ func (f *FieldReference) String() string {
 		typ = " => " + f.knownType.String()
 	}
 	return b.String() + f.Reference.(ReferenceSegment).String() + typ
-}
-
-func (f *FieldReference) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Value{Value: f.ToProto()},
-	}
-}
-func (f *FieldReference) ToProtoFieldRef() *proto.Expression_FieldReference {
-	ret := &proto.Expression_FieldReference{}
-	switch r := f.Reference.(type) {
-	case ReferenceSegment:
-		ret.ReferenceType = &proto.Expression_FieldReference_DirectReference{
-			DirectReference: r.ToProto()}
-	case *MaskExpression:
-		ret.ReferenceType = &proto.Expression_FieldReference_MaskedReference{
-			MaskedReference: r.ToProto(),
-		}
-	}
-
-	if f.Root != RootReference {
-		switch r := f.Root.(type) {
-		case Expression:
-			ret.RootType = &proto.Expression_FieldReference_Expression{
-				Expression: r.ToProto(),
-			}
-		case OuterReference:
-			ret.RootType = &proto.Expression_FieldReference_OuterReference_{
-				OuterReference: &proto.Expression_FieldReference_OuterReference{
-					StepsOut: uint32(r),
-				},
-			}
-		case LambdaParameterReference:
-			ret.RootType = &proto.Expression_FieldReference_LambdaParameterReference_{
-				LambdaParameterReference: &proto.Expression_FieldReference_LambdaParameterReference{
-					StepsOut: r.StepsOut,
-				},
-			}
-		}
-	} else {
-		ret.RootType = &proto.Expression_FieldReference_RootReference_{
-			RootReference: &proto.Expression_FieldReference_RootReference{},
-		}
-	}
-
-	return ret
-}
-
-func (f *FieldReference) ToProto() *proto.Expression {
-	return &proto.Expression{
-		RexType: &proto.Expression_Selection{
-			Selection: f.ToProtoFieldRef(),
-		},
-	}
 }
 
 func (f *FieldReference) Equals(rhs Expression) bool {
@@ -772,49 +508,3 @@ func (f *FieldReference) Visit(v VisitFunc) Expression {
 }
 
 func (*FieldReference) IsScalar() bool { return true }
-
-func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema *types.RecordType, reg ExtensionRegistry) (*FieldReference, error) {
-	var (
-		ref       Reference
-		root      RootRefType
-		knownType types.Type
-		err       error
-	)
-
-	switch rt := p.RootType.(type) {
-	case *proto.Expression_FieldReference_Expression:
-		if root, err = ExprFromProto(rt.Expression, baseSchema, reg); err != nil {
-			return nil, err
-		}
-	case *proto.Expression_FieldReference_OuterReference_:
-		root = OuterReference(rt.OuterReference.StepsOut)
-	case *proto.Expression_FieldReference_RootReference_:
-		root = RootReference
-	case *proto.Expression_FieldReference_LambdaParameterReference_:
-		root = LambdaParameterReference{StepsOut: rt.LambdaParameterReference.StepsOut}
-	}
-
-	switch rt := p.ReferenceType.(type) {
-	case *proto.Expression_FieldReference_DirectReference:
-		refseg := RefSegmentFromProto(rt.DirectReference)
-		if root == RootReference && baseSchema != nil {
-			baseType := baseSchema.AsStructType()
-			knownType, err = refseg.GetType(baseType)
-			if err != nil {
-				return nil, err
-			}
-		} else if rootExpr, ok := root.(Expression); ok {
-			knownType, err = refseg.GetType(rootExpr.GetType())
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		ref = refseg
-
-	case *proto.Expression_FieldReference_MaskedReference:
-		ref = MaskExpressionFromProto(rt.MaskedReference)
-	}
-
-	return &FieldReference{Root: root, Reference: ref, knownType: knownType}, nil
-}

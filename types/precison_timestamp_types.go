@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"reflect"
 	"time"
-
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
 // TimePrecision is used to represent the precision of a timestamp
@@ -113,20 +111,6 @@ func (m *PrecisionTimestampType) Equals(rhs Type) bool {
 	return false
 }
 
-func (m *PrecisionTimestampType) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Type{Type: m.ToProto()},
-	}
-}
-
-func (m *PrecisionTimestampType) ToProto() *proto.Type {
-	return &proto.Type{Kind: &proto.Type_PrecisionTimestamp_{
-		PrecisionTimestamp: &proto.Type_PrecisionTimestamp{
-			Precision:              m.Precision.ToProtoVal(),
-			Nullability:            proto.Type_Nullability(m.Nullability),
-			TypeVariationReference: m.TypeVariationRef}}}
-}
-
 func (*PrecisionTimestampType) ShortString() string {
 	return GetShortTypeName(TypeNamePrecisionTimestamp)
 }
@@ -168,20 +152,6 @@ func NewPrecisionTimestampTzType(precision TimePrecision) *PrecisionTimestampTzT
 			Nullability: NullabilityNullable,
 		},
 	}
-}
-
-func (m *PrecisionTimestampTzType) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Type{Type: m.ToProto()},
-	}
-}
-
-func (m *PrecisionTimestampTzType) ToProto() *proto.Type {
-	return &proto.Type{Kind: &proto.Type_PrecisionTimestampTz{
-		PrecisionTimestampTz: &proto.Type_PrecisionTimestampTZ{
-			Precision:              m.Precision.ToProtoVal(),
-			Nullability:            proto.Type_Nullability(m.Nullability),
-			TypeVariationReference: m.TypeVariationRef}}}
 }
 
 func (m *PrecisionTimestampTzType) String() string {
@@ -267,20 +237,6 @@ func (m *PrecisionTimeType) Equals(rhs Type) bool {
 		return *o == *m
 	}
 	return false
-}
-
-func (m *PrecisionTimeType) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Type{Type: m.ToProto()},
-	}
-}
-
-func (m *PrecisionTimeType) ToProto() *proto.Type {
-	return &proto.Type{Kind: &proto.Type_PrecisionTime_{
-		PrecisionTime: &proto.Type_PrecisionTime{
-			Precision:              m.Precision.ToProtoVal(),
-			Nullability:            proto.Type_Nullability(m.Nullability),
-			TypeVariationReference: m.TypeVariationRef}}}
 }
 
 func (*PrecisionTimeType) ShortString() string {

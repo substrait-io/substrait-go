@@ -5,7 +5,6 @@
 package types
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -14,7 +13,6 @@ import (
 
 	"cloud.google.com/go/civil"
 	substraitgo "github.com/substrait-io/substrait-go/v9"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
 // Version is the Substrait version a plan or extended expression was built against.
@@ -25,10 +23,6 @@ type Version struct {
 	GitHash     string
 	Producer    string
 }
-
-// unsetVersion stands in for a plan or expression parsed from proto with no version; it renders as
-// "0.0.0 (UNSET)".
-var unsetVersion = Version{Producer: "UNSET"}
 
 // String reports a readable version like "0.29.0+abc123 (producer)".
 func (v Version) String() string {
@@ -43,66 +37,11 @@ func (v Version) String() string {
 	return b.String()
 }
 
-// VersionFromProto converts a protobuf version message to the domain Version.
-func VersionFromProto(v *proto.Version) Version {
-	if v == nil {
-		return unsetVersion
-	}
-	return Version{
-		MajorNumber: v.MajorNumber,
-		MinorNumber: v.MinorNumber,
-		PatchNumber: v.PatchNumber,
-		GitHash:     v.GitHash,
-		Producer:    v.Producer,
-	}
-}
-
-// VersionToProto encodes a version as its protobuf message.
-func VersionToProto(v Version) *proto.Version {
-	return &proto.Version{
-		MajorNumber: v.MajorNumber,
-		MinorNumber: v.MinorNumber,
-		PatchNumber: v.PatchNumber,
-		GitHash:     v.GitHash,
-		Producer:    v.Producer,
-	}
-}
-
 // FunctionOption is a named function behavior option: its name and the producer's ordered list of
 // acceptable preference values, mirroring the fields of the Substrait FunctionOption message.
 type FunctionOption struct {
 	Name       string
 	Preference []string
-}
-
-// FunctionOptionsFromProto converts protobuf function option messages to domain FunctionOptions.
-func FunctionOptionsFromProto(opts []*proto.FunctionOption) []*FunctionOption {
-	if opts == nil {
-		return nil
-	}
-	out := make([]*FunctionOption, len(opts))
-	for i, o := range opts {
-		if o == nil {
-			continue
-		}
-		out[i] = &FunctionOption{Name: o.Name, Preference: o.Preference}
-	}
-	return out
-}
-
-// FunctionOptionsToProto encodes domain FunctionOptions as their protobuf messages.
-func FunctionOptionsToProto(opts []*FunctionOption) []*proto.FunctionOption {
-	if opts == nil {
-		return nil
-	}
-	out := make([]*proto.FunctionOption, len(opts))
-	for i, o := range opts {
-		if o == nil {
-			continue
-		}
-		out[i] = &proto.FunctionOption{Name: o.Name, Preference: o.Preference}
-	}
-	return out
 }
 
 // Nullability indicates whether values of a Substrait type may be null.
@@ -444,251 +383,6 @@ func (i *IntervalDayToSecond) GetPrecisionProtoVal() int32 {
 	return i.Precision.ToProtoVal()
 }
 
-// IntervalDayToSecondToProto encodes the domain interval as its protobuf literal message. It always
-// writes the precision precision_mode arm; the deprecated microseconds arm is never emitted.
-func IntervalDayToSecondToProto(v *IntervalDayToSecond) *proto.Expression_Literal_IntervalDayToSecond {
-	if v == nil {
-		return nil
-	}
-	return &proto.Expression_Literal_IntervalDayToSecond{
-		Days:       v.Days,
-		Seconds:    v.Seconds,
-		Subseconds: v.Subseconds,
-		PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{
-			Precision: v.Precision.ToProtoVal(),
-		},
-	}
-}
-
-// IntervalDayToSecondFromProto decodes a protobuf interval literal message into the domain type.
-// An absent precision_mode is rejected: subseconds has no scale without a precision.
-func IntervalDayToSecondFromProto(p *proto.Expression_Literal_IntervalDayToSecond) (*IntervalDayToSecond, error) {
-	if p == nil {
-		return nil, nil
-	}
-	v := &IntervalDayToSecond{
-		Days:       p.GetDays(),
-		Seconds:    p.GetSeconds(),
-		Subseconds: p.GetSubseconds(),
-	}
-	switch m := p.PrecisionMode.(type) {
-	case *proto.Expression_Literal_IntervalDayToSecond_Precision:
-		v.Precision = TimePrecision(m.Precision)
-	case *proto.Expression_Literal_IntervalDayToSecond_Microseconds:
-		v.Subseconds = int64(m.Microseconds)
-		v.Precision = PrecisionMicroSeconds
-	default:
-		return nil, errors.New("interval day to second literal is missing its precision_mode")
-	}
-	return v, nil
-}
-
-// TypeFromProto returns the appropriate Type object from a protobuf
-// type message.
-func TypeFromProto(t *proto.Type) Type {
-	switch t := t.Kind.(type) {
-	case *proto.Type_Bool:
-		return &BooleanType{
-			Nullability:      Nullability(t.Bool.Nullability),
-			TypeVariationRef: t.Bool.TypeVariationReference,
-		}
-	case *proto.Type_I8_:
-		return &Int8Type{
-			Nullability:      Nullability(t.I8.Nullability),
-			TypeVariationRef: t.I8.TypeVariationReference,
-		}
-	case *proto.Type_I16_:
-		return &Int16Type{
-			Nullability:      Nullability(t.I16.Nullability),
-			TypeVariationRef: t.I16.TypeVariationReference,
-		}
-	case *proto.Type_I32_:
-		return &Int32Type{
-			Nullability:      Nullability(t.I32.Nullability),
-			TypeVariationRef: t.I32.TypeVariationReference,
-		}
-	case *proto.Type_I64_:
-		return &Int64Type{
-			Nullability:      Nullability(t.I64.Nullability),
-			TypeVariationRef: t.I64.TypeVariationReference,
-		}
-	case *proto.Type_Fp32:
-		return &Float32Type{
-			Nullability:      Nullability(t.Fp32.Nullability),
-			TypeVariationRef: t.Fp32.TypeVariationReference,
-		}
-	case *proto.Type_Fp64:
-		return &Float64Type{
-			Nullability:      Nullability(t.Fp64.Nullability),
-			TypeVariationRef: t.Fp64.TypeVariationReference,
-		}
-	case *proto.Type_String_:
-		return &StringType{
-			Nullability:      Nullability(t.String_.Nullability),
-			TypeVariationRef: t.String_.TypeVariationReference,
-		}
-	case *proto.Type_Binary_:
-		return &BinaryType{
-			Nullability:      Nullability(t.Binary.Nullability),
-			TypeVariationRef: t.Binary.TypeVariationReference,
-		}
-	case *proto.Type_Timestamp_:
-		return &TimestampType{
-			Nullability:      Nullability(t.Timestamp.Nullability),
-			TypeVariationRef: t.Timestamp.TypeVariationReference,
-		}
-	case *proto.Type_Date_:
-		return &DateType{
-			Nullability:      Nullability(t.Date.Nullability),
-			TypeVariationRef: t.Date.TypeVariationReference,
-		}
-	case *proto.Type_Time_:
-		return &TimeType{
-			Nullability:      Nullability(t.Time.Nullability),
-			TypeVariationRef: t.Time.TypeVariationReference,
-		}
-	case *proto.Type_IntervalYear_:
-		return &IntervalYearType{
-			Nullability:      Nullability(t.IntervalYear.Nullability),
-			TypeVariationRef: t.IntervalYear.TypeVariationReference,
-		}
-	case *proto.Type_IntervalDay_:
-		var precision = PrecisionMicroSeconds
-		if t.IntervalDay.Precision != nil {
-			var err error
-			precision, err = ProtoToTimePrecision(*t.IntervalDay.Precision)
-			if err != nil {
-				panic(fmt.Sprintf("Invalid precision %v", err))
-			}
-		}
-		return &IntervalDayType{
-			Nullability:      Nullability(t.IntervalDay.Nullability),
-			TypeVariationRef: t.IntervalDay.TypeVariationReference,
-			Precision:        precision,
-		}
-	case *proto.Type_IntervalCompound_:
-		precision, err := ProtoToTimePrecision(t.IntervalCompound.Precision)
-		if err != nil {
-			panic(fmt.Sprintf("Invalid precision %v", err))
-		}
-		return &IntervalCompoundType{
-			nullability:      Nullability(t.IntervalCompound.Nullability),
-			typeVariationRef: t.IntervalCompound.TypeVariationReference,
-			precision:        precision,
-		}
-	case *proto.Type_TimestampTz:
-		return &TimestampTzType{
-			Nullability:      Nullability(t.TimestampTz.Nullability),
-			TypeVariationRef: t.TimestampTz.TypeVariationReference,
-		}
-	case *proto.Type_Uuid:
-		return &UUIDType{
-			Nullability:      Nullability(t.Uuid.Nullability),
-			TypeVariationRef: t.Uuid.TypeVariationReference,
-		}
-	case *proto.Type_FixedBinary_:
-		return &FixedBinaryType{
-			Nullability:      Nullability(t.FixedBinary.Nullability),
-			TypeVariationRef: t.FixedBinary.TypeVariationReference,
-			Length:           t.FixedBinary.Length,
-		}
-	case *proto.Type_FixedChar_:
-		return &FixedCharType{
-			Nullability:      Nullability(t.FixedChar.Nullability),
-			TypeVariationRef: t.FixedChar.TypeVariationReference,
-			Length:           t.FixedChar.Length,
-		}
-	case *proto.Type_Varchar:
-		return &VarCharType{
-			Nullability:      Nullability(t.Varchar.Nullability),
-			TypeVariationRef: t.Varchar.TypeVariationReference,
-			Length:           t.Varchar.Length,
-		}
-	case *proto.Type_Decimal_:
-		return &DecimalType{
-			Nullability:      Nullability(t.Decimal.Nullability),
-			TypeVariationRef: t.Decimal.TypeVariationReference,
-			Scale:            t.Decimal.Scale,
-			Precision:        t.Decimal.Precision,
-		}
-	case *proto.Type_PrecisionTime_:
-		precision, err := ProtoToTimePrecision(t.PrecisionTime.Precision)
-		if err != nil {
-			panic(fmt.Sprintf("Invalid precision %v", err))
-		}
-		return &PrecisionTimeType{
-			Nullability:      Nullability(t.PrecisionTime.Nullability),
-			TypeVariationRef: t.PrecisionTime.TypeVariationReference,
-			Precision:        precision,
-		}
-	case *proto.Type_PrecisionTimestamp_:
-		precision, err := ProtoToTimePrecision(t.PrecisionTimestamp.Precision)
-		if err != nil {
-			panic(fmt.Sprintf("Invalid precision %v", err))
-		}
-		return &PrecisionTimestampType{
-			Nullability:      Nullability(t.PrecisionTimestamp.Nullability),
-			TypeVariationRef: t.PrecisionTimestamp.TypeVariationReference,
-			Precision:        precision,
-		}
-	case *proto.Type_PrecisionTimestampTz:
-		precision, err := ProtoToTimePrecision(t.PrecisionTimestampTz.Precision)
-		if err != nil {
-			panic(fmt.Sprintf("Invalid precision %v", err))
-		}
-		return &PrecisionTimestampTzType{PrecisionTimestampType{
-			Nullability:      Nullability(t.PrecisionTimestampTz.Nullability),
-			TypeVariationRef: t.PrecisionTimestampTz.TypeVariationReference,
-			Precision:        precision,
-		}}
-	case *proto.Type_Struct_:
-		fields := make([]Type, len(t.Struct.Types))
-		for i, f := range t.Struct.Types {
-			fields[i] = TypeFromProto(f)
-		}
-		return &StructType{
-			Nullability:      Nullability(t.Struct.Nullability),
-			TypeVariationRef: t.Struct.TypeVariationReference,
-			Types:            fields,
-		}
-	case *proto.Type_Func_:
-		params := make([]Type, len(t.Func.ParameterTypes))
-		for i, p := range t.Func.ParameterTypes {
-			params[i] = TypeFromProto(p)
-		}
-		return &FuncType{
-			Nullability:    Nullability(t.Func.Nullability),
-			ParameterTypes: params,
-			ReturnType:     TypeFromProto(t.Func.ReturnType),
-		}
-	case *proto.Type_List_:
-		return &ListType{
-			Nullability:      Nullability(t.List.Nullability),
-			TypeVariationRef: t.List.TypeVariationReference,
-			Type:             TypeFromProto(t.List.Type),
-		}
-	case *proto.Type_Map_:
-		return &MapType{
-			Nullability:      Nullability(t.Map.Nullability),
-			TypeVariationRef: t.Map.TypeVariationReference,
-			Key:              TypeFromProto(t.Map.Key),
-			Value:            TypeFromProto(t.Map.Value),
-		}
-	case *proto.Type_UserDefined_:
-		params := make([]TypeParam, len(t.UserDefined.TypeParameters))
-		for i, p := range t.UserDefined.TypeParameters {
-			params[i] = TypeParamFromProto(p)
-		}
-		return &UserDefinedType{
-			Nullability:      Nullability(t.UserDefined.Nullability),
-			TypeVariationRef: t.UserDefined.TypeVariationReference,
-			TypeReference:    t.UserDefined.TypeReference,
-			TypeParameters:   params,
-		}
-	}
-	panic("unimplemented type from proto")
-}
-
 type (
 	Date        int32
 	FixedChar   string
@@ -705,7 +399,6 @@ type (
 	// These are the actual arguments for a function present in a plan.
 	FuncArg interface {
 		fmt.Stringer
-		ToProtoFuncArg() *proto.FunctionArgument
 	}
 
 	SortKind interface {
@@ -824,13 +517,6 @@ type EnumType struct {
 	Options          []string
 }
 
-func (e *EnumType) ToProtoFuncArg() *proto.FunctionArgument {
-	// FIXME no proto for enum yet
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Type{Type: TypeToProto(e)},
-	}
-}
-
 func (e *EnumType) isRootRef() {}
 
 func (e *EnumType) GetType() Type {
@@ -916,151 +602,6 @@ func (e *EnumType) ReturnType(funcParameters []FuncDefArgType, argumentTypes []T
 
 func (e *EnumType) WithParameters(params []interface{}) (Type, error) {
 	panic("EnumType.WithParameters not implemented")
-}
-
-// TypeToProto properly constructs the appropriate protobuf message
-// for the given type.
-func TypeToProto(t Type) *proto.Type {
-	switch t := t.(type) {
-	case *BooleanType:
-		return &proto.Type{Kind: &proto.Type_Bool{
-			Bool: &proto.Type_Boolean{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *Int8Type:
-		return &proto.Type{Kind: &proto.Type_I8_{
-			I8: &proto.Type_I8{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *Int16Type:
-		return &proto.Type{Kind: &proto.Type_I16_{
-			I16: &proto.Type_I16{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *Int32Type:
-		return &proto.Type{Kind: &proto.Type_I32_{
-			I32: &proto.Type_I32{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *Int64Type:
-		return &proto.Type{Kind: &proto.Type_I64_{
-			I64: &proto.Type_I64{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *Float32Type:
-		return &proto.Type{Kind: &proto.Type_Fp32{
-			Fp32: &proto.Type_FP32{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *Float64Type:
-		return &proto.Type{Kind: &proto.Type_Fp64{
-			Fp64: &proto.Type_FP64{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *StringType:
-		return &proto.Type{Kind: &proto.Type_String_{
-			String_: &proto.Type_String{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *BinaryType:
-		return &proto.Type{Kind: &proto.Type_Binary_{
-			Binary: &proto.Type_Binary{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *DateType:
-		return &proto.Type{Kind: &proto.Type_Date_{
-			Date: &proto.Type_Date{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *TimeType:
-		return &proto.Type{Kind: &proto.Type_Time_{
-			Time: &proto.Type_Time{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *TimestampTzType:
-		return &proto.Type{Kind: &proto.Type_TimestampTz{
-			TimestampTz: &proto.Type_TimestampTZ{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *TimestampType:
-		return &proto.Type{Kind: &proto.Type_Timestamp_{
-			Timestamp: &proto.Type_Timestamp{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *IntervalYearType:
-		return &proto.Type{Kind: &proto.Type_IntervalYear_{
-			IntervalYear: &proto.Type_IntervalYear{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *IntervalDayType:
-		precision := t.Precision.ToProtoVal()
-		return &proto.Type{Kind: &proto.Type_IntervalDay_{
-			IntervalDay: &proto.Type_IntervalDay{
-				Precision:              &precision,
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case IntervalCompoundType:
-		precision := t.precision.ToProtoVal()
-		return &proto.Type{Kind: &proto.Type_IntervalCompound_{
-			IntervalCompound: &proto.Type_IntervalCompound{
-				Precision:              precision,
-				Nullability:            proto.Type_Nullability(t.nullability),
-				TypeVariationReference: t.typeVariationRef}}}
-	case *UUIDType:
-		return &proto.Type{Kind: &proto.Type_Uuid{
-			Uuid: &proto.Type_UUID{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *FixedCharType:
-		return &proto.Type{Kind: &proto.Type_FixedChar_{
-			FixedChar: &proto.Type_FixedChar{
-				Length:                 t.Length,
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *VarCharType:
-		return &proto.Type{Kind: &proto.Type_Varchar{
-			Varchar: &proto.Type_VarChar{
-				Length:                 t.Length,
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *FixedBinaryType:
-		return &proto.Type{Kind: &proto.Type_FixedBinary_{
-			FixedBinary: &proto.Type_FixedBinary{
-				Length:                 t.Length,
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *DecimalType:
-		return t.ToProto()
-	case *PrecisionTimeType:
-		return &proto.Type{Kind: &proto.Type_PrecisionTime_{
-			PrecisionTime: &proto.Type_PrecisionTime{
-				Precision:              int32(t.Precision),
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *PrecisionTimestampType:
-		return &proto.Type{Kind: &proto.Type_PrecisionTimestamp_{
-			PrecisionTimestamp: &proto.Type_PrecisionTimestamp{
-				Precision:              int32(t.Precision),
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *PrecisionTimestampTzType:
-		return &proto.Type{Kind: &proto.Type_PrecisionTimestampTz{
-			PrecisionTimestampTz: &proto.Type_PrecisionTimestampTZ{
-				Precision:              int32(t.Precision),
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *StructType:
-		return t.ToProto()
-	case *FuncType:
-		return t.ToProto()
-	case *ListType:
-		return t.ToProto()
-	case *MapType:
-		return t.ToProto()
-	case *UserDefinedType:
-		return t.ToProto()
-	}
-	panic("unimplemented type")
 }
 
 type primitiveTypeIFace interface {
@@ -1157,12 +698,6 @@ func (s *PrimitiveType[T]) Equals(rhs Type) bool {
 	}
 
 	return false
-}
-
-func (s *PrimitiveType[T]) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Type{Type: TypeToProto(s)},
-	}
 }
 
 func (*PrimitiveType[T]) ShortString() string {
@@ -1282,12 +817,6 @@ func (s *FixedLenType[T]) Equals(rhs Type) bool {
 	return false
 }
 
-func (s *FixedLenType[T]) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Type{Type: TypeToProto(s)},
-	}
-}
-
 func (*FixedLenType[T]) ShortString() string {
 	var z *T
 	return shortNames[reflect.TypeOf(z)]
@@ -1354,20 +883,6 @@ func (s *DecimalType) Equals(rhs Type) bool {
 	return false
 }
 
-func (s *DecimalType) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Type{Type: s.ToProto()},
-	}
-}
-
-func (s *DecimalType) ToProto() *proto.Type {
-	return &proto.Type{Kind: &proto.Type_Decimal_{
-		Decimal: &proto.Type_Decimal{
-			Scale: s.Scale, Precision: s.Precision,
-			Nullability:            proto.Type_Nullability(s.Nullability),
-			TypeVariationReference: s.TypeVariationRef}}}
-}
-
 func (*DecimalType) ShortString() string { return "dec" }
 func (s *DecimalType) String() string {
 	return fmt.Sprintf("decimal%s<%d,%d>", strNullable(s),
@@ -1426,24 +941,6 @@ func (t *StructType) Equals(rhs Type) bool {
 		return true
 	}
 	return false
-}
-
-func (t *StructType) ToProto() *proto.Type {
-	children := make([]*proto.Type, len(t.Types))
-	for i, c := range t.Types {
-		children[i] = TypeToProto(c)
-	}
-
-	return &proto.Type{Kind: &proto.Type_Struct_{
-		Struct: &proto.Type_Struct{Types: children,
-			TypeVariationReference: t.TypeVariationRef,
-			Nullability:            proto.Type_Nullability(t.Nullability)}}}
-}
-
-func (t *StructType) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Type{Type: t.ToProto()},
-	}
 }
 
 func (*StructType) ShortString() string { return "struct" }
@@ -1563,26 +1060,6 @@ func (f *FuncType) Equals(rhs Type) bool {
 	return false
 }
 
-func (f *FuncType) ToProto() *proto.Type {
-	params := make([]*proto.Type, len(f.ParameterTypes))
-	for i, p := range f.ParameterTypes {
-		params[i] = TypeToProto(p)
-	}
-
-	return &proto.Type{Kind: &proto.Type_Func_{
-		Func: &proto.Type_Func{
-			ParameterTypes: params,
-			ReturnType:     TypeToProto(f.ReturnType),
-			Nullability:    proto.Type_Nullability(f.Nullability),
-		}}}
-}
-
-func (f *FuncType) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Type{Type: f.ToProto()},
-	}
-}
-
 func (*FuncType) ShortString() string { return "func" }
 
 func (f *FuncType) String() string {
@@ -1638,19 +1115,6 @@ func (t *ListType) Equals(rhs Type) bool {
 	return false
 }
 
-func (t *ListType) ToProto() *proto.Type {
-	return &proto.Type{Kind: &proto.Type_List_{
-		List: &proto.Type_List{Nullability: proto.Type_Nullability(t.Nullability),
-			Type:                   TypeToProto(t.Type),
-			TypeVariationReference: t.TypeVariationRef}}}
-}
-
-func (t *ListType) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Type{Type: t.ToProto()},
-	}
-}
-
 func (*ListType) ShortString() string { return "list" }
 
 func (t *ListType) String() string {
@@ -1700,20 +1164,6 @@ func (t *MapType) Equals(rhs Type) bool {
 	return false
 }
 
-func (t *MapType) ToProto() *proto.Type {
-	return &proto.Type{Kind: &proto.Type_Map_{
-		Map: &proto.Type_Map{Nullability: proto.Type_Nullability(t.Nullability),
-			TypeVariationReference: t.TypeVariationRef,
-			Key:                    TypeToProto(t.Key),
-			Value:                  TypeToProto(t.Value)}}}
-}
-
-func (t *MapType) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Type{Type: t.ToProto()},
-	}
-}
-
 func (t *MapType) ShortString() string { return "map" }
 
 func (t *MapType) String() string {
@@ -1730,14 +1180,8 @@ func (*MapType) BaseString() string {
 
 // TypeParam represents a type parameter for a user defined type
 type TypeParam interface {
-	ToProto() *proto.Type_Parameter
 	Equals(TypeParam) bool
 }
-
-// rather than creating a new one of these for every call ToProto which
-// will always be the same empty object we can just create this once
-// and return the same one every time.
-var nullTypeParam = &proto.Type_Parameter_Null{}
 
 // NullParameter is an explicitly null/unspecified parameter, to select
 // the default value (if any).
@@ -1746,10 +1190,6 @@ type NullParameter struct{}
 func (NullParameter) Equals(p TypeParam) bool {
 	_, ok := p.(NullParameter)
 	return ok
-}
-
-func (NullParameter) ToProto() *proto.Type_Parameter {
-	return &proto.Type_Parameter{Parameter: nullTypeParam}
 }
 
 // DataTypeParameter is like the i32 in LIST<i32>
@@ -1764,11 +1204,6 @@ func (d *DataTypeParameter) Equals(p TypeParam) bool {
 	return false
 }
 
-func (d *DataTypeParameter) ToProto() *proto.Type_Parameter {
-	return &proto.Type_Parameter{Parameter: &proto.Type_Parameter_DataType{
-		DataType: TypeToProto(d.Type)}}
-}
-
 // BooleanParameter is a type parameter like <true> for a type.
 type BooleanParameter bool
 
@@ -1777,11 +1212,6 @@ func (b BooleanParameter) Equals(p TypeParam) bool {
 		return b == rhs
 	}
 	return false
-}
-
-func (b BooleanParameter) ToProto() *proto.Type_Parameter {
-	return &proto.Type_Parameter{Parameter: &proto.Type_Parameter_Boolean{
-		Boolean: bool(b)}}
 }
 
 // IntegerParameter is the type parameter like 10 in VARCHAR<10>
@@ -1794,11 +1224,6 @@ func (b IntegerParameter) Equals(p TypeParam) bool {
 	return false
 }
 
-func (p IntegerParameter) ToProto() *proto.Type_Parameter {
-	return &proto.Type_Parameter{Parameter: &proto.Type_Parameter_Integer{
-		Integer: int64(p)}}
-}
-
 // EnumParameter is a type parameter that is some enum value
 type EnumParameter string
 
@@ -1807,11 +1232,6 @@ func (b EnumParameter) Equals(p TypeParam) bool {
 		return b == rhs
 	}
 	return false
-}
-
-func (p EnumParameter) ToProto() *proto.Type_Parameter {
-	return &proto.Type_Parameter{Parameter: &proto.Type_Parameter_Enum{
-		Enum: string(p)}}
 }
 
 // StringParameter is a type parameter which is a string value
@@ -1828,36 +1248,11 @@ func (p StringParameter) Equals(o TypeParam) bool {
 	return false
 }
 
-func (p StringParameter) ToProto() *proto.Type_Parameter {
-	return &proto.Type_Parameter{Parameter: &proto.Type_Parameter_String_{
-		String_: string(p)}}
-}
-
 func (p StringParameter) Evaluate(symbolTable map[string]any) (any, error) {
 	if v, ok := symbolTable[string(p)]; ok {
 		return v, nil
 	}
 	return nil, fmt.Errorf("symbol not found: stringParameter %s", p)
-}
-
-// TypeParamFromProto converts a protobuf Type_Parameter message to
-// a TypeParam object for processing.
-func TypeParamFromProto(p *proto.Type_Parameter) TypeParam {
-	switch p := p.Parameter.(type) {
-	case *proto.Type_Parameter_Null:
-		return NullParameter{}
-	case *proto.Type_Parameter_Boolean:
-		return BooleanParameter(p.Boolean)
-	case *proto.Type_Parameter_DataType:
-		return &DataTypeParameter{TypeFromProto(p.DataType)}
-	case *proto.Type_Parameter_Integer:
-		return IntegerParameter(p.Integer)
-	case *proto.Type_Parameter_Enum:
-		return EnumParameter(p.Enum)
-	case *proto.Type_Parameter_String_:
-		return StringParameter(p.String_)
-	}
-	return nil
 }
 
 type UserDefinedType struct {
@@ -1910,27 +1305,6 @@ func (t *UserDefinedType) Equals(rhs Type) bool {
 	return false
 }
 
-func (t *UserDefinedType) ToProto() *proto.Type {
-	params := make([]*proto.Type_Parameter, len(t.TypeParameters))
-	for i, p := range t.TypeParameters {
-		params[i] = p.ToProto()
-	}
-
-	return &proto.Type{Kind: &proto.Type_UserDefined_{
-		UserDefined: &proto.Type_UserDefined{
-			Nullability:            proto.Type_Nullability(t.Nullability),
-			TypeVariationReference: t.TypeVariationRef,
-			TypeReference:          t.TypeReference,
-			TypeParameters:         params,
-		}}}
-}
-
-func (t *UserDefinedType) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Type{Type: t.ToProto()},
-	}
-}
-
 // exists for meeting the interface, but the correct short name for
 // a user defined type is "u!name" which requires looking up the
 // type first via the type reference to find the name.
@@ -1940,44 +1314,11 @@ func (t *UserDefinedType) String() string {
 	return "user_defined_type"
 }
 
-func (e Enum) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Enum{Enum: string(e)},
-	}
-}
-
 func (e Enum) String() string { return string(e) }
 
 type NamedStruct struct {
 	Names  []string
 	Struct StructType
-}
-
-func NewNamedStructFromProto(n *proto.NamedStruct) NamedStruct {
-	if n == nil {
-		return NamedStruct{}
-	}
-
-	fields := make([]Type, len(n.Struct.Types))
-	for i, f := range n.Struct.Types {
-		fields[i] = TypeFromProto(f)
-	}
-
-	return NamedStruct{
-		Names: n.Names,
-		Struct: StructType{
-			Nullability:      Nullability(n.Struct.Nullability),
-			TypeVariationRef: n.Struct.TypeVariationReference,
-			Types:            fields,
-		},
-	}
-}
-
-func (n NamedStruct) ToProto() *proto.NamedStruct {
-	return &proto.NamedStruct{
-		Names:  n.Names,
-		Struct: n.Struct.ToProto().GetStruct(),
-	}
 }
 
 func (n NamedStruct) String() string {

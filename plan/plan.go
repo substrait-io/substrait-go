@@ -13,10 +13,7 @@ import (
 	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/extensions"
-	"github.com/substrait-io/substrait-go/v9/plan/internal"
 	"github.com/substrait-io/substrait-go/v9/types"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
-	"google.golang.org/protobuf/types/known/anypb"
 )
 
 var CurrentVersion = types.Version{
@@ -50,33 +47,6 @@ func init() {
 	}
 }
 
-// groupingExprs takes 2-dimensional slice of expressions and returns
-// a single slice of unique expressions and a slice of references to
-// the unique expressions for each group.
-func groupingExprs(groups [][]expr.Expression) ([]expr.Expression, [][]uint32) {
-	groupingExpressions := make([]expr.Expression, 0)
-	groupingReferences := make([][]uint32, 0)
-	for _, group := range groups {
-		refs := make([]uint32, 0)
-		for _, expr := range group {
-			existingExpr := false
-			for eIndex, existing := range groupingExpressions {
-				if existing.Equals(expr) {
-					existingExpr = true
-					refs = append(refs, uint32(eIndex))
-					break
-				}
-			}
-			if !existingExpr {
-				groupingExpressions = append(groupingExpressions, expr)
-				refs = append(refs, uint32(len(groupingExpressions)-1))
-			}
-		}
-		groupingReferences = append(groupingReferences, refs)
-	}
-	return groupingExpressions, groupingReferences
-}
-
 // Relation is either a Root relation (a relation + list of column names)
 // or another relation (such as a CTE or other reference).
 type Relation struct {
@@ -84,39 +54,10 @@ type Relation struct {
 	rel  Rel
 }
 
-func (r *Relation) FromProto(p *proto.PlanRel, reg expr.ExtensionRegistry) error {
-	r.root, r.rel = nil, nil
-
-	switch rel := p.RelType.(type) {
-	case *proto.PlanRel_Rel:
-		input, err := RelFromProto(rel.Rel, reg)
-		if err != nil {
-			return err
-		}
-
-		r.rel = input
-		return nil
-	case *proto.PlanRel_Root:
-		input, err := RelFromProto(rel.Root.Input, reg)
-		if err != nil {
-			return err
-		}
-
-		names := rel.Root.Names
-		if isRecordTypeSupported(input) {
-			if err := validateRootNamesForSchema(input.RecordType(), names); err != nil {
-				return err
-			}
-		}
-
-		r.root = &Root{
-			input: input,
-			names: names,
-		}
-		return nil
-	}
-
-	return fmt.Errorf("%w: no rel or root set", substraitgo.ErrInvalidRel)
+// NewRelation builds a top-level plan relation from either a root or a plain
+// relation (exactly one is non-nil).
+func NewRelation(root *Root, rel Rel) Relation {
+	return Relation{root: root, rel: rel}
 }
 
 // IsRoot returns true if this is the root of the plan Relation tree.
@@ -126,14 +67,6 @@ func (r *Relation) IsRoot() bool {
 
 func (r *Relation) Root() *Root { return r.root }
 func (r *Relation) Rel() Rel    { return r.rel }
-
-func (r *Relation) ToProto() *proto.PlanRel {
-	if r.IsRoot() {
-		return r.root.ToProtoPlanRel()
-	}
-
-	return r.rel.ToProtoPlanRel()
-}
 
 type AdvancedExtension interface {
 	GetEnhancement() *extensions.Enhancement
@@ -151,6 +84,20 @@ type Plan struct {
 	parameterBindings []DynamicParameterBinding
 
 	reg expr.ExtensionRegistry
+}
+
+// NewPlan assembles a decoded plan from its finished parts. The registry is
+// built by the caller.
+func NewPlan(version types.Version, extSet extensions.Set, advExtension *extensions.AdvancedExtension, expectedTypeURLs []string, relations []Relation, parameterBindings []DynamicParameterBinding, reg expr.ExtensionRegistry) *Plan {
+	return &Plan{
+		version:           version,
+		extensions:        extSet,
+		advExtension:      advExtension,
+		expectedTypeURLs:  expectedTypeURLs,
+		relations:         relations,
+		parameterBindings: parameterBindings,
+		reg:               reg,
+	}
 }
 
 // Version returns the plan's version.
@@ -175,6 +122,10 @@ func (p *Plan) ExpectedTypeURLs() []string {
 // AdvancedExtension returns optional additional extensions associated with
 // this plan such as optimizations or enhancements.
 func (p *Plan) AdvancedExtension() AdvancedExtension { return p.advExtension }
+
+// GetAdvancedExtension returns the plan's advanced extension as its concrete
+// type, matching the accessor the relations expose.
+func (p *Plan) GetAdvancedExtension() *extensions.AdvancedExtension { return p.advExtension }
 
 // Relations returns the full slice of relation trees that are in this plan.
 //
@@ -216,115 +167,6 @@ func (p *Plan) ParameterBindings() []DynamicParameterBinding {
 	return slices.Clone(p.parameterBindings)
 }
 
-func FromProto(plan *proto.Plan, c *extensions.Collection) (*Plan, error) {
-	return FromProtoWithDecoder(plan, c, nil)
-}
-
-// FromProtoWithDecoder is like FromProto but registers per-typeURL ExtensionRelDecoders
-// on the registry before parsing relations, allowing extension rels to be
-// decoded into typed ExtensionRelDefinitions rather than UndecodedExtension.
-func FromProtoWithDecoder(plan *proto.Plan, c *extensions.Collection, decoders map[string]expr.ExtensionRelDecoder) (*Plan, error) {
-	extSet, err := extensions.GetExtensionSet(plan, c)
-	if err != nil {
-		return nil, err
-	}
-	version := types.VersionFromProto(plan.Version)
-	ret := &Plan{
-		version:          version,
-		extensions:       extSet,
-		advExtension:     extensions.AdvancedExtensionFromProto(plan.AdvancedExtensions),
-		expectedTypeURLs: plan.ExpectedTypeUrls,
-		relations:        make([]Relation, len(plan.Relations)),
-	}
-
-	ret.reg = expr.NewExtensionRegistry(ret.extensions, c)
-	ret.reg.SetSubqueryConverter(&ExpressionConverter{ExtensionRegistry: ret.reg})
-	for typeURL, dec := range decoders {
-		if err := ret.reg.SetExtensionRelDecoder(typeURL, dec); err != nil {
-			return nil, err
-		}
-	}
-	for i, r := range plan.Relations {
-		if err := ret.relations[i].FromProto(r, ret.reg); err != nil {
-			return nil, err
-		}
-	}
-
-	if len(plan.ParameterBindings) > 0 {
-		ret.parameterBindings = make([]DynamicParameterBinding, len(plan.ParameterBindings))
-		for i, pb := range plan.ParameterBindings {
-			ret.parameterBindings[i] = DynamicParameterBinding{
-				ParameterAnchor: pb.ParameterAnchor,
-				Value:           expr.LiteralFromProto(pb.Value),
-			}
-		}
-	}
-
-	return ret, nil
-}
-
-func (p *Plan) ToProto() (*proto.Plan, error) {
-	urns, decls := p.reg.ExtensionsToProto()
-	relations := make([]*proto.PlanRel, len(p.relations))
-	for i, r := range p.relations {
-		relations[i] = r.ToProto()
-	}
-
-	var bindings []*proto.DynamicParameterBinding
-	if len(p.parameterBindings) > 0 {
-		bindings = make([]*proto.DynamicParameterBinding, len(p.parameterBindings))
-		for i, b := range p.parameterBindings {
-			bindings[i] = &proto.DynamicParameterBinding{
-				ParameterAnchor: b.ParameterAnchor,
-				Value:           b.Value.ToProtoLiteral(),
-			}
-		}
-	}
-
-	return &proto.Plan{
-		Version:            types.VersionToProto(p.version),
-		ExpectedTypeUrls:   p.expectedTypeURLs,
-		AdvancedExtensions: extensions.AdvancedExtensionToProto(p.advExtension),
-		Relations:          relations,
-		Extensions:         decls,
-		ExtensionUrns:      urns,
-		ParameterBindings:  bindings,
-	}, nil
-}
-
-// validateRootNamesForSchema checks that the number of root output names
-// matches the depth-first field count of the given record type.
-// Per the spec, root relations have field names (https://substrait.io/faq).
-func validateRootNamesForSchema(recordType types.RecordType, names []string) error {
-	expected := recordType.AsStructType().DepthFirstNameCount()
-	if len(names) != expected {
-		return fmt.Errorf("%w: root relation has %d output name(s) but the output schema requires %d",
-			substraitgo.ErrInvalidRel, len(names), expected)
-	}
-	return nil
-}
-
-// canSafelyCallRecordType reports whether the relation's RecordType() can be
-// called without panicking or returning incorrect results. Some relation types
-// have incomplete implementations that panic or guess.
-// TODO(#210): remove this once RecordType() is fixed for all relation types.
-func isRecordTypeSupported(rel Rel) bool {
-	switch r := rel.(type) {
-	case *ExtensionSingleRel:
-		_, undecoded := r.Definition().(*UndecodedExtension)
-		return !undecoded
-	case *ExtensionLeafRel:
-		_, undecoded := r.Definition().(*UndecodedExtension)
-		return !undecoded
-	case *ExtensionMultiRel:
-		_, undecoded := r.Definition().(*UndecodedExtension)
-		return !undecoded
-	case *NamedTableWriteRel:
-		return false // TODO(#210): panics when outputMode is unspecified
-	}
-	return true
-}
-
 // Root is a relation with output field names.
 // This is used as the root of a Rel tree.
 type Root struct {
@@ -332,21 +174,15 @@ type Root struct {
 	names []string
 }
 
+// NewRoot builds a root relation from its input and output names.
+func NewRoot(input Rel, names []string) *Root {
+	return &Root{input: input, names: names}
+}
+
 func (r *Root) Input() Rel { return r.input }
 
 // Names are the field names in depth-first order.
 func (r *Root) Names() []string { return r.names }
-
-func (r *Root) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Root{
-			Root: &proto.RelRoot{
-				Input: r.input.ToProto(),
-				Names: r.names,
-			},
-		},
-	}
-}
 
 func (r *Root) RecordType() types.NamedStruct {
 	return types.NamedStruct{
@@ -411,9 +247,6 @@ type Rel interface {
 	// SetAdvancedExtension sets an AdvancedExtension on this Rel, returning any existing one on this Rel. Use `nil` to remove any existing AdvancedExtension.
 	SetAdvancedExtension(extension *extensions.AdvancedExtension) (existing *extensions.AdvancedExtension)
 
-	ToProto() *proto.Rel
-	ToProtoPlanRel() *proto.PlanRel
-
 	// Copy creates a copy of this relation with new inputs
 	Copy(newInputs ...Rel) (Rel, error)
 
@@ -425,519 +258,11 @@ type Rel interface {
 	CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error)
 }
 
-// decodeExtensionDef dispatches to the decoder registered for detail's type URL (if any).
-// Falls back to UndecodedExtension for unregistered type URLs.
-func decodeExtensionDef(reg expr.ExtensionRegistry, detail *anypb.Any) (ExtensionRelDefinition, error) {
-	if dec := reg.ExtensionRelDecoderFor(detail.GetTypeUrl()); dec != nil {
-		raw, err := dec.DecodeExtensionRel(detail)
-		if err != nil {
-			return nil, err
-		}
-		def, ok := raw.(ExtensionRelDefinition)
-		if !ok {
-			return nil, fmt.Errorf("ExtensionRelDecoder returned %T which does not implement ExtensionRelDefinition", raw)
-		}
-		return def, nil
+func validateRootNamesForSchema(recordType types.RecordType, names []string) error {
+	expected := recordType.AsStructType().DepthFirstNameCount()
+	if len(names) != expected {
+		return fmt.Errorf("%w: root relation has %d output name(s) but the output schema requires %d",
+			substraitgo.ErrInvalidRel, len(names), expected)
 	}
-	return &UndecodedExtension{detail: detail}, nil
-}
-
-func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
-	switch rel := rel.RelType.(type) {
-	case *proto.Rel_Read:
-		var out ReadRel
-		switch readType := rel.Read.ReadType.(type) {
-		case *proto.ReadRel_ExtensionTable_:
-			out = &ExtensionTableReadRel{detail: readType.ExtensionTable.Detail}
-		case *proto.ReadRel_LocalFiles_:
-			items := make([]FileOrFiles, len(readType.LocalFiles.Items))
-			for i, item := range readType.LocalFiles.Items {
-				items[i].fromProto(item)
-			}
-			out = &LocalFileReadRel{
-				items:        items,
-				advExtension: extensions.AdvancedExtensionFromProto(readType.LocalFiles.AdvancedExtension),
-			}
-		case *proto.ReadRel_NamedTable_:
-			out = &NamedTableReadRel{
-				names:        readType.NamedTable.Names,
-				advExtension: extensions.AdvancedExtensionFromProto(readType.NamedTable.AdvancedExtension),
-			}
-		case *proto.ReadRel_VirtualTable_:
-			if len(readType.VirtualTable.Values) > 0 && len(readType.VirtualTable.Expressions) > 0 {
-				return nil, fmt.Errorf("VirtualTable cannot declare both Values and Expressions")
-			}
-			var values []expr.VirtualTableExpressionValue
-			for _, v := range readType.VirtualTable.Values {
-				values = append(values, internal.VirtualTableExprFromLiteralProto(v))
-			}
-			for _, v := range readType.VirtualTable.Expressions {
-				row, err := internal.VirtualTableExpressionFromProto(v, reg)
-				if err != nil {
-					return nil, err
-				}
-				values = append(values, row)
-			}
-
-			out = &VirtualTableReadRel{
-				values: values,
-			}
-		case *proto.ReadRel_IcebergTable_:
-			icebergTableType := readType.IcebergTable.TableType
-			if icebergTableType == nil {
-				return nil, fmt.Errorf("%w: IcebergTableType is required for IcebergTableReadRel", substraitgo.ErrInvalidRel)
-			}
-			if _, ok := icebergTableType.(IcebergTableType); ok {
-				return nil, fmt.Errorf("%w: IcebergTableType must be a string", substraitgo.ErrInvalidRel)
-			}
-			if direct, ok := icebergTableType.(*proto.ReadRel_IcebergTable_Direct); ok {
-				tableType := &Direct{
-					MetadataUri: direct.Direct.MetadataUri,
-				}
-				if snapshotId, ok := direct.Direct.Snapshot.(*proto.ReadRel_IcebergTable_MetadataFileRead_SnapshotId); ok {
-					tableType.SnapshotId = SnapshotId(snapshotId.SnapshotId)
-				} else if snapshotTimestamp, ok := direct.Direct.Snapshot.(*proto.ReadRel_IcebergTable_MetadataFileRead_SnapshotTimestamp); ok {
-					tableType.SnapshotTimestamp = SnapshotTimestamp(snapshotTimestamp.SnapshotTimestamp)
-				}
-				out = &IcebergTableReadRel{
-					tableType: tableType,
-				}
-			} else {
-				return nil, fmt.Errorf("%w: only IcebergTableType Direct is supported", substraitgo.ErrInvalidRel)
-			}
-		default:
-			return nil, fmt.Errorf("%w: unknown ReadRel type", substraitgo.ErrInvalidRel)
-		}
-
-		if err := out.fromProtoReadRel(rel.Read, reg); err != nil {
-			return nil, err
-		}
-
-		return out, nil
-	case *proto.Rel_Filter:
-		input, err := RelFromProto(rel.Filter.Input, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting input to FilterRel: %w", err)
-		}
-
-		base := input.RecordType()
-		cond, err := expr.ExprFromProto(rel.Filter.Condition, &base, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting condition for FilterRel: %w", err)
-		}
-
-		out := &FilterRel{
-			input:        input,
-			cond:         cond,
-			advExtension: extensions.AdvancedExtensionFromProto(rel.Filter.AdvancedExtension),
-		}
-		if rel.Filter.Common != nil {
-			out.fromProtoCommon(rel.Filter.Common)
-		}
-		return out, nil
-	case *proto.Rel_Fetch:
-		input, err := RelFromProto(rel.Fetch.Input, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting input to FetchRel: %w", err)
-		}
-
-		base := input.RecordType()
-
-		var offset expr.Expression
-		switch om := rel.Fetch.OffsetMode.(type) {
-		case *proto.FetchRel_Offset:
-			offset = expr.NewPrimitiveLiteral(om.Offset, false)
-		case *proto.FetchRel_OffsetExpr:
-			e, exprErr := expr.ExprFromProto(om.OffsetExpr, &base, reg)
-			if exprErr != nil {
-				return nil, fmt.Errorf("error getting offset expression for FetchRel: %w", exprErr)
-			}
-			offset = e
-		}
-
-		var count expr.Expression
-		switch cm := rel.Fetch.CountMode.(type) {
-		case *proto.FetchRel_Count:
-			if cm.Count != FETCH_COUNT_ALL_RECORDS {
-				count = expr.NewPrimitiveLiteral(cm.Count, false)
-			}
-		case *proto.FetchRel_CountExpr:
-			e, exprErr := expr.ExprFromProto(cm.CountExpr, &base, reg)
-			if exprErr != nil {
-				return nil, fmt.Errorf("error getting count expression for FetchRel: %w", exprErr)
-			}
-			count = e
-		}
-
-		out := &FetchRel{
-			input:        input,
-			offset:       offset,
-			count:        count,
-			advExtension: extensions.AdvancedExtensionFromProto(rel.Fetch.AdvancedExtension),
-		}
-		if rel.Fetch.Common != nil {
-			out.fromProtoCommon(rel.Fetch.Common)
-		}
-		return out, nil
-	case *proto.Rel_Aggregate:
-		input, err := RelFromProto(rel.Aggregate.Input, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting input to AggregateRel: %w", err)
-		}
-
-		base := input.RecordType()
-		var groupingExpressions []expr.Expression
-		var groupingReferences [][]uint32
-		if len(rel.Aggregate.GroupingExpressions) > 0 {
-			for _, e := range rel.Aggregate.GroupingExpressions {
-				expr, err := expr.ExprFromProto(e, &base, reg)
-				if err != nil {
-					return nil, fmt.Errorf("error getting grouping expr for AggregateRel: %w", err)
-				}
-				groupingExpressions = append(groupingExpressions, expr)
-			}
-			for _, g := range rel.Aggregate.Groupings {
-				groupingReferences = append(groupingReferences, g.ExpressionReferences)
-			}
-		} else { // support old style grouping for backward compatibility
-			groups := make([][]expr.Expression, len(rel.Aggregate.Groupings))
-			for i, g := range rel.Aggregate.Groupings {
-				groups[i] = make([]expr.Expression, len(g.GroupingExpressions))
-				for j, e := range g.GroupingExpressions {
-					groups[i][j], err = expr.ExprFromProto(e, &base, reg)
-					if err != nil {
-						return nil, fmt.Errorf("error getting grouping expr [%d][%d] for AggregateRel: %w",
-							i, j, err)
-					}
-				}
-			}
-			groupingExpressions, groupingReferences = groupingExprs(groups)
-		}
-
-		measures := make([]AggRelMeasure, len(rel.Aggregate.Measures))
-		for i, m := range rel.Aggregate.Measures {
-			measures[i].measure, err = expr.NewAggregateFunctionFromProto(m.Measure, &base, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error getting AggregateFunction for measure %d: %w", i, err)
-			}
-
-			if m.Filter != nil {
-				measures[i].filter, err = expr.ExprFromProto(m.Filter, &base, reg)
-				if err != nil {
-					return nil, fmt.Errorf("error getting filter for Aggregate Measure %d: %w", i, err)
-				}
-			}
-		}
-
-		out := &AggregateRel{
-			input:               input,
-			measures:            measures,
-			groupingReferences:  groupingReferences,
-			groupingExpressions: groupingExpressions,
-			advExtension:        extensions.AdvancedExtensionFromProto(rel.Aggregate.AdvancedExtension),
-		}
-		out.fromProtoCommon(rel.Aggregate.Common)
-		return out, nil
-	case *proto.Rel_Sort:
-		input, err := RelFromProto(rel.Sort.Input, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting input to SortRel: %w", err)
-		}
-
-		base := input.RecordType()
-		sorts := make([]expr.SortField, len(rel.Sort.Sorts))
-		for i, s := range rel.Sort.Sorts {
-			sorts[i], err = expr.SortFieldFromProto(s, &base, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error getting SortField %d for SortRel: %w", i, err)
-			}
-		}
-
-		if len(sorts) == 0 {
-			return nil, fmt.Errorf("%w: missing required field Sorts for Sort Relation", substraitgo.ErrInvalidRel)
-		}
-
-		out := &SortRel{
-			input:        input,
-			sorts:        sorts,
-			advExtension: extensions.AdvancedExtensionFromProto(rel.Sort.AdvancedExtension),
-		}
-		out.fromProtoCommon(rel.Sort.Common)
-		return out, nil
-	case *proto.Rel_Join:
-		if JoinType(rel.Join.Type) == JoinTypeUnspecified {
-			return nil, fmt.Errorf("%w: JoinRel must not have unspecified join type", substraitgo.ErrInvalidRel)
-		}
-
-		left, err := RelFromProto(rel.Join.Left, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting left input to JoinRel: %w", err)
-		}
-
-		right, err := RelFromProto(rel.Join.Right, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting right input to JoinRel: %w", err)
-		}
-
-		out := &JoinRel{
-			left:         left,
-			right:        right,
-			joinType:     JoinType(rel.Join.Type),
-			advExtension: extensions.AdvancedExtensionFromProto(rel.Join.AdvancedExtension),
-		}
-		out.fromProtoCommon(rel.Join.Common)
-
-		base := out.JoinedRecordType()
-		out.expr, err = expr.ExprFromProto(rel.Join.Expression, &base, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting expr for JoinRel: %w", err)
-		}
-
-		if rel.Join.PostJoinFilter != nil {
-			out.postJoinFilter, err = expr.ExprFromProto(rel.Join.PostJoinFilter, &base, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error parsing PostJoinFilter for JoinRel: %w", err)
-			}
-		}
-
-		return out, nil
-	case *proto.Rel_Project:
-		input, err := RelFromProto(rel.Project.Input, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting input to ProjectRel: %w", err)
-		}
-
-		baseSchema := input.RecordType()
-
-		exprs := make([]expr.Expression, len(rel.Project.Expressions))
-		for i, e := range rel.Project.Expressions {
-			exprs[i], err = expr.ExprFromProto(e, &baseSchema, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error getting expr %d for ProjectRel: %w", i, err)
-			}
-		}
-
-		if len(exprs) == 0 {
-			return nil, fmt.Errorf("%w: missing required Expressions field for Project relation", substraitgo.ErrInvalidRel)
-		}
-
-		out := &ProjectRel{
-			input:        input,
-			exprs:        exprs,
-			advExtension: extensions.AdvancedExtensionFromProto(rel.Project.AdvancedExtension),
-		}
-		if rel.Project.Common != nil {
-			out.fromProtoCommon(rel.Project.Common)
-		}
-		return out, nil
-	case *proto.Rel_Set:
-		inputs := make([]Rel, len(rel.Set.Inputs))
-		if len(inputs) < 2 {
-			return nil, fmt.Errorf("%w: SetRel must have at least 2 inputs, only found %d",
-				substraitgo.ErrInvalidRel, len(inputs))
-		}
-
-		var err error
-		for i, r := range rel.Set.Inputs {
-			inputs[i], err = RelFromProto(r, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error getting input %d for SetRel: %w", i, err)
-			}
-		}
-
-		if SetOp(rel.Set.Op) == SetOpUnspecified {
-			return nil, fmt.Errorf("%w: set operation must not be unspecified", substraitgo.ErrInvalidRel)
-		}
-
-		primary := inputs[0].RecordType()
-		for i, in := range inputs[1:] {
-			t := in.RecordType()
-			if !t.Equals(&primary) {
-				return nil, fmt.Errorf("%w: set operation field mismatch found in input #%d, expected %s, got %s",
-					substraitgo.ErrInvalidRel, i+1, &primary, &t)
-			}
-		}
-
-		out := &SetRel{
-			inputs:       inputs,
-			op:           SetOp(rel.Set.Op),
-			advExtension: extensions.AdvancedExtensionFromProto(rel.Set.AdvancedExtension),
-		}
-		out.fromProtoCommon(rel.Set.Common)
-
-		return out, nil
-	case *proto.Rel_ExtensionSingle:
-		input, err := RelFromProto(rel.ExtensionSingle.Input, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting input to ExtensionSingle: %w", err)
-		}
-
-		definition, err := decodeExtensionDef(reg, rel.ExtensionSingle.Detail)
-		if err != nil {
-			return nil, fmt.Errorf("error decoding ExtensionSingle detail: %w", err)
-		}
-		out := &ExtensionSingleRel{
-			input:      input,
-			definition: definition,
-		}
-		out.fromProtoCommon(rel.ExtensionSingle.Common)
-
-		return out, nil
-	case *proto.Rel_ExtensionMulti:
-		inputs := make([]Rel, len(rel.ExtensionMulti.Inputs))
-		var err error
-		for i, r := range rel.ExtensionMulti.Inputs {
-			inputs[i], err = RelFromProto(r, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error getting input %d for ExtensionMultiRel: %w", i, err)
-			}
-		}
-
-		definition, err := decodeExtensionDef(reg, rel.ExtensionMulti.Detail)
-		if err != nil {
-			return nil, fmt.Errorf("error decoding ExtensionMulti detail: %w", err)
-		}
-		out := &ExtensionMultiRel{
-			inputs:     inputs,
-			definition: definition,
-		}
-		out.fromProtoCommon(rel.ExtensionMulti.Common)
-
-		return out, nil
-	case *proto.Rel_ExtensionLeaf:
-		definition, err := decodeExtensionDef(reg, rel.ExtensionLeaf.Detail)
-		if err != nil {
-			return nil, fmt.Errorf("error decoding ExtensionLeaf detail: %w", err)
-		}
-		out := &ExtensionLeafRel{
-			definition: definition,
-		}
-		out.fromProtoCommon(rel.ExtensionLeaf.Common)
-
-		return out, nil
-	case *proto.Rel_Cross:
-		left, err := RelFromProto(rel.Cross.Left, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting left input to CrossRel: %w", err)
-		}
-
-		right, err := RelFromProto(rel.Cross.Right, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting right input to CrossRel: %w", err)
-		}
-
-		out := &CrossRel{
-			left:         left,
-			right:        right,
-			advExtension: extensions.AdvancedExtensionFromProto(rel.Cross.AdvancedExtension),
-		}
-		out.fromProtoCommon(rel.Cross.Common)
-		return out, nil
-	case *proto.Rel_HashJoin:
-		left, err := RelFromProto(rel.HashJoin.Left, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting left input to HashJoinRel: %w", err)
-		}
-
-		right, err := RelFromProto(rel.HashJoin.Right, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting right input to HashJoin: %w", err)
-		}
-
-		leftBase, rightBase := left.RecordType(), right.RecordType()
-
-		keys, err := comparisonJoinKeysFromProto(
-			rel.HashJoin.Keys, rel.HashJoin.LeftKeys, rel.HashJoin.RightKeys, &leftBase, &rightBase, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting keys for HashJoinRel: %w", err)
-		}
-
-		out := &HashJoinRel{
-			left:         left,
-			right:        right,
-			keys:         keys,
-			joinType:     HashMergeJoinType(rel.HashJoin.Type),
-			advExtension: extensions.AdvancedExtensionFromProto(rel.HashJoin.AdvancedExtension),
-		}
-		out.fromProtoCommon(rel.HashJoin.Common)
-
-		if rel.HashJoin.PostJoinFilter != nil {
-			base := out.RecordType()
-			out.postJoinFilter, err = expr.ExprFromProto(rel.HashJoin.PostJoinFilter, &base, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error getting post join filter for HashJoinRel: %w", err)
-			}
-		}
-
-		return out, nil
-	case *proto.Rel_MergeJoin:
-		left, err := RelFromProto(rel.MergeJoin.Left, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting left input to MergeJoinRel: %w", err)
-		}
-
-		right, err := RelFromProto(rel.MergeJoin.Right, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting right input to MergeJoinRel: %w", err)
-		}
-
-		leftBase, rightBase := left.RecordType(), right.RecordType()
-
-		keys, err := comparisonJoinKeysFromProto(
-			rel.MergeJoin.Keys, rel.MergeJoin.LeftKeys, rel.MergeJoin.RightKeys, &leftBase, &rightBase, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting keys for MergeJoinRel: %w", err)
-		}
-
-		out := &MergeJoinRel{
-			left:         left,
-			right:        right,
-			keys:         keys,
-			joinType:     HashMergeJoinType(rel.MergeJoin.Type),
-			advExtension: extensions.AdvancedExtensionFromProto(rel.MergeJoin.AdvancedExtension),
-		}
-		out.fromProtoCommon(rel.MergeJoin.Common)
-
-		if rel.MergeJoin.PostJoinFilter != nil {
-			base := out.RecordType()
-			out.postJoinFilter, err = expr.ExprFromProto(rel.MergeJoin.PostJoinFilter, &base, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error getting post join filter for MergeJoin: %w", err)
-			}
-		}
-
-		return out, nil
-	case *proto.Rel_Write:
-		input, err := RelFromProto(rel.Write.Input, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting input to WriteRel: %w", err)
-		}
-		tableSchema := types.NewNamedStructFromProto(rel.Write.TableSchema)
-		out := &NamedTableWriteRel{
-			tableSchema: tableSchema,
-			op:          WriteOp(rel.Write.Op),
-			input:       input,
-			outputMode:  OutputMode(rel.Write.Output),
-		}
-		if rel.Write.Common != nil {
-			out.fromProtoCommon(rel.Write.Common)
-		}
-		switch rel.Write.Op {
-		case proto.WriteRel_WRITE_OP_CTAS, proto.WriteRel_WRITE_OP_INSERT, proto.WriteRel_WRITE_OP_DELETE:
-			switch writeType := rel.Write.WriteType.(type) {
-			case *proto.WriteRel_NamedTable:
-				out.names = writeType.NamedTable.Names
-				out.advExtension = extensions.AdvancedExtensionFromProto(writeType.NamedTable.AdvancedExtension)
-			case *proto.WriteRel_ExtensionTable:
-				return nil, fmt.Errorf("%w: ExtensionTable not supported for WriteRel", substraitgo.ErrInvalidRel)
-			}
-		default:
-			return nil, fmt.Errorf("%w: WriteRel not supported for optype %v", substraitgo.ErrInvalidRel, rel.Write.Op)
-		}
-		return out, nil
-	case nil:
-		return nil, fmt.Errorf("%w: got nil", substraitgo.ErrInvalidRel)
-	}
-
-	return nil, substraitgo.ErrNotImplemented
+	return nil
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/types"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
 // DynamicParameterBinding maps a parameter anchor to a literal value
@@ -188,30 +187,6 @@ type SavedComputation struct {
 	AdvancedExtension *extensions.AdvancedExtension
 }
 
-// SavedComputationFromProto converts a protobuf SavedComputation message to the domain type.
-func SavedComputationFromProto(s *proto.RelCommon_Hint_SavedComputation) *SavedComputation {
-	if s == nil {
-		return nil
-	}
-	return &SavedComputation{
-		ComputationID:     s.ComputationId,
-		Type:              ComputationType(s.Type),
-		AdvancedExtension: extensions.AdvancedExtensionFromProto(s.AdvancedExtension),
-	}
-}
-
-// SavedComputationToProto encodes a domain SavedComputation as its protobuf message.
-func SavedComputationToProto(s *SavedComputation) *proto.RelCommon_Hint_SavedComputation {
-	if s == nil {
-		return nil
-	}
-	return &proto.RelCommon_Hint_SavedComputation{
-		ComputationId:     s.ComputationID,
-		Type:              proto.RelCommon_Hint_ComputationType(s.Type),
-		AdvancedExtension: extensions.AdvancedExtensionToProto(s.AdvancedExtension),
-	}
-}
-
 // LoadedComputation references a previously SavedComputation by ID.
 type LoadedComputation struct {
 	// ComputationIDReference identifies a previously saved computation.
@@ -222,134 +197,6 @@ type LoadedComputation struct {
 	AdvancedExtension *extensions.AdvancedExtension
 }
 
-// LoadedComputationFromProto converts a protobuf LoadedComputation message to the domain type.
-func LoadedComputationFromProto(l *proto.RelCommon_Hint_LoadedComputation) *LoadedComputation {
-	if l == nil {
-		return nil
-	}
-	return &LoadedComputation{
-		ComputationIDReference: l.ComputationIdReference,
-		Type:                   ComputationType(l.Type),
-		AdvancedExtension:      extensions.AdvancedExtensionFromProto(l.AdvancedExtension),
-	}
-}
-
-// LoadedComputationToProto encodes a domain LoadedComputation as its protobuf message.
-func LoadedComputationToProto(l *LoadedComputation) *proto.RelCommon_Hint_LoadedComputation {
-	if l == nil {
-		return nil
-	}
-	return &proto.RelCommon_Hint_LoadedComputation{
-		ComputationIdReference: l.ComputationIDReference,
-		Type:                   proto.RelCommon_Hint_ComputationType(l.Type),
-		AdvancedExtension:      extensions.AdvancedExtensionToProto(l.AdvancedExtension),
-	}
-}
-
-// StatsFromProto converts a protobuf Stats message to the domain type.
-func StatsFromProto(s *proto.RelCommon_Hint_Stats) *Stats {
-	if s == nil {
-		return nil
-	}
-	return &Stats{
-		RowCount:          s.RowCount,
-		RecordSize:        s.RecordSize,
-		AdvancedExtension: extensions.AdvancedExtensionFromProto(s.AdvancedExtension),
-	}
-}
-
-// StatsToProto encodes a domain Stats as its protobuf message.
-func StatsToProto(s *Stats) *proto.RelCommon_Hint_Stats {
-	if s == nil {
-		return nil
-	}
-	return &proto.RelCommon_Hint_Stats{
-		RowCount:          s.RowCount,
-		RecordSize:        s.RecordSize,
-		AdvancedExtension: extensions.AdvancedExtensionToProto(s.AdvancedExtension),
-	}
-}
-
-// RuntimeConstraintFromProto converts a protobuf RuntimeConstraint message to the domain type.
-func RuntimeConstraintFromProto(rc *proto.RelCommon_Hint_RuntimeConstraint) *RuntimeConstraint {
-	if rc == nil {
-		return nil
-	}
-	return &RuntimeConstraint{
-		AdvancedExtension: extensions.AdvancedExtensionFromProto(rc.AdvancedExtension),
-	}
-}
-
-// RuntimeConstraintToProto encodes a domain RuntimeConstraint as its protobuf message.
-func RuntimeConstraintToProto(rc *RuntimeConstraint) *proto.RelCommon_Hint_RuntimeConstraint {
-	if rc == nil {
-		return nil
-	}
-	return &proto.RelCommon_Hint_RuntimeConstraint{
-		AdvancedExtension: extensions.AdvancedExtensionToProto(rc.AdvancedExtension),
-	}
-}
-
-// HintFromProto converts a protobuf Hint message to the domain type.
-func HintFromProto(h *proto.RelCommon_Hint) *Hint {
-	if h == nil {
-		return nil
-	}
-	var saved []*SavedComputation
-	if h.SavedComputations != nil {
-		saved = make([]*SavedComputation, len(h.SavedComputations))
-		for i, s := range h.SavedComputations {
-			saved[i] = SavedComputationFromProto(s)
-		}
-	}
-	var loaded []*LoadedComputation
-	if h.LoadedComputations != nil {
-		loaded = make([]*LoadedComputation, len(h.LoadedComputations))
-		for i, l := range h.LoadedComputations {
-			loaded[i] = LoadedComputationFromProto(l)
-		}
-	}
-	return &Hint{
-		Stats:              StatsFromProto(h.Stats),
-		Constraint:         RuntimeConstraintFromProto(h.Constraint),
-		Alias:              h.Alias,
-		OutputNames:        h.OutputNames,
-		AdvancedExtension:  extensions.AdvancedExtensionFromProto(h.AdvancedExtension),
-		SavedComputations:  saved,
-		LoadedComputations: loaded,
-	}
-}
-
-// HintToProto encodes a domain Hint as its protobuf message.
-func HintToProto(h *Hint) *proto.RelCommon_Hint {
-	if h == nil {
-		return nil
-	}
-	var saved []*proto.RelCommon_Hint_SavedComputation
-	if h.SavedComputations != nil {
-		saved = make([]*proto.RelCommon_Hint_SavedComputation, len(h.SavedComputations))
-		for i, s := range h.SavedComputations {
-			saved[i] = SavedComputationToProto(s)
-		}
-	}
-	var loaded []*proto.RelCommon_Hint_LoadedComputation
-	if h.LoadedComputations != nil {
-		loaded = make([]*proto.RelCommon_Hint_LoadedComputation, len(h.LoadedComputations))
-		for i, l := range h.LoadedComputations {
-			loaded[i] = LoadedComputationToProto(l)
-		}
-	}
-	return &proto.RelCommon_Hint{
-		Stats:              StatsToProto(h.Stats),
-		Constraint:         RuntimeConstraintToProto(h.Constraint),
-		Alias:              h.Alias,
-		OutputNames:        h.OutputNames,
-		AdvancedExtension:  extensions.AdvancedExtensionToProto(h.AdvancedExtension),
-		SavedComputations:  saved,
-		LoadedComputations: loaded,
-	}
-}
-
 // RelCommon is the common fields of all relational operators and is
 // embedded in all of them.
 type RelCommon struct {
@@ -358,15 +205,9 @@ type RelCommon struct {
 	advExtension *extensions.AdvancedExtension
 }
 
-func (rc *RelCommon) fromProtoCommon(c *proto.RelCommon) {
-	rc.hint = HintFromProto(c.GetHint())
-	rc.advExtension = extensions.AdvancedExtensionFromProto(c.GetAdvancedExtension())
-
-	if emit, ok := c.GetEmitKind().(*proto.RelCommon_Emit_); ok {
-		rc.mapping = emit.Emit.OutputMapping
-	} else {
-		rc.mapping = nil
-	}
+// NewRelCommon builds the common fields embedded in every relation.
+func NewRelCommon(hint *Hint, mapping []int32, advExtension *extensions.AdvancedExtension) RelCommon {
+	return RelCommon{hint: hint, mapping: mapping, advExtension: advExtension}
 }
 
 func (rc *RelCommon) remap(initial types.RecordType) types.RecordType {
@@ -409,22 +250,4 @@ func (rc *RelCommon) SetAdvancedExtension(advExtension *extensions.AdvancedExten
 
 func (rc *RelCommon) Hint() *Hint {
 	return rc.hint
-}
-
-func (rc *RelCommon) toProto() *proto.RelCommon {
-	ret := &proto.RelCommon{
-		Hint:              HintToProto(rc.hint),
-		AdvancedExtension: extensions.AdvancedExtensionToProto(rc.advExtension),
-	}
-
-	if rc.mapping == nil {
-		ret.EmitKind = &proto.RelCommon_Direct_{
-			Direct: &proto.RelCommon_Direct{},
-		}
-	} else {
-		ret.EmitKind = &proto.RelCommon_Emit_{
-			Emit: &proto.RelCommon_Emit{OutputMapping: rc.mapping},
-		}
-	}
-	return ret
 }

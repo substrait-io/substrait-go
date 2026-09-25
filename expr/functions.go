@@ -10,7 +10,6 @@ import (
 	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/types"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
 func FuncArgsEqual(a, b types.FuncArg) bool {
@@ -53,7 +52,6 @@ type (
 
 	Bound interface {
 		fmt.Stringer
-		ToProto() *proto.Expression_WindowFunction_Bound
 	}
 
 	PrecedingBound int64
@@ -62,104 +60,20 @@ type (
 	Unbounded      struct{}
 )
 
-func (s *SortField) ToProto() *proto.SortField {
-	ret := &proto.SortField{Expr: s.Expr.ToProto()}
-	switch k := s.Kind.(type) {
-	case types.SortDirection:
-		ret.SortKind = &proto.SortField_Direction{
-			Direction: proto.SortField_SortDirection(k)}
-	case types.FunctionRef:
-		ret.SortKind = &proto.SortField_ComparisonFunctionReference{
-			ComparisonFunctionReference: uint32(k)}
-	}
-
-	return ret
-}
-
-func SortFieldFromProto(
-	f *proto.SortField, baseSchema *types.RecordType, reg ExtensionRegistry,
-) (sf SortField, err error) {
-	sf.Expr, err = ExprFromProto(f.Expr, baseSchema, reg)
-	if err != nil {
-		return
-	}
-
-	switch k := f.SortKind.(type) {
-	case *proto.SortField_Direction:
-		sf.Kind = types.SortDirection(k.Direction)
-	case *proto.SortField_ComparisonFunctionReference:
-		sf.Kind = types.FunctionRef(k.ComparisonFunctionReference)
-	default:
-		err = substraitgo.ErrNotImplemented
-	}
-	return
-}
-
-func (fb PrecedingBound) ToProto() *proto.Expression_WindowFunction_Bound {
-	return &proto.Expression_WindowFunction_Bound{
-		Kind: &proto.Expression_WindowFunction_Bound_Preceding_{
-			Preceding: &proto.Expression_WindowFunction_Bound_Preceding{Offset: int64(fb)},
-		},
-	}
-}
-
 func (fb PrecedingBound) String() string {
 	return fmt.Sprintf("%d PRECEDING", fb)
-}
-
-func (fb FollowingBound) ToProto() *proto.Expression_WindowFunction_Bound {
-	return &proto.Expression_WindowFunction_Bound{
-		Kind: &proto.Expression_WindowFunction_Bound_Following_{
-			Following: &proto.Expression_WindowFunction_Bound_Following{Offset: int64(fb)},
-		},
-	}
 }
 
 func (fb FollowingBound) String() string {
 	return fmt.Sprintf("%d FOLLOWING", fb)
 }
 
-func (CurrentRow) ToProto() *proto.Expression_WindowFunction_Bound {
-	return &proto.Expression_WindowFunction_Bound{
-		Kind: &proto.Expression_WindowFunction_Bound_CurrentRow_{
-			CurrentRow: &proto.Expression_WindowFunction_Bound_CurrentRow{},
-		},
-	}
-}
-
 func (CurrentRow) String() string {
 	return "CURRENT ROW"
 }
 
-func (Unbounded) ToProto() *proto.Expression_WindowFunction_Bound {
-	return &proto.Expression_WindowFunction_Bound{
-		Kind: &proto.Expression_WindowFunction_Bound_Unbounded_{
-			Unbounded: &proto.Expression_WindowFunction_Bound_Unbounded{},
-		}}
-}
-
 func (Unbounded) String() string {
 	return "UNBOUNDED"
-}
-
-func BoundFromProto(b *proto.Expression_WindowFunction_Bound) Bound {
-	if b == nil {
-		return nil
-	}
-
-	switch t := b.Kind.(type) {
-	case *proto.Expression_WindowFunction_Bound_Preceding_:
-		return PrecedingBound(t.Preceding.Offset)
-	case *proto.Expression_WindowFunction_Bound_CurrentRow_:
-		return CurrentRow{}
-	case *proto.Expression_WindowFunction_Bound_Following_:
-		return FollowingBound(t.Following.Offset)
-	case *proto.Expression_WindowFunction_Bound_Unbounded_:
-		return Unbounded{}
-	}
-
-	// bound is optional
-	return nil
 }
 
 type FunctionInvocation interface {
@@ -293,6 +207,19 @@ func NewScalarFunc(
 	}, nil
 }
 
+func NewScalarFunctionFromParts(
+	funcRef uint32, declaration *extensions.ScalarFunctionVariant,
+	args []types.FuncArg, options []*types.FunctionOption, outputType types.Type,
+) *ScalarFunction {
+	return &ScalarFunction{
+		funcRef:     funcRef,
+		declaration: declaration,
+		args:        args,
+		options:     options,
+		outputType:  outputType,
+	}
+}
+
 func (s *ScalarFunction) Name() string                           { return s.declaration.Name() }
 func (s *ScalarFunction) CompoundName() string                   { return s.declaration.CompoundName() }
 func (s *ScalarFunction) ID() extensions.FunctionID              { return s.declaration.ID() }
@@ -383,32 +310,6 @@ func (s *ScalarFunction) GetArgTypes() []types.Type {
 }
 
 func (s *ScalarFunction) GetType() types.Type { return s.outputType }
-func (s *ScalarFunction) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Value{
-			Value: s.ToProto(),
-		},
-	}
-}
-
-func (s *ScalarFunction) ToProto() *proto.Expression {
-	args := make([]*proto.FunctionArgument, len(s.args))
-	for i, a := range s.args {
-		args[i] = a.ToProtoFuncArg()
-	}
-
-	return &proto.Expression{
-		RexType: &proto.Expression_ScalarFunction_{
-			ScalarFunction: &proto.Expression_ScalarFunction{
-				FunctionReference: s.funcRef,
-				Options:           types.FunctionOptionsToProto(s.options),
-				OutputType:        types.TypeToProto(s.outputType),
-				Arguments:         args,
-			},
-		},
-	}
-}
-
 func (s *ScalarFunction) Equals(rhs Expression) bool {
 	other, ok := rhs.(*ScalarFunction)
 	if !ok {
@@ -534,6 +435,29 @@ func NewWindowFunc(
 	}, nil
 }
 
+func NewWindowFunctionFromParts(
+	funcRef uint32, declaration *extensions.WindowFunctionVariant,
+	args []types.FuncArg, options []*types.FunctionOption, outputType types.Type,
+	phase types.AggregationPhase, invocation types.AggregationInvocation,
+	sorts []SortField, partitions []Expression, boundsType types.BoundsType,
+	lowerBound, upperBound Bound,
+) *WindowFunction {
+	return &WindowFunction{
+		funcRef:     funcRef,
+		declaration: declaration,
+		args:        args,
+		options:     options,
+		outputType:  outputType,
+		phase:       phase,
+		invocation:  invocation,
+		Sorts:       sorts,
+		Partitions:  partitions,
+		BoundsType:  boundsType,
+		LowerBound:  lowerBound,
+		UpperBound:  upperBound,
+	}
+}
+
 func (w *WindowFunction) Name() string                            { return w.declaration.Name() }
 func (w *WindowFunction) CompoundName() string                    { return w.declaration.CompoundName() }
 func (w *WindowFunction) ID() extensions.FunctionID               { return w.declaration.ID() }
@@ -542,6 +466,7 @@ func (w *WindowFunction) SessionDependant() bool                  { return w.dec
 func (w *WindowFunction) Deterministic() bool                     { return w.declaration.Deterministic() }
 func (w *WindowFunction) NArgs() int                              { return len(w.args) }
 func (w *WindowFunction) Arg(i int) types.FuncArg                 { return w.args[i] }
+func (w *WindowFunction) FuncRef() uint32                         { return w.funcRef }
 func (w *WindowFunction) Phase() types.AggregationPhase           { return w.phase }
 func (w *WindowFunction) Invocation() types.AggregationInvocation { return w.invocation }
 func (w *WindowFunction) Decomposable() extensions.DecomposeType {
@@ -672,71 +597,6 @@ func (w *WindowFunction) Equals(other Expression) bool {
 	return true
 }
 
-func (w *WindowFunction) ToProto() *proto.Expression {
-	var (
-		args       []*proto.FunctionArgument
-		sorts      []*proto.SortField
-		parts      []*proto.Expression
-		upperBound *proto.Expression_WindowFunction_Bound
-		lowerBound *proto.Expression_WindowFunction_Bound
-	)
-
-	if len(w.args) > 0 {
-		args = make([]*proto.FunctionArgument, len(w.args))
-		for i, a := range w.args {
-			args[i] = a.ToProtoFuncArg()
-		}
-	}
-
-	if len(w.Sorts) > 0 {
-		sorts = make([]*proto.SortField, len(w.Sorts))
-		for i, s := range w.Sorts {
-			sorts[i] = s.ToProto()
-		}
-	}
-
-	if len(w.Partitions) > 0 {
-		parts = make([]*proto.Expression, len(w.Partitions))
-		for i, p := range w.Partitions {
-			parts[i] = p.ToProto()
-		}
-	}
-
-	if w.UpperBound != nil {
-		upperBound = w.UpperBound.ToProto()
-	}
-
-	if w.LowerBound != nil {
-		lowerBound = w.LowerBound.ToProto()
-	}
-
-	return &proto.Expression{
-		RexType: &proto.Expression_WindowFunction_{
-			WindowFunction: &proto.Expression_WindowFunction{
-				FunctionReference: w.funcRef,
-				Arguments:         args,
-				Options:           types.FunctionOptionsToProto(w.options),
-				OutputType:        types.TypeToProto(w.outputType),
-				Phase:             proto.AggregationPhase(w.phase),
-				Sorts:             sorts,
-				Invocation:        proto.AggregateFunction_AggregationInvocation(w.invocation),
-				Partitions:        parts,
-				BoundsType:        proto.Expression_WindowFunction_BoundsType(w.BoundsType),
-				LowerBound:        lowerBound,
-				UpperBound:        upperBound,
-			},
-		},
-	}
-}
-
-func (w *WindowFunction) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Value{
-			Value: w.ToProto(),
-		},
-	}
-}
-
 func (w *WindowFunction) Visit(visit VisitFunc) Expression {
 	var args []types.FuncArg
 	for i, arg := range w.args {
@@ -827,47 +687,21 @@ func NewCustomAggregateFunc(
 	}, nil
 }
 
-func NewAggregateFunctionFromProto(
-	agg *proto.AggregateFunction, baseSchema *types.RecordType, reg ExtensionRegistry,
-) (*AggregateFunction, error) {
-	if agg.OutputType == nil {
-		return nil, fmt.Errorf("%w: missing output type", substraitgo.ErrInvalidExpr)
-	}
-
-	var err error
-	args := make([]types.FuncArg, len(agg.Arguments))
-	for i, a := range agg.Arguments {
-		if args[i], err = FuncArgFromProto(a, baseSchema, reg); err != nil {
-			return nil, err
-		}
-	}
-
-	sorts := make([]SortField, len(agg.Sorts))
-	for i, s := range agg.Sorts {
-		if sorts[i], err = SortFieldFromProto(s, baseSchema, reg); err != nil {
-			return nil, err
-		}
-	}
-
-	id, ok := reg.DecodeFunc(agg.FunctionReference)
-	if !ok {
-		return nil, substraitgo.ErrNotFound
-	}
-	decl, ok := reg.LookupAggregateFunction(agg.FunctionReference)
-	if !ok {
-		return NewCustomAggregateFunc(reg, extensions.NewAggFuncVariant(id), types.TypeFromProto(agg.OutputType), types.FunctionOptionsFromProto(agg.Options), types.AggregationInvocation(agg.Invocation), types.AggregationPhase(agg.Phase), sorts, args...)
-	}
-
+func NewAggregateFunctionFromParts(
+	funcRef uint32, declaration *extensions.AggregateFunctionVariant,
+	args []types.FuncArg, options []*types.FunctionOption, outputType types.Type,
+	phase types.AggregationPhase, invocation types.AggregationInvocation, sorts []SortField,
+) *AggregateFunction {
 	return &AggregateFunction{
-		funcRef:     agg.FunctionReference,
-		declaration: decl,
+		funcRef:     funcRef,
+		declaration: declaration,
 		args:        args,
-		options:     types.FunctionOptionsFromProto(agg.Options),
-		outputType:  types.TypeFromProto(agg.OutputType),
-		phase:       types.AggregationPhase(agg.Phase),
-		invocation:  types.AggregationInvocation(agg.Invocation),
+		options:     options,
+		outputType:  outputType,
+		phase:       phase,
+		invocation:  invocation,
 		Sorts:       sorts,
-	}, nil
+	}
 }
 
 func (a *AggregateFunction) Name() string                            { return a.declaration.Name() }
@@ -878,6 +712,7 @@ func (a *AggregateFunction) SessionDependant() bool                  { return a.
 func (a *AggregateFunction) Deterministic() bool                     { return a.declaration.Deterministic() }
 func (a *AggregateFunction) NArgs() int                              { return len(a.args) }
 func (a *AggregateFunction) Arg(i int) types.FuncArg                 { return a.args[i] }
+func (a *AggregateFunction) FuncRef() uint32                         { return a.funcRef }
 func (a *AggregateFunction) Phase() types.AggregationPhase           { return a.phase }
 func (a *AggregateFunction) Invocation() types.AggregationInvocation { return a.invocation }
 func (a *AggregateFunction) Decomposable() extensions.DecomposeType {
@@ -946,33 +781,3 @@ func (a *AggregateFunction) GetArgTypes() []types.Type {
 }
 
 func (a *AggregateFunction) GetType() types.Type { return a.outputType }
-
-func (a *AggregateFunction) ToProto() *proto.AggregateFunction {
-	var (
-		args  []*proto.FunctionArgument
-		sorts []*proto.SortField
-	)
-	if len(a.args) > 0 {
-		args = make([]*proto.FunctionArgument, len(a.args))
-		for i, arg := range a.args {
-			args[i] = arg.ToProtoFuncArg()
-		}
-	}
-
-	if len(a.Sorts) > 0 {
-		sorts = make([]*proto.SortField, len(a.Sorts))
-		for i, s := range a.Sorts {
-			sorts[i] = s.ToProto()
-		}
-	}
-
-	return &proto.AggregateFunction{
-		FunctionReference: a.funcRef,
-		Arguments:         args,
-		Options:           types.FunctionOptionsToProto(a.options),
-		OutputType:        types.TypeToProto(a.outputType),
-		Phase:             proto.AggregationPhase(a.phase),
-		Sorts:             sorts,
-		Invocation:        proto.AggregateFunction_AggregationInvocation(a.invocation),
-	}
-}

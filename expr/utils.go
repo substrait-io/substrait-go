@@ -6,9 +6,6 @@ import (
 	"fmt"
 
 	"github.com/substrait-io/substrait-go/v9/extensions"
-	"github.com/substrait-io/substrait-go/v9/types"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
-	extensionspb "github.com/substrait-io/substrait-protobuf/go/substraitpb/extensions"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -32,32 +29,8 @@ type ExtensionRegistry struct {
 	extensions.Set
 	c *extensions.Collection
 
-	// subqueryConverter is injected by the plan package to handle subquery expressions
-	// TODO: We may want to consider refactoring to make a cleaner interface here
-	subqueryConverter
-
 	// extensionRelDecoders maps type URLs to decoders for extension relation details.
 	extensionRelDecoders map[string]ExtensionRelDecoder
-}
-
-// subqueryConverter converts subqueries and the Relations within from the native
-// protobuf format into an Expression.
-//
-// This interface is private to avoid exposing the dependency cycle - a Subquery
-// contains a Plan, so the implementor of this has to exist in / import the plan
-// package, which we can't do here without creating a cycle with the expr
-// package.
-//
-// TODO: We may want to refactor this interface to be more generic or use a
-// different approach to avoid the cycle.
-type subqueryConverter interface {
-	SubqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordType, reg ExtensionRegistry) (Expression, error)
-}
-
-// SetSubqueryConverter allows the plan package to inject a subquery converter.
-// This is an internal function used to break the dependency cycle between expr and plan packages.
-func (e *ExtensionRegistry) SetSubqueryConverter(converter subqueryConverter) {
-	e.subqueryConverter = converter
 }
 
 // SetExtensionRelDecoder registers a decoder for the given type URL.
@@ -115,9 +88,4 @@ func (e *ExtensionRegistry) LookupAggregateFunction(anchor uint32) (*extensions.
 // LookupWindowFunction returns a WindowFunctionVariant associated with a previously used function's anchor.
 func (e *ExtensionRegistry) LookupWindowFunction(anchor uint32) (*extensions.WindowFunctionVariant, bool) {
 	return e.Set.LookupWindowFunction(anchor, e.c)
-}
-
-// ExtensionsToProto returns the URNs and declarations from the extension set using the registry's collection.
-func (e *ExtensionRegistry) ExtensionsToProto() ([]*extensionspb.SimpleExtensionURN, []*extensionspb.SimpleExtensionDeclaration) {
-	return e.Set.ToProto(e.c)
 }

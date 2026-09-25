@@ -8,7 +8,6 @@ import (
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/types"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
@@ -505,16 +504,14 @@ func TestRelations_AdvancedExtensions(t *testing.T) {
 		icebergTableReadRel,
 	}
 
-	val1, err := anypb.New(expr.NewPrimitiveLiteral("foo", false).ToProto())
-	assert.NoError(t, err)
+	val1 := &anypb.Any{TypeUrl: "urn:test:advext", Value: []byte("foo")}
 
 	exampleAdvancedExtension1 := &extensions.AdvancedExtension{
 		Optimizations: []*extensions.Optimization{(*extensions.Optimization)(val1)},
 		Enhancement:   (*extensions.Enhancement)(val1),
 	}
 
-	val2, err := anypb.New(expr.NewPrimitiveLiteral("bar", false).ToProto())
-	assert.NoError(t, err)
+	val2 := &anypb.Any{TypeUrl: "urn:test:advext", Value: []byte("bar")}
 
 	exampleAdvancedExtension2 := &extensions.AdvancedExtension{
 		Optimizations: []*extensions.Optimization{(*extensions.Optimization)(val2)},
@@ -576,14 +573,6 @@ func (f *fakeRel) directOutputSchema() types.RecordType {
 
 func (f *fakeRel) RecordType() types.RecordType {
 	return f.remap(f.directOutputSchema())
-}
-
-func (f *fakeRel) ToProto() *proto.Rel {
-	panic("unused")
-}
-
-func (f *fakeRel) ToProtoPlanRel() *proto.PlanRel {
-	panic("unused")
 }
 
 func (f *fakeRel) Copy(newInputs ...Rel) (Rel, error) {
@@ -687,7 +676,6 @@ func TestRightJoinRecordType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			rel := &JoinRel{left: left, right: right, joinType: tt.joinType}
 			assert.Equal(t, tt.expected, rel.RecordType())
-			assert.True(t, isRecordTypeSupported(rel))
 		})
 	}
 }
