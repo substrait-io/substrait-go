@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package plan_test
+package wire_test
 
 import (
 	"testing"
@@ -10,6 +10,7 @@ import (
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/plan"
+	"github.com/substrait-io/substrait-go/v9/wire"
 	substraitproto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/encoding/protojson"
 )
@@ -19,7 +20,7 @@ func fetchRelFromJSON(t *testing.T, jsonStr string) *plan.FetchRel {
 	t.Helper()
 	var proto substraitproto.Plan
 	require.NoError(t, protojson.Unmarshal([]byte(jsonStr), &proto))
-	p, err := plan.FromProto(&proto, extensions.GetDefaultCollectionWithNoError())
+	p, err := wire.PlanFromProto(&proto, extensions.GetDefaultCollectionWithNoError())
 	require.NoError(t, err)
 	fetch, ok := p.GetRoots()[0].Input().(*plan.FetchRel)
 	require.True(t, ok, "expected root relation to be a FetchRel")
