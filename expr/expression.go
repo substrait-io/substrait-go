@@ -46,34 +46,6 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 	}
 
 	switch et := e.RexType.(type) {
-	case *proto.Expression_Nested_:
-		var err error
-		nullable, typevar := et.Nested.Nullable, et.Nested.TypeVariationReference
-
-		switch n := et.Nested.NestedType.(type) {
-		case *proto.Expression_Nested_List_:
-			if len(n.List.Values) == 0 {
-				return nil, fmt.Errorf("%w: use an empty list literal to preserve type info instead of nested expression",
-					substraitgo.ErrInvalidExpr)
-			}
-
-			values := make([]Expression, len(n.List.Values))
-			for i, v := range n.List.Values {
-				values[i], err = ExprFromProto(v, baseSchema, reg)
-				if err != nil {
-					return nil, err
-				}
-			}
-
-			return &ListExpr{
-				Nullable:         nullable,
-				TypeVariationRef: typevar,
-				Values:           values,
-			}, nil
-		default:
-			return nil, fmt.Errorf("%w: nested expression: %s",
-				substraitgo.ErrInvalidExpr, n)
-		}
 	case *proto.Expression_Subquery_:
 		if reg.subqueryConverter == nil {
 			return nil, fmt.Errorf("%w: subquery expressions require a subquery converter to be configured", substraitgo.ErrNotImplemented)
@@ -111,7 +83,6 @@ type Expression interface {
 	GetType() types.Type
 	// ToProto converts this Expression and its arguments
 	// to the equivalent Protobuf objects.
-	ToProto() *proto.Expression
 	// Equals returns true if this expression and all of its
 	// arguments and their children etc. are equal to the passed
 	// in Expression.
@@ -1024,6 +995,7 @@ func (ex *ListExpr) String() string {
 	fmt.Fprintf(&b, "(typeref=%d)", ex.TypeVariationRef)
 	return b.String()
 }
+
 func (ex *ListExpr) isRootRef() {}
 
 func (ex *ListExpr) IsScalar() bool {
@@ -1043,26 +1015,6 @@ func (ex *ListExpr) GetType() types.Type {
 		// otherwise you will be missing type information.
 		// thus we should assume there's at least one value
 		Type: ex.Values[0].GetType(),
-	}
-}
-
-func (ex *ListExpr) ToProto() *proto.Expression {
-	vals := make([]*proto.Expression, len(ex.Values))
-	for i, v := range ex.Values {
-		vals[i] = v.ToProto()
-	}
-	return &proto.Expression{
-		RexType: &proto.Expression_Nested_{
-			Nested: &proto.Expression_Nested{
-				Nullable:               ex.Nullable,
-				TypeVariationReference: ex.TypeVariationRef,
-				NestedType: &proto.Expression_Nested_List_{
-					List: &proto.Expression_Nested_List{
-						Values: vals,
-					},
-				},
-			},
-		},
 	}
 }
 
