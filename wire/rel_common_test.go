@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package plan
+package wire
 
 import (
 	"testing"
@@ -12,12 +12,12 @@ import (
 
 func TestRelFromProtoWithoutCommon(t *testing.T) {
 	input := createJoinInput("input")
-	wire := &proto.Rel{RelType: &proto.Rel_Set{Set: &proto.SetRel{
-		Inputs: []*proto.Rel{input.ToProto(), input.ToProto()},
+	rel := &proto.Rel{RelType: &proto.Rel_Set{Set: &proto.SetRel{
+		Inputs: []*proto.Rel{RelToProto(input), RelToProto(input)},
 		Op:     proto.SetRel_SET_OP_UNION_ALL,
 	}}}
 
-	rel, err := RelFromProto(wire, joinTestRegistry())
+	out, err := RelFromProto(rel, joinTestRegistry())
 	require.NoError(t, err)
-	assert.Equal(t, input.RecordType(), rel.RecordType())
+	assert.Equal(t, input.RecordType(), out.RecordType())
 }
