@@ -419,77 +419,6 @@ type FileOrFiles struct {
 	Format FileFormat
 }
 
-func (f *FileOrFiles) fromProto(p *proto.ReadRel_LocalFiles_FileOrFiles) {
-	f.PartIndex = p.PartitionIndex
-	f.Start, f.Len = p.Start, p.Length
-
-	switch path := p.PathType.(type) {
-	case *proto.ReadRel_LocalFiles_FileOrFiles_UriFile:
-		f.PathType, f.Path = URIFile, path.UriFile
-	case *proto.ReadRel_LocalFiles_FileOrFiles_UriFolder:
-		f.PathType, f.Path = URIFolder, path.UriFolder
-	case *proto.ReadRel_LocalFiles_FileOrFiles_UriPath:
-		f.PathType, f.Path = URIPath, path.UriPath
-	case *proto.ReadRel_LocalFiles_FileOrFiles_UriPathGlob:
-		f.PathType, f.Path = URIPathGlob, path.UriPathGlob
-	}
-
-	switch format := p.FileFormat.(type) {
-	case *proto.ReadRel_LocalFiles_FileOrFiles_Arrow:
-		f.Format = &ArrowReadOptions{}
-	case *proto.ReadRel_LocalFiles_FileOrFiles_Dwrf:
-		f.Format = &DwrfReadOptions{}
-	case *proto.ReadRel_LocalFiles_FileOrFiles_Extension:
-		f.Format = (*ExtensionReadOptions)(format.Extension)
-	case *proto.ReadRel_LocalFiles_FileOrFiles_Orc:
-		f.Format = &OrcReadOptions{}
-	case *proto.ReadRel_LocalFiles_FileOrFiles_Parquet:
-		f.Format = &ParquetReadOptions{}
-	}
-}
-
-func (f *FileOrFiles) ToProto() *proto.ReadRel_LocalFiles_FileOrFiles {
-	ret := &proto.ReadRel_LocalFiles_FileOrFiles{
-		PartitionIndex: f.PartIndex,
-		Start:          f.Start,
-		Length:         f.Len,
-	}
-	switch f.PathType {
-	case URIPath:
-		ret.PathType = &proto.ReadRel_LocalFiles_FileOrFiles_UriPath{UriPath: f.Path}
-	case URIPathGlob:
-		ret.PathType = &proto.ReadRel_LocalFiles_FileOrFiles_UriPathGlob{UriPathGlob: f.Path}
-	case URIFile:
-		ret.PathType = &proto.ReadRel_LocalFiles_FileOrFiles_UriFile{UriFile: f.Path}
-	case URIFolder:
-		ret.PathType = &proto.ReadRel_LocalFiles_FileOrFiles_UriFolder{UriFolder: f.Path}
-	}
-
-	switch fm := f.Format.(type) {
-	case *ParquetReadOptions:
-		ret.FileFormat = &proto.ReadRel_LocalFiles_FileOrFiles_Parquet{
-			Parquet: &proto.ReadRel_LocalFiles_FileOrFiles_ParquetReadOptions{},
-		}
-	case *ArrowReadOptions:
-		ret.FileFormat = &proto.ReadRel_LocalFiles_FileOrFiles_Arrow{
-			Arrow: &proto.ReadRel_LocalFiles_FileOrFiles_ArrowReadOptions{},
-		}
-	case *OrcReadOptions:
-		ret.FileFormat = &proto.ReadRel_LocalFiles_FileOrFiles_Orc{
-			Orc: &proto.ReadRel_LocalFiles_FileOrFiles_OrcReadOptions{},
-		}
-	case *DwrfReadOptions:
-		ret.FileFormat = &proto.ReadRel_LocalFiles_FileOrFiles_Dwrf{
-			Dwrf: &proto.ReadRel_LocalFiles_FileOrFiles_DwrfReadOptions{},
-		}
-	case *ExtensionReadOptions:
-		ret.FileFormat = &proto.ReadRel_LocalFiles_FileOrFiles_Extension{
-			Extension: (*anypb.Any)(fm),
-		}
-	}
-	return ret
-}
-
 // LocalFileReadRel represents a list of files in input of a scan operation.
 type LocalFileReadRel struct {
 	baseReadRel
@@ -498,9 +427,15 @@ type LocalFileReadRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
+func NewLocalFileReadRel(base baseReadRel, items []FileOrFiles, advExtension *extensions.AdvancedExtension) *LocalFileReadRel {
+	return &LocalFileReadRel{baseReadRel: base, items: items, advExtension: advExtension}
+}
+
 func (lf *LocalFileReadRel) Item(i int) FileOrFiles {
 	return lf.items[i]
 }
+
+func (lf *LocalFileReadRel) Items() []FileOrFiles { return lf.items }
 
 func (lf *LocalFileReadRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return lf.advExtension
@@ -508,39 +443,14 @@ func (lf *LocalFileReadRel) GetAdvancedExtension() *extensions.AdvancedExtension
 
 // ReadRelAdvancedExtension returns the advanced extension on the enclosing read
 // relation, which GetAdvancedExtension shadows with the local-files one.
+func (lf *LocalFileReadRel) ReadRelAdvancedExtension() *extensions.AdvancedExtension {
+	return lf.baseReadRel.GetAdvancedExtension()
+}
 
 func (lf *LocalFileReadRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
 	existing := lf.advExtension
 	lf.advExtension = advExtension
 	return existing
-}
-
-func (lf *LocalFileReadRel) ToProto() *proto.Rel {
-	items := make([]*proto.ReadRel_LocalFiles_FileOrFiles, len(lf.items))
-	for i, f := range lf.items {
-		items[i] = f.ToProto()
-	}
-
-	readRel := lf.toReadRelProto()
-	readRel.ReadType = &proto.ReadRel_LocalFiles_{
-		LocalFiles: &proto.ReadRel_LocalFiles{
-			Items:             items,
-			AdvancedExtension: extensions.AdvancedExtensionToProto(lf.advExtension),
-		},
-	}
-	return &proto.Rel{
-		RelType: &proto.Rel_Read{
-			Read: readRel,
-		},
-	}
-}
-
-func (lf *LocalFileReadRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: lf.ToProto(),
-		},
-	}
 }
 
 func (lf *LocalFileReadRel) Copy(_ ...Rel) (Rel, error) {

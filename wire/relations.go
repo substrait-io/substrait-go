@@ -25,6 +25,8 @@ func RelToProto(rel plan.Rel) *proto.Rel {
 		return extensionTableReadRelToProto(r)
 	case *plan.IcebergTableReadRel:
 		return icebergTableReadRelToProto(r)
+	case *plan.LocalFileReadRel:
+		return localFileReadRelToProto(r)
 	default:
 		panic(fmt.Sprintf("wire: unhandled relation %T", rel))
 	}
@@ -112,6 +114,65 @@ func icebergTableReadRelToProto(n *plan.IcebergTableReadRel) *proto.Rel {
 	return &proto.Rel{RelType: &proto.Rel_Read{Read: readRel}}
 }
 
+func localFileReadRelToProto(lf *plan.LocalFileReadRel) *proto.Rel {
+	items := make([]*proto.ReadRel_LocalFiles_FileOrFiles, len(lf.Items()))
+	for i := range lf.Items() {
+		item := lf.Item(i)
+		items[i] = fileOrFilesToProto(&item)
+	}
+
+	readRel := baseReadRelToProto(&lf.RelCommon, lf.ReadRelAdvancedExtension(), lf)
+	readRel.ReadType = &proto.ReadRel_LocalFiles_{
+		LocalFiles: &proto.ReadRel_LocalFiles{
+			Items:             items,
+			AdvancedExtension: advancedExtensionToProto(lf.GetAdvancedExtension()),
+		},
+	}
+	return &proto.Rel{RelType: &proto.Rel_Read{Read: readRel}}
+}
+
+func fileOrFilesToProto(f *plan.FileOrFiles) *proto.ReadRel_LocalFiles_FileOrFiles {
+	ret := &proto.ReadRel_LocalFiles_FileOrFiles{
+		PartitionIndex: f.PartIndex,
+		Start:          f.Start,
+		Length:         f.Len,
+	}
+	switch f.PathType {
+	case plan.URIPath:
+		ret.PathType = &proto.ReadRel_LocalFiles_FileOrFiles_UriPath{UriPath: f.Path}
+	case plan.URIPathGlob:
+		ret.PathType = &proto.ReadRel_LocalFiles_FileOrFiles_UriPathGlob{UriPathGlob: f.Path}
+	case plan.URIFile:
+		ret.PathType = &proto.ReadRel_LocalFiles_FileOrFiles_UriFile{UriFile: f.Path}
+	case plan.URIFolder:
+		ret.PathType = &proto.ReadRel_LocalFiles_FileOrFiles_UriFolder{UriFolder: f.Path}
+	}
+
+	switch fm := f.Format.(type) {
+	case *plan.ParquetReadOptions:
+		ret.FileFormat = &proto.ReadRel_LocalFiles_FileOrFiles_Parquet{
+			Parquet: &proto.ReadRel_LocalFiles_FileOrFiles_ParquetReadOptions{},
+		}
+	case *plan.ArrowReadOptions:
+		ret.FileFormat = &proto.ReadRel_LocalFiles_FileOrFiles_Arrow{
+			Arrow: &proto.ReadRel_LocalFiles_FileOrFiles_ArrowReadOptions{},
+		}
+	case *plan.OrcReadOptions:
+		ret.FileFormat = &proto.ReadRel_LocalFiles_FileOrFiles_Orc{
+			Orc: &proto.ReadRel_LocalFiles_FileOrFiles_OrcReadOptions{},
+		}
+	case *plan.DwrfReadOptions:
+		ret.FileFormat = &proto.ReadRel_LocalFiles_FileOrFiles_Dwrf{
+			Dwrf: &proto.ReadRel_LocalFiles_FileOrFiles_DwrfReadOptions{},
+		}
+	case *plan.ExtensionReadOptions:
+		ret.FileFormat = &proto.ReadRel_LocalFiles_FileOrFiles_Extension{
+			Extension: (*anypb.Any)(fm),
+		}
+	}
+	return ret
+}
+
 // relCommonFromProto decodes the common fields shared by every relation.
 func relCommonFromProto(c *proto.RelCommon) plan.RelCommon {
 	if c == nil {
@@ -166,6 +227,36 @@ func readRelBaseFromProto(rel *proto.ReadRel, reg expr.ExtensionRegistry) (decod
 }
 
 // fileOrFilesFromProto decodes a single local-file item.
+func fileOrFilesFromProto(p *proto.ReadRel_LocalFiles_FileOrFiles) plan.FileOrFiles {
+	var f plan.FileOrFiles
+	f.PartIndex = p.PartitionIndex
+	f.Start, f.Len = p.Start, p.Length
+
+	switch path := p.PathType.(type) {
+	case *proto.ReadRel_LocalFiles_FileOrFiles_UriFile:
+		f.PathType, f.Path = plan.URIFile, path.UriFile
+	case *proto.ReadRel_LocalFiles_FileOrFiles_UriFolder:
+		f.PathType, f.Path = plan.URIFolder, path.UriFolder
+	case *proto.ReadRel_LocalFiles_FileOrFiles_UriPath:
+		f.PathType, f.Path = plan.URIPath, path.UriPath
+	case *proto.ReadRel_LocalFiles_FileOrFiles_UriPathGlob:
+		f.PathType, f.Path = plan.URIPathGlob, path.UriPathGlob
+	}
+
+	switch format := p.FileFormat.(type) {
+	case *proto.ReadRel_LocalFiles_FileOrFiles_Arrow:
+		f.Format = &plan.ArrowReadOptions{}
+	case *proto.ReadRel_LocalFiles_FileOrFiles_Dwrf:
+		f.Format = &plan.DwrfReadOptions{}
+	case *proto.ReadRel_LocalFiles_FileOrFiles_Extension:
+		f.Format = (*plan.ExtensionReadOptions)(format.Extension)
+	case *proto.ReadRel_LocalFiles_FileOrFiles_Orc:
+		f.Format = &plan.OrcReadOptions{}
+	case *proto.ReadRel_LocalFiles_FileOrFiles_Parquet:
+		f.Format = &plan.ParquetReadOptions{}
+	}
+	return f
+}
 
 // virtualTableExpressionFromProto decodes an expression-valued virtual table row.
 func virtualTableExpressionFromProto(s *proto.Expression_Nested_Struct, reg expr.ExtensionRegistry) (expr.VirtualTableExpressionValue, error) {
@@ -202,6 +293,15 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 			detail := readType.ExtensionTable.Detail
 			build = func(b decodedReadRelBase) plan.Rel {
 				return plan.NewExtensionTableReadRel(plan.NewBaseReadRel(b.common, b.baseSchema, b.filter, b.bestEffortFilter, b.projection, b.advExtension), detail)
+			}
+		case *proto.ReadRel_LocalFiles_:
+			items := make([]plan.FileOrFiles, len(readType.LocalFiles.Items))
+			for i, item := range readType.LocalFiles.Items {
+				items[i] = fileOrFilesFromProto(item)
+			}
+			advExtension := advancedExtensionFromProto(readType.LocalFiles.AdvancedExtension)
+			build = func(b decodedReadRelBase) plan.Rel {
+				return plan.NewLocalFileReadRel(plan.NewBaseReadRel(b.common, b.baseSchema, b.filter, b.bestEffortFilter, b.projection, b.advExtension), items, advExtension)
 			}
 		case *proto.ReadRel_NamedTable_:
 			names := readType.NamedTable.Names

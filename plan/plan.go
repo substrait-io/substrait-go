@@ -426,27 +426,6 @@ type Rel interface {
 
 func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 	switch rel := rel.RelType.(type) {
-	case *proto.Rel_Read:
-		var out ReadRel
-		switch readType := rel.Read.ReadType.(type) {
-		case *proto.ReadRel_LocalFiles_:
-			items := make([]FileOrFiles, len(readType.LocalFiles.Items))
-			for i, item := range readType.LocalFiles.Items {
-				items[i].fromProto(item)
-			}
-			out = &LocalFileReadRel{
-				items:        items,
-				advExtension: extensions.AdvancedExtensionFromProto(readType.LocalFiles.AdvancedExtension),
-			}
-		default:
-			return nil, fmt.Errorf("%w: unknown ReadRel type", substraitgo.ErrInvalidRel)
-		}
-
-		if err := out.fromProtoReadRel(rel.Read, reg); err != nil {
-			return nil, err
-		}
-
-		return out, nil
 	case *proto.Rel_Filter:
 		input, err := RelFromProto(rel.Filter.Input, reg)
 		if err != nil {
