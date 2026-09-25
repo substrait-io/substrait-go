@@ -396,31 +396,3 @@ type Rel interface {
 	// if no changes were made, otherwise a newly created rel that includes the given expressions
 	CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error)
 }
-
-func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
-	switch rel := rel.RelType.(type) {
-	case *proto.Rel_ExtensionMulti:
-		inputs := make([]Rel, len(rel.ExtensionMulti.Inputs))
-		var err error
-		for i, r := range rel.ExtensionMulti.Inputs {
-			inputs[i], err = RelFromProto(r, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error getting input %d for ExtensionMultiRel: %w", i, err)
-			}
-		}
-
-		definition, err := decodeExtensionDef(reg, rel.ExtensionMulti.Detail)
-		if err != nil {
-			return nil, fmt.Errorf("error decoding ExtensionMulti detail: %w", err)
-		}
-		out := &ExtensionMultiRel{
-			inputs:     inputs,
-			definition: definition,
-		}
-		out.fromProtoCommon(rel.ExtensionMulti.Common)
-
-		return out, nil
-	}
-
-	return nil, substraitgo.ErrNotImplemented
-}
