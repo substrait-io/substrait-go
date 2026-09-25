@@ -436,42 +436,6 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 		}
 
 		return out, nil
-	case *proto.Rel_Set:
-		inputs := make([]Rel, len(rel.Set.Inputs))
-		if len(inputs) < 2 {
-			return nil, fmt.Errorf("%w: SetRel must have at least 2 inputs, only found %d",
-				substraitgo.ErrInvalidRel, len(inputs))
-		}
-
-		var err error
-		for i, r := range rel.Set.Inputs {
-			inputs[i], err = RelFromProto(r, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error getting input %d for SetRel: %w", i, err)
-			}
-		}
-
-		if SetOp(rel.Set.Op) == SetOpUnspecified {
-			return nil, fmt.Errorf("%w: set operation must not be unspecified", substraitgo.ErrInvalidRel)
-		}
-
-		primary := inputs[0].RecordType()
-		for i, in := range inputs[1:] {
-			t := in.RecordType()
-			if !t.Equals(&primary) {
-				return nil, fmt.Errorf("%w: set operation field mismatch found in input #%d, expected %s, got %s",
-					substraitgo.ErrInvalidRel, i+1, &primary, &t)
-			}
-		}
-
-		out := &SetRel{
-			inputs:       inputs,
-			op:           SetOp(rel.Set.Op),
-			advExtension: extensions.AdvancedExtensionFromProto(rel.Set.AdvancedExtension),
-		}
-		out.fromProtoCommon(rel.Set.Common)
-
-		return out, nil
 	case *proto.Rel_ExtensionSingle:
 		input, err := RelFromProto(rel.ExtensionSingle.Input, reg)
 		if err != nil {
