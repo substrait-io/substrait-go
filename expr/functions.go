@@ -62,39 +62,6 @@ type (
 	Unbounded      struct{}
 )
 
-func (s *SortField) ToProto() *proto.SortField {
-	ret := &proto.SortField{Expr: s.Expr.ToProto()}
-	switch k := s.Kind.(type) {
-	case types.SortDirection:
-		ret.SortKind = &proto.SortField_Direction{
-			Direction: proto.SortField_SortDirection(k)}
-	case types.FunctionRef:
-		ret.SortKind = &proto.SortField_ComparisonFunctionReference{
-			ComparisonFunctionReference: uint32(k)}
-	}
-
-	return ret
-}
-
-func SortFieldFromProto(
-	f *proto.SortField, baseSchema *types.RecordType, reg ExtensionRegistry,
-) (sf SortField, err error) {
-	sf.Expr, err = ExprFromProto(f.Expr, baseSchema, reg)
-	if err != nil {
-		return
-	}
-
-	switch k := f.SortKind.(type) {
-	case *proto.SortField_Direction:
-		sf.Kind = types.SortDirection(k.Direction)
-	case *proto.SortField_ComparisonFunctionReference:
-		sf.Kind = types.FunctionRef(k.ComparisonFunctionReference)
-	default:
-		err = substraitgo.ErrNotImplemented
-	}
-	return
-}
-
 func (fb PrecedingBound) ToProto() *proto.Expression_WindowFunction_Bound {
 	return &proto.Expression_WindowFunction_Bound{
 		Kind: &proto.Expression_WindowFunction_Bound_Preceding_{
