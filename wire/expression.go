@@ -31,6 +31,8 @@ func ExprToProto(e expr.Expression) *proto.Expression {
 		return mapExprToProto(e)
 	case *expr.StructExpr:
 		return structExprToProto(e)
+	case *expr.ListExpr:
+		return listExprToProto(e)
 	case *expr.Lambda:
 		return lambdaToProto(e)
 	case *expr.ScalarFunction:
@@ -193,6 +195,24 @@ func structExprToProto(ex *expr.StructExpr) *proto.Expression {
 				TypeVariationReference: ex.TypeVariationRef,
 				NestedType: &proto.Expression_Nested_Struct_{
 					Struct: &proto.Expression_Nested_Struct{Fields: fields},
+				},
+			},
+		},
+	}
+}
+
+func listExprToProto(ex *expr.ListExpr) *proto.Expression {
+	vals := make([]*proto.Expression, len(ex.Values))
+	for i, v := range ex.Values {
+		vals[i] = ExprToProto(v)
+	}
+	return &proto.Expression{
+		RexType: &proto.Expression_Nested_{
+			Nested: &proto.Expression_Nested{
+				Nullable:               ex.Nullable,
+				TypeVariationReference: ex.TypeVariationRef,
+				NestedType: &proto.Expression_Nested_List_{
+					List: &proto.Expression_Nested_List{Values: vals},
 				},
 			},
 		},
@@ -477,6 +497,25 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 				Nullable:         nullable,
 				TypeVariationRef: typevar,
 				Fields:           fields,
+			}, nil
+		case *proto.Expression_Nested_List_:
+			if len(n.List.Values) == 0 {
+				return nil, fmt.Errorf("%w: use an empty list literal to preserve type info instead of nested expression",
+					substraitgo.ErrInvalidExpr)
+			}
+
+			values := make([]expr.Expression, len(n.List.Values))
+			for i, v := range n.List.Values {
+				values[i], err = ExprFromProto(v, baseSchema, reg)
+				if err != nil {
+					return nil, err
+				}
+			}
+
+			return &expr.ListExpr{
+				Nullable:         nullable,
+				TypeVariationRef: typevar,
+				Values:           values,
 			}, nil
 		default:
 			return nil, fmt.Errorf("%w: nested expression: %s",
