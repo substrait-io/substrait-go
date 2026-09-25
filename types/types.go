@@ -457,12 +457,6 @@ func TypeFromProto(t *proto.Type) Type {
 			typeVariationRef: t.IntervalCompound.TypeVariationReference,
 			precision:        precision,
 		}
-	case *proto.Type_FixedBinary_:
-		return &FixedBinaryType{
-			Nullability:      Nullability(t.FixedBinary.Nullability),
-			TypeVariationRef: t.FixedBinary.TypeVariationReference,
-			Length:           t.FixedBinary.Length,
-		}
 	case *proto.Type_Decimal_:
 		return &DecimalType{
 			Nullability:      Nullability(t.Decimal.Nullability),
@@ -800,12 +794,6 @@ func TypeToProto(t Type) *proto.Type {
 				Precision:              precision,
 				Nullability:            proto.Type_Nullability(t.nullability),
 				TypeVariationReference: t.typeVariationRef}}}
-	case *FixedBinaryType:
-		return &proto.Type{Kind: &proto.Type_FixedBinary_{
-			FixedBinary: &proto.Type_FixedBinary{
-				Length:                 t.Length,
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
 	case *DecimalType:
 		return t.ToProto()
 	case *PrecisionTimeType:
