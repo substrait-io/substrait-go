@@ -47,6 +47,8 @@ func RelToProto(rel plan.Rel) *proto.Rel {
 		return hashJoinRelToProto(r)
 	case *plan.MergeJoinRel:
 		return mergeJoinRelToProto(r)
+	case *plan.NamedTableWriteRel:
+		return namedTableWriteRelToProto(r)
 	default:
 		panic(fmt.Sprintf("wire: unhandled relation %T", rel))
 	}
@@ -478,6 +480,25 @@ func tryEqualityJoinKeysToLegacyProto(keys []*plan.ComparisonJoinKey) (leftKeys,
 		rightKeys[i] = fieldReferenceRefToProto(k.Right())
 	}
 	return leftKeys, rightKeys, true
+}
+
+func namedTableWriteRelToProto(wr *plan.NamedTableWriteRel) *proto.Rel {
+	return &proto.Rel{
+		RelType: &proto.Rel_Write{
+			Write: &proto.WriteRel{
+				Common: relCommonToProto(&wr.RelCommon),
+				WriteType: &proto.WriteRel_NamedTable{
+					NamedTable: &proto.NamedObjectWrite{
+						Names:             wr.Names(),
+						AdvancedExtension: advancedExtensionToProto(wr.NamedTableAdvancedExtension()),
+					},
+				},
+				TableSchema: NamedStructToProto(wr.TableSchema()),
+				Op:          proto.WriteRel_WriteOp(wr.Op()),
+				Input:       RelToProto(wr.Input()),
+			},
+		},
+	}
 }
 
 // relCommonFromProto decodes the common fields shared by every relation.
@@ -1021,6 +1042,35 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 		}
 
 		return out, nil
+	case *proto.Rel_Write:
+		input, err := RelFromProto(rel.Write.Input, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error getting input to WriteRel: %w", err)
+		}
+		tableSchema := NamedStructFromProto(rel.Write.TableSchema)
+
+		var common plan.RelCommon
+		if rel.Write.Common != nil {
+			common = relCommonFromProto(rel.Write.Common)
+		}
+
+		var names []string
+		var advExtension *extensions.AdvancedExtension
+		switch rel.Write.Op {
+		case proto.WriteRel_WRITE_OP_CTAS, proto.WriteRel_WRITE_OP_INSERT, proto.WriteRel_WRITE_OP_DELETE:
+			switch writeType := rel.Write.WriteType.(type) {
+			case *proto.WriteRel_NamedTable:
+				names = writeType.NamedTable.Names
+				advExtension = advancedExtensionFromProto(writeType.NamedTable.AdvancedExtension)
+			case *proto.WriteRel_ExtensionTable:
+				return nil, fmt.Errorf("%w: ExtensionTable not supported for WriteRel", substraitgo.ErrInvalidRel)
+			default:
+				return nil, fmt.Errorf("%w: WriteRel requires a NamedTable write type", substraitgo.ErrInvalidRel)
+			}
+		default:
+			return nil, fmt.Errorf("%w: WriteRel not supported for optype %v", substraitgo.ErrInvalidRel, rel.Write.Op)
+		}
+		return plan.NewNamedTableWriteRel(tableSchema, plan.WriteOp(rel.Write.Op), input, plan.OutputMode(rel.Write.Output), common, names, advExtension), nil
 	case nil:
 		return nil, fmt.Errorf("%w: got nil", substraitgo.ErrInvalidRel)
 	}

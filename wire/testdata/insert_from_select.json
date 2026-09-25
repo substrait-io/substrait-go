@@ -1,0 +1,152 @@
+{
+  "relations":[
+    {
+      "root":{
+        "input":{
+          "write":{
+            "common": {
+              "direct": {
+              }
+            },
+            "namedTable":{
+              "names":[
+                "main",
+                "employee_salaries"
+              ]
+            },
+            "tableSchema":{
+              "names":[
+                "name",
+                "salary"
+              ],
+              "struct":{
+                "types":[
+                  {
+                    "string":{
+                      "nullability":"NULLABILITY_NULLABLE"
+                    }
+                  },
+                  {
+                    "decimal":{
+                      "scale":2,
+                      "precision":10,
+                      "nullability":"NULLABILITY_NULLABLE"
+                    }
+                  }
+                ]
+              }
+            },
+            "op":"WRITE_OP_INSERT",
+            "input":{
+              "project":{
+                "common": {
+                  "direct": {
+                  }
+                },
+                "input":{
+                  "read":{
+                    "common": {
+                      "direct": {
+                      }
+                    },
+                    "baseSchema":{
+                      "names":[
+                        "employee_id",
+                        "name",
+                        "department_id",
+                        "salary",
+                        "role"
+                      ],
+                      "struct":{
+                        "types":[
+                          {
+                            "i32":{
+                              "nullability":"NULLABILITY_REQUIRED"
+                            }
+                          },
+                          {
+                            "string":{
+                              "nullability":"NULLABILITY_NULLABLE"
+                            }
+                          },
+                          {
+                            "i32":{
+                              "nullability":"NULLABILITY_NULLABLE"
+                            }
+                          },
+                          {
+                            "decimal":{
+                              "scale":2,
+                              "precision":10,
+                              "nullability":"NULLABILITY_NULLABLE"
+                            }
+                          },
+                          {
+                            "string":{
+                              "nullability":"NULLABILITY_NULLABLE"
+                            }
+                          }
+                        ],
+                        "nullability":"NULLABILITY_REQUIRED"
+                      }
+                    },
+                    "projection":{
+                      "select":{
+                        "structItems":[
+                          {
+                            "field":1
+                          },
+                          {
+                            "field":3
+                          }
+                        ]
+                      },
+                      "maintainSingularStruct":true
+                    },
+                    "namedTable":{
+                      "names":[
+                        "employees"
+                      ]
+                    }
+                  }
+                },
+                "expressions":[
+                  {
+                    "selection":{
+                      "directReference":{
+                        "structField":{
+                          "field":0
+                        }
+                      },
+                      "rootReference":{
+
+                      }
+                    }
+                  },
+                  {
+                    "selection":{
+                      "directReference":{
+                        "structField":{
+                          "field":1
+                        }
+                      },
+                      "rootReference":{
+
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "version": {
+    "majorNumber": 0,
+    "minorNumber": 29,
+    "patchNumber": 0,
+    "producer": "substrait-go"
+  }
+}
