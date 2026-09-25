@@ -29,6 +29,8 @@ func ExprToProto(e expr.Expression) *proto.Expression {
 		return multiOrListToProto(e)
 	case *expr.MapExpr:
 		return mapExprToProto(e)
+	case *expr.StructExpr:
+		return structExprToProto(e)
 	case *expr.Lambda:
 		return lambdaToProto(e)
 	case *expr.ScalarFunction:
@@ -173,6 +175,24 @@ func mapExprToProto(ex *expr.MapExpr) *proto.Expression {
 				TypeVariationReference: ex.TypeVariationRef,
 				NestedType: &proto.Expression_Nested_Map_{
 					Map: &proto.Expression_Nested_Map{KeyValues: kvs},
+				},
+			},
+		},
+	}
+}
+
+func structExprToProto(ex *expr.StructExpr) *proto.Expression {
+	fields := make([]*proto.Expression, len(ex.Fields))
+	for i, f := range ex.Fields {
+		fields[i] = ExprToProto(f)
+	}
+	return &proto.Expression{
+		RexType: &proto.Expression_Nested_{
+			Nested: &proto.Expression_Nested{
+				Nullable:               ex.Nullable,
+				TypeVariationReference: ex.TypeVariationRef,
+				NestedType: &proto.Expression_Nested_Struct_{
+					Struct: &proto.Expression_Nested_Struct{Fields: fields},
 				},
 			},
 		},
@@ -443,6 +463,20 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 				Nullable:         nullable,
 				TypeVariationRef: typevar,
 				KeyValues:        keyValues,
+			}, nil
+		case *proto.Expression_Nested_Struct_:
+			fields := make([]expr.Expression, len(n.Struct.Fields))
+			for i, f := range n.Struct.Fields {
+				fields[i], err = ExprFromProto(f, baseSchema, reg)
+				if err != nil {
+					return nil, err
+				}
+			}
+
+			return &expr.StructExpr{
+				Nullable:         nullable,
+				TypeVariationRef: typevar,
+				Fields:           fields,
 			}, nil
 		default:
 			return nil, fmt.Errorf("%w: nested expression: %s",
