@@ -56,41 +56,6 @@ type Relation struct {
 	rel  Rel
 }
 
-func (r *Relation) FromProto(p *proto.PlanRel, reg expr.ExtensionRegistry) error {
-	r.root, r.rel = nil, nil
-
-	switch rel := p.RelType.(type) {
-	case *proto.PlanRel_Rel:
-		input, err := RelFromProto(rel.Rel, reg)
-		if err != nil {
-			return err
-		}
-
-		r.rel = input
-		return nil
-	case *proto.PlanRel_Root:
-		input, err := RelFromProto(rel.Root.Input, reg)
-		if err != nil {
-			return err
-		}
-
-		names := rel.Root.Names
-		if isRecordTypeSupported(input) {
-			if err := validateRootNamesForSchema(input.RecordType(), names); err != nil {
-				return err
-			}
-		}
-
-		r.root = &Root{
-			input: input,
-			names: names,
-		}
-		return nil
-	}
-
-	return fmt.Errorf("%w: no rel or root set", substraitgo.ErrInvalidRel)
-}
-
 // IsRoot returns true if this is the root of the plan Relation tree.
 func (r *Relation) IsRoot() bool {
 	return r.root != nil
@@ -98,14 +63,6 @@ func (r *Relation) IsRoot() bool {
 
 func (r *Relation) Root() *Root { return r.root }
 func (r *Relation) Rel() Rel    { return r.rel }
-
-func (r *Relation) ToProto() *proto.PlanRel {
-	if r.IsRoot() {
-		return r.root.ToProtoPlanRel()
-	}
-
-	return r.rel.ToProtoPlanRel()
-}
 
 type AdvancedExtension interface {
 	GetEnhancement() *extensions.Enhancement
@@ -264,39 +221,6 @@ func (p *Plan) ToProto() (*proto.Plan, error) {
 	}, nil
 }
 
-// validateRootNamesForSchema checks that the number of root output names
-// matches the depth-first field count of the given record type.
-// Per the spec, root relations have field names (https://substrait.io/faq).
-func validateRootNamesForSchema(recordType types.RecordType, names []string) error {
-	expected := recordType.AsStructType().DepthFirstNameCount()
-	if len(names) != expected {
-		return fmt.Errorf("%w: root relation has %d output name(s) but the output schema requires %d",
-			substraitgo.ErrInvalidRel, len(names), expected)
-	}
-	return nil
-}
-
-// canSafelyCallRecordType reports whether the relation's RecordType() can be
-// called without panicking or returning incorrect results. Some relation types
-// have incomplete implementations that panic or guess.
-// TODO(#210): remove this once RecordType() is fixed for all relation types.
-func isRecordTypeSupported(rel Rel) bool {
-	switch r := rel.(type) {
-	case *ExtensionSingleRel:
-		_, undecoded := r.Definition().(*UndecodedExtension)
-		return !undecoded
-	case *ExtensionLeafRel:
-		_, undecoded := r.Definition().(*UndecodedExtension)
-		return !undecoded
-	case *ExtensionMultiRel:
-		_, undecoded := r.Definition().(*UndecodedExtension)
-		return !undecoded
-	case *NamedTableWriteRel:
-		return false // TODO(#210): panics when outputMode is unspecified
-	}
-	return true
-}
-
 // Root is a relation with output field names.
 // This is used as the root of a Rel tree.
 type Root struct {
@@ -308,17 +232,6 @@ func (r *Root) Input() Rel { return r.input }
 
 // Names are the field names in depth-first order.
 func (r *Root) Names() []string { return r.names }
-
-func (r *Root) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Root{
-			Root: &proto.RelRoot{
-				Input: r.input.ToProto(),
-				Names: r.names,
-			},
-		},
-	}
-}
 
 func (r *Root) RecordType() types.NamedStruct {
 	return types.NamedStruct{
