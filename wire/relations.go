@@ -43,6 +43,8 @@ func RelToProto(rel plan.Rel) *proto.Rel {
 		return crossRelToProto(r)
 	case *plan.JoinRel:
 		return joinRelToProto(r)
+	case *plan.HashJoinRel:
+		return hashJoinRelToProto(r)
 	default:
 		panic(fmt.Sprintf("wire: unhandled relation %T", rel))
 	}
@@ -361,6 +363,25 @@ func joinRelToProto(j *plan.JoinRel) *proto.Rel {
 		outRel.PostJoinFilter = ExprToProto(f)
 	}
 	return &proto.Rel{RelType: &proto.Rel_Join{Join: outRel}}
+}
+
+func hashJoinRelToProto(hr *plan.HashJoinRel) *proto.Rel {
+	ret := &proto.HashJoinRel{
+		Common:            relCommonToProto(&hr.RelCommon),
+		Left:              RelToProto(hr.Left()),
+		Right:             RelToProto(hr.Right()),
+		Keys:              comparisonJoinKeysToProto(hr.Keys()),
+		Type:              proto.HashJoinRel_JoinType(hr.Type()),
+		AdvancedExtension: advancedExtensionToProto(hr.GetAdvancedExtension()),
+	}
+	if leftKeys, rightKeys, ok := tryEqualityJoinKeysToLegacyProto(hr.Keys()); ok {
+		ret.LeftKeys = leftKeys
+		ret.RightKeys = rightKeys
+	}
+	if f := hr.RawPostJoinFilter(); f != nil {
+		ret.PostJoinFilter = ExprToProto(f)
+	}
+	return &proto.Rel{RelType: &proto.Rel_HashJoin{HashJoin: ret}}
 }
 
 func comparisonJoinKeysToProto(keys []*plan.ComparisonJoinKey) []*proto.ComparisonJoinKey {
@@ -915,6 +936,38 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 		}
 
 		return plan.NewJoinRel(left, right, plan.JoinType(rel.Join.Type), cond, postJoinFilter, common, advancedExtensionFromProto(rel.Join.AdvancedExtension)), nil
+	case *proto.Rel_HashJoin:
+		left, err := RelFromProto(rel.HashJoin.Left, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error getting left input to HashJoinRel: %w", err)
+		}
+
+		right, err := RelFromProto(rel.HashJoin.Right, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error getting right input to HashJoin: %w", err)
+		}
+
+		leftBase, rightBase := left.RecordType(), right.RecordType()
+
+		keys, err := comparisonJoinKeysFromProto(
+			rel.HashJoin.Keys, rel.HashJoin.LeftKeys, rel.HashJoin.RightKeys, &leftBase, &rightBase, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error getting keys for HashJoinRel: %w", err)
+		}
+
+		common := relCommonFromProto(rel.HashJoin.Common)
+		out := plan.NewHashJoinRel(left, right, keys, plan.HashMergeJoinType(rel.HashJoin.Type), nil, common, advancedExtensionFromProto(rel.HashJoin.AdvancedExtension))
+
+		if rel.HashJoin.PostJoinFilter != nil {
+			base := out.RecordType()
+			postJoinFilter, err := ExprFromProto(rel.HashJoin.PostJoinFilter, &base, reg)
+			if err != nil {
+				return nil, fmt.Errorf("error getting post join filter for HashJoinRel: %w", err)
+			}
+			out = plan.NewHashJoinRel(left, right, keys, plan.HashMergeJoinType(rel.HashJoin.Type), postJoinFilter, common, advancedExtensionFromProto(rel.HashJoin.AdvancedExtension))
+		}
+
+		return out, nil
 	case nil:
 		return nil, fmt.Errorf("%w: got nil", substraitgo.ErrInvalidRel)
 	}

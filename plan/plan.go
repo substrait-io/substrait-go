@@ -448,43 +448,6 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 		out.fromProtoCommon(rel.ExtensionLeaf.Common)
 
 		return out, nil
-	case *proto.Rel_HashJoin:
-		left, err := RelFromProto(rel.HashJoin.Left, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting left input to HashJoinRel: %w", err)
-		}
-
-		right, err := RelFromProto(rel.HashJoin.Right, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting right input to HashJoin: %w", err)
-		}
-
-		leftBase, rightBase := left.RecordType(), right.RecordType()
-
-		keys, err := comparisonJoinKeysFromProto(
-			rel.HashJoin.Keys, rel.HashJoin.LeftKeys, rel.HashJoin.RightKeys, &leftBase, &rightBase, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting keys for HashJoinRel: %w", err)
-		}
-
-		out := &HashJoinRel{
-			left:         left,
-			right:        right,
-			keys:         keys,
-			joinType:     HashMergeJoinType(rel.HashJoin.Type),
-			advExtension: extensions.AdvancedExtensionFromProto(rel.HashJoin.AdvancedExtension),
-		}
-		out.fromProtoCommon(rel.HashJoin.Common)
-
-		if rel.HashJoin.PostJoinFilter != nil {
-			base := out.RecordType()
-			out.postJoinFilter, err = expr.ExprFromProto(rel.HashJoin.PostJoinFilter, &base, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error getting post join filter for HashJoinRel: %w", err)
-			}
-		}
-
-		return out, nil
 	case *proto.Rel_MergeJoin:
 		left, err := RelFromProto(rel.MergeJoin.Left, reg)
 		if err != nil {
