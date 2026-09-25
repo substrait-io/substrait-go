@@ -39,21 +39,6 @@ func MustExpr(e Expression, err error) Expression {
 	return e
 }
 
-func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg ExtensionRegistry) (Expression, error) {
-	if e == nil {
-		return nil, fmt.Errorf("%w: protobuf Expression is nil", substraitgo.ErrInvalidExpr)
-	}
-
-	switch et := e.RexType.(type) {
-	case *proto.Expression_Subquery_:
-		if reg.subqueryConverter == nil {
-			return nil, fmt.Errorf("%w: subquery expressions require a subquery converter to be configured", substraitgo.ErrNotImplemented)
-		}
-		return reg.SubqueryFromProto(et.Subquery, baseSchema, reg)
-	}
-	return nil, fmt.Errorf("%w: ExprFromProto: %s", substraitgo.ErrNotImplemented, e)
-}
-
 type VisitFunc func(Expression) Expression
 
 // Expression can be one of many different things as a generalized
