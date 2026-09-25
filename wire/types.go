@@ -96,6 +96,16 @@ func TypeToProto(t types.Type) *proto.Type {
 			Timestamp: &proto.Type_Timestamp{
 				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
+	case *types.IntervalYearType:
+		return &proto.Type{Kind: &proto.Type_IntervalYear_{
+			IntervalYear: &proto.Type_IntervalYear{
+				Nullability:            proto.Type_Nullability(t.Nullability),
+				TypeVariationReference: t.TypeVariationRef}}}
+	case types.IntervalYearToMonthType:
+		return &proto.Type{Kind: &proto.Type_IntervalYear_{
+			IntervalYear: &proto.Type_IntervalYear{
+				Nullability:            proto.Type_Nullability(t.GetNullability()),
+				TypeVariationReference: t.GetTypeVariationReference()}}}
 	case *types.UUIDType:
 		return &proto.Type{Kind: &proto.Type_Uuid{
 			Uuid: &proto.Type_UUID{
@@ -369,6 +379,11 @@ func TypeFromProto(t *proto.Type) types.Type {
 		return &types.TimeType{
 			Nullability:      types.Nullability(t.Time.Nullability),
 			TypeVariationRef: t.Time.TypeVariationReference,
+		}
+	case *proto.Type_IntervalYear_:
+		return &types.IntervalYearType{
+			Nullability:      types.Nullability(t.IntervalYear.Nullability),
+			TypeVariationRef: t.IntervalYear.TypeVariationReference,
 		}
 	case *proto.Type_TimestampTz:
 		return &types.TimestampTzType{
