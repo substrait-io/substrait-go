@@ -441,11 +441,6 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 				items:        items,
 				advExtension: extensions.AdvancedExtensionFromProto(readType.LocalFiles.AdvancedExtension),
 			}
-		case *proto.ReadRel_NamedTable_:
-			out = &NamedTableReadRel{
-				names:        readType.NamedTable.Names,
-				advExtension: extensions.AdvancedExtensionFromProto(readType.NamedTable.AdvancedExtension),
-			}
 		case *proto.ReadRel_VirtualTable_:
 			if len(readType.VirtualTable.Values) > 0 && len(readType.VirtualTable.Expressions) > 0 {
 				return nil, fmt.Errorf("VirtualTable cannot declare both Values and Expressions")
@@ -918,8 +913,6 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			return nil, fmt.Errorf("%w: WriteRel not supported for optype %v", substraitgo.ErrInvalidRel, rel.Write.Op)
 		}
 		return out, nil
-	case nil:
-		return nil, fmt.Errorf("%w: got nil", substraitgo.ErrInvalidRel)
 	}
 
 	return nil, substraitgo.ErrNotImplemented
