@@ -11,31 +11,6 @@ import (
 	"github.com/substrait-io/substrait-go/v9/types"
 )
 
-// SubqueryFromProto creates a subquery expression from a protobuf message
-func (r *ExpressionConverter) SubqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordType, reg expr.ExtensionRegistry) (expr.Expression, error) {
-	switch subType := sub.SubqueryType.(type) {
-	case *proto.Expression_Subquery_SetComparison_:
-		left, err := expr.ExprFromProto(subType.SetComparison.Left, baseSchema, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing left expression in set comparison: %w", err)
-		}
-
-		right, err := RelFromProto(subType.SetComparison.Right, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing right relation in set comparison: %w", err)
-		}
-
-		return NewSetComparisonSubquery(
-			SetComparisonReductionOp(subType.SetComparison.ReductionOp),
-			SetComparisonOp(subType.SetComparison.ComparisonOp),
-			left,
-			right,
-		), nil
-	default:
-		return nil, fmt.Errorf("%w: unknown subquery type: %T", substraitgo.ErrNotImplemented, subType)
-	}
-}
-
 // ScalarSubquery is a subquery that returns one row and one column
 type ScalarSubquery struct {
 	Input Rel
@@ -368,23 +343,6 @@ func (s *SetComparisonSubquery) IsScalar() bool {
 
 func (s *SetComparisonSubquery) GetType() types.Type {
 	return &types.BooleanType{Nullability: types.NullabilityRequired}
-}
-
-func (s *SetComparisonSubquery) ToProto() *proto.Expression {
-	return &proto.Expression{
-		RexType: &proto.Expression_Subquery_{
-			Subquery: &proto.Expression_Subquery{
-				SubqueryType: &proto.Expression_Subquery_SetComparison_{
-					SetComparison: &proto.Expression_Subquery_SetComparison{
-						ReductionOp:  proto.Expression_Subquery_SetComparison_ReductionOp(s.ReductionOp),
-						ComparisonOp: proto.Expression_Subquery_SetComparison_ComparisonOp(s.ComparisonOp),
-						Left:         s.Left.ToProto(),
-						Right:        s.Right.ToProto(),
-					},
-				},
-			},
-		},
-	}
 }
 
 func (s *SetComparisonSubquery) Equals(other expr.Expression) bool {
