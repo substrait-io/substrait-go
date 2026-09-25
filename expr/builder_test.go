@@ -195,7 +195,7 @@ window_functions:
 		customLiteral,
 	).Build()
 	require.NoError(t, err)
-	aggrProto := aggr.ToProto()
+	aggrProto := wire.AggregateFunctionToProto(aggr)
 
 	require.Len(t, aggrProto.Arguments, 1)
 	require.Equal(t, customType2.TypeReference, aggrProto.Arguments[0].GetValue().GetLiteral().GetUserDefined().GetTypeReference())
