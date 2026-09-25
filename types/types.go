@@ -463,12 +463,6 @@ func TypeFromProto(t *proto.Type) Type {
 			TypeVariationRef: t.FixedBinary.TypeVariationReference,
 			Length:           t.FixedBinary.Length,
 		}
-	case *proto.Type_FixedChar_:
-		return &FixedCharType{
-			Nullability:      Nullability(t.FixedChar.Nullability),
-			TypeVariationRef: t.FixedChar.TypeVariationReference,
-			Length:           t.FixedChar.Length,
-		}
 	case *proto.Type_Varchar:
 		return &VarCharType{
 			Nullability:      Nullability(t.Varchar.Nullability),
@@ -812,12 +806,6 @@ func TypeToProto(t Type) *proto.Type {
 				Precision:              precision,
 				Nullability:            proto.Type_Nullability(t.nullability),
 				TypeVariationReference: t.typeVariationRef}}}
-	case *FixedCharType:
-		return &proto.Type{Kind: &proto.Type_FixedChar_{
-			FixedChar: &proto.Type_FixedChar{
-				Length:                 t.Length,
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
 	case *VarCharType:
 		return &proto.Type{Kind: &proto.Type_Varchar{
 			Varchar: &proto.Type_VarChar{
