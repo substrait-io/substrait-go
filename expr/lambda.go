@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/substrait-io/substrait-go/v9/types"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
 // Lambda represents a lambda expression with parameters and a body.
@@ -48,27 +47,6 @@ func (l *Lambda) Equals(other Expression) bool {
 		return false
 	}
 	return l.Parameters.Equals(rhs.Parameters) && l.Body.Equals(rhs.Body)
-}
-
-func (l *Lambda) ToProto() *proto.Expression {
-	children := make([]*proto.Type, len(l.Parameters.Types))
-	for i, c := range l.Parameters.Types {
-		children[i] = types.TypeToProto(c)
-	}
-	paramsProto := &proto.Type_Struct{
-		Types:                  children,
-		TypeVariationReference: l.Parameters.TypeVariationRef,
-		Nullability:            proto.Type_Nullability(l.Parameters.Nullability),
-	}
-
-	return &proto.Expression{
-		RexType: &proto.Expression_Lambda_{
-			Lambda: &proto.Expression_Lambda{
-				Parameters: paramsProto,
-				Body:       l.Body.ToProto(),
-			},
-		},
-	}
 }
 
 func (l *Lambda) ToProtoFuncArg() *proto.FunctionArgument {
