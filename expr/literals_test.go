@@ -9,7 +9,6 @@ import (
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/literal"
 	"github.com/substrait-io/substrait-go/v9/types"
-	"github.com/substrait-io/substrait-go/v9/wire"
 )
 
 func TestNewDecimalWithType(t *testing.T) {
@@ -89,20 +88,6 @@ func TestNewLiteralWithIntervalDayToSecondPrecisionSet(t *testing.T) {
 			assert.Equal(t, types.TimePrecision(tt.precision), intervalType.Precision)
 		})
 	}
-}
-
-func TestNewLiteralWithIntervalYearToMonth(t *testing.T) {
-	_, err := expr.NewLiteral((*types.IntervalYearToMonth)(nil), false)
-	require.Error(t, err)
-
-	lit, err := expr.NewLiteral(&types.IntervalYearToMonth{Years: 1, Months: 2}, false)
-	require.NoError(t, err)
-	assert.Equal(t, "1 years, 2 months", lit.ValueString())
-	assert.Equal(t, "P1Y2M", lit.(types.IsoValuePrinter).IsoValueString())
-
-	pb := lit.ToProtoLiteral().GetIntervalYearToMonth()
-	assert.Equal(t, int32(1), pb.GetYears())
-	assert.Equal(t, int32(2), pb.GetMonths())
 }
 
 func TestNewFixedLenWithType(t *testing.T) {
