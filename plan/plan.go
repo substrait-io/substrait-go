@@ -426,50 +426,6 @@ type Rel interface {
 
 func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 	switch rel := rel.RelType.(type) {
-	case *proto.Rel_Fetch:
-		input, err := RelFromProto(rel.Fetch.Input, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting input to FetchRel: %w", err)
-		}
-
-		base := input.RecordType()
-
-		var offset expr.Expression
-		switch om := rel.Fetch.OffsetMode.(type) {
-		case *proto.FetchRel_Offset:
-			offset = expr.NewPrimitiveLiteral(om.Offset, false)
-		case *proto.FetchRel_OffsetExpr:
-			e, exprErr := expr.ExprFromProto(om.OffsetExpr, &base, reg)
-			if exprErr != nil {
-				return nil, fmt.Errorf("error getting offset expression for FetchRel: %w", exprErr)
-			}
-			offset = e
-		}
-
-		var count expr.Expression
-		switch cm := rel.Fetch.CountMode.(type) {
-		case *proto.FetchRel_Count:
-			if cm.Count != FETCH_COUNT_ALL_RECORDS {
-				count = expr.NewPrimitiveLiteral(cm.Count, false)
-			}
-		case *proto.FetchRel_CountExpr:
-			e, exprErr := expr.ExprFromProto(cm.CountExpr, &base, reg)
-			if exprErr != nil {
-				return nil, fmt.Errorf("error getting count expression for FetchRel: %w", exprErr)
-			}
-			count = e
-		}
-
-		out := &FetchRel{
-			input:        input,
-			offset:       offset,
-			count:        count,
-			advExtension: extensions.AdvancedExtensionFromProto(rel.Fetch.AdvancedExtension),
-		}
-		if rel.Fetch.Common != nil {
-			out.fromProtoCommon(rel.Fetch.Common)
-		}
-		return out, nil
 	case *proto.Rel_Aggregate:
 		input, err := RelFromProto(rel.Aggregate.Input, reg)
 		if err != nil {
