@@ -14,12 +14,6 @@ import (
 // SubqueryFromProto creates a subquery expression from a protobuf message
 func (r *ExpressionConverter) SubqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordType, reg expr.ExtensionRegistry) (expr.Expression, error) {
 	switch subType := sub.SubqueryType.(type) {
-	case *proto.Expression_Subquery_Scalar_:
-		rel, err := RelFromProto(subType.Scalar.Input, reg)
-		if err != nil {
-			return nil, err
-		}
-		return NewScalarSubquery(rel), nil
 	case *proto.Expression_Subquery_InPredicate_:
 		needles := make([]expr.Expression, len(subType.InPredicate.Needles))
 		for i, needle := range subType.InPredicate.Needles {
@@ -90,20 +84,6 @@ func (s *ScalarSubquery) GetType() types.Type {
 		panic("scalar subquery must return exactly one column")
 	}
 	return schemaTypes[0]
-}
-
-func (s *ScalarSubquery) ToProto() *proto.Expression {
-	return &proto.Expression{
-		RexType: &proto.Expression_Subquery_{
-			Subquery: &proto.Expression_Subquery{
-				SubqueryType: &proto.Expression_Subquery_Scalar_{
-					Scalar: &proto.Expression_Subquery_Scalar{
-						Input: s.Input.ToProto(),
-					},
-				},
-			},
-		},
-	}
 }
 
 func (s *ScalarSubquery) Equals(other expr.Expression) bool {
