@@ -259,29 +259,7 @@ func (e *MaskExpression) Select() MaskStructSelect {
 	return slices.Clone(e.sel)
 }
 
-func maskSelectFromProto(p *proto.Expression_MaskExpression_Select) MaskSelect {
-	switch s := p.Type.(type) {
-	case *proto.Expression_MaskExpression_Select_Map:
-		var ret MaskMapSelect
-		if s.Map.Child != nil {
-			ret.child = maskSelectFromProto(s.Map.Child)
-		}
-
-		switch sk := s.Map.Select.(type) {
-		case *proto.Expression_MaskExpression_MapSelect_Expression:
-			ret.key = sk.Expression.MapKeyExpression
-			ret.kind = MapSelectExpr
-		case *proto.Expression_MaskExpression_MapSelect_Key:
-			ret.key = sk.Key.MapKey
-			ret.kind = MapSelectKey
-		}
-		return &ret
-	}
-	panic("unimplemented mask select type")
-}
-
 type MaskSelect interface {
-	ToProto() *proto.Expression_MaskExpression_Select
 }
 
 type MaskStructSelect []MaskStructItem
@@ -346,31 +324,6 @@ func (m *MaskMapSelect) Key() string            { return m.key }
 
 func (m *MaskMapSelect) Child() MaskSelect {
 	return m.child
-}
-
-func (m *MaskMapSelect) ToProto() *proto.Expression_MaskExpression_Select {
-	ret := &proto.Expression_MaskExpression_Select_Map{
-		Map: &proto.Expression_MaskExpression_MapSelect{
-			Child: m.child.ToProto(),
-		},
-	}
-
-	if m.kind == MapSelectKey {
-		ret.Map.Select = &proto.Expression_MaskExpression_MapSelect_Key{
-			Key: &proto.Expression_MaskExpression_MapSelect_MapKey{
-				MapKey: m.key,
-			},
-		}
-	} else {
-		ret.Map.Select = &proto.Expression_MaskExpression_MapSelect_Expression{
-			Expression: &proto.Expression_MaskExpression_MapSelect_MapKeyExpression{
-				MapKeyExpression: m.key,
-			},
-		}
-	}
-	return &proto.Expression_MaskExpression_Select{
-		Type: ret,
-	}
 }
 
 type Reference interface {
@@ -460,6 +413,10 @@ func NewMaskStructItem(field int32, child MaskSelect) MaskStructItem {
 
 func NewMaskListSelect(selection []MaskListSelectItem, child MaskSelect) *MaskListSelect {
 	return &MaskListSelect{selection: selection, child: child}
+}
+
+func NewMaskMapSelect(kind MapSelectKind, key string, child MaskSelect) *MaskMapSelect {
+	return &MaskMapSelect{kind: kind, key: key, child: child}
 }
 
 func (*FieldReference) isRootRef() {}
