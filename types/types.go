@@ -487,16 +487,6 @@ func TypeFromProto(t *proto.Type) Type {
 			TypeVariationRef: t.PrecisionTimestampTz.TypeVariationReference,
 			Precision:        precision,
 		}}
-	case *proto.Type_Struct_:
-		fields := make([]Type, len(t.Struct.Types))
-		for i, f := range t.Struct.Types {
-			fields[i] = TypeFromProto(f)
-		}
-		return &StructType{
-			Nullability:      Nullability(t.Struct.Nullability),
-			TypeVariationRef: t.Struct.TypeVariationReference,
-			Types:            fields,
-		}
 	case *proto.Type_Func_:
 		params := make([]Type, len(t.Func.ParameterTypes))
 		for i, p := range t.Func.ParameterTypes {
@@ -805,8 +795,6 @@ func TypeToProto(t Type) *proto.Type {
 				Precision:              int32(t.Precision),
 				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
-	case *StructType:
-		return t.ToProto()
 	case *FuncType:
 		return t.ToProto()
 	case *ListType:
@@ -1174,18 +1162,6 @@ func (t *StructType) Equals(rhs Type) bool {
 		return true
 	}
 	return false
-}
-
-func (t *StructType) ToProto() *proto.Type {
-	children := make([]*proto.Type, len(t.Types))
-	for i, c := range t.Types {
-		children[i] = TypeToProto(c)
-	}
-
-	return &proto.Type{Kind: &proto.Type_Struct_{
-		Struct: &proto.Type_Struct{Types: children,
-			TypeVariationReference: t.TypeVariationRef,
-			Nullability:            proto.Type_Nullability(t.Nullability)}}}
 }
 
 func (t *StructType) ToProtoFuncArg() *proto.FunctionArgument {
