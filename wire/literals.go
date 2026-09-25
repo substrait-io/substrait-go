@@ -11,6 +11,45 @@ import (
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
+// IntervalDayToSecondToProto encodes the domain interval as its protobuf literal message. It always
+// writes the precision precision_mode arm; the deprecated microseconds arm is never emitted.
+func IntervalDayToSecondToProto(v *types.IntervalDayToSecond) *proto.Expression_Literal_IntervalDayToSecond {
+	if v == nil {
+		return nil
+	}
+	return &proto.Expression_Literal_IntervalDayToSecond{
+		Days:       v.Days,
+		Seconds:    v.Seconds,
+		Subseconds: v.Subseconds,
+		PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{
+			Precision: v.Precision.ToProtoVal(),
+		},
+	}
+}
+
+// IntervalDayToSecondFromProto decodes a protobuf interval literal message into the domain type.
+// An absent precision_mode is rejected: subseconds has no scale without a precision.
+func IntervalDayToSecondFromProto(p *proto.Expression_Literal_IntervalDayToSecond) (*types.IntervalDayToSecond, error) {
+	if p == nil {
+		return nil, nil
+	}
+	v := &types.IntervalDayToSecond{
+		Days:       p.GetDays(),
+		Seconds:    p.GetSeconds(),
+		Subseconds: p.GetSubseconds(),
+	}
+	switch m := p.PrecisionMode.(type) {
+	case *proto.Expression_Literal_IntervalDayToSecond_Precision:
+		v.Precision = types.TimePrecision(m.Precision)
+	case *proto.Expression_Literal_IntervalDayToSecond_Microseconds:
+		v.Subseconds = int64(m.Microseconds)
+		v.Precision = types.PrecisionMicroSeconds
+	default:
+		return nil, errors.New("interval day to second literal is missing its precision_mode")
+	}
+	return v, nil
+}
+
 // LiteralToProto encodes a literal as its protobuf message.
 func LiteralToProto(l expr.Literal) *proto.Expression_Literal {
 	switch l := l.(type) {
