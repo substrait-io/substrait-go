@@ -132,6 +132,38 @@ func SortFieldToProto(s *expr.SortField) *proto.SortField {
 	return ret
 }
 
+// BoundToProto encodes a window-function bound as its protobuf message.
+func BoundToProto(b expr.Bound) *proto.Expression_WindowFunction_Bound {
+	switch b := b.(type) {
+	case expr.PrecedingBound:
+		return &proto.Expression_WindowFunction_Bound{
+			Kind: &proto.Expression_WindowFunction_Bound_Preceding_{
+				Preceding: &proto.Expression_WindowFunction_Bound_Preceding{Offset: int64(b)},
+			},
+		}
+	case expr.FollowingBound:
+		return &proto.Expression_WindowFunction_Bound{
+			Kind: &proto.Expression_WindowFunction_Bound_Following_{
+				Following: &proto.Expression_WindowFunction_Bound_Following{Offset: int64(b)},
+			},
+		}
+	case expr.CurrentRow:
+		return &proto.Expression_WindowFunction_Bound{
+			Kind: &proto.Expression_WindowFunction_Bound_CurrentRow_{
+				CurrentRow: &proto.Expression_WindowFunction_Bound_CurrentRow{},
+			},
+		}
+	case expr.Unbounded:
+		return &proto.Expression_WindowFunction_Bound{
+			Kind: &proto.Expression_WindowFunction_Bound_Unbounded_{
+				Unbounded: &proto.Expression_WindowFunction_Bound_Unbounded{},
+			},
+		}
+	default:
+		panic(fmt.Sprintf("wire: unhandled bound %T", b))
+	}
+}
+
 // SortFieldFromProto decodes a sort field from its protobuf message.
 func SortFieldFromProto(
 	f *proto.SortField, baseSchema *types.RecordType, reg expr.ExtensionRegistry,
@@ -150,6 +182,27 @@ func SortFieldFromProto(
 		err = substraitgo.ErrNotImplemented
 	}
 	return
+}
+
+// BoundFromProto decodes a window function bound from its protobuf message.
+func BoundFromProto(b *proto.Expression_WindowFunction_Bound) expr.Bound {
+	if b == nil {
+		return nil
+	}
+
+	switch t := b.Kind.(type) {
+	case *proto.Expression_WindowFunction_Bound_Preceding_:
+		return expr.PrecedingBound(t.Preceding.Offset)
+	case *proto.Expression_WindowFunction_Bound_CurrentRow_:
+		return expr.CurrentRow{}
+	case *proto.Expression_WindowFunction_Bound_Following_:
+		return expr.FollowingBound(t.Following.Offset)
+	case *proto.Expression_WindowFunction_Bound_Unbounded_:
+		return expr.Unbounded{}
+	}
+
+	// bound is optional
+	return nil
 }
 
 // AggregateFunctionFromProto decodes an aggregate function from its protobuf message.
