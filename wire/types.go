@@ -107,6 +107,12 @@ func TypeToProto(t types.Type) *proto.Type {
 				Length:                 t.Length,
 				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
+	case *types.VarCharType:
+		return &proto.Type{Kind: &proto.Type_Varchar{
+			Varchar: &proto.Type_VarChar{
+				Length:                 t.Length,
+				Nullability:            proto.Type_Nullability(t.Nullability),
+				TypeVariationReference: t.TypeVariationRef}}}
 	}
 	panic("unimplemented type")
 }
@@ -297,6 +303,12 @@ func TypeFromProto(t *proto.Type) types.Type {
 			Nullability:      types.Nullability(t.FixedChar.Nullability),
 			TypeVariationRef: t.FixedChar.TypeVariationReference,
 			Length:           t.FixedChar.Length,
+		}
+	case *proto.Type_Varchar:
+		return &types.VarCharType{
+			Nullability:      types.Nullability(t.Varchar.Nullability),
+			TypeVariationRef: t.Varchar.TypeVariationReference,
+			Length:           t.Varchar.Length,
 		}
 	}
 	panic("unimplemented type from proto")
