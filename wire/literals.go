@@ -45,6 +45,8 @@ func LiteralToProto(l expr.Literal) *proto.Expression_Literal {
 		return nestedLiteralToProto(l)
 	case *expr.NestedLiteral[expr.ListLiteralValue]:
 		return nestedLiteralToProto(l)
+	case *expr.MapLiteral:
+		return mapLiteralToProto(l)
 	default:
 		panic(fmt.Sprintf("wire: unhandled literal %T", l))
 	}
@@ -123,6 +125,32 @@ func nestedLiteralToProto[T expr.StructLiteralValue | expr.ListLiteralValue](l *
 			lit.LiteralType = &proto.Expression_Literal_List_{
 				List: &proto.Expression_Literal_List{Values: vals},
 			}
+		}
+	}
+
+	return lit
+}
+
+func mapLiteralToProto(l *expr.MapLiteral) *proto.Expression_Literal {
+	lit := &proto.Expression_Literal{
+		Nullable:               l.Type.GetNullability() == types.NullabilityNullable,
+		TypeVariationReference: l.Type.GetTypeVariationReference(),
+	}
+
+	if len(l.Value) == 0 {
+		lit.LiteralType = &proto.Expression_Literal_EmptyMap{
+			EmptyMap: TypeToProto(l.Type).GetMap(),
+		}
+	} else {
+		kv := make([]*proto.Expression_Literal_Map_KeyValue, len(l.Value))
+		for i, v := range l.Value {
+			kv[i] = &proto.Expression_Literal_Map_KeyValue{
+				Key:   LiteralToProto(v.Key),
+				Value: LiteralToProto(v.Value),
+			}
+		}
+		lit.LiteralType = &proto.Expression_Literal_Map_{
+			Map: &proto.Expression_Literal_Map{KeyValues: kv},
 		}
 	}
 
@@ -269,6 +297,29 @@ func LiteralFromProto(l *proto.Expression_Literal) expr.Literal {
 				Nullability:      nullability,
 				TypeVariationRef: l.TypeVariationReference,
 				Type:             TypeFromProto(lit.EmptyList.Type),
+			}}
+	case *proto.Expression_Literal_Map_:
+		ret := make(expr.MapLiteralValue, len(lit.Map.KeyValues))
+		for i, kv := range lit.Map.KeyValues {
+			ret[i].Key = LiteralFromProto(kv.Key)
+			ret[i].Value = LiteralFromProto(kv.Value)
+		}
+		return &expr.MapLiteral{
+			Value: ret,
+			Type: &types.MapType{
+				Nullability:      nullability,
+				TypeVariationRef: l.TypeVariationReference,
+				Key:              ret[0].Key.GetType(),
+				Value:            ret[0].Value.GetType(),
+			}}
+	case *proto.Expression_Literal_EmptyMap:
+		return &expr.MapLiteral{
+			Value: nil,
+			Type: &types.MapType{
+				Nullability:      nullability,
+				TypeVariationRef: l.TypeVariationReference,
+				Key:              TypeFromProto(lit.EmptyMap.Key),
+				Value:            TypeFromProto(lit.EmptyMap.Value),
 			}}
 	}
 	panic("unimplemented literal type")
