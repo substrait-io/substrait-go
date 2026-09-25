@@ -428,66 +428,6 @@ func IntervalDayToSecondFromProto(p *proto.Expression_Literal_IntervalDayToSecon
 // type message.
 func TypeFromProto(t *proto.Type) Type {
 	switch t := t.Kind.(type) {
-	case *proto.Type_Bool:
-		return &BooleanType{
-			Nullability:      Nullability(t.Bool.Nullability),
-			TypeVariationRef: t.Bool.TypeVariationReference,
-		}
-	case *proto.Type_I8_:
-		return &Int8Type{
-			Nullability:      Nullability(t.I8.Nullability),
-			TypeVariationRef: t.I8.TypeVariationReference,
-		}
-	case *proto.Type_I16_:
-		return &Int16Type{
-			Nullability:      Nullability(t.I16.Nullability),
-			TypeVariationRef: t.I16.TypeVariationReference,
-		}
-	case *proto.Type_I32_:
-		return &Int32Type{
-			Nullability:      Nullability(t.I32.Nullability),
-			TypeVariationRef: t.I32.TypeVariationReference,
-		}
-	case *proto.Type_I64_:
-		return &Int64Type{
-			Nullability:      Nullability(t.I64.Nullability),
-			TypeVariationRef: t.I64.TypeVariationReference,
-		}
-	case *proto.Type_Fp32:
-		return &Float32Type{
-			Nullability:      Nullability(t.Fp32.Nullability),
-			TypeVariationRef: t.Fp32.TypeVariationReference,
-		}
-	case *proto.Type_Fp64:
-		return &Float64Type{
-			Nullability:      Nullability(t.Fp64.Nullability),
-			TypeVariationRef: t.Fp64.TypeVariationReference,
-		}
-	case *proto.Type_String_:
-		return &StringType{
-			Nullability:      Nullability(t.String_.Nullability),
-			TypeVariationRef: t.String_.TypeVariationReference,
-		}
-	case *proto.Type_Binary_:
-		return &BinaryType{
-			Nullability:      Nullability(t.Binary.Nullability),
-			TypeVariationRef: t.Binary.TypeVariationReference,
-		}
-	case *proto.Type_Timestamp_:
-		return &TimestampType{
-			Nullability:      Nullability(t.Timestamp.Nullability),
-			TypeVariationRef: t.Timestamp.TypeVariationReference,
-		}
-	case *proto.Type_Date_:
-		return &DateType{
-			Nullability:      Nullability(t.Date.Nullability),
-			TypeVariationRef: t.Date.TypeVariationReference,
-		}
-	case *proto.Type_Time_:
-		return &TimeType{
-			Nullability:      Nullability(t.Time.Nullability),
-			TypeVariationRef: t.Time.TypeVariationReference,
-		}
 	case *proto.Type_IntervalYear_:
 		return &IntervalYearType{
 			Nullability:      Nullability(t.IntervalYear.Nullability),
@@ -516,11 +456,6 @@ func TypeFromProto(t *proto.Type) Type {
 			nullability:      Nullability(t.IntervalCompound.Nullability),
 			typeVariationRef: t.IntervalCompound.TypeVariationReference,
 			precision:        precision,
-		}
-	case *proto.Type_TimestampTz:
-		return &TimestampTzType{
-			Nullability:      Nullability(t.TimestampTz.Nullability),
-			TypeVariationRef: t.TimestampTz.TypeVariationReference,
 		}
 	case *proto.Type_Uuid:
 		return &UUIDType{
@@ -863,71 +798,6 @@ func (e *EnumType) WithParameters(params []interface{}) (Type, error) {
 // for the given type.
 func TypeToProto(t Type) *proto.Type {
 	switch t := t.(type) {
-	case *BooleanType:
-		return &proto.Type{Kind: &proto.Type_Bool{
-			Bool: &proto.Type_Boolean{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *Int8Type:
-		return &proto.Type{Kind: &proto.Type_I8_{
-			I8: &proto.Type_I8{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *Int16Type:
-		return &proto.Type{Kind: &proto.Type_I16_{
-			I16: &proto.Type_I16{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *Int32Type:
-		return &proto.Type{Kind: &proto.Type_I32_{
-			I32: &proto.Type_I32{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *Int64Type:
-		return &proto.Type{Kind: &proto.Type_I64_{
-			I64: &proto.Type_I64{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *Float32Type:
-		return &proto.Type{Kind: &proto.Type_Fp32{
-			Fp32: &proto.Type_FP32{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *Float64Type:
-		return &proto.Type{Kind: &proto.Type_Fp64{
-			Fp64: &proto.Type_FP64{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *StringType:
-		return &proto.Type{Kind: &proto.Type_String_{
-			String_: &proto.Type_String{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *BinaryType:
-		return &proto.Type{Kind: &proto.Type_Binary_{
-			Binary: &proto.Type_Binary{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *DateType:
-		return &proto.Type{Kind: &proto.Type_Date_{
-			Date: &proto.Type_Date{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *TimeType:
-		return &proto.Type{Kind: &proto.Type_Time_{
-			Time: &proto.Type_Time{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *TimestampTzType:
-		return &proto.Type{Kind: &proto.Type_TimestampTz{
-			TimestampTz: &proto.Type_TimestampTZ{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *TimestampType:
-		return &proto.Type{Kind: &proto.Type_Timestamp_{
-			Timestamp: &proto.Type_Timestamp{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
 	case *IntervalYearType:
 		return &proto.Type{Kind: &proto.Type_IntervalYear_{
 			IntervalYear: &proto.Type_IntervalYear{
