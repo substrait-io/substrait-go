@@ -2,8 +2,6 @@ package types
 
 import (
 	"fmt"
-
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
 // IntervalYearToMonthType this is used to represent a type of interval which represents YearToMonth.
@@ -45,13 +43,6 @@ func (m IntervalYearToMonthType) ToProtoFuncArg() *proto.FunctionArgument {
 	return &proto.FunctionArgument{
 		ArgType: &proto.FunctionArgument_Type{Type: m.ToProto()},
 	}
-}
-
-func (m IntervalYearToMonthType) ToProto() *proto.Type {
-	return &proto.Type{Kind: &proto.Type_IntervalYear_{
-		IntervalYear: &proto.Type_IntervalYear{
-			Nullability:            proto.Type_Nullability(m.nullability),
-			TypeVariationReference: m.typeVariationRef}}}
 }
 
 func (IntervalYearToMonthType) ShortString() string { return shortTypeNames[TypeNameIntervalYear] }
