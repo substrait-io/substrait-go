@@ -46,31 +46,6 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 	}
 
 	switch et := e.RexType.(type) {
-	case *proto.Expression_MultiOrList_:
-		var err error
-		val := make([]Expression, len(et.MultiOrList.Value))
-		for i, v := range et.MultiOrList.Value {
-			val[i], err = ExprFromProto(v, baseSchema, reg)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		options := make([][]Expression, len(et.MultiOrList.Options))
-		for i, opts := range et.MultiOrList.Options {
-			options[i] = make([]Expression, len(opts.Fields))
-			for j, o := range opts.Fields {
-				options[i][j], err = ExprFromProto(o, baseSchema, reg)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-
-		return &MultiOrList{
-			Value:   val,
-			Options: options,
-		}, nil
 	case *proto.Expression_Nested_:
 		var err error
 		nullable, typevar := et.Nested.Nullable, et.Nested.TypeVariationReference
@@ -794,32 +769,6 @@ func (ex *MultiOrList) IsScalar() bool {
 
 func (ex *MultiOrList) GetType() types.Type {
 	return &types.BooleanType{Nullability: types.NullabilityRequired}
-}
-
-func (ex *MultiOrList) ToProto() *proto.Expression {
-	toSlice := func(exprs []Expression) (out []*proto.Expression) {
-		out = make([]*proto.Expression, len(exprs))
-		for i, e := range exprs {
-			out[i] = e.ToProto()
-		}
-		return
-	}
-
-	opts := make([]*proto.Expression_MultiOrList_Record, len(ex.Options))
-	for i, o := range ex.Options {
-		opts[i] = &proto.Expression_MultiOrList_Record{
-			Fields: toSlice(o),
-		}
-	}
-
-	return &proto.Expression{
-		RexType: &proto.Expression_MultiOrList_{
-			MultiOrList: &proto.Expression_MultiOrList{
-				Value:   toSlice(ex.Value),
-				Options: opts,
-			},
-		},
-	}
 }
 
 func (ex *MultiOrList) Equals(other Expression) bool {
