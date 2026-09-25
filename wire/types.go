@@ -35,6 +35,30 @@ func TypeToProto(t types.Type) *proto.Type {
 	panic("unimplemented type")
 }
 
+// TypeParamToProto encodes a user-defined-type parameter.
+func TypeParamToProto(p types.TypeParam) *proto.Type_Parameter {
+	switch p := p.(type) {
+	case types.NullParameter:
+		return &proto.Type_Parameter{Parameter: &proto.Type_Parameter_Null{}}
+	case *types.DataTypeParameter:
+		return &proto.Type_Parameter{Parameter: &proto.Type_Parameter_DataType{
+			DataType: TypeToProto(p.Type)}}
+	case types.BooleanParameter:
+		return &proto.Type_Parameter{Parameter: &proto.Type_Parameter_Boolean{
+			Boolean: bool(p)}}
+	case types.IntegerParameter:
+		return &proto.Type_Parameter{Parameter: &proto.Type_Parameter_Integer{
+			Integer: int64(p)}}
+	case types.EnumParameter:
+		return &proto.Type_Parameter{Parameter: &proto.Type_Parameter_Enum{
+			Enum: string(p)}}
+	case types.StringParameter:
+		return &proto.Type_Parameter{Parameter: &proto.Type_Parameter_String_{
+			String_: string(p)}}
+	}
+	panic("unimplemented type parameter")
+}
+
 // VersionFromProto decodes a version from its protobuf message.
 func VersionFromProto(v *proto.Version) types.Version {
 	if v == nil {
@@ -68,6 +92,25 @@ func NamedStructFromProto(n *proto.NamedStruct) types.NamedStruct {
 			Types:            fields,
 		},
 	}
+}
+
+// TypeParamFromProto decodes a protobuf Type_Parameter message into a TypeParam.
+func TypeParamFromProto(p *proto.Type_Parameter) types.TypeParam {
+	switch p := p.Parameter.(type) {
+	case *proto.Type_Parameter_Null:
+		return types.NullParameter{}
+	case *proto.Type_Parameter_Boolean:
+		return types.BooleanParameter(p.Boolean)
+	case *proto.Type_Parameter_DataType:
+		return &types.DataTypeParameter{Type: TypeFromProto(p.DataType)}
+	case *proto.Type_Parameter_Integer:
+		return types.IntegerParameter(p.Integer)
+	case *proto.Type_Parameter_Enum:
+		return types.EnumParameter(p.Enum)
+	case *proto.Type_Parameter_String_:
+		return types.StringParameter(p.String_)
+	}
+	return nil
 }
 
 // TypeFromProto returns the appropriate Type object from a protobuf type message.
