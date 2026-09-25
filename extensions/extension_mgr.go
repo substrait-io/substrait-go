@@ -51,36 +51,6 @@ func (a *AdvancedExtension) GetEnhancement() *Enhancement {
 	return a.Enhancement
 }
 
-// AdvancedExtensionFromProto converts a protobuf AdvancedExtension to the domain type.
-func AdvancedExtensionFromProto(a *extensions.AdvancedExtension) *AdvancedExtension {
-	if a == nil {
-		return nil
-	}
-	var optimizations []*Optimization
-	for _, o := range a.Optimization {
-		optimizations = append(optimizations, (*Optimization)(o))
-	}
-	return &AdvancedExtension{
-		Optimizations: optimizations,
-		Enhancement:   (*Enhancement)(a.Enhancement),
-	}
-}
-
-// AdvancedExtensionToProto encodes a domain AdvancedExtension as its protobuf message.
-func AdvancedExtensionToProto(a *AdvancedExtension) *extensions.AdvancedExtension {
-	if a == nil {
-		return nil
-	}
-	var optimizations []*anypb.Any
-	for _, o := range a.Optimizations {
-		optimizations = append(optimizations, (*anypb.Any)(o))
-	}
-	return &extensions.AdvancedExtension{
-		Optimization: optimizations,
-		Enhancement:  (*anypb.Any)(a.Enhancement),
-	}
-}
-
 const SubstraitDefaultURNPrefix = "extension:io.substrait:"
 
 var (
