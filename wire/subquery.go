@@ -22,6 +22,7 @@ func subqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordT
 			return nil, err
 		}
 		return plan.NewScalarSubquery(rel), nil
+
 	case *proto.Expression_Subquery_InPredicate_:
 		needles := make([]expr.Expression, len(subType.InPredicate.Needles))
 		for i, needle := range subType.InPredicate.Needles {
@@ -38,12 +39,31 @@ func subqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordT
 		}
 
 		return plan.NewInPredicateSubquery(needles, rel), nil
+
 	case *proto.Expression_Subquery_SetPredicate_:
 		tuples, err := RelFromProto(subType.SetPredicate.Tuples, reg)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing tuples in set predicate: %w", err)
 		}
 		return plan.NewSetPredicateSubquery(plan.SetPredicateOp(subType.SetPredicate.PredicateOp), tuples), nil
+	case *proto.Expression_Subquery_SetComparison_:
+		left, err := ExprFromProto(subType.SetComparison.Left, baseSchema, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing left expression in set comparison: %w", err)
+		}
+
+		right, err := RelFromProto(subType.SetComparison.Right, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing right relation in set comparison: %w", err)
+		}
+
+		return plan.NewSetComparisonSubquery(
+			plan.SetComparisonReductionOp(subType.SetComparison.ReductionOp),
+			plan.SetComparisonOp(subType.SetComparison.ComparisonOp),
+			left,
+			right,
+		), nil
+
 	default:
 		return nil, fmt.Errorf("%w: unknown subquery type: %T", substraitgo.ErrNotImplemented, subType)
 	}
@@ -91,6 +111,23 @@ func setPredicateSubqueryToProto(s *plan.SetPredicateSubquery) *proto.Expression
 					SetPredicate: &proto.Expression_Subquery_SetPredicate{
 						PredicateOp: proto.Expression_Subquery_SetPredicate_PredicateOp(s.Operation),
 						Tuples:      RelToProto(s.Tuples),
+					},
+				},
+			},
+		},
+	}
+}
+
+func setComparisonSubqueryToProto(s *plan.SetComparisonSubquery) *proto.Expression {
+	return &proto.Expression{
+		RexType: &proto.Expression_Subquery_{
+			Subquery: &proto.Expression_Subquery{
+				SubqueryType: &proto.Expression_Subquery_SetComparison_{
+					SetComparison: &proto.Expression_Subquery_SetComparison{
+						ReductionOp:  proto.Expression_Subquery_SetComparison_ReductionOp(s.ReductionOp),
+						ComparisonOp: proto.Expression_Subquery_SetComparison_ComparisonOp(s.ComparisonOp),
+						Left:         ExprToProto(s.Left),
+						Right:        RelToProto(s.Right),
 					},
 				},
 			},
