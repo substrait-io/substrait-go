@@ -363,6 +363,81 @@ func joinRelToProto(j *plan.JoinRel) *proto.Rel {
 	return &proto.Rel{RelType: &proto.Rel_Join{Join: outRel}}
 }
 
+func comparisonJoinKeysToProto(keys []*plan.ComparisonJoinKey) []*proto.ComparisonJoinKey {
+	out := make([]*proto.ComparisonJoinKey, len(keys))
+	for i, k := range keys {
+		out[i] = comparisonJoinKeyToProto(k)
+	}
+	return out
+}
+
+func comparisonJoinKeyToProto(k *plan.ComparisonJoinKey) *proto.ComparisonJoinKey {
+	return &proto.ComparisonJoinKey{
+		Left:       fieldReferenceRefToProto(k.Left()),
+		Right:      fieldReferenceRefToProto(k.Right()),
+		Comparison: joinKeyComparisonToProto(k.Comparison()),
+	}
+}
+
+func joinKeyComparisonToProto(c plan.JoinKeyComparison) *proto.ComparisonJoinKey_ComparisonType {
+	switch c := c.(type) {
+	case plan.SimpleComparison:
+		return simpleComparisonToProto(c)
+	case *plan.SimpleComparison:
+		return simpleComparisonToProto(*c)
+	case plan.CustomComparison:
+		return customComparisonToProto(c)
+	case *plan.CustomComparison:
+		return customComparisonToProto(*c)
+	}
+	return nil
+}
+
+func simpleComparisonToProto(c plan.SimpleComparison) *proto.ComparisonJoinKey_ComparisonType {
+	return &proto.ComparisonJoinKey_ComparisonType{
+		InnerType: &proto.ComparisonJoinKey_ComparisonType_Simple{
+			Simple: proto.ComparisonJoinKey_SimpleComparisonType(c.Type)},
+	}
+}
+
+func customComparisonToProto(c plan.CustomComparison) *proto.ComparisonJoinKey_ComparisonType {
+	return &proto.ComparisonJoinKey_ComparisonType{
+		InnerType: &proto.ComparisonJoinKey_ComparisonType_CustomFunctionReference{
+			CustomFunctionReference: c.FunctionReference},
+	}
+}
+
+// tryEqualityJoinKeysToLegacyProto returns the deprecated left_keys/right_keys
+// representation of the given join keys with ok=true, but only when every key
+// is a plain SIMPLE_COMPARISON_TYPE_EQ comparison. Those are the only joins the
+// deprecated fields can express; IS_NOT_DISTINCT_FROM, MIGHT_EQUAL and custom
+// comparisons have no legacy encoding and an old consumer would silently treat
+// them as equality, so for those it returns ok=false and the caller should emit
+// only the modern keys field.
+func tryEqualityJoinKeysToLegacyProto(keys []*plan.ComparisonJoinKey) (leftKeys, rightKeys []*proto.Expression_FieldReference, ok bool) {
+	for _, k := range keys {
+		switch simple := k.Comparison().(type) {
+		case plan.SimpleComparison:
+			if simple.Type != plan.SimpleComparisonTypeEq {
+				return nil, nil, false
+			}
+		case *plan.SimpleComparison:
+			if simple == nil || simple.Type != plan.SimpleComparisonTypeEq {
+				return nil, nil, false
+			}
+		default:
+			return nil, nil, false
+		}
+	}
+	leftKeys = make([]*proto.Expression_FieldReference, len(keys))
+	rightKeys = make([]*proto.Expression_FieldReference, len(keys))
+	for i, k := range keys {
+		leftKeys[i] = fieldReferenceRefToProto(k.Left())
+		rightKeys[i] = fieldReferenceRefToProto(k.Right())
+	}
+	return leftKeys, rightKeys, true
+}
+
 // relCommonFromProto decodes the common fields shared by every relation.
 func relCommonFromProto(c *proto.RelCommon) plan.RelCommon {
 	if c == nil {
@@ -468,6 +543,65 @@ func virtualTableExprFromLiteralProto(s *proto.Expression_Literal_Struct) expr.V
 		fields[i] = LiteralFromProto(f)
 	}
 	return fields
+}
+
+func joinKeyComparisonFromProto(c *proto.ComparisonJoinKey_ComparisonType) (plan.JoinKeyComparison, error) {
+	switch it := c.GetInnerType().(type) {
+	case *proto.ComparisonJoinKey_ComparisonType_Simple:
+		return plan.SimpleComparison{Type: plan.SimpleComparisonType(it.Simple)}, nil
+	case *proto.ComparisonJoinKey_ComparisonType_CustomFunctionReference:
+		return plan.CustomComparison{FunctionReference: it.CustomFunctionReference}, nil
+	default:
+		return nil, fmt.Errorf("%w: unsupported join key comparison type %T", substraitgo.ErrInvalidRel, it)
+	}
+}
+
+// comparisonJoinKeysFromProto builds the join keys for a hash/merge join,
+// preferring the keys field. The deprecated leftKeys/rightKeys are only used
+// when keys is empty, in which case they are paired with an EQ comparison.
+func comparisonJoinKeysFromProto(
+	keys []*proto.ComparisonJoinKey,
+	leftKeys, rightKeys []*proto.Expression_FieldReference,
+	leftSchema, rightSchema *types.RecordType,
+	reg expr.ExtensionRegistry,
+) ([]*plan.ComparisonJoinKey, error) {
+	if len(keys) > 0 {
+		out := make([]*plan.ComparisonJoinKey, len(keys))
+		for i, k := range keys {
+			left, err := FieldReferenceFromProto(k.GetLeft(), leftSchema, reg)
+			if err != nil {
+				return nil, fmt.Errorf("error getting left key %d for join: %w", i, err)
+			}
+			right, err := FieldReferenceFromProto(k.GetRight(), rightSchema, reg)
+			if err != nil {
+				return nil, fmt.Errorf("error getting right key %d for join: %w", i, err)
+			}
+			comparison, err := joinKeyComparisonFromProto(k.GetComparison())
+			if err != nil {
+				return nil, err
+			}
+			out[i] = plan.NewComparisonJoinKey(left, right, comparison)
+		}
+		return out, nil
+	}
+
+	if len(leftKeys) != len(rightKeys) {
+		return nil, fmt.Errorf("%w: mismatched number of keys for join. Left: %d, Right: %d",
+			substraitgo.ErrInvalidRel, len(leftKeys), len(rightKeys))
+	}
+	out := make([]*plan.ComparisonJoinKey, len(leftKeys))
+	for i := range leftKeys {
+		left, err := FieldReferenceFromProto(leftKeys[i], leftSchema, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error getting left key %d for join: %w", i, err)
+		}
+		right, err := FieldReferenceFromProto(rightKeys[i], rightSchema, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error getting right key %d for join: %w", i, err)
+		}
+		out[i] = plan.NewEqualityJoinKey(left, right)
+	}
+	return out, nil
 }
 
 // RelFromProto decodes a relation and all of its inputs from protobuf.
