@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package expr_test
+package wire_test
 
 import (
 	"reflect"
@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/v9/expr"
+	"github.com/substrait-io/substrait-go/v9/wire"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	pbproto "google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -87,6 +88,6 @@ func TestMaskListSelectRoundTrip(t *testing.T) {
 		},
 	}
 
-	got := expr.MaskExpressionFromProto(pb).ToProto()
+	got := wire.MaskExpressionToProto(wire.MaskExpressionFromProto(pb))
 	assert.Truef(t, pbproto.Equal(pb, got), "mask expression round-trip mismatch:\nwant: %v\ngot:  %v", pb, got)
 }
