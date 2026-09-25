@@ -26,10 +26,6 @@ type Version struct {
 	Producer    string
 }
 
-// unsetVersion stands in for a plan or expression parsed from proto with no version; it renders as
-// "0.0.0 (UNSET)".
-var unsetVersion = Version{Producer: "UNSET"}
-
 // String reports a readable version like "0.29.0+abc123 (producer)".
 func (v Version) String() string {
 	var b strings.Builder
@@ -41,31 +37,6 @@ func (v Version) String() string {
 		b.WriteString(" (" + v.Producer + ")")
 	}
 	return b.String()
-}
-
-// VersionFromProto converts a protobuf version message to the domain Version.
-func VersionFromProto(v *proto.Version) Version {
-	if v == nil {
-		return unsetVersion
-	}
-	return Version{
-		MajorNumber: v.MajorNumber,
-		MinorNumber: v.MinorNumber,
-		PatchNumber: v.PatchNumber,
-		GitHash:     v.GitHash,
-		Producer:    v.Producer,
-	}
-}
-
-// VersionToProto encodes a version as its protobuf message.
-func VersionToProto(v Version) *proto.Version {
-	return &proto.Version{
-		MajorNumber: v.MajorNumber,
-		MinorNumber: v.MinorNumber,
-		PatchNumber: v.PatchNumber,
-		GitHash:     v.GitHash,
-		Producer:    v.Producer,
-	}
 }
 
 // FunctionOption is a named function behavior option: its name and the producer's ordered list of
