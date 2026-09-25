@@ -428,11 +428,6 @@ func IntervalDayToSecondFromProto(p *proto.Expression_Literal_IntervalDayToSecon
 // type message.
 func TypeFromProto(t *proto.Type) Type {
 	switch t := t.Kind.(type) {
-	case *proto.Type_IntervalYear_:
-		return &IntervalYearType{
-			Nullability:      Nullability(t.IntervalYear.Nullability),
-			TypeVariationRef: t.IntervalYear.TypeVariationReference,
-		}
 	case *proto.Type_IntervalDay_:
 		var precision = PrecisionMicroSeconds
 		if t.IntervalDay.Precision != nil {
@@ -724,11 +719,6 @@ func (e *EnumType) WithParameters(params []interface{}) (Type, error) {
 // for the given type.
 func TypeToProto(t Type) *proto.Type {
 	switch t := t.(type) {
-	case *IntervalYearType:
-		return &proto.Type{Kind: &proto.Type_IntervalYear_{
-			IntervalYear: &proto.Type_IntervalYear{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
 	case *IntervalDayType:
 		precision := t.Precision.ToProtoVal()
 		return &proto.Type{Kind: &proto.Type_IntervalDay_{
