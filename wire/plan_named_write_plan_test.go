@@ -1,4 +1,4 @@
-package plan_test
+package wire_test
 
 import (
 	"fmt"

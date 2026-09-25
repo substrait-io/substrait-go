@@ -1887,6 +1887,18 @@ type NamedTableWriteRel struct {
 	outputMode  OutputMode
 }
 
+func NewNamedTableWriteRel(tableSchema types.NamedStruct, op WriteOp, input Rel, outputMode OutputMode, common RelCommon, names []string, advExtension *extensions.AdvancedExtension) *NamedTableWriteRel {
+	return &NamedTableWriteRel{
+		RelCommon:    common,
+		tableSchema:  tableSchema,
+		op:           op,
+		input:        input,
+		outputMode:   outputMode,
+		names:        names,
+		advExtension: advExtension,
+	}
+}
+
 func (wr *NamedTableWriteRel) directOutputSchema() types.RecordType {
 	switch wr.outputMode {
 	case OutputModeNoOutput:
@@ -1915,33 +1927,6 @@ func (wr *NamedTableWriteRel) Op() WriteOp { return wr.op }
 func (wr *NamedTableWriteRel) Input() Rel  { return wr.input }
 func (wr *NamedTableWriteRel) OutputMode() OutputMode {
 	return wr.outputMode
-}
-
-func (wr *NamedTableWriteRel) ToProto() *proto.Rel {
-	return &proto.Rel{
-		RelType: &proto.Rel_Write{
-			Write: &proto.WriteRel{
-				Common: wr.toProto(),
-				WriteType: &proto.WriteRel_NamedTable{
-					NamedTable: &proto.NamedObjectWrite{
-						Names:             wr.names,
-						AdvancedExtension: extensions.AdvancedExtensionToProto(wr.advExtension),
-					},
-				},
-				TableSchema: wr.tableSchema.ToProto(),
-				Op:          proto.WriteRel_WriteOp(wr.op),
-				Input:       wr.input.ToProto(),
-			},
-		},
-	}
-}
-
-func (wr *NamedTableWriteRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: wr.ToProto(),
-		},
-	}
 }
 
 func (wr *NamedTableWriteRel) GetInputs() []Rel {
