@@ -46,29 +46,6 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 	}
 
 	switch et := e.RexType.(type) {
-	case *proto.Expression_IfThen_:
-		elseExpr, err := ExprFromProto(et.IfThen.Else, baseSchema, reg)
-		if err != nil {
-			return nil, err
-		}
-
-		ifs := make([]IfThenPair, len(et.IfThen.Ifs))
-		for i, clause := range et.IfThen.Ifs {
-			ifs[i].If, err = ExprFromProto(clause.If, baseSchema, reg)
-			if err != nil {
-				return nil, err
-			}
-
-			ifs[i].Then, err = ExprFromProto(clause.Then, baseSchema, reg)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		return &IfThen{
-			ifs:        ifs,
-			elseClause: elseExpr,
-		}, nil
 	case *proto.Expression_SwitchExpression_:
 		matched, err := ExprFromProto(et.SwitchExpression.Match, baseSchema, reg)
 		if err != nil {
@@ -331,6 +308,10 @@ func NewIfThen(firstIf IfThenPair, elseClause Expression, elsifs ...IfThenPair) 
 	}, nil
 }
 
+func NewIfThenFromParts(ifs []IfThenPair, elseClause Expression) *IfThen {
+	return &IfThen{ifs: ifs, elseClause: elseClause}
+}
+
 // NIfs returns the number of If/then pairs are in this expression
 // before the else clause. It should always be at least 1
 func (ex *IfThen) NIfs() int { return len(ex.ifs) }
@@ -373,29 +354,6 @@ func (ex *IfThen) IsScalar() bool {
 
 func (ex *IfThen) GetType() types.Type {
 	return ex.elseClause.GetType()
-}
-
-func (ex *IfThen) ToProto() *proto.Expression {
-	ifthenClauses := make([]*proto.Expression_IfThen_IfClause, len(ex.ifs))
-	for i, c := range ex.ifs {
-		ifthenClauses[i] = &proto.Expression_IfThen_IfClause{
-			If:   c.If.ToProto(),
-			Then: c.Then.ToProto(),
-		}
-	}
-
-	var elseClause *proto.Expression
-	if ex.elseClause != nil {
-		elseClause = ex.elseClause.ToProto()
-	}
-	return &proto.Expression{
-		RexType: &proto.Expression_IfThen_{
-			IfThen: &proto.Expression_IfThen{
-				Ifs:  ifthenClauses,
-				Else: elseClause,
-			},
-		},
-	}
 }
 
 func (ex *IfThen) Equals(other Expression) bool {
