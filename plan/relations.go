@@ -330,55 +330,18 @@ type IcebergTableReadRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
+func NewIcebergTableReadRel(base baseReadRel, tableType IcebergTableType) *IcebergTableReadRel {
+	return &IcebergTableReadRel{baseReadRel: base, tableType: tableType}
+}
+
 func (n *IcebergTableReadRel) NamedTableAdvancedExtension() *extensions.AdvancedExtension {
 	return n.advExtension
 }
 
+func (n *IcebergTableReadRel) TableType() IcebergTableType { return n.tableType }
+
 func (n *IcebergTableReadRel) RecordType() types.RecordType {
 	return n.remap(n.directOutputSchema())
-}
-
-func (n *IcebergTableReadRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: n.ToProto(),
-		},
-	}
-}
-
-func (n *IcebergTableReadRel) ToProto() *proto.Rel {
-	readRel := n.toReadRelProto()
-
-	if directTableType, ok := n.tableType.(*Direct); ok {
-		direct := &proto.ReadRel_IcebergTable_MetadataFileRead{
-			MetadataUri: directTableType.MetadataUri,
-		}
-
-		// SnapshotId and SnapshotTimestamp are mutually exclusive
-		if directTableType.SnapshotId != "" {
-			direct.Snapshot = &proto.ReadRel_IcebergTable_MetadataFileRead_SnapshotId{
-				SnapshotId: string(directTableType.SnapshotId),
-			}
-		} else if directTableType.SnapshotTimestamp != 0 {
-			direct.Snapshot = &proto.ReadRel_IcebergTable_MetadataFileRead_SnapshotTimestamp{
-				SnapshotTimestamp: int64(directTableType.SnapshotTimestamp),
-			}
-		}
-
-		readRel.ReadType = &proto.ReadRel_IcebergTable_{
-			IcebergTable: &proto.ReadRel_IcebergTable{
-				TableType: &proto.ReadRel_IcebergTable_Direct{
-					Direct: direct,
-				},
-			},
-		}
-	}
-
-	return &proto.Rel{
-		RelType: &proto.Rel_Read{
-			Read: readRel,
-		},
-	}
 }
 
 func (n *IcebergTableReadRel) Copy(_ ...Rel) (Rel, error) {
