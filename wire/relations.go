@@ -51,6 +51,8 @@ func RelToProto(rel plan.Rel) *proto.Rel {
 		return namedTableWriteRelToProto(r)
 	case *plan.ExtensionSingleRel:
 		return extensionSingleRelToProto(r)
+	case *plan.ExtensionLeafRel:
+		return extensionLeafRelToProto(r)
 	default:
 		panic(fmt.Sprintf("wire: unhandled relation %T", rel))
 	}
@@ -510,6 +512,17 @@ func extensionSingleRelToProto(es *plan.ExtensionSingleRel) *proto.Rel {
 				Common: relCommonToProto(&es.RelCommon),
 				Input:  RelToProto(es.Input()),
 				Detail: es.Detail(),
+			},
+		},
+	}
+}
+
+func extensionLeafRelToProto(el *plan.ExtensionLeafRel) *proto.Rel {
+	return &proto.Rel{
+		RelType: &proto.Rel_ExtensionLeaf{
+			ExtensionLeaf: &proto.ExtensionLeafRel{
+				Common: relCommonToProto(&el.RelCommon),
+				Detail: el.Detail(),
 			},
 		},
 	}
@@ -1112,6 +1125,13 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 		}
 		common := relCommonFromProto(rel.ExtensionSingle.Common)
 		return plan.NewExtensionSingleRel(input, definition, common), nil
+	case *proto.Rel_ExtensionLeaf:
+		definition, err := decodeExtensionDef(reg, rel.ExtensionLeaf.Detail)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding ExtensionLeaf detail: %w", err)
+		}
+		common := relCommonFromProto(rel.ExtensionLeaf.Common)
+		return plan.NewExtensionLeafRel(definition, common), nil
 	case nil:
 		return nil, fmt.Errorf("%w: got nil", substraitgo.ErrInvalidRel)
 	}
