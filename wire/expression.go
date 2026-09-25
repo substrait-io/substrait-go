@@ -27,6 +27,8 @@ func ExprToProto(e expr.Expression) *proto.Expression {
 		return singularOrListToProto(e)
 	case *expr.MultiOrList:
 		return multiOrListToProto(e)
+	case *expr.MapExpr:
+		return mapExprToProto(e)
 	case *expr.Lambda:
 		return lambdaToProto(e)
 	case *expr.ScalarFunction:
@@ -151,6 +153,27 @@ func multiOrListToProto(ex *expr.MultiOrList) *proto.Expression {
 			MultiOrList: &proto.Expression_MultiOrList{
 				Value:   toSlice(ex.Value),
 				Options: opts,
+			},
+		},
+	}
+}
+
+func mapExprToProto(ex *expr.MapExpr) *proto.Expression {
+	kvs := make([]*proto.Expression_Nested_Map_KeyValue, len(ex.KeyValues))
+	for i, kv := range ex.KeyValues {
+		kvs[i] = &proto.Expression_Nested_Map_KeyValue{
+			Key:   ExprToProto(kv.Key),
+			Value: ExprToProto(kv.Value),
+		}
+	}
+	return &proto.Expression{
+		RexType: &proto.Expression_Nested_{
+			Nested: &proto.Expression_Nested{
+				Nullable:               ex.Nullable,
+				TypeVariationReference: ex.TypeVariationRef,
+				NestedType: &proto.Expression_Nested_Map_{
+					Map: &proto.Expression_Nested_Map{KeyValues: kvs},
+				},
 			},
 		},
 	}
@@ -392,6 +415,39 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 			Value:   val,
 			Options: options,
 		}, nil
+	case *proto.Expression_Nested_:
+		var err error
+		nullable, typevar := et.Nested.Nullable, et.Nested.TypeVariationReference
+
+		switch n := et.Nested.NestedType.(type) {
+		case *proto.Expression_Nested_Map_:
+			if len(n.Map.KeyValues) == 0 {
+				return nil, fmt.Errorf("%w: use an empty map literal instead of NestedExpr map to preserve type info",
+					substraitgo.ErrInvalidExpr)
+			}
+
+			keyValues := make([]struct{ Key, Value expr.Expression }, len(n.Map.KeyValues))
+			for i, kv := range n.Map.KeyValues {
+				keyValues[i].Key, err = ExprFromProto(kv.Key, baseSchema, reg)
+				if err != nil {
+					return nil, err
+				}
+
+				keyValues[i].Value, err = ExprFromProto(kv.Value, baseSchema, reg)
+				if err != nil {
+					return nil, err
+				}
+			}
+
+			return &expr.MapExpr{
+				Nullable:         nullable,
+				TypeVariationRef: typevar,
+				KeyValues:        keyValues,
+			}, nil
+		default:
+			return nil, fmt.Errorf("%w: nested expression: %s",
+				substraitgo.ErrInvalidExpr, n)
+		}
 	case *proto.Expression_Lambda_:
 		if et.Lambda.Parameters == nil {
 			return nil, fmt.Errorf("%w: lambda parameters cannot be nil", substraitgo.ErrInvalidExpr)

@@ -51,30 +51,6 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 		nullable, typevar := et.Nested.Nullable, et.Nested.TypeVariationReference
 
 		switch n := et.Nested.NestedType.(type) {
-		case *proto.Expression_Nested_Map_:
-			if len(n.Map.KeyValues) == 0 {
-				return nil, fmt.Errorf("%w: use an empty map literal instead of NestedExpr map to preserve type info",
-					substraitgo.ErrInvalidExpr)
-			}
-
-			keyValues := make([]struct{ Key, Value Expression }, len(n.Map.KeyValues))
-			for i, kv := range n.Map.KeyValues {
-				keyValues[i].Key, err = ExprFromProto(kv.Key, baseSchema, reg)
-				if err != nil {
-					return nil, err
-				}
-
-				keyValues[i].Value, err = ExprFromProto(kv.Value, baseSchema, reg)
-				if err != nil {
-					return nil, err
-				}
-			}
-
-			return &MapExpr{
-				Nullable:         nullable,
-				TypeVariationRef: typevar,
-				KeyValues:        keyValues,
-			}, nil
 		case *proto.Expression_Nested_Struct_:
 			fields := make([]Expression, len(n.Struct.Fields))
 			for i, f := range n.Struct.Fields {
@@ -895,29 +871,6 @@ func (ex *MapExpr) GetType() types.Type {
 		TypeVariationRef: ex.TypeVariationRef,
 		Key:              ex.KeyValues[0].Key.GetType(),
 		Value:            ex.KeyValues[0].Value.GetType(),
-	}
-}
-
-func (ex *MapExpr) ToProto() *proto.Expression {
-	kvs := make([]*proto.Expression_Nested_Map_KeyValue, len(ex.KeyValues))
-	for i, kv := range ex.KeyValues {
-		kvs[i] = &proto.Expression_Nested_Map_KeyValue{
-			Key:   kv.Key.ToProto(),
-			Value: kv.Value.ToProto(),
-		}
-	}
-	return &proto.Expression{
-		RexType: &proto.Expression_Nested_{
-			Nested: &proto.Expression_Nested{
-				Nullable:               ex.Nullable,
-				TypeVariationReference: ex.TypeVariationRef,
-				NestedType: &proto.Expression_Nested_Map_{
-					Map: &proto.Expression_Nested_Map{
-						KeyValues: kvs,
-					},
-				},
-			},
-		},
 	}
 }
 
