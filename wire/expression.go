@@ -17,6 +17,8 @@ func ExprToProto(e expr.Expression) *proto.Expression {
 	switch e := e.(type) {
 	case *expr.ScalarFunction:
 		return scalarFunctionToProto(e)
+	case *expr.WindowFunction:
+		return windowFunctionToProto(e)
 	case *expr.FieldReference:
 		return FieldReferenceToProto(e)
 	case expr.Literal:
@@ -90,6 +92,67 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 			args,
 			FunctionOptionsFromProto(et.ScalarFunction.Options),
 			TypeFromProto(et.ScalarFunction.OutputType),
+		), nil
+	case *proto.Expression_WindowFunction_:
+		var err error
+		args := make([]types.FuncArg, len(et.WindowFunction.Arguments))
+		for i, a := range et.WindowFunction.Arguments {
+			if args[i], err = FuncArgFromProto(a, baseSchema, reg); err != nil {
+				return nil, err
+			}
+		}
+
+		parts := make([]expr.Expression, len(et.WindowFunction.Partitions))
+		for i, p := range et.WindowFunction.Partitions {
+			if parts[i], err = ExprFromProto(p, baseSchema, reg); err != nil {
+				return nil, err
+			}
+		}
+
+		sorts := make([]expr.SortField, len(et.WindowFunction.Sorts))
+		for i, s := range et.WindowFunction.Sorts {
+			if sorts[i], err = SortFieldFromProto(s, baseSchema, reg); err != nil {
+				return nil, err
+			}
+		}
+
+		if et.WindowFunction.OutputType == nil {
+			return nil, fmt.Errorf("%w: window function missing output type", substraitgo.ErrInvalidExpr)
+		}
+
+		id, ok := reg.DecodeFunc(et.WindowFunction.FunctionReference)
+		if !ok {
+			return nil, substraitgo.ErrNotFound
+		}
+		decl, ok := reg.LookupWindowFunction(et.WindowFunction.FunctionReference)
+		if !ok {
+			fn, err := expr.NewCustomWindowFunc(reg, extensions.NewWindowFuncVariant(id), TypeFromProto(et.WindowFunction.OutputType),
+				FunctionOptionsFromProto(et.WindowFunction.Options), types.AggregationInvocation(et.WindowFunction.Invocation), types.AggregationPhase(et.WindowFunction.Phase), args...)
+			if err != nil {
+				return nil, err
+			}
+
+			fn.Partitions = parts
+			fn.Sorts = sorts
+			fn.LowerBound = BoundFromProto(et.WindowFunction.LowerBound)
+			fn.BoundsType = types.BoundsType(et.WindowFunction.BoundsType)
+			fn.UpperBound = BoundFromProto(et.WindowFunction.UpperBound)
+			return fn, nil
+		}
+
+		return expr.NewWindowFunctionFromParts(
+			et.WindowFunction.FunctionReference,
+			decl,
+			args,
+			FunctionOptionsFromProto(et.WindowFunction.Options),
+			TypeFromProto(et.WindowFunction.OutputType),
+			types.AggregationPhase(et.WindowFunction.Phase),
+			types.AggregationInvocation(et.WindowFunction.Invocation),
+			sorts,
+			parts,
+			types.BoundsType(et.WindowFunction.BoundsType),
+			BoundFromProto(et.WindowFunction.LowerBound),
+			BoundFromProto(et.WindowFunction.UpperBound),
 		), nil
 	case *proto.Expression_Enum_:
 		return nil, fmt.Errorf("%w: deprecated", substraitgo.ErrNotImplemented)

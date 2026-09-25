@@ -58,67 +58,6 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 	}
 
 	switch et := e.RexType.(type) {
-	case *proto.Expression_WindowFunction_:
-		var err error
-		args := make([]types.FuncArg, len(et.WindowFunction.Arguments))
-		for i, a := range et.WindowFunction.Arguments {
-			if args[i], err = FuncArgFromProto(a, baseSchema, reg); err != nil {
-				return nil, err
-			}
-		}
-
-		parts := make([]Expression, len(et.WindowFunction.Partitions))
-		for i, p := range et.WindowFunction.Partitions {
-			if parts[i], err = ExprFromProto(p, baseSchema, reg); err != nil {
-				return nil, err
-			}
-		}
-
-		sorts := make([]SortField, len(et.WindowFunction.Sorts))
-		for i, s := range et.WindowFunction.Sorts {
-			if sorts[i], err = SortFieldFromProto(s, baseSchema, reg); err != nil {
-				return nil, err
-			}
-		}
-
-		if et.WindowFunction.OutputType == nil {
-			return nil, fmt.Errorf("%w: window function missing output type", substraitgo.ErrInvalidExpr)
-		}
-
-		id, ok := reg.DecodeFunc(et.WindowFunction.FunctionReference)
-		if !ok {
-			return nil, substraitgo.ErrNotFound
-		}
-		decl, ok := reg.LookupWindowFunction(et.WindowFunction.FunctionReference)
-		if !ok {
-			fn, err := NewCustomWindowFunc(reg, extensions.NewWindowFuncVariant(id), types.TypeFromProto(et.WindowFunction.OutputType),
-				types.FunctionOptionsFromProto(et.WindowFunction.Options), types.AggregationInvocation(et.WindowFunction.Invocation), types.AggregationPhase(et.WindowFunction.Phase), args...)
-			if err != nil {
-				return nil, err
-			}
-
-			fn.Partitions = parts
-			fn.Sorts = sorts
-			fn.LowerBound = BoundFromProto(et.WindowFunction.LowerBound)
-			fn.BoundsType = types.BoundsType(et.WindowFunction.BoundsType)
-			fn.UpperBound = BoundFromProto(et.WindowFunction.UpperBound)
-			return fn, nil
-		}
-
-		return &WindowFunction{
-			funcRef:     et.WindowFunction.FunctionReference,
-			declaration: decl,
-			args:        args,
-			options:     types.FunctionOptionsFromProto(et.WindowFunction.Options),
-			outputType:  types.TypeFromProto(et.WindowFunction.OutputType),
-			phase:       types.AggregationPhase(et.WindowFunction.Phase),
-			invocation:  types.AggregationInvocation(et.WindowFunction.Invocation),
-			Partitions:  parts,
-			Sorts:       sorts,
-			BoundsType:  types.BoundsType(et.WindowFunction.BoundsType),
-			LowerBound:  BoundFromProto(et.WindowFunction.LowerBound),
-			UpperBound:  BoundFromProto(et.WindowFunction.UpperBound),
-		}, nil
 	case *proto.Expression_IfThen_:
 		elseExpr, err := ExprFromProto(et.IfThen.Else, baseSchema, reg)
 		if err != nil {
