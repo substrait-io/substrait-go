@@ -488,16 +488,6 @@ func TypeFromProto(t *proto.Type) Type {
 			TypeVariationRef: t.PrecisionTimestampTz.TypeVariationReference,
 			Precision:        precision,
 		}}
-	case *proto.Type_Func_:
-		params := make([]Type, len(t.Func.ParameterTypes))
-		for i, p := range t.Func.ParameterTypes {
-			params[i] = TypeFromProto(p)
-		}
-		return &FuncType{
-			Nullability:    Nullability(t.Func.Nullability),
-			ParameterTypes: params,
-			ReturnType:     TypeFromProto(t.Func.ReturnType),
-		}
 	case *proto.Type_List_:
 		return &ListType{
 			Nullability:      Nullability(t.List.Nullability),
@@ -796,8 +786,6 @@ func TypeToProto(t Type) *proto.Type {
 				Precision:              int32(t.Precision),
 				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
-	case *FuncType:
-		return t.ToProto()
 	case *ListType:
 		return t.ToProto()
 	case *MapType:
@@ -1286,20 +1274,6 @@ func (f *FuncType) Equals(rhs Type) bool {
 		return true
 	}
 	return false
-}
-
-func (f *FuncType) ToProto() *proto.Type {
-	params := make([]*proto.Type, len(f.ParameterTypes))
-	for i, p := range f.ParameterTypes {
-		params[i] = TypeToProto(p)
-	}
-
-	return &proto.Type{Kind: &proto.Type_Func_{
-		Func: &proto.Type_Func{
-			ParameterTypes: params,
-			ReturnType:     TypeToProto(f.ReturnType),
-			Nullability:    proto.Type_Nullability(f.Nullability),
-		}}}
 }
 
 func (f *FuncType) ToProtoFuncArg() *proto.FunctionArgument {

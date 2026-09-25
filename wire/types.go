@@ -123,6 +123,8 @@ func TypeToProto(t types.Type) *proto.Type {
 		return decimalTypeToProto(t)
 	case *types.StructType:
 		return structTypeToProto(t)
+	case *types.FuncType:
+		return funcTypeToProto(t)
 	}
 	panic("unimplemented type")
 }
@@ -145,6 +147,20 @@ func structTypeToProto(t *types.StructType) *proto.Type {
 		Struct: &proto.Type_Struct{Types: children,
 			TypeVariationReference: t.TypeVariationRef,
 			Nullability:            proto.Type_Nullability(t.Nullability)}}}
+}
+
+func funcTypeToProto(f *types.FuncType) *proto.Type {
+	params := make([]*proto.Type, len(f.ParameterTypes))
+	for i, p := range f.ParameterTypes {
+		params[i] = TypeToProto(p)
+	}
+
+	return &proto.Type{Kind: &proto.Type_Func_{
+		Func: &proto.Type_Func{
+			ParameterTypes: params,
+			ReturnType:     TypeToProto(f.ReturnType),
+			Nullability:    proto.Type_Nullability(f.Nullability),
+		}}}
 }
 
 // TypeParamToProto encodes a user-defined-type parameter.
@@ -362,6 +378,16 @@ func TypeFromProto(t *proto.Type) types.Type {
 			Nullability:      types.Nullability(t.Struct.Nullability),
 			TypeVariationRef: t.Struct.TypeVariationReference,
 			Types:            fields,
+		}
+	case *proto.Type_Func_:
+		params := make([]types.Type, len(t.Func.ParameterTypes))
+		for i, p := range t.Func.ParameterTypes {
+			params[i] = TypeFromProto(p)
+		}
+		return &types.FuncType{
+			Nullability:    types.Nullability(t.Func.Nullability),
+			ParameterTypes: params,
+			ReturnType:     TypeFromProto(t.Func.ReturnType),
 		}
 	}
 	panic("unimplemented type from proto")
