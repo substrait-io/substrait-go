@@ -116,19 +116,6 @@ func (n *NullLiteral) ValueString() string {
 }
 
 func (n *NullLiteral) GetType() types.Type { return n.Type }
-func (n *NullLiteral) ToProtoLiteral() *proto.Expression_Literal {
-	return &proto.Expression_Literal{
-		Nullable:               true,
-		TypeVariationReference: n.Type.GetTypeVariationReference(),
-		LiteralType:            &proto.Expression_Literal_Null{Null: types.TypeToProto(n.Type)},
-	}
-}
-
-func (n *NullLiteral) ToProto() *proto.Expression {
-	return &proto.Expression{
-		RexType: &proto.Expression_Literal_{Literal: n.ToProtoLiteral()},
-	}
-}
 
 func (n *NullLiteral) ToProtoFuncArg() *proto.FunctionArgument {
 	return &proto.FunctionArgument{
@@ -1155,8 +1142,6 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
 			}}
-	case *proto.Expression_Literal_Null:
-		return &NullLiteral{Type: types.TypeFromProto(lit.Null)}
 	case *proto.Expression_Literal_Struct_:
 		typeList := make([]types.Type, len(lit.Struct.Fields))
 		fields := make([]Literal, len(lit.Struct.Fields))
