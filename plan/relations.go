@@ -851,6 +851,10 @@ type FetchRel struct {
 	advExtension  *extensions.AdvancedExtension
 }
 
+func NewFetchRel(input Rel, offset, count expr.Expression, common RelCommon, advExtension *extensions.AdvancedExtension) *FetchRel {
+	return &FetchRel{RelCommon: common, input: input, offset: offset, count: count, advExtension: advExtension}
+}
+
 func (f *FetchRel) directOutputSchema() types.RecordType { return f.input.RecordType() }
 func (f *FetchRel) RecordType() types.RecordType {
 	return f.remap(f.directOutputSchema())
@@ -870,29 +874,6 @@ func (f *FetchRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtensi
 	existing := f.advExtension
 	f.advExtension = advExtension
 	return existing
-}
-
-func (f *FetchRel) ToProto() *proto.Rel {
-	fetchRel := &proto.FetchRel{
-		Common:            f.toProto(),
-		Input:             f.input.ToProto(),
-		AdvancedExtension: extensions.AdvancedExtensionToProto(f.advExtension),
-	}
-	if f.offset != nil {
-		fetchRel.OffsetMode = &proto.FetchRel_OffsetExpr{OffsetExpr: f.offset.ToProto()}
-	}
-	if f.count != nil {
-		fetchRel.CountMode = &proto.FetchRel_CountExpr{CountExpr: f.count.ToProto()}
-	}
-	return &proto.Rel{RelType: &proto.Rel_Fetch{Fetch: fetchRel}}
-}
-
-func (f *FetchRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: f.ToProto(),
-		},
-	}
 }
 
 func (f *FetchRel) GetInputs() []Rel {
