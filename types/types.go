@@ -457,13 +457,6 @@ func TypeFromProto(t *proto.Type) Type {
 			typeVariationRef: t.IntervalCompound.TypeVariationReference,
 			precision:        precision,
 		}
-	case *proto.Type_Decimal_:
-		return &DecimalType{
-			Nullability:      Nullability(t.Decimal.Nullability),
-			TypeVariationRef: t.Decimal.TypeVariationReference,
-			Scale:            t.Decimal.Scale,
-			Precision:        t.Decimal.Precision,
-		}
 	case *proto.Type_PrecisionTime_:
 		precision, err := ProtoToTimePrecision(t.PrecisionTime.Precision)
 		if err != nil {
@@ -794,8 +787,6 @@ func TypeToProto(t Type) *proto.Type {
 				Precision:              precision,
 				Nullability:            proto.Type_Nullability(t.nullability),
 				TypeVariationReference: t.typeVariationRef}}}
-	case *DecimalType:
-		return t.ToProto()
 	case *PrecisionTimeType:
 		return &proto.Type{Kind: &proto.Type_PrecisionTime_{
 			PrecisionTime: &proto.Type_PrecisionTime{
@@ -1123,14 +1114,6 @@ func (s *DecimalType) ToProtoFuncArg() *proto.FunctionArgument {
 	return &proto.FunctionArgument{
 		ArgType: &proto.FunctionArgument_Type{Type: s.ToProto()},
 	}
-}
-
-func (s *DecimalType) ToProto() *proto.Type {
-	return &proto.Type{Kind: &proto.Type_Decimal_{
-		Decimal: &proto.Type_Decimal{
-			Scale: s.Scale, Precision: s.Precision,
-			Nullability:            proto.Type_Nullability(s.Nullability),
-			TypeVariationReference: s.TypeVariationRef}}}
 }
 
 func (*DecimalType) ShortString() string { return "dec" }
