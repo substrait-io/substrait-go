@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/v9/types"
+	"github.com/substrait-io/substrait-go/v9/wire"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
@@ -62,9 +63,9 @@ func TestIntervalDayToSecondMatchesDescriptor(t *testing.T) {
 func TestIntervalDayToSecondRoundTrip(t *testing.T) {
 	t.Run("precision round trip", func(t *testing.T) {
 		in := &types.IntervalDayToSecond{Days: 1, Seconds: 2, Subseconds: 3, Precision: types.PrecisionNanoSeconds}
-		p := types.IntervalDayToSecondToProto(in)
+		p := wire.IntervalDayToSecondToProto(in)
 		require.IsType(t, &proto.Expression_Literal_IntervalDayToSecond_Precision{}, p.PrecisionMode)
-		got, err := types.IntervalDayToSecondFromProto(p)
+		got, err := wire.IntervalDayToSecondFromProto(p)
 		require.NoError(t, err)
 		assert.Equal(t, in, got)
 	})
@@ -76,7 +77,7 @@ func TestIntervalDayToSecondRoundTrip(t *testing.T) {
 			Seconds:       5,
 			PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Microseconds{Microseconds: 7},
 		}
-		got, err := types.IntervalDayToSecondFromProto(p)
+		got, err := wire.IntervalDayToSecondFromProto(p)
 		require.NoError(t, err)
 		assert.Equal(t,
 			&types.IntervalDayToSecond{Days: 4, Seconds: 5, Subseconds: 7, Precision: types.PrecisionMicroSeconds},
@@ -87,12 +88,12 @@ func TestIntervalDayToSecondRoundTrip(t *testing.T) {
 	// decoding must fail rather than guess.
 	t.Run("absent precision_mode is rejected", func(t *testing.T) {
 		p := &proto.Expression_Literal_IntervalDayToSecond{Days: 1, Seconds: 2, Subseconds: 3}
-		_, err := types.IntervalDayToSecondFromProto(p)
+		_, err := wire.IntervalDayToSecondFromProto(p)
 		assert.Error(t, err)
 	})
 
-	assert.Nil(t, types.IntervalDayToSecondToProto(nil))
-	got, err := types.IntervalDayToSecondFromProto(nil)
+	assert.Nil(t, wire.IntervalDayToSecondToProto(nil))
+	got, err := wire.IntervalDayToSecondFromProto(nil)
 	require.NoError(t, err)
 	assert.Nil(t, got)
 

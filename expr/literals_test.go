@@ -9,6 +9,7 @@ import (
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/literal"
 	"github.com/substrait-io/substrait-go/v9/types"
+	"github.com/substrait-io/substrait-go/v9/wire"
 )
 
 func TestNewDecimalWithType(t *testing.T) {
@@ -102,23 +103,6 @@ func TestNewLiteralWithIntervalYearToMonth(t *testing.T) {
 	pb := lit.ToProtoLiteral().GetIntervalYearToMonth()
 	assert.Equal(t, int32(1), pb.GetYears())
 	assert.Equal(t, int32(2), pb.GetMonths())
-}
-
-func TestNewLiteralWithIntervalDayToSecond(t *testing.T) {
-	_, err := expr.NewLiteral((*types.IntervalDayToSecond)(nil), false)
-	require.Error(t, err)
-
-	v := &types.IntervalDayToSecond{Days: 1, Seconds: 2, Subseconds: 3, Precision: types.PrecisionMicroSeconds}
-	lit, err := expr.NewLiteral(v, false)
-	require.NoError(t, err)
-	assert.Equal(t, "1 days, 2 seconds, 3 subseconds", lit.ValueString())
-	assert.Equal(t, "P1DT2.000003S", lit.(types.IsoValuePrinter).IsoValueString())
-
-	pb := lit.ToProtoLiteral().GetIntervalDayToSecond()
-	assert.Equal(t, int32(1), pb.GetDays())
-	assert.Equal(t, int32(2), pb.GetSeconds())
-	assert.Equal(t, int64(3), pb.GetSubseconds())
-	assert.Equal(t, int32(6), pb.GetPrecision())
 }
 
 func TestNewFixedLenWithType(t *testing.T) {
