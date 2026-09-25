@@ -380,14 +380,6 @@ func (ex *IfThen) String() string {
 	return b.String()
 }
 
-func (ex *IfThen) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Value{
-			Value: ex.ToProto(),
-		},
-	}
-}
-
 func (ex *IfThen) isRootRef() {}
 
 func (ex *IfThen) IsScalar() bool {
@@ -489,12 +481,6 @@ func (ex *Cast) String() string {
 		ex.Input, ex.Type, ex.FailureBehavior)
 }
 
-func (ex *Cast) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Value{Value: ex.ToProto()},
-	}
-}
-
 func (ex *Cast) isRootRef() {}
 
 func (ex *Cast) IsScalar() bool {
@@ -544,14 +530,6 @@ type DynamicParameter struct {
 
 func (dp *DynamicParameter) String() string {
 	return fmt.Sprintf("$%d:%s", dp.ParameterReference, dp.OutputType)
-}
-
-func (dp *DynamicParameter) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Value{
-			Value: dp.ToProto(),
-		},
-	}
 }
 
 func (dp *DynamicParameter) isRootRef() {}
@@ -684,14 +662,6 @@ func (ex *SwitchExpr) String() string {
 		b.WriteString(ex.elseClause.String())
 	}
 	return b.String()
-}
-
-func (ex *SwitchExpr) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Value{
-			Value: ex.ToProto(),
-		},
-	}
 }
 
 func (ex *SwitchExpr) isRootRef() {}
@@ -862,14 +832,6 @@ func (ex *SingularOrList) String() string {
 	return b.String()
 }
 
-func (ex *SingularOrList) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Value{
-			Value: ex.ToProto(),
-		},
-	}
-}
-
 func (ex *SingularOrList) isRootRef() {}
 
 func (ex *SingularOrList) IsScalar() bool {
@@ -975,14 +937,6 @@ func (ex *MultiOrList) String() string {
 	b.WriteString("]")
 
 	return b.String()
-}
-
-func (ex *MultiOrList) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Value{
-			Value: ex.ToProto(),
-		},
-	}
 }
 
 func (ex *MultiOrList) isRootRef() {}
@@ -1138,14 +1092,6 @@ func (ex *MapExpr) String() string {
 	return b.String()
 }
 
-func (ex *MapExpr) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Value{
-			Value: ex.ToProto(),
-		},
-	}
-}
-
 func (ex *MapExpr) isRootRef() {}
 
 func (ex *MapExpr) IsScalar() bool {
@@ -1265,14 +1211,6 @@ func (ex *StructExpr) String() string {
 	fmt.Fprintf(&b, "(typeref=%d)", ex.TypeVariationRef)
 	return b.String()
 }
-
-func (ex *StructExpr) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Value{
-			Value: ex.ToProto(),
-		},
-	}
-}
 func (ex *StructExpr) isRootRef() {}
 
 func (ex *StructExpr) IsScalar() bool {
@@ -1383,14 +1321,6 @@ func (ex *ListExpr) String() string {
 	}
 	fmt.Fprintf(&b, "(typeref=%d)", ex.TypeVariationRef)
 	return b.String()
-}
-
-func (ex *ListExpr) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Value{
-			Value: ex.ToProto(),
-		},
-	}
 }
 func (ex *ListExpr) isRootRef() {}
 
