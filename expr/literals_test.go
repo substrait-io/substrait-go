@@ -9,6 +9,7 @@ import (
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/literal"
 	"github.com/substrait-io/substrait-go/v9/types"
+	"github.com/substrait-io/substrait-go/v9/wire"
 )
 
 func TestNewDecimalWithType(t *testing.T) {
@@ -114,7 +115,7 @@ func TestNewLiteralWithIntervalDayToSecond(t *testing.T) {
 	assert.Equal(t, "1 days, 2 seconds, 3 subseconds", lit.ValueString())
 	assert.Equal(t, "P1DT2.000003S", lit.(types.IsoValuePrinter).IsoValueString())
 
-	pb := lit.ToProtoLiteral().GetIntervalDayToSecond()
+	pb := wire.LiteralToProto(lit).GetIntervalDayToSecond()
 	assert.Equal(t, int32(1), pb.GetDays())
 	assert.Equal(t, int32(2), pb.GetSeconds())
 	assert.Equal(t, int64(3), pb.GetSubseconds())
