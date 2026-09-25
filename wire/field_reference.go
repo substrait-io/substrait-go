@@ -93,6 +93,8 @@ func maskSelectToProto(s expr.MaskSelect) *proto.Expression_MaskExpression_Selec
 		}
 	case *expr.MaskListSelect:
 		return maskListSelectToProto(s)
+	case *expr.MaskMapSelect:
+		return maskMapSelectToProto(s)
 	default:
 		panic(fmt.Sprintf("wire: unhandled mask selection %T", s))
 	}
@@ -148,6 +150,26 @@ func maskListSelectItemToProto(s expr.MaskListSelectItem) *proto.Expression_Mask
 	default:
 		panic(fmt.Sprintf("wire: unhandled mask selection %T", s))
 	}
+}
+
+func maskMapSelectToProto(m *expr.MaskMapSelect) *proto.Expression_MaskExpression_Select {
+	mapSelect := &proto.Expression_MaskExpression_Select_Map{
+		Map: &proto.Expression_MaskExpression_MapSelect{
+			Child: maskSelectToProto(m.Child()),
+		},
+	}
+
+	if m.KeyKind() == expr.MapSelectKey {
+		mapSelect.Map.Select = &proto.Expression_MaskExpression_MapSelect_Key{
+			Key: &proto.Expression_MaskExpression_MapSelect_MapKey{MapKey: m.Key()},
+		}
+	} else {
+		mapSelect.Map.Select = &proto.Expression_MaskExpression_MapSelect_Expression{
+			Expression: &proto.Expression_MaskExpression_MapSelect_MapKeyExpression{MapKeyExpression: m.Key()},
+		}
+	}
+
+	return &proto.Expression_MaskExpression_Select{Type: mapSelect}
 }
 
 // RefSegmentFromProto decodes a reference segment from its protobuf message.
@@ -213,6 +235,19 @@ func maskSelectFromProto(p *proto.Expression_MaskExpression_Select) expr.MaskSel
 			}
 		}
 		return expr.NewMaskListSelect(selection, maskSelectFromProto(s.List.Child))
+	case *proto.Expression_MaskExpression_Select_Map:
+		var child expr.MaskSelect
+		if s.Map.Child != nil {
+			child = maskSelectFromProto(s.Map.Child)
+		}
+
+		switch sk := s.Map.Select.(type) {
+		case *proto.Expression_MaskExpression_MapSelect_Expression:
+			return expr.NewMaskMapSelect(expr.MapSelectExpr, sk.Expression.MapKeyExpression, child)
+		case *proto.Expression_MaskExpression_MapSelect_Key:
+			return expr.NewMaskMapSelect(expr.MapSelectKey, sk.Key.MapKey, child)
+		}
+		return expr.NewMaskMapSelect(expr.MapSelectKey, "", child)
 	}
 	panic("unimplemented mask select type")
 }
