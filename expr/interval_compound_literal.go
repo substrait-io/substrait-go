@@ -37,11 +37,5 @@ func (m IntervalCompoundLiteral) Equals(rhs Expression) bool {
 	return false
 }
 
-func (m IntervalCompoundLiteral) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Value{Value: m.ToProto()},
-	}
-}
-
 func (m IntervalCompoundLiteral) Visit(VisitFunc) Expression { return m }
 func (IntervalCompoundLiteral) IsScalar() bool               { return true }

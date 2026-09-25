@@ -32,12 +32,6 @@ func (m *IntervalDayType) Equals(rhs Type) bool {
 	return false
 }
 
-func (m *IntervalDayType) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Type{Type: m.ToProto()},
-	}
-}
-
 func (*IntervalDayType) ShortString() string { return shortTypeNames[TypeNameIntervalDay] }
 
 func (m *IntervalDayType) String() string {
