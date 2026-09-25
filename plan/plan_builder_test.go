@@ -146,31 +146,6 @@ func TestFailedMappingOfMapping(t *testing.T) {
 	assert.ErrorContains(t, err, "output mapping index out of range")
 }
 
-func checkRoundTrip(t *testing.T, expectedJSON string, p *plan.Plan) {
-	t.Helper()
-	protoPlan, err := p.ToProto()
-	require.NoError(t, err)
-
-	var expectedProto substraitproto.Plan
-	require.NoError(t, protojson.Unmarshal([]byte(expectedJSON), &expectedProto))
-
-	// Equalize producer field; it may differ between golden JSON and protoPlan
-	// depending on which OS (GOOS, ARCH, and the like) this test runs.
-	protoPlan.Version.Producer = expectedProto.Version.Producer
-
-	assert.Truef(t, proto.Equal(&expectedProto, protoPlan), "JSON expected: %s\ngot: %s",
-		protojson.Format(&expectedProto), protojson.Format(protoPlan))
-
-	roundTrip, err := plan.FromProto(&expectedProto, extensions.GetDefaultCollectionWithNoError())
-	require.NoError(t, err)
-
-	roundTripProto, err := roundTrip.ToProto()
-	require.NoError(t, err)
-
-	assert.Truef(t, proto.Equal(protoPlan, roundTripProto), "plan expected: %s\ngot: %s",
-		protojson.Format(protoPlan), protojson.Format(roundTripProto))
-}
-
 func TestAggregateRelPlan(t *testing.T) {
 	const expectedJSON = `{
 		` + versionStruct + `,
@@ -1621,45 +1596,6 @@ func TestSetRelations(t *testing.T) {
 	checkRoundTrip(t, expectedJSON, p)
 }
 
-func TestColumnlessVirtualTable(t *testing.T) {
-	const expectedJSON = `{
-		` + versionStruct + `,
-		"relations": [
-			{
-				"root": {
-					"input": {
-						"read": {
-							"common": {"direct":{}},
-							"baseSchema": {
-								"struct": {
-									"nullability": "NULLABILITY_REQUIRED"
-								}
-							},
-							"virtualTable": {
-								"expressions": [
-									{},
-									{},
-									{}
-								]
-							}
-						}
-					}
-				}
-			}
-		]
-	}`
-
-	b := plan.NewBuilderDefault()
-
-	virtual, err := b.VirtualTable(nil, make([]expr.StructLiteralValue, 3)...)
-	require.NoError(t, err)
-
-	p, err := b.Plan(virtual, []string{})
-	require.NoError(t, err)
-
-	checkRoundTrip(t, expectedJSON, p)
-}
-
 func TestVirtualTable(t *testing.T) {
 	b := plan.NewBuilderDefault()
 	fieldNames := []string{"col0", "col1"}
@@ -1676,45 +1612,6 @@ func TestVirtualTable(t *testing.T) {
 	vtRemap, err := vt.Remap(1)
 	require.NoError(t, err)
 	assert.Equal(t, "struct<string>", vtRemap.RecordType().String())
-}
-
-func TestEmptyVirtualTable(t *testing.T) {
-	const expectedJSON = `{
-		` + versionStruct + `,
-		"relations": [
-			{
-				"root": {
-					"input": {
-						"read": {
-							"common": {"direct":{}},
-							"baseSchema": {
-								"names": ["i"],
-								"struct": {
-									"types": [
-										{"i32": {"nullability": "NULLABILITY_REQUIRED"}}
-									],
-									"nullability": "NULLABILITY_REQUIRED"
-								}
-							},
-							"virtualTable": {}
-						}
-					},
-					"names": ["i"]
-				}
-			}
-		]
-	}`
-
-	b := plan.NewBuilderDefault()
-
-	i32Type := types.Int32Type{Nullability: types.NullabilityRequired}
-	virtual, err := b.EmptyVirtualTable([]string{"i"}, []types.Type{&i32Type})
-	require.NoError(t, err)
-
-	p, err := b.Plan(virtual, []string{"i"})
-	require.NoError(t, err)
-
-	checkRoundTrip(t, expectedJSON, p)
 }
 
 func TestSetRelErrors(t *testing.T) {

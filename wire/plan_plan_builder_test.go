@@ -1,0 +1,160 @@
+// SPDX-License-Identifier: Apache-2.0
+
+package wire_test
+
+import (
+	"encoding/json"
+	"fmt"
+	"strconv"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/substrait-io/substrait-go/v9/expr"
+	"github.com/substrait-io/substrait-go/v9/extensions"
+	"github.com/substrait-io/substrait-go/v9/plan"
+	"github.com/substrait-io/substrait-go/v9/types"
+	"github.com/substrait-io/substrait-go/v9/wire"
+	substraitproto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
+)
+
+const versionStruct = `"version": {
+	"majorNumber": 0,
+	"minorNumber": 29,
+	"patchNumber": 0,
+	"producer": "substrait-go"
+}`
+
+var baseSchema = types.NamedStruct{Names: []string{"a", "b"},
+	Struct: types.StructType{
+		Nullability: types.NullabilityRequired,
+		Types: []types.Type{
+			&types.StringType{Nullability: types.NullabilityRequired},
+			&types.Float32Type{Nullability: types.NullabilityRequired},
+		},
+	}}
+
+var baseSchema2 = types.NamedStruct{Names: []string{"x", "y"},
+	Struct: types.StructType{
+		Nullability: types.NullabilityRequired,
+		Types: []types.Type{
+			&types.Int32Type{Nullability: types.NullabilityRequired},
+			&types.BooleanType{Nullability: types.NullabilityRequired},
+		},
+	}}
+
+var baseSchemaReverse = types.NamedStruct{Names: []string{"x", "y"},
+	Struct: types.StructType{
+		Nullability: types.NullabilityRequired,
+		Types: []types.Type{
+			&types.Float32Type{Nullability: types.NullabilityRequired},
+			&types.StringType{Nullability: types.NullabilityRequired},
+		},
+	}}
+
+func checkRoundTrip(t *testing.T, expectedJSON string, p *plan.Plan) {
+	t.Helper()
+	protoPlan, err := wire.PlanToProto(p)
+	require.NoError(t, err)
+
+	var expectedProto substraitproto.Plan
+	require.NoError(t, protojson.Unmarshal([]byte(expectedJSON), &expectedProto))
+
+	// Equalize producer field; it may differ between golden JSON and protoPlan
+	// depending on which OS (GOOS, ARCH, and the like) this test runs.
+	protoPlan.Version.Producer = expectedProto.Version.Producer
+
+	assert.Truef(t, proto.Equal(&expectedProto, protoPlan), "JSON expected: %s\ngot: %s",
+		protojson.Format(&expectedProto), protojson.Format(protoPlan))
+
+	roundTrip, err := wire.PlanFromProto(&expectedProto, extensions.GetDefaultCollectionWithNoError())
+	require.NoError(t, err)
+
+	roundTripProto, err := wire.PlanToProto(roundTrip)
+	require.NoError(t, err)
+
+	assert.Truef(t, proto.Equal(protoPlan, roundTripProto), "plan expected: %s\ngot: %s",
+		protojson.Format(protoPlan), protojson.Format(roundTripProto))
+}
+
+func TestColumnlessVirtualTable(t *testing.T) {
+	const expectedJSON = `{
+		` + versionStruct + `,
+		"relations": [
+			{
+				"root": {
+					"input": {
+						"read": {
+							"common": {"direct":{}},
+							"baseSchema": {
+								"struct": {
+									"nullability": "NULLABILITY_REQUIRED"
+								}
+							},
+							"virtualTable": {
+								"expressions": [
+									{},
+									{},
+									{}
+								]
+							}
+						}
+					}
+				}
+			}
+		]
+	}`
+
+	b := plan.NewBuilderDefault()
+
+	virtual, err := b.VirtualTable(nil, make([]expr.StructLiteralValue, 3)...)
+	require.NoError(t, err)
+
+	p, err := b.Plan(virtual, []string{})
+	require.NoError(t, err)
+
+	checkRoundTrip(t, expectedJSON, p)
+}
+
+func TestEmptyVirtualTable(t *testing.T) {
+	const expectedJSON = `{
+		` + versionStruct + `,
+		"relations": [
+			{
+				"root": {
+					"input": {
+						"read": {
+							"common": {"direct":{}},
+							"baseSchema": {
+								"names": ["i"],
+								"struct": {
+									"types": [
+										{"i32": {"nullability": "NULLABILITY_REQUIRED"}}
+									],
+									"nullability": "NULLABILITY_REQUIRED"
+								}
+							},
+							"virtualTable": {}
+						}
+					},
+					"names": ["i"]
+				}
+			}
+		]
+	}`
+
+	b := plan.NewBuilderDefault()
+
+	i32Type := types.Int32Type{Nullability: types.NullabilityRequired}
+	virtual, err := b.EmptyVirtualTable([]string{"i"}, []types.Type{&i32Type})
+	require.NoError(t, err)
+
+	p, err := b.Plan(virtual, []string{"i"})
+	require.NoError(t, err)
+
+	checkRoundTrip(t, expectedJSON, p)
+}

@@ -19,6 +19,8 @@ func RelToProto(rel plan.Rel) *proto.Rel {
 	switch r := rel.(type) {
 	case *plan.NamedTableReadRel:
 		return namedTableReadRelToProto(r)
+	case *plan.VirtualTableReadRel:
+		return virtualTableReadRelToProto(r)
 	default:
 		panic(fmt.Sprintf("wire: unhandled relation %T", rel))
 	}
@@ -56,6 +58,18 @@ func namedTableReadRelToProto(n *plan.NamedTableReadRel) *proto.Rel {
 			Names:             n.Names(),
 			AdvancedExtension: advancedExtensionToProto(n.NamedTableAdvancedExtension()),
 		},
+	}
+	return &proto.Rel{RelType: &proto.Rel_Read{Read: readRel}}
+}
+
+func virtualTableReadRelToProto(v *plan.VirtualTableReadRel) *proto.Rel {
+	readRel := baseReadRelToProto(&v.RelCommon, v.GetAdvancedExtension(), v)
+	values := make([]*proto.Expression_Nested_Struct, len(v.Values()))
+	for i, val := range v.Values() {
+		values[i] = VirtualTableExpressionValueToProto(val)
+	}
+	readRel.ReadType = &proto.ReadRel_VirtualTable_{
+		VirtualTable: &proto.ReadRel_VirtualTable{Expressions: values},
 	}
 	return &proto.Rel{RelType: &proto.Rel_Read{Read: readRel}}
 }
@@ -116,8 +130,26 @@ func readRelBaseFromProto(rel *proto.ReadRel, reg expr.ExtensionRegistry) (decod
 // fileOrFilesFromProto decodes a single local-file item.
 
 // virtualTableExpressionFromProto decodes an expression-valued virtual table row.
+func virtualTableExpressionFromProto(s *proto.Expression_Nested_Struct, reg expr.ExtensionRegistry) (expr.VirtualTableExpressionValue, error) {
+	fields := make(expr.VirtualTableExpressionValue, len(s.Fields))
+	for i, f := range s.Fields {
+		val, err := ExprFromProto(f, nil, reg)
+		if err != nil {
+			return nil, err
+		}
+		fields[i] = val
+	}
+	return fields, nil
+}
 
 // virtualTableExprFromLiteralProto decodes a literal-valued virtual table row.
+func virtualTableExprFromLiteralProto(s *proto.Expression_Literal_Struct) expr.VirtualTableExpressionValue {
+	fields := make(expr.VirtualTableExpressionValue, len(s.Fields))
+	for i, f := range s.Fields {
+		fields[i] = LiteralFromProto(f)
+	}
+	return fields
+}
 
 // RelFromProto decodes a relation and all of its inputs from protobuf.
 func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) {
@@ -133,6 +165,24 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 			advExtension := advancedExtensionFromProto(readType.NamedTable.AdvancedExtension)
 			build = func(b decodedReadRelBase) plan.Rel {
 				return plan.NewNamedTableReadRel(plan.NewBaseReadRel(b.common, b.baseSchema, b.filter, b.bestEffortFilter, b.projection, b.advExtension), names, advExtension)
+			}
+		case *proto.ReadRel_VirtualTable_:
+			if len(readType.VirtualTable.Values) > 0 && len(readType.VirtualTable.Expressions) > 0 {
+				return nil, fmt.Errorf("VirtualTable cannot declare both Values and Expressions")
+			}
+			var values []expr.VirtualTableExpressionValue
+			for _, v := range readType.VirtualTable.Values {
+				values = append(values, virtualTableExprFromLiteralProto(v))
+			}
+			for _, v := range readType.VirtualTable.Expressions {
+				row, err := virtualTableExpressionFromProto(v, reg)
+				if err != nil {
+					return nil, err
+				}
+				values = append(values, row)
+			}
+			build = func(b decodedReadRelBase) plan.Rel {
+				return plan.NewVirtualTableReadRel(plan.NewBaseReadRel(b.common, b.baseSchema, b.filter, b.bestEffortFilter, b.projection, b.advExtension), values)
 			}
 		default:
 			return nil, fmt.Errorf("%w: unknown ReadRel type", substraitgo.ErrInvalidRel)
