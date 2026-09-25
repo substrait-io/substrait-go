@@ -51,20 +51,6 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 		nullable, typevar := et.Nested.Nullable, et.Nested.TypeVariationReference
 
 		switch n := et.Nested.NestedType.(type) {
-		case *proto.Expression_Nested_Struct_:
-			fields := make([]Expression, len(n.Struct.Fields))
-			for i, f := range n.Struct.Fields {
-				fields[i], err = ExprFromProto(f, baseSchema, reg)
-				if err != nil {
-					return nil, err
-				}
-			}
-
-			return &StructExpr{
-				Nullable:         nullable,
-				TypeVariationRef: typevar,
-				Fields:           fields,
-			}, nil
 		case *proto.Expression_Nested_List_:
 			if len(n.List.Values) == 0 {
 				return nil, fmt.Errorf("%w: use an empty list literal to preserve type info instead of nested expression",
@@ -946,6 +932,7 @@ func (ex *StructExpr) String() string {
 	fmt.Fprintf(&b, "(typeref=%d)", ex.TypeVariationRef)
 	return b.String()
 }
+
 func (ex *StructExpr) isRootRef() {}
 
 func (ex *StructExpr) IsScalar() bool {
@@ -966,26 +953,6 @@ func (ex *StructExpr) GetType() types.Type {
 		Nullability:      getNullability(ex.Nullable),
 		TypeVariationRef: ex.TypeVariationRef,
 		Types:            typs,
-	}
-}
-
-func (ex *StructExpr) ToProto() *proto.Expression {
-	fields := make([]*proto.Expression, len(ex.Fields))
-	for i, f := range ex.Fields {
-		fields[i] = f.ToProto()
-	}
-	return &proto.Expression{
-		RexType: &proto.Expression_Nested_{
-			Nested: &proto.Expression_Nested{
-				Nullable:               ex.Nullable,
-				TypeVariationReference: ex.TypeVariationRef,
-				NestedType: &proto.Expression_Nested_Struct_{
-					Struct: &proto.Expression_Nested_Struct{
-						Fields: fields,
-					},
-				},
-			},
-		},
 	}
 }
 
