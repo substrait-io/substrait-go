@@ -46,34 +46,6 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 	}
 
 	switch et := e.RexType.(type) {
-	case *proto.Expression_SwitchExpression_:
-		matched, err := ExprFromProto(et.SwitchExpression.Match, baseSchema, reg)
-		if err != nil {
-			return nil, err
-		}
-
-		elseExpr, err := ExprFromProto(et.SwitchExpression.Else, baseSchema, reg)
-		if err != nil {
-			return nil, err
-		}
-
-		ifs := make([]struct {
-			If   Literal
-			Then Expression
-		}, len(et.SwitchExpression.Ifs))
-		for i, clause := range et.SwitchExpression.Ifs {
-			ifs[i].If = LiteralFromProto(clause.If)
-			ifs[i].Then, err = ExprFromProto(clause.Then, baseSchema, reg)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		return &SwitchExpr{
-			match:      matched,
-			ifs:        ifs,
-			elseClause: elseExpr,
-		}, nil
 	case *proto.Expression_SingularOrList_:
 		val, err := ExprFromProto(et.SingularOrList.Value, baseSchema, reg)
 		if err != nil {
@@ -540,6 +512,13 @@ func NewSwitch(match Expression, elseClause Expression, switchCases ...struct {
 	}, nil
 }
 
+func NewSwitchExprFromParts(match Expression, ifs []struct {
+	If   Literal
+	Then Expression
+}, elseClause Expression) *SwitchExpr {
+	return &SwitchExpr{match: match, ifs: ifs, elseClause: elseClause}
+}
+
 func (ex *SwitchExpr) MatchExpr() Expression { return ex.match }
 
 // NCases returns the number of case statements in this switch, not including
@@ -621,31 +600,6 @@ func (ex *SwitchExpr) GetType() types.Type {
 
 	// if no branch returns nullable, just return the else clause type
 	return ex.elseClause.GetType()
-}
-
-func (ex *SwitchExpr) ToProto() *proto.Expression {
-	var elseExpr *proto.Expression
-	if ex.elseClause != nil {
-		elseExpr = ex.elseClause.ToProto()
-	}
-
-	cases := make([]*proto.Expression_SwitchExpression_IfValue, len(ex.ifs))
-	for i, c := range ex.ifs {
-		cases[i] = &proto.Expression_SwitchExpression_IfValue{
-			If:   c.If.ToProtoLiteral(),
-			Then: c.Then.ToProto(),
-		}
-	}
-
-	return &proto.Expression{
-		RexType: &proto.Expression_SwitchExpression_{
-			SwitchExpression: &proto.Expression_SwitchExpression{
-				Match: ex.match.ToProto(),
-				Ifs:   cases,
-				Else:  elseExpr,
-			},
-		},
-	}
 }
 
 func (ex *SwitchExpr) Equals(other Expression) bool {
