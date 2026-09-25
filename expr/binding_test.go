@@ -30,18 +30,9 @@ var (
 	rankID = extensions.FunctionID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
 		Name: "rank"}
-	firstValueID = extensions.FunctionID{
-		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
-		Name: "first_value"}
 	extractID = extensions.FunctionID{
 		URN:  extensions.SubstraitDefaultURNPrefix + "functions_datetime",
 		Name: "extract"}
-	ntileID = extensions.FunctionID{
-		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
-		Name: "ntile"}
-	sumID = extensions.FunctionID{
-		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
-		Name: "sum"}
 
 	boringSchema = types.NamedStruct{
 		Names: []string{
