@@ -96,6 +96,11 @@ func TypeToProto(t types.Type) *proto.Type {
 			Timestamp: &proto.Type_Timestamp{
 				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
+	case *types.UUIDType:
+		return &proto.Type{Kind: &proto.Type_Uuid{
+			Uuid: &proto.Type_UUID{
+				Nullability:            proto.Type_Nullability(t.Nullability),
+				TypeVariationReference: t.TypeVariationRef}}}
 	}
 	panic("unimplemented type")
 }
@@ -275,6 +280,11 @@ func TypeFromProto(t *proto.Type) types.Type {
 		return &types.TimestampTzType{
 			Nullability:      types.Nullability(t.TimestampTz.Nullability),
 			TypeVariationRef: t.TimestampTz.TypeVariationReference,
+		}
+	case *proto.Type_Uuid:
+		return &types.UUIDType{
+			Nullability:      types.Nullability(t.Uuid.Nullability),
+			TypeVariationRef: t.Uuid.TypeVariationReference,
 		}
 	}
 	panic("unimplemented type from proto")
