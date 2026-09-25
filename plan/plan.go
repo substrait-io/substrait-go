@@ -485,24 +485,6 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 		out.fromProtoCommon(rel.ExtensionLeaf.Common)
 
 		return out, nil
-	case *proto.Rel_Cross:
-		left, err := RelFromProto(rel.Cross.Left, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting left input to CrossRel: %w", err)
-		}
-
-		right, err := RelFromProto(rel.Cross.Right, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting right input to CrossRel: %w", err)
-		}
-
-		out := &CrossRel{
-			left:         left,
-			right:        right,
-			advExtension: extensions.AdvancedExtensionFromProto(rel.Cross.AdvancedExtension),
-		}
-		out.fromProtoCommon(rel.Cross.Common)
-		return out, nil
 	case *proto.Rel_HashJoin:
 		left, err := RelFromProto(rel.HashJoin.Left, reg)
 		if err != nil {

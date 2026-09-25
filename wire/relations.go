@@ -39,6 +39,8 @@ func RelToProto(rel plan.Rel) *proto.Rel {
 		return sortRelToProto(r)
 	case *plan.SetRel:
 		return setRelToProto(r)
+	case *plan.CrossRel:
+		return crossRelToProto(r)
 	default:
 		panic(fmt.Sprintf("wire: unhandled relation %T", rel))
 	}
@@ -326,6 +328,19 @@ func setRelToProto(s *plan.SetRel) *proto.Rel {
 				Inputs:            inputs,
 				Op:                proto.SetRel_SetOp(s.Op()),
 				AdvancedExtension: advancedExtensionToProto(s.GetAdvancedExtension()),
+			},
+		},
+	}
+}
+
+func crossRelToProto(c *plan.CrossRel) *proto.Rel {
+	return &proto.Rel{
+		RelType: &proto.Rel_Cross{
+			Cross: &proto.CrossRel{
+				Common:            relCommonToProto(&c.RelCommon),
+				Left:              RelToProto(c.Left()),
+				Right:             RelToProto(c.Right()),
+				AdvancedExtension: advancedExtensionToProto(c.GetAdvancedExtension()),
 			},
 		},
 	}
@@ -703,6 +718,19 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 
 		common := relCommonFromProto(rel.Set.Common)
 		return plan.NewSetRel(inputs, plan.SetOp(rel.Set.Op), common, advancedExtensionFromProto(rel.Set.AdvancedExtension)), nil
+	case *proto.Rel_Cross:
+		left, err := RelFromProto(rel.Cross.Left, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error getting left input to CrossRel: %w", err)
+		}
+
+		right, err := RelFromProto(rel.Cross.Right, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error getting right input to CrossRel: %w", err)
+		}
+
+		common := relCommonFromProto(rel.Cross.Common)
+		return plan.NewCrossRel(left, right, common, advancedExtensionFromProto(rel.Cross.AdvancedExtension)), nil
 	case nil:
 		return nil, fmt.Errorf("%w: got nil", substraitgo.ErrInvalidRel)
 	}
