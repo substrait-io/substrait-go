@@ -26,6 +26,16 @@ jobs:
         with:
           version: v2.1.6
           working-directory: codec
+  proto-isolation:
+    name: Proto Isolation (#280)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+      - name: substrait-protobuf must stay in wire/
+        run: ./scripts/check-proto-isolation.sh
   build:
     name: Build and Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
