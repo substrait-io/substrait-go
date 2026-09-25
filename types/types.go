@@ -14,7 +14,6 @@ import (
 
 	"cloud.google.com/go/civil"
 	substraitgo "github.com/substrait-io/substrait-go/v9"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
 // Version is the Substrait version a plan or extended expression was built against.
@@ -424,24 +423,6 @@ func IntervalDayToSecondFromProto(p *proto.Expression_Literal_IntervalDayToSecon
 	return v, nil
 }
 
-// TypeFromProto returns the appropriate Type object from a protobuf
-// type message.
-func TypeFromProto(t *proto.Type) Type {
-	switch t := t.Kind.(type) {
-	case *proto.Type_PrecisionTimestampTz:
-		precision, err := ProtoToTimePrecision(t.PrecisionTimestampTz.Precision)
-		if err != nil {
-			panic(fmt.Sprintf("Invalid precision %v", err))
-		}
-		return &PrecisionTimestampTzType{PrecisionTimestampType{
-			Nullability:      Nullability(t.PrecisionTimestampTz.Nullability),
-			TypeVariationRef: t.PrecisionTimestampTz.TypeVariationReference,
-			Precision:        precision,
-		}}
-	}
-	panic("unimplemented type from proto")
-}
-
 type (
 	Date        int32
 	FixedChar   string
@@ -669,20 +650,6 @@ func (e *EnumType) ReturnType(funcParameters []FuncDefArgType, argumentTypes []T
 
 func (e *EnumType) WithParameters(params []interface{}) (Type, error) {
 	panic("EnumType.WithParameters not implemented")
-}
-
-// TypeToProto properly constructs the appropriate protobuf message
-// for the given type.
-func TypeToProto(t Type) *proto.Type {
-	switch t := t.(type) {
-	case *PrecisionTimestampTzType:
-		return &proto.Type{Kind: &proto.Type_PrecisionTimestampTz{
-			PrecisionTimestampTz: &proto.Type_PrecisionTimestampTZ{
-				Precision:              int32(t.Precision),
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	}
-	panic("unimplemented type")
 }
 
 type primitiveTypeIFace interface {

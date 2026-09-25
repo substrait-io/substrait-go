@@ -13,6 +13,7 @@ import (
 	"github.com/substrait-io/substrait-go/v9/functions"
 	. "github.com/substrait-io/substrait-go/v9/types"
 	"github.com/substrait-io/substrait-go/v9/types/integer_parameters"
+	"github.com/substrait-io/substrait-go/v9/wire"
 )
 
 func TestTypeToString(t *testing.T) {
@@ -108,8 +109,8 @@ func TestTypeRoundtrip(t *testing.T) {
 
 			for _, tt := range tests {
 				t.Run(tt.String(), func(t *testing.T) {
-					converted := TypeToProto(tt)
-					convertedType := TypeFromProto(converted)
+					converted := wire.TypeToProto(tt)
+					convertedType := wire.TypeFromProto(converted)
 					assert.True(t, tt.Equals(convertedType))
 				})
 			}
