@@ -118,6 +118,40 @@ func AggregateFunctionToProto(a *expr.AggregateFunction) *proto.AggregateFunctio
 	}
 }
 
+// SortFieldToProto encodes a sort field as its protobuf message.
+func SortFieldToProto(s *expr.SortField) *proto.SortField {
+	ret := &proto.SortField{Expr: ExprToProto(s.Expr)}
+	switch k := s.Kind.(type) {
+	case types.SortDirection:
+		ret.SortKind = &proto.SortField_Direction{
+			Direction: proto.SortField_SortDirection(k)}
+	case types.FunctionRef:
+		ret.SortKind = &proto.SortField_ComparisonFunctionReference{
+			ComparisonFunctionReference: uint32(k)}
+	}
+	return ret
+}
+
+// SortFieldFromProto decodes a sort field from its protobuf message.
+func SortFieldFromProto(
+	f *proto.SortField, baseSchema *types.RecordType, reg expr.ExtensionRegistry,
+) (sf expr.SortField, err error) {
+	sf.Expr, err = ExprFromProto(f.Expr, baseSchema, reg)
+	if err != nil {
+		return
+	}
+
+	switch k := f.SortKind.(type) {
+	case *proto.SortField_Direction:
+		sf.Kind = types.SortDirection(k.Direction)
+	case *proto.SortField_ComparisonFunctionReference:
+		sf.Kind = types.FunctionRef(k.ComparisonFunctionReference)
+	default:
+		err = substraitgo.ErrNotImplemented
+	}
+	return
+}
+
 // AggregateFunctionFromProto decodes an aggregate function from its protobuf message.
 func AggregateFunctionFromProto(
 	agg *proto.AggregateFunction, baseSchema *types.RecordType, reg expr.ExtensionRegistry,
