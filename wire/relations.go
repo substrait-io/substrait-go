@@ -37,6 +37,8 @@ func RelToProto(rel plan.Rel) *proto.Rel {
 		return aggregateRelToProto(r)
 	case *plan.SortRel:
 		return sortRelToProto(r)
+	case *plan.SetRel:
+		return setRelToProto(r)
 	default:
 		panic(fmt.Sprintf("wire: unhandled relation %T", rel))
 	}
@@ -307,6 +309,23 @@ func sortRelToProto(sr *plan.SortRel) *proto.Rel {
 				Input:             RelToProto(sr.Input()),
 				Sorts:             sorts,
 				AdvancedExtension: advancedExtensionToProto(sr.GetAdvancedExtension()),
+			},
+		},
+	}
+}
+
+func setRelToProto(s *plan.SetRel) *proto.Rel {
+	inputs := make([]*proto.Rel, len(s.Inputs()))
+	for i, in := range s.Inputs() {
+		inputs[i] = RelToProto(in)
+	}
+	return &proto.Rel{
+		RelType: &proto.Rel_Set{
+			Set: &proto.SetRel{
+				Common:            relCommonToProto(&s.RelCommon),
+				Inputs:            inputs,
+				Op:                proto.SetRel_SetOp(s.Op()),
+				AdvancedExtension: advancedExtensionToProto(s.GetAdvancedExtension()),
 			},
 		},
 	}
@@ -654,6 +673,36 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 
 		common := relCommonFromProto(rel.Sort.Common)
 		return plan.NewSortRel(input, sorts, common, advancedExtensionFromProto(rel.Sort.AdvancedExtension)), nil
+	case *proto.Rel_Set:
+		inputs := make([]plan.Rel, len(rel.Set.Inputs))
+		if len(inputs) < 2 {
+			return nil, fmt.Errorf("%w: SetRel must have at least 2 inputs, only found %d",
+				substraitgo.ErrInvalidRel, len(inputs))
+		}
+
+		var err error
+		for i, r := range rel.Set.Inputs {
+			inputs[i], err = RelFromProto(r, reg)
+			if err != nil {
+				return nil, fmt.Errorf("error getting input %d for SetRel: %w", i, err)
+			}
+		}
+
+		if plan.SetOp(rel.Set.Op) == plan.SetOpUnspecified {
+			return nil, fmt.Errorf("%w: set operation must not be unspecified", substraitgo.ErrInvalidRel)
+		}
+
+		primary := inputs[0].RecordType()
+		for i, in := range inputs[1:] {
+			t := in.RecordType()
+			if !t.Equals(&primary) {
+				return nil, fmt.Errorf("%w: set operation field mismatch found in input #%d, expected %s, got %s",
+					substraitgo.ErrInvalidRel, i+1, &primary, &t)
+			}
+		}
+
+		common := relCommonFromProto(rel.Set.Common)
+		return plan.NewSetRel(inputs, plan.SetOp(rel.Set.Op), common, advancedExtensionFromProto(rel.Set.AdvancedExtension)), nil
 	case nil:
 		return nil, fmt.Errorf("%w: got nil", substraitgo.ErrInvalidRel)
 	}
