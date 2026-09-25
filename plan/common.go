@@ -10,7 +10,6 @@ import (
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/types"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
 // DynamicParameterBinding maps a parameter anchor to a literal value
@@ -206,15 +205,9 @@ type RelCommon struct {
 	advExtension *extensions.AdvancedExtension
 }
 
-func (rc *RelCommon) fromProtoCommon(c *proto.RelCommon) {
-	rc.hint = HintFromProto(c.GetHint())
-	rc.advExtension = extensions.AdvancedExtensionFromProto(c.GetAdvancedExtension())
-
-	if emit, ok := c.GetEmitKind().(*proto.RelCommon_Emit_); ok {
-		rc.mapping = emit.Emit.OutputMapping
-	} else {
-		rc.mapping = nil
-	}
+// NewRelCommon builds the common fields embedded in every relation.
+func NewRelCommon(hint *Hint, mapping []int32, advExtension *extensions.AdvancedExtension) RelCommon {
+	return RelCommon{hint: hint, mapping: mapping, advExtension: advExtension}
 }
 
 func (rc *RelCommon) remap(initial types.RecordType) types.RecordType {
@@ -257,22 +250,4 @@ func (rc *RelCommon) SetAdvancedExtension(advExtension *extensions.AdvancedExten
 
 func (rc *RelCommon) Hint() *Hint {
 	return rc.hint
-}
-
-func (rc *RelCommon) toProto() *proto.RelCommon {
-	ret := &proto.RelCommon{
-		Hint:              HintToProto(rc.hint),
-		AdvancedExtension: extensions.AdvancedExtensionToProto(rc.advExtension),
-	}
-
-	if rc.mapping == nil {
-		ret.EmitKind = &proto.RelCommon_Direct_{
-			Direct: &proto.RelCommon_Direct{},
-		}
-	} else {
-		ret.EmitKind = &proto.RelCommon_Emit_{
-			Emit: &proto.RelCommon_Emit{OutputMapping: rc.mapping},
-		}
-	}
-	return ret
 }
