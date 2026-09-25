@@ -13,7 +13,6 @@ import (
 	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/extensions"
-	"github.com/substrait-io/substrait-go/v9/plan/internal"
 	"github.com/substrait-io/substrait-go/v9/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -440,25 +439,6 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 			out = &LocalFileReadRel{
 				items:        items,
 				advExtension: extensions.AdvancedExtensionFromProto(readType.LocalFiles.AdvancedExtension),
-			}
-		case *proto.ReadRel_VirtualTable_:
-			if len(readType.VirtualTable.Values) > 0 && len(readType.VirtualTable.Expressions) > 0 {
-				return nil, fmt.Errorf("VirtualTable cannot declare both Values and Expressions")
-			}
-			var values []expr.VirtualTableExpressionValue
-			for _, v := range readType.VirtualTable.Values {
-				values = append(values, internal.VirtualTableExprFromLiteralProto(v))
-			}
-			for _, v := range readType.VirtualTable.Expressions {
-				row, err := internal.VirtualTableExpressionFromProto(v, reg)
-				if err != nil {
-					return nil, err
-				}
-				values = append(values, row)
-			}
-
-			out = &VirtualTableReadRel{
-				values: values,
 			}
 		case *proto.ReadRel_IcebergTable_:
 			icebergTableType := readType.IcebergTable.TableType
