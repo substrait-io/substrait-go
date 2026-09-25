@@ -9,14 +9,12 @@ import (
 	"io/fs"
 	"path"
 	"regexp"
-	"sort"
 	"sync"
 
 	"github.com/creasty/defaults"
 	"github.com/goccy/go-yaml"
 	"github.com/substrait-io/substrait"
 	substraitgo "github.com/substrait-io/substrait-go/v9"
-	"github.com/substrait-io/substrait-protobuf/go/substraitpb/extensions"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -377,7 +375,13 @@ type Set interface {
 	GetFuncAnchor(id FunctionID) uint32
 	GetTypeVariationAnchor(id TypeVariationID) uint32
 
-	ToProto(c *Collection) ([]*extensions.SimpleExtensionURN, []*extensions.SimpleExtensionDeclaration)
+	// URNs, Types, TypeVariations and Functions expose the set's anchor
+	// mappings so that serialization (which lives in the wire package) can
+	// enumerate them. Each returns a copy that callers may not mutate.
+	URNs() map[uint32]string
+	Types() map[TypeID]uint32
+	TypeVariations() map[TypeVariationID]uint32
+	Functions() map[FunctionID]uint32
 }
 
 func NewSet() Set {
@@ -405,75 +409,61 @@ type set struct {
 	funcs   map[FunctionID]uint32
 }
 
-func (e *set) ToProto(c *Collection) ([]*extensions.SimpleExtensionURN, []*extensions.SimpleExtensionDeclaration) {
-	urnBackRef := make(map[string]uint32)
+func NewSetFromParts(urns map[uint32]string, types map[uint32]TypeID, typeVariations map[uint32]TypeVariationID, funcs map[uint32]FunctionID) Set {
+	s := &set{
+		urns:             make(map[uint32]string, len(urns)),
+		funcMap:          make(map[uint32]FunctionID),
+		funcs:            make(map[FunctionID]uint32),
+		types:            make(map[TypeID]uint32),
+		typesMap:         make(map[uint32]TypeID),
+		typeVariationMap: make(map[uint32]TypeVariationID),
+		typeVariations:   make(map[TypeVariationID]uint32),
+	}
+	for anchor, urn := range urns {
+		s.urns[anchor] = urn
+	}
+	for anchor, id := range types {
+		s.encodeType(anchor, id)
+	}
+	for anchor, id := range typeVariations {
+		s.encodeTypeVariation(anchor, id)
+	}
+	for anchor, id := range funcs {
+		s.encodeFunc(anchor, id)
+	}
+	return s
+}
 
-	urns := make([]*extensions.SimpleExtensionURN, 0, len(e.urns))
+func (e *set) URNs() map[uint32]string {
+	out := make(map[uint32]string, len(e.urns))
 	for anchor, urn := range e.urns {
-		urnBackRef[urn] = anchor
-		urns = append(urns, &extensions.SimpleExtensionURN{
-			ExtensionUrnAnchor: anchor,
-			Urn:                urn,
-		})
+		out[anchor] = urn
 	}
+	return out
+}
 
-	// Sort URN extensions by the anchor for consistent output
-	sort.Slice(urns, func(i, j int) bool { return urns[i].ExtensionUrnAnchor < urns[j].ExtensionUrnAnchor })
-
-	decls := make([]*extensions.SimpleExtensionDeclaration, 0, len(e.types)+len(e.typeVariations)+len(e.funcs))
+func (e *set) Types() map[TypeID]uint32 {
+	out := make(map[TypeID]uint32, len(e.types))
 	for id, anchor := range e.types {
-		decls = append(decls, &extensions.SimpleExtensionDeclaration{
-			MappingType: &extensions.SimpleExtensionDeclaration_ExtensionType_{
-				ExtensionType: &extensions.SimpleExtensionDeclaration_ExtensionType{
-					ExtensionUrnReference: urnBackRef[id.URN],
-					TypeAnchor:            anchor,
-					Name:                  id.Name,
-				},
-			},
-		})
+		out[id] = anchor
 	}
+	return out
+}
 
-	sort.Slice(decls, func(i, j int) bool {
-		return decls[i].GetExtensionType().TypeAnchor < decls[j].GetExtensionType().TypeAnchor
-	})
-	typesCount := len(decls)
-
+func (e *set) TypeVariations() map[TypeVariationID]uint32 {
+	out := make(map[TypeVariationID]uint32, len(e.typeVariations))
 	for id, anchor := range e.typeVariations {
-		decls = append(decls, &extensions.SimpleExtensionDeclaration{
-			MappingType: &extensions.SimpleExtensionDeclaration_ExtensionTypeVariation_{
-				ExtensionTypeVariation: &extensions.SimpleExtensionDeclaration_ExtensionTypeVariation{
-					ExtensionUrnReference: urnBackRef[id.URN],
-					TypeVariationAnchor:   anchor,
-					Name:                  id.Name,
-				},
-			},
-		})
+		out[id] = anchor
 	}
+	return out
+}
 
-	typeDecls := decls[typesCount:]
-	sort.Slice(typeDecls, func(i, j int) bool {
-		return decls[i].GetExtensionTypeVariation().TypeVariationAnchor < decls[j].GetExtensionTypeVariation().TypeVariationAnchor
-	})
-
-	typeVarCount := len(decls)
+func (e *set) Functions() map[FunctionID]uint32 {
+	out := make(map[FunctionID]uint32, len(e.funcs))
 	for id, anchor := range e.funcs {
-		decls = append(decls, &extensions.SimpleExtensionDeclaration{
-			MappingType: &extensions.SimpleExtensionDeclaration_ExtensionFunction_{
-				ExtensionFunction: &extensions.SimpleExtensionDeclaration_ExtensionFunction{
-					ExtensionUrnReference: urnBackRef[id.URN],
-					FunctionAnchor:        anchor,
-					Name:                  id.Name,
-				},
-			},
-		})
+		out[id] = anchor
 	}
-
-	typeVarDecls := decls[typeVarCount:]
-	sort.Slice(typeVarDecls, func(i, j int) bool {
-		return decls[i].GetExtensionFunction().GetFunctionAnchor() < decls[j].GetExtensionFunction().GetFunctionAnchor()
-	})
-
-	return urns, decls
+	return out
 }
 
 func (e *set) LookupWindowFunction(anchor uint32, c *Collection) (sv *WindowFunctionVariant, ok bool) {
@@ -617,75 +607,4 @@ func (e *set) addOrGetURN(urn string) (uint32, error) {
 
 	e.urns[sz] = urn
 	return sz, nil
-}
-
-type TopLevel interface {
-	GetExtensionUrns() []*extensions.SimpleExtensionURN
-	GetExtensions() []*extensions.SimpleExtensionDeclaration
-}
-
-func GetExtensionSet(plan TopLevel, c *Collection) (Set, error) {
-	urns := make(map[uint32]string)
-	for _, urn := range plan.GetExtensionUrns() {
-		urns[urn.ExtensionUrnAnchor] = urn.Urn
-	}
-
-	ret := &set{
-		urns:             urns,
-		funcMap:          make(map[uint32]FunctionID),
-		funcs:            make(map[FunctionID]uint32),
-		typesMap:         make(map[uint32]TypeID),
-		types:            make(map[TypeID]uint32),
-		typeVariationMap: make(map[uint32]TypeVariationID),
-		typeVariations:   make(map[TypeVariationID]uint32),
-	}
-
-	resolveRefToURN := func(urnRef uint32) (string, error) {
-		urn, urnOk := urns[urnRef]
-		if !urnOk {
-			return "", fmt.Errorf("unable to resolve extension reference: URN reference %d could not be resolved", urnRef)
-		}
-		// Validate that the URN exists in the Collection
-		if !c.URNLoaded(urn) {
-			return "", fmt.Errorf("%w: URN '%s' not found in extension collection", substraitgo.ErrNotFound, urn)
-		}
-		return urn, nil
-	}
-
-	for _, ext := range plan.GetExtensions() {
-		switch e := ext.MappingType.(type) {
-		case *extensions.SimpleExtensionDeclaration_ExtensionTypeVariation_:
-			etv := e.ExtensionTypeVariation
-			urn, err := resolveRefToURN(etv.ExtensionUrnReference)
-			if err != nil {
-				return nil, err
-			}
-			ret.encodeTypeVariation(etv.TypeVariationAnchor, TypeVariationID{
-				URN:  urn,
-				Name: etv.Name,
-			})
-		case *extensions.SimpleExtensionDeclaration_ExtensionType_:
-			et := e.ExtensionType
-			urn, err := resolveRefToURN(et.ExtensionUrnReference)
-			if err != nil {
-				return nil, err
-			}
-			ret.encodeType(et.TypeAnchor, TypeID{
-				URN:  urn,
-				Name: et.Name,
-			})
-		case *extensions.SimpleExtensionDeclaration_ExtensionFunction_:
-			ef := e.ExtensionFunction
-			urn, err := resolveRefToURN(ef.ExtensionUrnReference)
-			if err != nil {
-				return nil, err
-			}
-			ret.encodeFunc(ef.FunctionAnchor, FunctionID{
-				URN:  urn,
-				Name: ef.Name,
-			})
-		}
-	}
-
-	return ret, nil
 }

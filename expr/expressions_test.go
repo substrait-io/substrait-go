@@ -81,7 +81,7 @@ func ExampleExpression_scalarFunction() {
 		panic(err)
 	}
 
-	extSet, err := ext.GetExtensionSet(&plan, &collection)
+	extSet, err := wire.GetExtensionSet(&plan, &collection)
 	if err != nil {
 		panic(err)
 	}
@@ -232,7 +232,7 @@ func TestExpressionsRoundtrip(t *testing.T) {
 	}
 	// get the extension set
 	collection := ext.GetDefaultCollectionWithNoError()
-	extSet, err := ext.GetExtensionSet(&plan, collection)
+	extSet, err := wire.GetExtensionSet(&plan, collection)
 	if err != nil {
 		panic(err)
 	}
@@ -342,7 +342,7 @@ func TestRoundTripUsingTestData(t *testing.T) {
 	}
 	// get the extension set
 	collection := ext.GetDefaultCollectionWithNoError()
-	extSet, err := ext.GetExtensionSet(&plan, collection)
+	extSet, err := wire.GetExtensionSet(&plan, collection)
 	if err != nil {
 		panic(err)
 	}
@@ -422,7 +422,7 @@ func TestSubqueryExpressionRoundtrip(t *testing.T) {
 
 	// get the extension set and create registry with subquery handler
 	c := ext.GetDefaultCollectionWithNoError()
-	extSet, err := ext.GetExtensionSet(&planProto, c)
+	extSet, err := wire.GetExtensionSet(&planProto, c)
 	if err != nil {
 		panic(err)
 	}
