@@ -757,6 +757,10 @@ type CrossRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
+func NewCrossRel(left, right Rel, common RelCommon, advExtension *extensions.AdvancedExtension) *CrossRel {
+	return &CrossRel{RelCommon: common, left: left, right: right, advExtension: advExtension}
+}
+
 func (c *CrossRel) directOutputSchema() types.RecordType {
 	return c.left.RecordType().Concat(c.right.RecordType())
 }
@@ -772,27 +776,6 @@ func (c *CrossRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtensi
 	existing := c.advExtension
 	c.advExtension = advExtension
 	return existing
-}
-
-func (c *CrossRel) ToProto() *proto.Rel {
-	return &proto.Rel{
-		RelType: &proto.Rel_Cross{
-			Cross: &proto.CrossRel{
-				Common:            c.toProto(),
-				Left:              c.left.ToProto(),
-				Right:             c.right.ToProto(),
-				AdvancedExtension: extensions.AdvancedExtensionToProto(c.advExtension),
-			},
-		},
-	}
-}
-
-func (c *CrossRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: c.ToProto(),
-		},
-	}
 }
 
 func (c *CrossRel) GetInputs() []Rel {
