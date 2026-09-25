@@ -10,7 +10,6 @@ import (
 	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/types"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
 // MustExpr is a helper function to avoid having it get written and
@@ -1074,22 +1073,6 @@ func NewMeasureReference(names []string, measure *AggregateFunction) ExpressionR
 	return ExpressionReference{OutputNames: names, measure: measure}
 }
 
-func (er *ExpressionReference) ToProto() *proto.ExpressionReference {
-	out := &proto.ExpressionReference{OutputNames: er.OutputNames}
-	switch {
-	case er.expr != nil:
-		out.ExprType = &proto.ExpressionReference_Expression{
-			Expression: er.expr.ToProto(),
-		}
-	case er.measure != nil:
-		out.ExprType = &proto.ExpressionReference_Measure{
-			Measure: er.measure.ToProto(),
-		}
-	}
-
-	return out
-}
-
 func (er *ExpressionReference) SetExpr(ex Expression) {
 	er.expr = ex
 	er.measure = nil
@@ -1114,62 +1097,20 @@ type Extended struct {
 	reg ExtensionRegistry
 }
 
-func ExtendedFromProto(ex *proto.ExtendedExpression, c *extensions.Collection) (*Extended, error) {
-	extSet, err := extensions.GetExtensionSet(ex, c)
-	if err != nil {
-		return nil, err
-	}
-	var (
-		base = types.NewNamedStructFromProto(ex.BaseSchema)
-		reg  = NewExtensionRegistry(extSet, c)
-		refs = make([]ExpressionReference, len(ex.ReferredExpr))
-	)
+func (ex *Extended) Registry() *ExtensionRegistry { return &ex.reg }
 
-	for i, r := range ex.ReferredExpr {
-		refs[i].OutputNames = r.OutputNames
-		switch et := r.ExprType.(type) {
-		case *proto.ExpressionReference_Expression:
-			thisType := types.NewRecordTypeFromStruct(base.Struct)
-			expr, err := ExprFromProto(et.Expression, thisType, reg)
-			if err != nil {
-				return nil, err
-			}
-			refs[i].SetExpr(expr)
-		case *proto.ExpressionReference_Measure:
-			thisType := types.NewRecordTypeFromStruct(base.Struct)
-			agg, err := NewAggregateFunctionFromProto(et.Measure, thisType, reg)
-			if err != nil {
-				return nil, err
-			}
-			refs[i].SetMeasure(agg)
-		}
-	}
-
+func NewExtendedFromParts(
+	version types.Version, exts extensions.Set, referredExpr []ExpressionReference,
+	baseSchema types.NamedStruct, advancedExts *extensions.AdvancedExtension,
+	expectedTypeURLs []string, reg ExtensionRegistry,
+) *Extended {
 	return &Extended{
-		Version:          types.VersionFromProto(ex.Version),
-		Extensions:       extSet,
-		ReferredExpr:     refs,
-		BaseSchema:       base,
-		AdvancedExts:     extensions.AdvancedExtensionFromProto(ex.AdvancedExtensions),
-		ExpectedTypeURLs: ex.ExpectedTypeUrls,
+		Version:          version,
+		Extensions:       exts,
+		ReferredExpr:     referredExpr,
+		BaseSchema:       baseSchema,
+		AdvancedExts:     advancedExts,
+		ExpectedTypeURLs: expectedTypeURLs,
 		reg:              reg,
-	}, nil
-}
-
-func (ex *Extended) ToProto() *proto.ExtendedExpression {
-	urns, decls := ex.reg.ExtensionsToProto()
-	refs := make([]*proto.ExpressionReference, len(ex.ReferredExpr))
-	for i, ref := range ex.ReferredExpr {
-		refs[i] = ref.ToProto()
-	}
-
-	return &proto.ExtendedExpression{
-		Version:            types.VersionToProto(ex.Version),
-		ExtensionUrns:      urns,
-		Extensions:         decls,
-		BaseSchema:         ex.BaseSchema.ToProto(),
-		AdvancedExtensions: extensions.AdvancedExtensionToProto(ex.AdvancedExts),
-		ExpectedTypeUrls:   ex.ExpectedTypeURLs,
-		ReferredExpr:       refs,
 	}
 }
