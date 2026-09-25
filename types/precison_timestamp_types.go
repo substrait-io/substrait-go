@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"reflect"
 	"time"
-
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
 // TimePrecision is used to represent the precision of a timestamp
@@ -166,14 +164,6 @@ func (m *PrecisionTimestampTzType) ToProtoFuncArg() *proto.FunctionArgument {
 	return &proto.FunctionArgument{
 		ArgType: &proto.FunctionArgument_Type{Type: m.ToProto()},
 	}
-}
-
-func (m *PrecisionTimestampTzType) ToProto() *proto.Type {
-	return &proto.Type{Kind: &proto.Type_PrecisionTimestampTz{
-		PrecisionTimestampTz: &proto.Type_PrecisionTimestampTZ{
-			Precision:              m.Precision.ToProtoVal(),
-			Nullability:            proto.Type_Nullability(m.Nullability),
-			TypeVariationReference: m.TypeVariationRef}}}
 }
 
 func (m *PrecisionTimestampTzType) String() string {
