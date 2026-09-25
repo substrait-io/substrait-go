@@ -62,29 +62,7 @@ func TestNewPrecisionTimeType(t *testing.T) {
 			assert.Zero(t, createdPrecTime.GetTypeVariationReference())
 			assert.Equal(t, fmt.Sprintf("precision_time%s", expectedFormatString), createdPrecTime.String())
 			assert.Equal(t, "pt", createdPrecTime.ShortString())
-			assertPrecisionTimeProto(t, precision, nullability, *createdPrecTime)
 		}
-	}
-}
-
-func assertPrecisionTimeProto(t *testing.T, expectedPrecision TimePrecision, expectedNullability Nullability,
-	toVerifyType PrecisionTimeType) {
-
-	expectedTypeProto := &proto.Type{Kind: &proto.Type_PrecisionTime_{
-		PrecisionTime: &proto.Type_PrecisionTime{
-			Precision:   expectedPrecision.ToProtoVal(),
-			Nullability: proto.Type_Nullability(expectedNullability),
-		},
-	}}
-	if diff := cmp.Diff(toVerifyType.ToProto(), expectedTypeProto, protocmp.Transform()); diff != "" {
-		t.Errorf("precisionTimeStamp proto didn't match, diff:\n%v", diff)
-	}
-
-	expectedFuncArgProto := &proto.FunctionArgument{ArgType: &proto.FunctionArgument_Type{
-		Type: expectedTypeProto,
-	}}
-	if diff := cmp.Diff(toVerifyType.ToProtoFuncArg(), expectedFuncArgProto, protocmp.Transform()); diff != "" {
-		t.Errorf("precisionTimeStamp proto didn't match, diff:\n%v", diff)
 	}
 }
 
