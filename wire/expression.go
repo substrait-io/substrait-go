@@ -17,6 +17,8 @@ func ExprToProto(e expr.Expression) *proto.Expression {
 	switch e := e.(type) {
 	case *expr.Cast:
 		return castToProto(e)
+	case *expr.DynamicParameter:
+		return dynamicParameterToProto(e)
 	case *expr.Lambda:
 		return lambdaToProto(e)
 	case *expr.ScalarFunction:
@@ -41,6 +43,17 @@ func castToProto(ex *expr.Cast) *proto.Expression {
 				Type:            TypeToProto(ex.Type),
 				Input:           ExprToProto(ex.Input),
 				FailureBehavior: proto.Expression_Cast_FailureBehavior(ex.FailureBehavior),
+			},
+		},
+	}
+}
+
+func dynamicParameterToProto(dp *expr.DynamicParameter) *proto.Expression {
+	return &proto.Expression{
+		RexType: &proto.Expression_DynamicParameter{
+			DynamicParameter: &proto.DynamicParameter{
+				Type:               TypeToProto(dp.OutputType),
+				ParameterReference: dp.ParameterReference,
 			},
 		},
 	}
@@ -186,6 +199,14 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 			Type:            TypeFromProto(et.Cast.Type),
 			Input:           input,
 			FailureBehavior: types.CastFailBehavior(et.Cast.FailureBehavior),
+		}, nil
+	case *proto.Expression_DynamicParameter:
+		if et.DynamicParameter == nil {
+			return nil, fmt.Errorf("%w: dynamic parameter is nil", substraitgo.ErrInvalidExpr)
+		}
+		return &expr.DynamicParameter{
+			OutputType:         TypeFromProto(et.DynamicParameter.Type),
+			ParameterReference: et.DynamicParameter.ParameterReference,
 		}, nil
 	case *proto.Expression_Lambda_:
 		if et.Lambda.Parameters == nil {
