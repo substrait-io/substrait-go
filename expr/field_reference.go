@@ -54,11 +54,6 @@ func RefSegmentFromProto(p *proto.Expression_ReferenceSegment) ReferenceSegment 
 	}
 
 	switch seg := p.ReferenceType.(type) {
-	case *proto.Expression_ReferenceSegment_MapKey_:
-		return &MapKeyRef{
-			MapKey: LiteralFromProto(seg.MapKey.MapKey),
-			Child:  RefSegmentFromProto(seg.MapKey.Child),
-		}
 	case *proto.Expression_ReferenceSegment_ListElement_:
 		return &ListElementRef{
 			Offset: seg.ListElement.Offset,
@@ -107,22 +102,6 @@ func (r *MapKeyRef) String() string {
 		c = r.Child.String()
 	}
 	return ".[" + r.MapKey.String() + "]" + c
-}
-
-func (r *MapKeyRef) ToProto() *proto.Expression_ReferenceSegment {
-	var c *proto.Expression_ReferenceSegment
-	if r.Child != nil {
-		c = r.Child.ToProto()
-	}
-
-	return &proto.Expression_ReferenceSegment{
-		ReferenceType: &proto.Expression_ReferenceSegment_MapKey_{
-			MapKey: &proto.Expression_ReferenceSegment_MapKey{
-				MapKey: r.MapKey.ToProtoLiteral(),
-				Child:  c,
-			},
-		},
-	}
 }
 
 func (r *MapKeyRef) GetType(parentType types.Type) (types.Type, error) {
