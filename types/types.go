@@ -46,36 +46,6 @@ type FunctionOption struct {
 	Preference []string
 }
 
-// FunctionOptionsFromProto converts protobuf function option messages to domain FunctionOptions.
-func FunctionOptionsFromProto(opts []*proto.FunctionOption) []*FunctionOption {
-	if opts == nil {
-		return nil
-	}
-	out := make([]*FunctionOption, len(opts))
-	for i, o := range opts {
-		if o == nil {
-			continue
-		}
-		out[i] = &FunctionOption{Name: o.Name, Preference: o.Preference}
-	}
-	return out
-}
-
-// FunctionOptionsToProto encodes domain FunctionOptions as their protobuf messages.
-func FunctionOptionsToProto(opts []*FunctionOption) []*proto.FunctionOption {
-	if opts == nil {
-		return nil
-	}
-	out := make([]*proto.FunctionOption, len(opts))
-	for i, o := range opts {
-		if o == nil {
-			continue
-		}
-		out[i] = &proto.FunctionOption{Name: o.Name, Preference: o.Preference}
-	}
-	return out
-}
-
 // Nullability indicates whether values of a Substrait type may be null.
 type Nullability int32
 

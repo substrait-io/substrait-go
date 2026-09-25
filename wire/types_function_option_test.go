@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package types_test
+package wire_test
 
 import (
 	"reflect"
@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/v9/types"
+	"github.com/substrait-io/substrait-go/v9/wire"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
@@ -41,5 +42,5 @@ func TestFunctionOptionsRoundTrip(t *testing.T) {
 		{Name: "overflow"},
 	}
 
-	assert.Equal(t, options, types.FunctionOptionsFromProto(types.FunctionOptionsToProto(options)))
+	assert.Equal(t, options, wire.FunctionOptionsFromProto(wire.FunctionOptionsToProto(options)))
 }
