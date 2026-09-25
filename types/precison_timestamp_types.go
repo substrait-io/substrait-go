@@ -275,14 +275,6 @@ func (m *PrecisionTimeType) ToProtoFuncArg() *proto.FunctionArgument {
 	}
 }
 
-func (m *PrecisionTimeType) ToProto() *proto.Type {
-	return &proto.Type{Kind: &proto.Type_PrecisionTime_{
-		PrecisionTime: &proto.Type_PrecisionTime{
-			Precision:              m.Precision.ToProtoVal(),
-			Nullability:            proto.Type_Nullability(m.Nullability),
-			TypeVariationReference: m.TypeVariationRef}}}
-}
-
 func (*PrecisionTimeType) ShortString() string {
 	return GetShortTypeName(TypeNamePrecisionTime)
 }
