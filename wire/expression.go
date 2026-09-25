@@ -381,6 +381,8 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 		), nil
 	case *proto.Expression_Enum_:
 		return nil, fmt.Errorf("%w: deprecated", substraitgo.ErrNotImplemented)
+	case *proto.Expression_Subquery_:
+		return subqueryFromProto(et.Subquery, baseSchema, reg)
 	case *proto.Expression_Cast_:
 		if et.Cast.Type == nil {
 			return nil, fmt.Errorf("%w: cast expression missing type", substraitgo.ErrInvalidExpr)

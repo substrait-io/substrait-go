@@ -631,7 +631,6 @@ func (b *builder) PlanWithBindings(root Rel, rootNames []string, expectedTypeURL
 	}
 
 	reg := b.reg
-	reg.SetSubqueryConverter(&ExpressionConverter{ExtensionRegistry: reg})
 	return &Plan{
 		version:           CurrentVersion,
 		extensions:        b.extSet,
