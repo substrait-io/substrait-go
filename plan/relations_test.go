@@ -505,16 +505,14 @@ func TestRelations_AdvancedExtensions(t *testing.T) {
 		icebergTableReadRel,
 	}
 
-	val1, err := anypb.New(expr.NewPrimitiveLiteral("foo", false).ToProto())
-	assert.NoError(t, err)
+	val1 := &anypb.Any{TypeUrl: "urn:test:advext", Value: []byte("foo")}
 
 	exampleAdvancedExtension1 := &extensions.AdvancedExtension{
 		Optimizations: []*extensions.Optimization{(*extensions.Optimization)(val1)},
 		Enhancement:   (*extensions.Enhancement)(val1),
 	}
 
-	val2, err := anypb.New(expr.NewPrimitiveLiteral("bar", false).ToProto())
-	assert.NoError(t, err)
+	val2 := &anypb.Any{TypeUrl: "urn:test:advext", Value: []byte("bar")}
 
 	exampleAdvancedExtension2 := &extensions.AdvancedExtension{
 		Optimizations: []*extensions.Optimization{(*extensions.Optimization)(val2)},
