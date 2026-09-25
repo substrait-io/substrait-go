@@ -1421,6 +1421,56 @@ func TestExtensionSingleBuilder(t *testing.T) {
 	checkRoundTrip(t, expectedJSON, p)
 }
 
+func TestExtensionLeafBuilder(t *testing.T) {
+	const expectedJSON = `{
+		` + versionStruct + `,
+		"relations": [
+			{
+				"root": {
+					"input": {
+						"extensionLeaf": {
+							"common": {"direct": {}},
+							"detail": {
+								"@type": "type.googleapis.com/google.protobuf.StringValue",
+								"value": "leaf-config"
+							}
+						}
+					},
+					"names": ["x", "y"]
+				}
+			}
+		]
+	}`
+
+	b := plan.NewBuilderDefault()
+
+	// Create custom schema for leaf extension
+	customSchema := types.StructType{
+		Nullability: types.NullabilityRequired,
+		Types: []types.Type{
+			&types.Int32Type{Nullability: types.NullabilityRequired},
+			&types.BooleanType{Nullability: types.NullabilityRequired},
+		},
+	}
+
+	// Create extension definition
+	extensionDef := &TestExtensionDefinition{
+		schema: *types.NewRecordTypeFromStruct(customSchema),
+		detail: []byte("leaf-config"),
+		exprs:  nil,
+	}
+
+	extRel, err := b.ExtensionLeaf(extensionDef)
+	require.NoError(t, err)
+
+	p, err := b.Plan(extRel, []string{"x", "y"})
+	require.NoError(t, err)
+
+	assert.Equal(t, "NSTRUCT<x: i32, y: boolean>", p.GetRoots()[0].RecordType().String())
+
+	checkRoundTrip(t, expectedJSON, p)
+}
+
 func TestExtensionTable(t *testing.T) {
 	const expectedJSON = `{
 		` + versionStruct + `,
