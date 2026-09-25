@@ -29,6 +29,8 @@ func RelToProto(rel plan.Rel) *proto.Rel {
 		return localFileReadRelToProto(r)
 	case *plan.FilterRel:
 		return filterRelToProto(r)
+	case *plan.FetchRel:
+		return fetchRelToProto(r)
 	default:
 		panic(fmt.Sprintf("wire: unhandled relation %T", rel))
 	}
@@ -186,6 +188,21 @@ func filterRelToProto(fr *plan.FilterRel) *proto.Rel {
 			},
 		},
 	}
+}
+
+func fetchRelToProto(f *plan.FetchRel) *proto.Rel {
+	fetchRel := &proto.FetchRel{
+		Common:            relCommonToProto(&f.RelCommon),
+		Input:             RelToProto(f.Input()),
+		AdvancedExtension: advancedExtensionToProto(f.GetAdvancedExtension()),
+	}
+	if f.Offset() != nil {
+		fetchRel.OffsetMode = &proto.FetchRel_OffsetExpr{OffsetExpr: ExprToProto(f.Offset())}
+	}
+	if f.Count() != nil {
+		fetchRel.CountMode = &proto.FetchRel_CountExpr{CountExpr: ExprToProto(f.Count())}
+	}
+	return &proto.Rel{RelType: &proto.Rel_Fetch{Fetch: fetchRel}}
 }
 
 // relCommonFromProto decodes the common fields shared by every relation.
@@ -391,6 +408,45 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 			common = relCommonFromProto(rel.Filter.Common)
 		}
 		return plan.NewFilterRel(input, cond, common, advancedExtensionFromProto(rel.Filter.AdvancedExtension)), nil
+	case *proto.Rel_Fetch:
+		input, err := RelFromProto(rel.Fetch.Input, reg)
+		if err != nil {
+			return nil, fmt.Errorf("error getting input to FetchRel: %w", err)
+		}
+
+		base := input.RecordType()
+
+		var offset expr.Expression
+		switch om := rel.Fetch.OffsetMode.(type) {
+		case *proto.FetchRel_Offset:
+			offset = expr.NewPrimitiveLiteral(om.Offset, false)
+		case *proto.FetchRel_OffsetExpr:
+			e, exprErr := ExprFromProto(om.OffsetExpr, &base, reg)
+			if exprErr != nil {
+				return nil, fmt.Errorf("error getting offset expression for FetchRel: %w", exprErr)
+			}
+			offset = e
+		}
+
+		var count expr.Expression
+		switch cm := rel.Fetch.CountMode.(type) {
+		case *proto.FetchRel_Count:
+			if cm.Count != plan.FETCH_COUNT_ALL_RECORDS {
+				count = expr.NewPrimitiveLiteral(cm.Count, false)
+			}
+		case *proto.FetchRel_CountExpr:
+			e, exprErr := ExprFromProto(cm.CountExpr, &base, reg)
+			if exprErr != nil {
+				return nil, fmt.Errorf("error getting count expression for FetchRel: %w", exprErr)
+			}
+			count = e
+		}
+
+		var common plan.RelCommon
+		if rel.Fetch.Common != nil {
+			common = relCommonFromProto(rel.Fetch.Common)
+		}
+		return plan.NewFetchRel(input, offset, count, common, advancedExtensionFromProto(rel.Fetch.AdvancedExtension)), nil
 	case nil:
 		return nil, fmt.Errorf("%w: got nil", substraitgo.ErrInvalidRel)
 	}

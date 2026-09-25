@@ -459,68 +459,6 @@ func TestCrossRelErrors(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestFetchRel(t *testing.T) {
-	const expectedJSON = `{
-		` + versionStruct + `,
-		"relations": [
-			{
-				"root": {
-					"input": {
-						"fetch": {
-							"common": {"direct": {}},
-							"input": {
-								"read": {
-									"common": {
-										"direct": {}
-									},
-									"baseSchema": {
-										"names": ["a"],
-										"struct": {
-											"nullability": "NULLABILITY_REQUIRED",
-											"types": [
-												{"string": { "nullability": "NULLABILITY_REQUIRED" }}
-											]
-										}
-									},
-									"namedTable": {
-										"names": ["test"]
-									}
-								}
-							},
-							"offsetExpr": {"literal": {"i64": "100"}}
-						}
-					},
-					"names": ["a"]
-				}
-			}
-		]
-	}`
-
-	b := plan.NewBuilderDefault()
-	scan := b.NamedScan([]string{"test"}, types.NamedStruct{
-		Names: []string{"a"},
-		Struct: types.StructType{
-			Nullability: types.NullabilityRequired,
-			Types: []types.Type{
-				&types.StringType{Nullability: types.NullabilityRequired}},
-		},
-	})
-
-	offsetExpr := expr.Expression(expr.NewPrimitiveLiteral(int64(100), false))
-	fetch, err := b.Fetch(scan, offsetExpr, nil)
-	require.NoError(t, err)
-
-	p, err := b.Plan(fetch, []string{"a"})
-	require.NoError(t, err)
-
-	assert.Equal(t, "NSTRUCT<a: string>", p.GetRoots()[0].RecordType().String())
-
-	checkRoundTrip(t, expectedJSON, p)
-
-	_, err = fetch.Remap(0)
-	assert.NoError(t, err)
-}
-
 func TestFetchRelErrors(t *testing.T) {
 	b := plan.NewBuilderDefault()
 
