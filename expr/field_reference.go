@@ -59,11 +59,6 @@ func RefSegmentFromProto(p *proto.Expression_ReferenceSegment) ReferenceSegment 
 			MapKey: LiteralFromProto(seg.MapKey.MapKey),
 			Child:  RefSegmentFromProto(seg.MapKey.Child),
 		}
-	case *proto.Expression_ReferenceSegment_StructField_:
-		return &StructFieldRef{
-			Field: seg.StructField.Field,
-			Child: RefSegmentFromProto(seg.StructField.Child),
-		}
 	case *proto.Expression_ReferenceSegment_ListElement_:
 		return &ListElementRef{
 			Offset: seg.ListElement.Offset,
@@ -201,22 +196,6 @@ func (r *StructFieldRef) GetType(parentType types.Type) (types.Type, error) {
 	}
 
 	return st.Types[r.Field], nil
-}
-
-func (r *StructFieldRef) ToProto() *proto.Expression_ReferenceSegment {
-	var c *proto.Expression_ReferenceSegment
-	if r.Child != nil {
-		c = r.Child.ToProto()
-	}
-
-	return &proto.Expression_ReferenceSegment{
-		ReferenceType: &proto.Expression_ReferenceSegment_StructField_{
-			StructField: &proto.Expression_ReferenceSegment_StructField{
-				Field: r.Field,
-				Child: c,
-			},
-		},
-	}
 }
 
 func (r *StructFieldRef) GetChild() ReferenceSegment { return r.Child }
