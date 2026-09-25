@@ -49,33 +49,6 @@ func init() {
 	}
 }
 
-// groupingExprs takes 2-dimensional slice of expressions and returns
-// a single slice of unique expressions and a slice of references to
-// the unique expressions for each group.
-func groupingExprs(groups [][]expr.Expression) ([]expr.Expression, [][]uint32) {
-	groupingExpressions := make([]expr.Expression, 0)
-	groupingReferences := make([][]uint32, 0)
-	for _, group := range groups {
-		refs := make([]uint32, 0)
-		for _, expr := range group {
-			existingExpr := false
-			for eIndex, existing := range groupingExpressions {
-				if existing.Equals(expr) {
-					existingExpr = true
-					refs = append(refs, uint32(eIndex))
-					break
-				}
-			}
-			if !existingExpr {
-				groupingExpressions = append(groupingExpressions, expr)
-				refs = append(refs, uint32(len(groupingExpressions)-1))
-			}
-		}
-		groupingReferences = append(groupingReferences, refs)
-	}
-	return groupingExpressions, groupingReferences
-}
-
 // Relation is either a Root relation (a relation + list of column names)
 // or another relation (such as a CTE or other reference).
 type Relation struct {
@@ -426,65 +399,6 @@ type Rel interface {
 
 func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 	switch rel := rel.RelType.(type) {
-	case *proto.Rel_Aggregate:
-		input, err := RelFromProto(rel.Aggregate.Input, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting input to AggregateRel: %w", err)
-		}
-
-		base := input.RecordType()
-		var groupingExpressions []expr.Expression
-		var groupingReferences [][]uint32
-		if len(rel.Aggregate.GroupingExpressions) > 0 {
-			for _, e := range rel.Aggregate.GroupingExpressions {
-				expr, err := expr.ExprFromProto(e, &base, reg)
-				if err != nil {
-					return nil, fmt.Errorf("error getting grouping expr for AggregateRel: %w", err)
-				}
-				groupingExpressions = append(groupingExpressions, expr)
-			}
-			for _, g := range rel.Aggregate.Groupings {
-				groupingReferences = append(groupingReferences, g.ExpressionReferences)
-			}
-		} else { // support old style grouping for backward compatibility
-			groups := make([][]expr.Expression, len(rel.Aggregate.Groupings))
-			for i, g := range rel.Aggregate.Groupings {
-				groups[i] = make([]expr.Expression, len(g.GroupingExpressions))
-				for j, e := range g.GroupingExpressions {
-					groups[i][j], err = expr.ExprFromProto(e, &base, reg)
-					if err != nil {
-						return nil, fmt.Errorf("error getting grouping expr [%d][%d] for AggregateRel: %w",
-							i, j, err)
-					}
-				}
-			}
-			groupingExpressions, groupingReferences = groupingExprs(groups)
-		}
-
-		measures := make([]AggRelMeasure, len(rel.Aggregate.Measures))
-		for i, m := range rel.Aggregate.Measures {
-			measures[i].measure, err = expr.NewAggregateFunctionFromProto(m.Measure, &base, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error getting AggregateFunction for measure %d: %w", i, err)
-			}
-
-			if m.Filter != nil {
-				measures[i].filter, err = expr.ExprFromProto(m.Filter, &base, reg)
-				if err != nil {
-					return nil, fmt.Errorf("error getting filter for Aggregate Measure %d: %w", i, err)
-				}
-			}
-		}
-
-		out := &AggregateRel{
-			input:               input,
-			measures:            measures,
-			groupingReferences:  groupingReferences,
-			groupingExpressions: groupingExpressions,
-			advExtension:        extensions.AdvancedExtensionFromProto(rel.Aggregate.AdvancedExtension),
-		}
-		out.fromProtoCommon(rel.Aggregate.Common)
-		return out, nil
 	case *proto.Rel_Sort:
 		input, err := RelFromProto(rel.Sort.Input, reg)
 		if err != nil {
