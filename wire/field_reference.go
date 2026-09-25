@@ -91,6 +91,8 @@ func maskSelectToProto(s expr.MaskSelect) *proto.Expression_MaskExpression_Selec
 		return &proto.Expression_MaskExpression_Select{
 			Type: &proto.Expression_MaskExpression_Select_Struct{Struct: maskStructSelectToProto(s)},
 		}
+	case *expr.MaskListSelect:
+		return maskListSelectToProto(s)
 	default:
 		panic(fmt.Sprintf("wire: unhandled mask selection %T", s))
 	}
@@ -104,6 +106,47 @@ func maskStructItemToProto(m *expr.MaskStructItem) *proto.Expression_MaskExpress
 	return &proto.Expression_MaskExpression_StructItem{
 		Field: m.Field(),
 		Child: child,
+	}
+}
+
+func maskListSelectToProto(m *expr.MaskListSelect) *proto.Expression_MaskExpression_Select {
+	sel := m.Selection()
+	items := make([]*proto.Expression_MaskExpression_ListSelect_ListSelectItem, len(sel))
+	for i, s := range sel {
+		items[i] = maskListSelectItemToProto(s)
+	}
+	return &proto.Expression_MaskExpression_Select{
+		Type: &proto.Expression_MaskExpression_Select_List{
+			List: &proto.Expression_MaskExpression_ListSelect{
+				Selection: items,
+				Child:     maskSelectToProto(m.Child()),
+			},
+		},
+	}
+}
+
+func maskListSelectItemToProto(s expr.MaskListSelectItem) *proto.Expression_MaskExpression_ListSelect_ListSelectItem {
+	switch s := s.(type) {
+	case *expr.MaskListElement:
+		return &proto.Expression_MaskExpression_ListSelect_ListSelectItem{
+			Type: &proto.Expression_MaskExpression_ListSelect_ListSelectItem_Item{
+				Item: &proto.Expression_MaskExpression_ListSelect_ListSelectItem_ListElement{
+					Field: s.GetField(),
+				},
+			},
+		}
+	case *expr.MaskListSlice:
+		start, end := s.GetBounds()
+		return &proto.Expression_MaskExpression_ListSelect_ListSelectItem{
+			Type: &proto.Expression_MaskExpression_ListSelect_ListSelectItem_Slice{
+				Slice: &proto.Expression_MaskExpression_ListSelect_ListSelectItem_ListSlice{
+					Start: start,
+					End:   end,
+				},
+			},
+		}
+	default:
+		panic(fmt.Sprintf("wire: unhandled mask selection %T", s))
 	}
 }
 
@@ -159,6 +202,17 @@ func maskSelectFromProto(p *proto.Expression_MaskExpression_Select) expr.MaskSel
 			items[i] = expr.NewMaskStructItem(item.Field, child)
 		}
 		return items
+	case *proto.Expression_MaskExpression_Select_List:
+		selection := make([]expr.MaskListSelectItem, len(s.List.Selection))
+		for i, sel := range s.List.Selection {
+			switch s := sel.Type.(type) {
+			case *proto.Expression_MaskExpression_ListSelect_ListSelectItem_Item:
+				selection[i] = &expr.MaskListElement{Field: s.Item.Field}
+			case *proto.Expression_MaskExpression_ListSelect_ListSelectItem_Slice:
+				selection[i] = &expr.MaskListSlice{Start: s.Slice.Start, End: s.Slice.End}
+			}
+		}
+		return expr.NewMaskListSelect(selection, maskSelectFromProto(s.List.Child))
 	}
 	panic("unimplemented mask select type")
 }
