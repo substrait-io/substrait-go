@@ -209,7 +209,7 @@ window_functions:
 		customLiteral,
 	).Phase(types.AggregationPhaseInitialToResult).Build()
 	require.NoError(t, err)
-	windowProto := window.ToProto()
+	windowProto := wire.ExprToProto(window)
 
 	windowFnCall := windowProto.GetWindowFunction()
 	require.Len(t, windowFnCall.Arguments, 1)

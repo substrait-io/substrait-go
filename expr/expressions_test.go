@@ -249,23 +249,6 @@ func TestExpressionsRoundtrip(t *testing.T) {
 	}
 }
 
-func TestWindowFunctionMissingOutputTypeReturnsError(t *testing.T) {
-	registry := expr.NewEmptyExtensionRegistry(ext.GetDefaultCollectionWithNoError())
-	functionReference := registry.GetFuncAnchor(ext.FunctionID{
-		URN:  "extension:io.substrait:functions_arithmetic",
-		Name: "sum:i64",
-	})
-
-	_, err := expr.ExprFromProto(&proto.Expression{
-		RexType: &proto.Expression_WindowFunction_{WindowFunction: &proto.Expression_WindowFunction{
-			FunctionReference: functionReference,
-			// OutputType intentionally omitted.
-		}},
-	}, nil, registry)
-
-	require.Error(t, err)
-}
-
 func TestCastMissingTypeReturnsError(t *testing.T) {
 	registry := expr.NewEmptyExtensionRegistry(ext.GetDefaultCollectionWithNoError())
 

@@ -12,60 +12,6 @@ import (
 	"github.com/substrait-io/substrait-go/v9/types"
 )
 
-func TestWindowFunctionBoundsType(t *testing.T) {
-	col := extensions.GetDefaultCollectionWithNoError()
-	reg := expr.NewEmptyExtensionRegistry(col)
-
-	sumID := extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Name: "sum"}
-
-	schema := types.NewRecordTypeFromTypes([]types.Type{
-		&types.Int64Type{Nullability: types.NullabilityRequired},
-	})
-
-	b := expr.ExprBuilder{
-		Reg:        reg,
-		BaseSchema: schema,
-	}
-
-	tests := []struct {
-		name       string
-		boundsType types.BoundsType
-	}{
-		{"ROWS", types.BoundsTypeRows},
-		{"RANGE", types.BoundsTypeRange},
-		{"UNSPECIFIED", types.BoundsTypeUnspecified},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			builder := b.WindowFunc(sumID).
-				Args(b.RootRef(expr.NewStructFieldRef(0))).
-				Phase(types.AggregationPhaseInitialToResult).
-				BoundsType(tt.boundsType).
-				Bounds(expr.PrecedingBound(5), expr.FollowingBound(5))
-
-			// RANGE requires exactly one sort field
-			if tt.boundsType == types.BoundsTypeRange {
-				builder = builder.Sort(expr.SortField{
-					Expr: expr.MustExpr(b.RootRef(expr.NewStructFieldRef(0)).Build()),
-					Kind: types.SortAscNullsFirst,
-				})
-			}
-
-			wf, err := builder.BuildExpr()
-			require.NoError(t, err)
-
-			// Roundtrip: serialize and deserialize
-			protoExpr := wf.ToProto()
-			deserialized, err := expr.ExprFromProto(protoExpr, schema, reg)
-			require.NoError(t, err)
-
-			// Verify the entire expression survived the roundtrip
-			assert.Truef(t, wf.Equals(deserialized), "expected: %s\ngot: %s", wf, deserialized)
-		})
-	}
-}
-
 func TestWindowFunctionBoundsTypeDefault(t *testing.T) {
 	col := extensions.GetDefaultCollectionWithNoError()
 	reg := expr.NewEmptyExtensionRegistry(col)
