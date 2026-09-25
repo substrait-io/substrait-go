@@ -48,6 +48,8 @@ func ExprToProto(e expr.Expression) *proto.Expression {
 		return inPredicateSubqueryToProto(e)
 	case *plan.SetPredicateSubquery:
 		return setPredicateSubqueryToProto(e)
+	case *plan.SetComparisonSubquery:
+		return setComparisonSubqueryToProto(e)
 	case expr.Literal:
 		return &proto.Expression{
 			RexType: &proto.Expression_Literal_{Literal: LiteralToProto(e)},
