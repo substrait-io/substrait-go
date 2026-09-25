@@ -13,10 +13,27 @@ import (
 // RefSegmentToProto encodes a reference segment as its protobuf message.
 func RefSegmentToProto(r expr.ReferenceSegment) *proto.Expression_ReferenceSegment {
 	switch r := r.(type) {
+	case *expr.MapKeyRef:
+		return mapKeyRefToProto(r)
 	case *expr.StructFieldRef:
 		return structFieldRefToProto(r)
 	default:
 		panic(fmt.Sprintf("wire: unhandled reference segment %T", r))
+	}
+}
+
+func mapKeyRefToProto(r *expr.MapKeyRef) *proto.Expression_ReferenceSegment {
+	var child *proto.Expression_ReferenceSegment
+	if r.Child != nil {
+		child = RefSegmentToProto(r.Child)
+	}
+	return &proto.Expression_ReferenceSegment{
+		ReferenceType: &proto.Expression_ReferenceSegment_MapKey_{
+			MapKey: &proto.Expression_ReferenceSegment_MapKey{
+				MapKey: LiteralToProto(r.MapKey),
+				Child:  child,
+			},
+		},
 	}
 }
 
@@ -42,6 +59,11 @@ func RefSegmentFromProto(p *proto.Expression_ReferenceSegment) expr.ReferenceSeg
 	}
 
 	switch seg := p.ReferenceType.(type) {
+	case *proto.Expression_ReferenceSegment_MapKey_:
+		return &expr.MapKeyRef{
+			MapKey: LiteralFromProto(seg.MapKey.MapKey),
+			Child:  RefSegmentFromProto(seg.MapKey.Child),
+		}
 	case *proto.Expression_ReferenceSegment_StructField_:
 		return &expr.StructFieldRef{
 			Field: seg.StructField.Field,
