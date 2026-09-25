@@ -59,7 +59,7 @@ jobs:
         run: go test -v ./...
       - name: Run Tests with Coverage
         if: runner.os == 'Linux'
-        run: go test -v -coverprofile=coverage.out $(go list ./... | grep -v /proto)
+        run: go test -v -coverpkg=./... -coverprofile=coverage.out $(go list ./... | grep -v /proto)
       # neither go build ./... nor go test ./... descends into a nested module
       - name: Build codec
         run: go build ./...
