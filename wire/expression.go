@@ -14,6 +14,8 @@ import (
 // ExprToProto encodes an expression as its protobuf message.
 func ExprToProto(e expr.Expression) *proto.Expression {
 	switch e := e.(type) {
+	case *expr.FieldReference:
+		return FieldReferenceToProto(e)
 	case expr.Literal:
 		return &proto.Expression{
 			RexType: &proto.Expression_Literal_{Literal: LiteralToProto(e)},
@@ -54,6 +56,8 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 	switch et := e.RexType.(type) {
 	case *proto.Expression_Literal_:
 		return LiteralFromProto(et.Literal), nil
+	case *proto.Expression_Selection:
+		return FieldReferenceFromProto(et.Selection, baseSchema, reg)
 	case *proto.Expression_Enum_:
 		return nil, fmt.Errorf("%w: deprecated", substraitgo.ErrNotImplemented)
 	}

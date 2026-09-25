@@ -9,7 +9,6 @@ import (
 
 	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/types"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
 // RootRefType is a marker interface for types that can be used as a Root
@@ -403,6 +402,10 @@ func NewFieldRefFromType(root RootRefType, ref Reference, t types.Type) (*FieldR
 	return nil, substraitgo.ErrNotImplemented
 }
 
+func NewFieldReference(root RootRefType, ref Reference, knownType types.Type) *FieldReference {
+	return &FieldReference{Root: root, Reference: ref, knownType: knownType}
+}
+
 func NewMaskExpression(sel MaskStructSelect, maintainSingular bool) *MaskExpression {
 	return &MaskExpression{sel: sel, maintainSingular: maintainSingular}
 }
@@ -443,53 +446,6 @@ func (f *FieldReference) String() string {
 func (f *FieldReference) ToProtoFuncArg() *proto.FunctionArgument {
 	return &proto.FunctionArgument{
 		ArgType: &proto.FunctionArgument_Value{Value: f.ToProto()},
-	}
-}
-func (f *FieldReference) ToProtoFieldRef() *proto.Expression_FieldReference {
-	ret := &proto.Expression_FieldReference{}
-	switch r := f.Reference.(type) {
-	case ReferenceSegment:
-		ret.ReferenceType = &proto.Expression_FieldReference_DirectReference{
-			DirectReference: r.ToProto()}
-	case *MaskExpression:
-		ret.ReferenceType = &proto.Expression_FieldReference_MaskedReference{
-			MaskedReference: r.ToProto(),
-		}
-	}
-
-	if f.Root != RootReference {
-		switch r := f.Root.(type) {
-		case Expression:
-			ret.RootType = &proto.Expression_FieldReference_Expression{
-				Expression: r.ToProto(),
-			}
-		case OuterReference:
-			ret.RootType = &proto.Expression_FieldReference_OuterReference_{
-				OuterReference: &proto.Expression_FieldReference_OuterReference{
-					StepsOut: uint32(r),
-				},
-			}
-		case LambdaParameterReference:
-			ret.RootType = &proto.Expression_FieldReference_LambdaParameterReference_{
-				LambdaParameterReference: &proto.Expression_FieldReference_LambdaParameterReference{
-					StepsOut: r.StepsOut,
-				},
-			}
-		}
-	} else {
-		ret.RootType = &proto.Expression_FieldReference_RootReference_{
-			RootReference: &proto.Expression_FieldReference_RootReference{},
-		}
-	}
-
-	return ret
-}
-
-func (f *FieldReference) ToProto() *proto.Expression {
-	return &proto.Expression{
-		RexType: &proto.Expression_Selection{
-			Selection: f.ToProtoFieldRef(),
-		},
 	}
 }
 
@@ -558,49 +514,3 @@ func (f *FieldReference) Visit(v VisitFunc) Expression {
 }
 
 func (*FieldReference) IsScalar() bool { return true }
-
-func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema *types.RecordType, reg ExtensionRegistry) (*FieldReference, error) {
-	var (
-		ref       Reference
-		root      RootRefType
-		knownType types.Type
-		err       error
-	)
-
-	switch rt := p.RootType.(type) {
-	case *proto.Expression_FieldReference_Expression:
-		if root, err = ExprFromProto(rt.Expression, baseSchema, reg); err != nil {
-			return nil, err
-		}
-	case *proto.Expression_FieldReference_OuterReference_:
-		root = OuterReference(rt.OuterReference.StepsOut)
-	case *proto.Expression_FieldReference_RootReference_:
-		root = RootReference
-	case *proto.Expression_FieldReference_LambdaParameterReference_:
-		root = LambdaParameterReference{StepsOut: rt.LambdaParameterReference.StepsOut}
-	}
-
-	switch rt := p.ReferenceType.(type) {
-	case *proto.Expression_FieldReference_DirectReference:
-		refseg := RefSegmentFromProto(rt.DirectReference)
-		if root == RootReference && baseSchema != nil {
-			baseType := baseSchema.AsStructType()
-			knownType, err = refseg.GetType(baseType)
-			if err != nil {
-				return nil, err
-			}
-		} else if rootExpr, ok := root.(Expression); ok {
-			knownType, err = refseg.GetType(rootExpr.GetType())
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		ref = refseg
-
-	case *proto.Expression_FieldReference_MaskedReference:
-		ref = MaskExpressionFromProto(rt.MaskedReference)
-	}
-
-	return &FieldReference{Root: root, Reference: ref, knownType: knownType}, nil
-}
