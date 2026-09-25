@@ -2,8 +2,6 @@ package types
 
 import (
 	"fmt"
-
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
 // IntervalCompoundType this is used to represent a type of interval compound.
@@ -16,6 +14,14 @@ type IntervalCompoundType struct {
 // NewIntervalCompoundType creates a type of new interval compound.
 func NewIntervalCompoundType() IntervalCompoundType {
 	return IntervalCompoundType{}
+}
+
+func NewIntervalCompoundTypeFromParts(precision TimePrecision, typeVariationRef uint32, nullability Nullability) *IntervalCompoundType {
+	return &IntervalCompoundType{
+		precision:        precision,
+		typeVariationRef: typeVariationRef,
+		nullability:      nullability,
+	}
 }
 
 func (m IntervalCompoundType) WithTypeVariationRef(typeVariationRef uint32) IntervalCompoundType {
@@ -60,14 +66,6 @@ func (m IntervalCompoundType) ToProtoFuncArg() *proto.FunctionArgument {
 	return &proto.FunctionArgument{
 		ArgType: &proto.FunctionArgument_Type{Type: m.ToProto()},
 	}
-}
-
-func (m IntervalCompoundType) ToProto() *proto.Type {
-	return &proto.Type{Kind: &proto.Type_IntervalCompound_{
-		IntervalCompound: &proto.Type_IntervalCompound{
-			Precision:              m.precision.ToProtoVal(),
-			Nullability:            proto.Type_Nullability(m.nullability),
-			TypeVariationReference: m.typeVariationRef}}}
 }
 
 func (IntervalCompoundType) ShortString() string { return shortTypeNames[TypeNameIntervalCompound] }

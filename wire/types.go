@@ -108,6 +108,8 @@ func TypeToProto(t types.Type) *proto.Type {
 				TypeVariationReference: t.GetTypeVariationReference()}}}
 	case *types.IntervalDayType:
 		return intervalDayTypeToProto(t)
+	case types.IntervalCompoundType:
+		return intervalCompoundTypeToProto(t)
 	case *types.UUIDType:
 		return &proto.Type{Kind: &proto.Type_Uuid{
 			Uuid: &proto.Type_UUID{
@@ -401,6 +403,16 @@ func TypeFromProto(t *proto.Type) types.Type {
 			TypeVariationRef: t.IntervalDay.TypeVariationReference,
 			Precision:        precision,
 		}
+	case *proto.Type_IntervalCompound_:
+		precision, err := types.ProtoToTimePrecision(t.IntervalCompound.Precision)
+		if err != nil {
+			panic(fmt.Sprintf("Invalid precision %v", err))
+		}
+		return types.NewIntervalCompoundTypeFromParts(
+			precision,
+			t.IntervalCompound.TypeVariationReference,
+			types.Nullability(t.IntervalCompound.Nullability),
+		)
 	case *proto.Type_TimestampTz:
 		return &types.TimestampTzType{
 			Nullability:      types.Nullability(t.TimestampTz.Nullability),
