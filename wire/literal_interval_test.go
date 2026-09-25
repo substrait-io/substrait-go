@@ -12,6 +12,20 @@ import (
 	"github.com/substrait-io/substrait-go/v9/wire"
 )
 
+func TestNewLiteralWithIntervalYearToMonth(t *testing.T) {
+	_, err := expr.NewLiteral((*types.IntervalYearToMonth)(nil), false)
+	require.Error(t, err)
+
+	lit, err := expr.NewLiteral(&types.IntervalYearToMonth{Years: 1, Months: 2}, false)
+	require.NoError(t, err)
+	assert.Equal(t, "1 years, 2 months", lit.ValueString())
+	assert.Equal(t, "P1Y2M", lit.(types.IsoValuePrinter).IsoValueString())
+
+	pb := wire.LiteralToProto(lit).GetIntervalYearToMonth()
+	assert.Equal(t, int32(1), pb.GetYears())
+	assert.Equal(t, int32(2), pb.GetMonths())
+}
+
 func TestNewLiteralWithIntervalDayToSecond(t *testing.T) {
 	_, err := expr.NewLiteral((*types.IntervalDayToSecond)(nil), false)
 	require.Error(t, err)
