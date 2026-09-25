@@ -180,7 +180,7 @@ window_functions:
 		customLiteral,
 	).BuildExpr()
 	require.NoError(t, err)
-	scalarProto := scalar.ToProto()
+	scalarProto := wire.ExprToProto(scalar)
 
 	fnCall := scalarProto.GetScalarFunction()
 	require.Len(t, fnCall.Arguments, 1)

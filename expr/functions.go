@@ -293,6 +293,19 @@ func NewScalarFunc(
 	}, nil
 }
 
+func NewScalarFunctionFromParts(
+	funcRef uint32, declaration *extensions.ScalarFunctionVariant,
+	args []types.FuncArg, options []*types.FunctionOption, outputType types.Type,
+) *ScalarFunction {
+	return &ScalarFunction{
+		funcRef:     funcRef,
+		declaration: declaration,
+		args:        args,
+		options:     options,
+		outputType:  outputType,
+	}
+}
+
 func (s *ScalarFunction) Name() string                           { return s.declaration.Name() }
 func (s *ScalarFunction) CompoundName() string                   { return s.declaration.CompoundName() }
 func (s *ScalarFunction) ID() extensions.FunctionID              { return s.declaration.ID() }
@@ -387,24 +400,6 @@ func (s *ScalarFunction) ToProtoFuncArg() *proto.FunctionArgument {
 	return &proto.FunctionArgument{
 		ArgType: &proto.FunctionArgument_Value{
 			Value: s.ToProto(),
-		},
-	}
-}
-
-func (s *ScalarFunction) ToProto() *proto.Expression {
-	args := make([]*proto.FunctionArgument, len(s.args))
-	for i, a := range s.args {
-		args[i] = a.ToProtoFuncArg()
-	}
-
-	return &proto.Expression{
-		RexType: &proto.Expression_ScalarFunction_{
-			ScalarFunction: &proto.Expression_ScalarFunction{
-				FunctionReference: s.funcRef,
-				Options:           types.FunctionOptionsToProto(s.options),
-				OutputType:        types.TypeToProto(s.outputType),
-				Arguments:         args,
-			},
 		},
 	}
 }
