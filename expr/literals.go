@@ -308,30 +308,6 @@ func (t *ByteSliceLiteral[T]) ValueString() string {
 }
 
 func (t *ByteSliceLiteral[T]) GetType() types.Type { return t.Type }
-func (t *ByteSliceLiteral[T]) ToProtoLiteral() *proto.Expression_Literal {
-	lit := &proto.Expression_Literal{
-		Nullable:               t.Type.GetNullability() == types.NullabilityNullable,
-		TypeVariationReference: t.Type.GetTypeVariationReference(),
-	}
-
-	switch v := any(t.Value).(type) {
-	case []byte:
-		lit.LiteralType = &proto.Expression_Literal_Binary{Binary: v}
-	case types.FixedBinary:
-		lit.LiteralType = &proto.Expression_Literal_FixedBinary{FixedBinary: v}
-	case types.UUID:
-		lit.LiteralType = &proto.Expression_Literal_Uuid{Uuid: v}
-	}
-
-	return lit
-}
-
-func (t *ByteSliceLiteral[T]) ToProto() *proto.Expression {
-	return &proto.Expression{RexType: &proto.Expression_Literal_{
-		Literal: t.ToProtoLiteral(),
-	}}
-}
-
 func (t *ByteSliceLiteral[T]) Equals(rhs Expression) bool {
 	if other, ok := rhs.(*ByteSliceLiteral[T]); ok {
 		return t.Type.Equals(other.Type) &&
@@ -872,13 +848,6 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 	nullability := getNullability(l.Nullable)
 
 	switch lit := l.LiteralType.(type) {
-	case *proto.Expression_Literal_Binary:
-		return &ByteSliceLiteral[[]byte]{
-			Value: lit.Binary,
-			Type: &types.BinaryType{
-				TypeVariationRef: l.TypeVariationReference,
-				Nullability:      nullability,
-			}}
 	case *proto.Expression_Literal_IntervalDayToSecond_:
 		value, err := types.IntervalDayToSecondFromProto(lit.IntervalDayToSecond)
 		if err != nil {
@@ -905,14 +874,6 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 				TypeVariationRef: l.TypeVariationReference,
 			},
 		}
-	case *proto.Expression_Literal_FixedBinary:
-		return &ByteSliceLiteral[types.FixedBinary]{
-			Value: lit.FixedBinary,
-			Type: &types.FixedBinaryType{
-				Length:           int32(len(lit.FixedBinary)),
-				TypeVariationRef: l.TypeVariationReference,
-				Nullability:      nullability,
-			}}
 	case *proto.Expression_Literal_Decimal_:
 		return &ProtoLiteral{
 			Value: lit.Decimal.Value,
@@ -923,13 +884,6 @@ func LiteralFromProto(l *proto.Expression_Literal) Literal {
 				TypeVariationRef: l.TypeVariationReference,
 			},
 		}
-	case *proto.Expression_Literal_Uuid:
-		return &ByteSliceLiteral[types.UUID]{
-			Value: lit.Uuid,
-			Type: &types.UUIDType{
-				TypeVariationRef: l.TypeVariationReference,
-				Nullability:      nullability,
-			}}
 	case *proto.Expression_Literal_UserDefined_:
 		params := make([]types.TypeParam, len(lit.UserDefined.TypeParameters))
 		for i, p := range lit.UserDefined.TypeParameters {
