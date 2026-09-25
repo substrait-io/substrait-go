@@ -399,43 +399,6 @@ type Rel interface {
 
 func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 	switch rel := rel.RelType.(type) {
-	case *proto.Rel_Join:
-		if JoinType(rel.Join.Type) == JoinTypeUnspecified {
-			return nil, fmt.Errorf("%w: JoinRel must not have unspecified join type", substraitgo.ErrInvalidRel)
-		}
-
-		left, err := RelFromProto(rel.Join.Left, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting left input to JoinRel: %w", err)
-		}
-
-		right, err := RelFromProto(rel.Join.Right, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting right input to JoinRel: %w", err)
-		}
-
-		out := &JoinRel{
-			left:         left,
-			right:        right,
-			joinType:     JoinType(rel.Join.Type),
-			advExtension: extensions.AdvancedExtensionFromProto(rel.Join.AdvancedExtension),
-		}
-		out.fromProtoCommon(rel.Join.Common)
-
-		base := out.JoinedRecordType()
-		out.expr, err = expr.ExprFromProto(rel.Join.Expression, &base, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting expr for JoinRel: %w", err)
-		}
-
-		if rel.Join.PostJoinFilter != nil {
-			out.postJoinFilter, err = expr.ExprFromProto(rel.Join.PostJoinFilter, &base, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error parsing PostJoinFilter for JoinRel: %w", err)
-			}
-		}
-
-		return out, nil
 	case *proto.Rel_ExtensionSingle:
 		input, err := RelFromProto(rel.ExtensionSingle.Input, reg)
 		if err != nil {
