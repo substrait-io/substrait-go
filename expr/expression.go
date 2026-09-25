@@ -40,18 +40,6 @@ func MustExpr(e Expression, err error) Expression {
 	return e
 }
 
-func FuncArgFromProto(e *proto.FunctionArgument, baseSchema *types.RecordType, reg ExtensionRegistry) (types.FuncArg, error) {
-	switch et := e.ArgType.(type) {
-	case *proto.FunctionArgument_Enum:
-		return types.Enum(et.Enum), nil
-	case *proto.FunctionArgument_Type:
-		return types.TypeFromProto(et.Type), nil
-	case *proto.FunctionArgument_Value:
-		return ExprFromProto(et.Value, baseSchema, reg)
-	}
-	return nil, substraitgo.ErrNotImplemented
-}
-
 func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg ExtensionRegistry) (Expression, error) {
 	if e == nil {
 		return nil, fmt.Errorf("%w: protobuf Expression is nil", substraitgo.ErrInvalidExpr)
