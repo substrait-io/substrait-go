@@ -487,17 +487,6 @@ func TypeFromProto(t *proto.Type) Type {
 			TypeVariationRef: t.PrecisionTimestampTz.TypeVariationReference,
 			Precision:        precision,
 		}}
-	case *proto.Type_UserDefined_:
-		params := make([]TypeParam, len(t.UserDefined.TypeParameters))
-		for i, p := range t.UserDefined.TypeParameters {
-			params[i] = TypeParamFromProto(p)
-		}
-		return &UserDefinedType{
-			Nullability:      Nullability(t.UserDefined.Nullability),
-			TypeVariationRef: t.UserDefined.TypeVariationReference,
-			TypeReference:    t.UserDefined.TypeReference,
-			TypeParameters:   params,
-		}
 	}
 	panic("unimplemented type from proto")
 }
@@ -772,8 +761,6 @@ func TypeToProto(t Type) *proto.Type {
 				Precision:              int32(t.Precision),
 				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
-	case *UserDefinedType:
-		return t.ToProto()
 	}
 	panic("unimplemented type")
 }
@@ -1519,21 +1506,6 @@ func (t *UserDefinedType) Equals(rhs Type) bool {
 	}
 
 	return false
-}
-
-func (t *UserDefinedType) ToProto() *proto.Type {
-	params := make([]*proto.Type_Parameter, len(t.TypeParameters))
-	for i, p := range t.TypeParameters {
-		params[i] = p.ToProto()
-	}
-
-	return &proto.Type{Kind: &proto.Type_UserDefined_{
-		UserDefined: &proto.Type_UserDefined{
-			Nullability:            proto.Type_Nullability(t.Nullability),
-			TypeVariationReference: t.TypeVariationRef,
-			TypeReference:          t.TypeReference,
-			TypeParameters:         params,
-		}}}
 }
 
 func (t *UserDefinedType) ToProtoFuncArg() *proto.FunctionArgument {

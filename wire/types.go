@@ -129,6 +129,8 @@ func TypeToProto(t types.Type) *proto.Type {
 		return listTypeToProto(t)
 	case *types.MapType:
 		return mapTypeToProto(t)
+	case *types.UserDefinedType:
+		return userDefinedTypeToProto(t)
 	}
 	panic("unimplemented type")
 }
@@ -180,6 +182,21 @@ func mapTypeToProto(t *types.MapType) *proto.Type {
 			TypeVariationReference: t.TypeVariationRef,
 			Key:                    TypeToProto(t.Key),
 			Value:                  TypeToProto(t.Value)}}}
+}
+
+func userDefinedTypeToProto(t *types.UserDefinedType) *proto.Type {
+	params := make([]*proto.Type_Parameter, len(t.TypeParameters))
+	for i, p := range t.TypeParameters {
+		params[i] = TypeParamToProto(p)
+	}
+
+	return &proto.Type{Kind: &proto.Type_UserDefined_{
+		UserDefined: &proto.Type_UserDefined{
+			Nullability:            proto.Type_Nullability(t.Nullability),
+			TypeVariationReference: t.TypeVariationRef,
+			TypeReference:          t.TypeReference,
+			TypeParameters:         params,
+		}}}
 }
 
 // TypeParamToProto encodes a user-defined-type parameter.
@@ -420,6 +437,17 @@ func TypeFromProto(t *proto.Type) types.Type {
 			TypeVariationRef: t.Map.TypeVariationReference,
 			Key:              TypeFromProto(t.Map.Key),
 			Value:            TypeFromProto(t.Map.Value),
+		}
+	case *proto.Type_UserDefined_:
+		params := make([]types.TypeParam, len(t.UserDefined.TypeParameters))
+		for i, p := range t.UserDefined.TypeParameters {
+			params[i] = TypeParamFromProto(p)
+		}
+		return &types.UserDefinedType{
+			Nullability:      types.Nullability(t.UserDefined.Nullability),
+			TypeVariationRef: t.UserDefined.TypeVariationReference,
+			TypeReference:    t.UserDefined.TypeReference,
+			TypeParameters:   params,
 		}
 	}
 	panic("unimplemented type from proto")
