@@ -448,43 +448,6 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (Rel, error) {
 		out.fromProtoCommon(rel.ExtensionLeaf.Common)
 
 		return out, nil
-	case *proto.Rel_MergeJoin:
-		left, err := RelFromProto(rel.MergeJoin.Left, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting left input to MergeJoinRel: %w", err)
-		}
-
-		right, err := RelFromProto(rel.MergeJoin.Right, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting right input to MergeJoinRel: %w", err)
-		}
-
-		leftBase, rightBase := left.RecordType(), right.RecordType()
-
-		keys, err := comparisonJoinKeysFromProto(
-			rel.MergeJoin.Keys, rel.MergeJoin.LeftKeys, rel.MergeJoin.RightKeys, &leftBase, &rightBase, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting keys for MergeJoinRel: %w", err)
-		}
-
-		out := &MergeJoinRel{
-			left:         left,
-			right:        right,
-			keys:         keys,
-			joinType:     HashMergeJoinType(rel.MergeJoin.Type),
-			advExtension: extensions.AdvancedExtensionFromProto(rel.MergeJoin.AdvancedExtension),
-		}
-		out.fromProtoCommon(rel.MergeJoin.Common)
-
-		if rel.MergeJoin.PostJoinFilter != nil {
-			base := out.RecordType()
-			out.postJoinFilter, err = expr.ExprFromProto(rel.MergeJoin.PostJoinFilter, &base, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error getting post join filter for MergeJoin: %w", err)
-			}
-		}
-
-		return out, nil
 	case *proto.Rel_Write:
 		input, err := RelFromProto(rel.Write.Input, reg)
 		if err != nil {
