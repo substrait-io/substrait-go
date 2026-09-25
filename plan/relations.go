@@ -214,35 +214,12 @@ type VirtualTableReadRel struct {
 	values []expr.VirtualTableExpressionValue
 }
 
+func NewVirtualTableReadRel(base baseReadRel, values []expr.VirtualTableExpressionValue) *VirtualTableReadRel {
+	return &VirtualTableReadRel{baseReadRel: base, values: values}
+}
+
 func (v *VirtualTableReadRel) Values() []expr.VirtualTableExpressionValue {
 	return v.values
-}
-
-func (v *VirtualTableReadRel) ToProto() *proto.Rel {
-	readRel := v.toReadRelProto()
-	values := make([]*proto.Expression_Nested_Struct, len(v.values))
-	for i, v := range v.values {
-		values[i] = v.ToProto()
-	}
-
-	readRel.ReadType = &proto.ReadRel_VirtualTable_{
-		VirtualTable: &proto.ReadRel_VirtualTable{
-			Expressions: values,
-		},
-	}
-	return &proto.Rel{
-		RelType: &proto.Rel_Read{
-			Read: readRel,
-		},
-	}
-}
-
-func (v *VirtualTableReadRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: v.ToProto(),
-		},
-	}
 }
 
 func (v *VirtualTableReadRel) Copy(_ ...Rel) (Rel, error) {
