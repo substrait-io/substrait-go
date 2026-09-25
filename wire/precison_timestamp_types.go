@@ -14,3 +14,11 @@ func precisionTimeTypeToProto(t *types.PrecisionTimeType) *proto.Type {
 			Nullability:            proto.Type_Nullability(t.Nullability),
 			TypeVariationReference: t.TypeVariationRef}}}
 }
+
+func precisionTimestampTypeToProto(t *types.PrecisionTimestampType) *proto.Type {
+	return &proto.Type{Kind: &proto.Type_PrecisionTimestamp_{
+		PrecisionTimestamp: &proto.Type_PrecisionTimestamp{
+			Precision:              int32(t.Precision),
+			Nullability:            proto.Type_Nullability(t.Nullability),
+			TypeVariationReference: t.TypeVariationRef}}}
+}
