@@ -21,6 +21,8 @@ func RelToProto(rel plan.Rel) *proto.Rel {
 		return namedTableReadRelToProto(r)
 	case *plan.VirtualTableReadRel:
 		return virtualTableReadRelToProto(r)
+	case *plan.ExtensionTableReadRel:
+		return extensionTableReadRelToProto(r)
 	default:
 		panic(fmt.Sprintf("wire: unhandled relation %T", rel))
 	}
@@ -70,6 +72,14 @@ func virtualTableReadRelToProto(v *plan.VirtualTableReadRel) *proto.Rel {
 	}
 	readRel.ReadType = &proto.ReadRel_VirtualTable_{
 		VirtualTable: &proto.ReadRel_VirtualTable{Expressions: values},
+	}
+	return &proto.Rel{RelType: &proto.Rel_Read{Read: readRel}}
+}
+
+func extensionTableReadRelToProto(e *plan.ExtensionTableReadRel) *proto.Rel {
+	readRel := baseReadRelToProto(&e.RelCommon, e.GetAdvancedExtension(), e)
+	readRel.ReadType = &proto.ReadRel_ExtensionTable_{
+		ExtensionTable: &proto.ReadRel_ExtensionTable{Detail: e.Detail()},
 	}
 	return &proto.Rel{RelType: &proto.Rel_Read{Read: readRel}}
 }
@@ -160,6 +170,11 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 		// also fails to decode. build assembles the relation once the base is ready.
 		var build func(base decodedReadRelBase) plan.Rel
 		switch readType := rel.Read.ReadType.(type) {
+		case *proto.ReadRel_ExtensionTable_:
+			detail := readType.ExtensionTable.Detail
+			build = func(b decodedReadRelBase) plan.Rel {
+				return plan.NewExtensionTableReadRel(plan.NewBaseReadRel(b.common, b.baseSchema, b.filter, b.bestEffortFilter, b.projection, b.advExtension), detail)
+			}
 		case *proto.ReadRel_NamedTable_:
 			names := readType.NamedTable.Names
 			advExtension := advancedExtensionFromProto(readType.NamedTable.AdvancedExtension)
