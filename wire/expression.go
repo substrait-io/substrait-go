@@ -23,6 +23,8 @@ func ExprToProto(e expr.Expression) *proto.Expression {
 		return ifThenToProto(e)
 	case *expr.SwitchExpr:
 		return switchExprToProto(e)
+	case *expr.SingularOrList:
+		return singularOrListToProto(e)
 	case *expr.Lambda:
 		return lambdaToProto(e)
 	case *expr.ScalarFunction:
@@ -108,6 +110,21 @@ func switchExprToProto(ex *expr.SwitchExpr) *proto.Expression {
 				Match: ExprToProto(ex.MatchExpr()),
 				Ifs:   cases,
 				Else:  elseExpr,
+			},
+		},
+	}
+}
+
+func singularOrListToProto(ex *expr.SingularOrList) *proto.Expression {
+	opts := make([]*proto.Expression, len(ex.Options))
+	for i, o := range ex.Options {
+		opts[i] = ExprToProto(o)
+	}
+	return &proto.Expression{
+		RexType: &proto.Expression_SingularOrList_{
+			SingularOrList: &proto.Expression_SingularOrList{
+				Value:   ExprToProto(ex.Value),
+				Options: opts,
 			},
 		},
 	}
@@ -306,6 +323,24 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 		}
 
 		return expr.NewSwitchExprFromParts(matched, ifs, elseExpr), nil
+	case *proto.Expression_SingularOrList_:
+		val, err := ExprFromProto(et.SingularOrList.Value, baseSchema, reg)
+		if err != nil {
+			return nil, err
+		}
+
+		opts := make([]expr.Expression, len(et.SingularOrList.Options))
+		for i, o := range et.SingularOrList.Options {
+			opts[i], err = ExprFromProto(o, baseSchema, reg)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		return &expr.SingularOrList{
+			Value:   val,
+			Options: opts,
+		}, nil
 	case *proto.Expression_Lambda_:
 		if et.Lambda.Parameters == nil {
 			return nil, fmt.Errorf("%w: lambda parameters cannot be nil", substraitgo.ErrInvalidExpr)

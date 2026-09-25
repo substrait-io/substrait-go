@@ -46,24 +46,6 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg Extens
 	}
 
 	switch et := e.RexType.(type) {
-	case *proto.Expression_SingularOrList_:
-		val, err := ExprFromProto(et.SingularOrList.Value, baseSchema, reg)
-		if err != nil {
-			return nil, err
-		}
-
-		opts := make([]Expression, len(et.SingularOrList.Options))
-		for i, o := range et.SingularOrList.Options {
-			opts[i], err = ExprFromProto(o, baseSchema, reg)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		return &SingularOrList{
-			Value:   val,
-			Options: opts,
-		}, nil
 	case *proto.Expression_MultiOrList_:
 		var err error
 		val := make([]Expression, len(et.MultiOrList.Value))
@@ -716,21 +698,6 @@ func (ex *SingularOrList) IsScalar() bool {
 
 func (ex *SingularOrList) GetType() types.Type {
 	return &types.BooleanType{Nullability: types.NullabilityRequired}
-}
-
-func (ex *SingularOrList) ToProto() *proto.Expression {
-	opts := make([]*proto.Expression, len(ex.Options))
-	for i, o := range ex.Options {
-		opts[i] = o.ToProto()
-	}
-	return &proto.Expression{
-		RexType: &proto.Expression_SingularOrList_{
-			SingularOrList: &proto.Expression_SingularOrList{
-				Value:   ex.Value.ToProto(),
-				Options: opts,
-			},
-		},
-	}
 }
 
 func (ex *SingularOrList) Equals(other Expression) bool {
