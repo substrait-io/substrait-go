@@ -943,16 +943,8 @@ func TestFileOrFilesFormatRoundTrip(t *testing.T) {
 			var got FileOrFiles
 			got.fromProto(original.ToProto())
 
-			assert.Equal(t, original.PathType, got.PathType)
-			assert.Equal(t, original.Path, got.Path)
-			assert.Equal(t, original.PartIndex, got.PartIndex)
-			assert.Equal(t, original.Start, got.Start)
-			assert.Equal(t, original.Len, got.Len)
-			assert.IsType(t, tc.format, got.Format)
-			if ext, ok := tc.format.(*ExtensionReadOptions); ok {
-				require.IsType(t, &ExtensionReadOptions{}, got.Format)
-				assert.Equal(t, (*anypb.Any)(ext), (*anypb.Any)(got.Format.(*ExtensionReadOptions)))
-			}
+			assert.Equal(t, original, &got)
+
 		})
 	}
 }
