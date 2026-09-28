@@ -917,3 +917,34 @@ func TestExtensionRelFromProtoBackwardCompatibility(t *testing.T) {
 	assert.Equal(t, types.RecordType{}, unknownExt.Schema(nil))
 	assert.Equal(t, types.RecordType{}, unknownExt.Schema([]Rel{}))
 }
+
+func TestFileOrFilesFormatRoundTrip(t *testing.T) {
+	cases := []struct {
+		name   string
+		format FileFormat
+	}{
+		{"parquet", &ParquetReadOptions{}},
+		{"arrow", &ArrowReadOptions{}},
+		{"orc", &OrcReadOptions{}},
+		{"dwrf", &DwrfReadOptions{}},
+		{"extension", (*ExtensionReadOptions)(&anypb.Any{TypeUrl: "urn:test", Value: []byte{1, 2, 3}})},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			original := &FileOrFiles{
+				PathType:  URIFile,
+				Path:      "/tmp/data",
+				PartIndex: 7,
+				Start:     100,
+				Len:       200,
+				Format:    tc.format,
+			}
+
+			var got FileOrFiles
+			got.fromProto(original.ToProto())
+
+			assert.Equal(t, original, &got)
+
+		})
+	}
+}
