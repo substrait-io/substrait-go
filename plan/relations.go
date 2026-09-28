@@ -516,9 +516,6 @@ const (
 	URIFolder
 )
 
-// The Parquet, Arrow, Orc and Dwrf read-option messages carry no fields, so
-// their domain counterparts are empty structs. ExtensionReadOptions wraps an
-// arbitrary protobuf Any payload.
 type (
 	ParquetReadOptions   struct{}
 	ArrowReadOptions     struct{}
