@@ -26,6 +26,42 @@ jobs:
         with:
           version: v2.1.6
           working-directory: codec
+  proto-isolation:
+    name: Proto Isolation (#280)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+      - name: substrait-protobuf must stay in wire/
+        # Core domain packages must not reach substrait-protobuf, directly or
+        # transitively, so a consumer that only builds and inspects plans does
+        # not pull the generated types into its dependency graph. All encode and
+        # decode lives in wire/ (issue #280).
+        run: |
+          set -euo pipefail
+          proto='github.com/substrait-io/substrait-protobuf'
+          non_wire=$(go list ./... | grep -v '/wire')
+          fail=0
+          if go list -deps $non_wire 2>/dev/null | grep -q "$proto"; then
+            echo "substrait-protobuf reachable from a non-wire package:"
+            for pkg in $non_wire; do
+              go list -deps "$pkg" 2>/dev/null | grep -q "$proto" && echo "  $pkg"
+            done
+            fail=1
+          fi
+          if leaks=$(git grep -l "$proto" -- '*.go' ':(exclude)wire/' ':(exclude)codec/'); then
+            echo "substrait-protobuf referenced in source outside wire/:"
+            echo "$leaks" | sed 's/^/  /'
+            fail=1
+          fi
+          if [ "$fail" -ne 0 ]; then
+            echo
+            echo "substrait-protobuf must live only in wire/ (issue #280)."
+            exit 1
+          fi
+          echo "OK: substrait-protobuf is isolated to wire/"
   build:
     name: Build and Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
