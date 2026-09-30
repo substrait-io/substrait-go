@@ -1547,7 +1547,7 @@ func (t SimpleComparisonType) String() string {
 
 // JoinKeyComparison describes how the two sides of a ComparisonJoinKey are
 // compared. It is either a SimpleComparison or a CustomComparison. The
-// unexported toProto method seals it to this package.
+// unexported isJoinKeyComparison method seals it to this package.
 type JoinKeyComparison interface {
 	isJoinKeyComparison()
 }

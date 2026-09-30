@@ -278,6 +278,9 @@ func aggregateRelToProto(ar *plan.AggregateRel) *proto.Rel {
 	}
 }
 
+// groupingExprs takes 2-dimensional slice of expressions and returns
+// a single slice of unique expressions and a slice of references to
+// the unique expressions for each group.
 func groupingExprs(groups [][]expr.Expression) ([]expr.Expression, [][]uint32) {
 	groupingExpressions := make([]expr.Expression, 0)
 	groupingReferences := make([][]uint32, 0)

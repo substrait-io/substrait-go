@@ -70,6 +70,10 @@ func relToPlanRelProto(rel plan.Rel) *proto.PlanRel {
 	}
 }
 
+// isRecordTypeSupported reports whether the relation's RecordType() can be
+// called without panicking or returning incorrect results. Some relation types
+// have incomplete implementations that panic or guess.
+// TODO(#210): remove this once RecordType() is fixed for all relation types.
 func isRecordTypeSupported(rel plan.Rel) bool {
 	switch r := rel.(type) {
 	case *plan.ExtensionSingleRel:
@@ -87,6 +91,9 @@ func isRecordTypeSupported(rel plan.Rel) bool {
 	return true
 }
 
+// validateRootNamesForSchema checks that the number of root output names
+// matches the depth-first field count of the given record type.
+// Per the spec, root relations have field names (https://substrait.io/faq).
 func validateRootNamesForSchema(recordType types.RecordType, names []string) error {
 	expected := recordType.AsStructType().DepthFirstNameCount()
 	if len(names) != expected {

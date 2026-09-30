@@ -317,9 +317,8 @@ func TestUserDefinedLiteralNilStructDecodes(t *testing.T) {
 	require.NotPanics(t, func() { wire.LiteralFromProto(protoLit) })
 }
 
-// TestUserDefinedLiteralPointerValuePanics verifies that a pointer form of a value
-// (which also satisfies UserDefinedLiteralValue via the value-receiver marker) fails
-// loud on serialization rather than silently dropping the payload.
+// TestUserDefinedLiteralPointerValueRoundtrip verifies that a pointer value
+// satisfying UserDefinedLiteralValue retains its payload when encoded.
 func TestUserDefinedLiteralPointerValueRoundtrip(t *testing.T) {
 	anyValue, err := anypb.New(wrapperspb.String("data"))
 	require.NoError(t, err)

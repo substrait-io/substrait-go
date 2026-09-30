@@ -65,8 +65,6 @@ type Expression interface {
 	IsScalar() bool
 	// GetType returns the output type of this expression
 	GetType() types.Type
-	// ToProto converts this Expression and its arguments
-	// to the equivalent Protobuf objects.
 	// Equals returns true if this expression and all of its
 	// arguments and their children etc. are equal to the passed
 	// in Expression.
