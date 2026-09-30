@@ -51,6 +51,32 @@ func TestAnyType(t *testing.T) {
 			expectedString:     "any1",
 		},
 		{
+			testName: "list<any1?> binds required any1",
+			argName:  "any1",
+			parameters: []FuncDefArgType{
+				&ParameterizedListType{Type: &AnyType{Name: "any1", Nullability: NullabilityNullable}},
+			},
+			args: []Type{
+				&ListType{Type: &Int64Type{Nullability: NullabilityNullable}},
+			},
+			concreteReturnType: &Int64Type{Nullability: NullabilityRequired},
+			nullability:        NullabilityRequired,
+			expectedString:     "any1",
+		},
+		{
+			testName: "list<any1?> with nullable any1 return",
+			argName:  "any1",
+			parameters: []FuncDefArgType{
+				&ParameterizedListType{Type: &AnyType{Name: "any1", Nullability: NullabilityNullable}},
+			},
+			args: []Type{
+				&ListType{Type: &Int64Type{Nullability: NullabilityNullable}},
+			},
+			concreteReturnType: &Int64Type{Nullability: NullabilityNullable},
+			nullability:        NullabilityNullable,
+			expectedString:     "any1?",
+		},
+		{
 			testName: "wrong_list<any1>",
 			argName:  "any1",
 			parameters: []FuncDefArgType{
@@ -359,4 +385,23 @@ func TestAnyType(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAnyTypeReturnTypeDoesNotMutateArgument(t *testing.T) {
+	argumentElement := &IntervalDayType{
+		Precision:        PrecisionMilliSeconds,
+		TypeVariationRef: 42,
+		Nullability:      NullabilityNullable,
+	}
+	parameter := &ParameterizedListType{
+		Type: &AnyType{Name: "any1", Nullability: NullabilityNullable},
+	}
+	argument := &ListType{Type: argumentElement}
+	returnType := &AnyType{Name: "any1", Nullability: NullabilityRequired}
+
+	resolved, err := returnType.ReturnType([]FuncDefArgType{parameter}, []Type{argument})
+
+	require.NoError(t, err)
+	require.Equal(t, NullabilityRequired, resolved.GetNullability())
+	require.Equal(t, NullabilityNullable, argumentElement.GetNullability())
 }
