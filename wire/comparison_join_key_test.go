@@ -5,6 +5,7 @@ package wire
 import (
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/v9/expr"
@@ -12,6 +13,7 @@ import (
 	"github.com/substrait-io/substrait-go/v9/plan"
 	"github.com/substrait-io/substrait-go/v9/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 // createJoinInput builds a named table read rel with three required int64 columns.
@@ -29,6 +31,18 @@ func createJoinInput(name string) *plan.NamedTableReadRel {
 
 func joinTestRegistry() expr.ExtensionRegistry {
 	return expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
+}
+
+// All joins below have a left and right input with three int64 columns each.
+func joinInputs() (plan.Rel, plan.Rel) {
+	return createJoinInput("L"), createJoinInput("R")
+}
+
+func eqKeys(t *testing.T, left, right plan.Rel) []*plan.ComparisonJoinKey {
+	return []*plan.ComparisonJoinKey{
+		plan.NewEqualityJoinKey(keyRef(t, left, 0), keyRef(t, right, 2)),
+		plan.NewEqualityJoinKey(keyRef(t, left, 1), keyRef(t, right, 0)),
+	}
 }
 
 // i64Type is a required int64 protobuf type.
@@ -71,6 +85,115 @@ func fieldIndex(t *testing.T, ref *expr.FieldReference) int32 {
 	seg, ok := ref.Reference.(*expr.StructFieldRef)
 	require.True(t, ok)
 	return seg.Field
+}
+
+// Producing a join always writes the new keys field, and additionally
+// mirrors the deprecated left_keys/right_keys when every key is a plain EQ
+// comparison so old consumers keep working for equality joins.
+func TestJoinWritesLegacyKeysForEqualityOnly(t *testing.T) {
+	left, right := joinInputs()
+	wantLeft := []*proto.Expression_FieldReference{
+		fieldReferenceRefToProto(keyRef(t, left, 0)), fieldReferenceRefToProto(keyRef(t, left, 1))}
+	wantRight := []*proto.Expression_FieldReference{
+		fieldReferenceRefToProto(keyRef(t, right, 2)), fieldReferenceRefToProto(keyRef(t, right, 0))}
+
+	// All-EQ keys: new keys field plus mirrored deprecated fields.
+	for _, tc := range []struct {
+		name string
+		keys []*plan.ComparisonJoinKey
+	}{
+		{name: "value comparison", keys: eqKeys(t, left, right)},
+		{name: "pointer comparison", keys: []*plan.ComparisonJoinKey{
+			plan.NewComparisonJoinKey(keyRef(t, left, 0), keyRef(t, right, 2), &plan.SimpleComparison{Type: plan.SimpleComparisonTypeEq}),
+			plan.NewComparisonJoinKey(keyRef(t, left, 1), keyRef(t, right, 0), &plan.SimpleComparison{Type: plan.SimpleComparisonTypeEq}),
+		}},
+	} {
+		t.Run("all EQ mirrors deprecated fields: "+tc.name, func(t *testing.T) {
+			hash := RelToProto(plan.NewHashJoinRel(left, right, tc.keys, plan.HashMergeInner, nil, plan.RelCommon{}, nil)).GetHashJoin()
+			assert.Len(t, hash.GetKeys(), 2)
+			assert.Empty(t, cmp.Diff(wantLeft, hash.GetLeftKeys(), protocmp.Transform()))
+			assert.Empty(t, cmp.Diff(wantRight, hash.GetRightKeys(), protocmp.Transform()))
+
+			merge := RelToProto(plan.NewMergeJoinRel(left, right, tc.keys, plan.HashMergeInner, nil, plan.RelCommon{}, nil)).GetMergeJoin()
+			assert.Len(t, merge.GetKeys(), 2)
+			assert.Empty(t, cmp.Diff(wantLeft, merge.GetLeftKeys(), protocmp.Transform()))
+			assert.Empty(t, cmp.Diff(wantRight, merge.GetRightKeys(), protocmp.Transform()))
+		})
+	}
+
+	// A non-EQ comparison anywhere makes the legacy fields lossy, so they are
+	// omitted entirely and only the new keys field is written.
+	for _, tc := range []struct {
+		name       string
+		comparison plan.JoinKeyComparison
+	}{
+		{"is not distinct from", plan.SimpleComparison{Type: plan.SimpleComparisonTypeIsNotDistinctFrom}},
+		{"might equal", plan.SimpleComparison{Type: plan.SimpleComparisonTypeMightEqual}},
+		{"custom", plan.CustomComparison{FunctionReference: 7}},
+	} {
+		t.Run("non-EQ omits deprecated fields: "+tc.name, func(t *testing.T) {
+			keys := []*plan.ComparisonJoinKey{
+				plan.NewEqualityJoinKey(keyRef(t, left, 0), keyRef(t, right, 2)),
+				plan.NewComparisonJoinKey(keyRef(t, left, 1), keyRef(t, right, 0), tc.comparison),
+			}
+
+			hash := RelToProto(plan.NewHashJoinRel(left, right, keys, plan.HashMergeInner, nil, plan.RelCommon{}, nil)).GetHashJoin()
+			assert.Len(t, hash.GetKeys(), 2)
+			assert.Empty(t, hash.GetLeftKeys())
+			assert.Empty(t, hash.GetRightKeys())
+
+			merge := RelToProto(plan.NewMergeJoinRel(left, right, keys, plan.HashMergeInner, nil, plan.RelCommon{}, nil)).GetMergeJoin()
+			assert.Len(t, merge.GetKeys(), 2)
+			assert.Empty(t, merge.GetLeftKeys())
+			assert.Empty(t, merge.GetRightKeys())
+		})
+	}
+}
+
+// Equality, non-EQ simple comparisons and custom comparison functions all
+// survive a round trip through proto.
+func TestJoinKeysRoundTrip(t *testing.T) {
+	left, right := joinInputs()
+	reg := joinTestRegistry()
+
+	keys := []*plan.ComparisonJoinKey{
+		plan.NewEqualityJoinKey(keyRef(t, left, 0), keyRef(t, right, 2)),
+		plan.NewComparisonJoinKey(keyRef(t, left, 1), keyRef(t, right, 0),
+			plan.SimpleComparison{Type: plan.SimpleComparisonTypeIsNotDistinctFrom}),
+		plan.NewComparisonJoinKey(keyRef(t, left, 2), keyRef(t, right, 1),
+			plan.CustomComparison{FunctionReference: 42}),
+	}
+
+	for _, tc := range []struct {
+		name string
+		rel  plan.Rel
+	}{
+		{"hash", plan.NewHashJoinRel(left, right, keys, plan.HashMergeInner, nil, plan.RelCommon{}, nil)},
+		{"merge", plan.NewMergeJoinRel(left, right, keys, plan.HashMergeInner, nil, plan.RelCommon{}, nil)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			out := RelToProto(tc.rel)
+			roundTripped, err := RelFromProto(out, reg)
+			require.NoError(t, err)
+
+			if diff := cmp.Diff(out, RelToProto(roundTripped), protocmp.Transform()); diff != "" {
+				t.Errorf("join did not round trip, diff:\n%v", diff)
+			}
+
+			// The comparison kinds are preserved on the model side.
+			var gotKeys []*plan.ComparisonJoinKey
+			switch r := roundTripped.(type) {
+			case *plan.HashJoinRel:
+				gotKeys = r.Keys()
+			case *plan.MergeJoinRel:
+				gotKeys = r.Keys()
+			}
+			require.Len(t, gotKeys, 3)
+			assert.Equal(t, plan.SimpleComparison{Type: plan.SimpleComparisonTypeEq}, gotKeys[0].Comparison())
+			assert.Equal(t, plan.SimpleComparison{Type: plan.SimpleComparisonTypeIsNotDistinctFrom}, gotKeys[1].Comparison())
+			assert.Equal(t, plan.CustomComparison{FunctionReference: 42}, gotKeys[2].Comparison())
+		})
+	}
 }
 
 // assertConsumedLegacyKeys checks that the keys decoded from a legacy producer
