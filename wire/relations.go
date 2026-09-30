@@ -60,14 +60,7 @@ func RelToProto(rel plan.Rel) *proto.Rel {
 	}
 }
 
-type readRelReader interface {
-	BaseSchema() types.NamedStruct
-	Filter() expr.Expression
-	BestEffortFilter() expr.Expression
-	Projection() *expr.MaskExpression
-}
-
-func baseReadRelToProto(rc *plan.RelCommon, advExt *extensions.AdvancedExtension, r readRelReader) *proto.ReadRel {
+func baseReadRelToProto(rc *plan.RelCommon, advExt *extensions.AdvancedExtension, r plan.ReadRel) *proto.ReadRel {
 	out := &proto.ReadRel{
 		Common:            relCommonToProto(rc),
 		BaseSchema:        NamedStructToProto(r.BaseSchema()),
