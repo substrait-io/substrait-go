@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/v9/expr"
@@ -14,6 +15,8 @@ import (
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	extensionspb "github.com/substrait-io/substrait-protobuf/go/substraitpb/extensions"
 	"google.golang.org/protobuf/encoding/protojson"
+	protobuf "google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -43,10 +46,15 @@ func TestRelFromProto(t *testing.T) {
 
 			outRel, err := RelFromProto(rel, registry)
 			require.NoError(t, err)
-			// Both the new-expression and deprecated-literal forms decode to a
-			// virtual table read relation.
-			_, ok := outRel.(*plan.VirtualTableReadRel)
+			gotRel := RelToProto(outRel)
+			gotReadRel, ok := gotRel.RelType.(*proto.Rel_Read)
 			require.True(t, ok)
+			gotVirtualTableReadRel, ok := gotReadRel.Read.ReadType.(*proto.ReadRel_VirtualTable_)
+			require.True(t, ok)
+			// in case of both deprecated or new expression, the output should be the same as the new expression
+			if diff := cmp.Diff(gotVirtualTableReadRel, virtualTableWithExpression, protocmp.Transform()); diff != "" {
+				t.Errorf("expression proto didn't match, diff:\n%v", diff)
+			}
 		})
 	}
 
@@ -102,8 +110,14 @@ func TestPlanRoundTripWithExtensions(t *testing.T) {
 		Relations: []*proto.PlanRel{},
 	}
 
-	_, err = PlanFromProto(original, c)
+	plan, err := PlanFromProto(original, c)
 	require.NoError(t, err)
+
+	roundTripped, err := PlanToProto(plan)
+	require.NoError(t, err)
+	assert.True(t, protobuf.Equal(original, roundTripped),
+		"Plan should be equivalent after round-trip.\nOriginal:      %s\nRound-tripped: %s",
+		protojson.Format(original), protojson.Format(roundTripped))
 }
 
 func TestPlanRoundTripWithSubqueries(t *testing.T) {
@@ -195,8 +209,14 @@ func TestPlanRoundTripWithSubqueries(t *testing.T) {
 					},
 				}},
 			}
-			_, err := PlanFromProto(original, c)
+			p, err := PlanFromProto(original, c)
 			require.NoError(t, err)
+			roundTripped, err := PlanToProto(p)
+			require.NoError(t, err)
+			// Use cmp.Diff instead of protojson for comparison: protojson output is non-deterministic.
+			if diff := cmp.Diff(original, roundTripped, protocmp.Transform()); diff != "" {
+				t.Errorf("plan round-trip mismatch (-want +got):\n%s", diff)
+			}
 		})
 	}
 }
@@ -454,6 +474,12 @@ func TestFromProtoWithDecoder(t *testing.T) {
 			p, err := PlanFromProtoWithDecoder(tc.plan, c, map[string]expr.ExtensionRelDecoder{typeURL: &customDecoder{schema: extSchema}})
 			require.NoError(t, err)
 			require.Len(t, p.Relations()[0].Root().RecordType().Struct.Types, 3)
+
+			roundTripped, err := PlanToProto(p)
+			require.NoError(t, err)
+			if diff := cmp.Diff(tc.plan, roundTripped, protocmp.Transform()); diff != "" {
+				t.Errorf("round-trip mismatch (-want +got):\n%s", diff)
+			}
 		})
 	}
 

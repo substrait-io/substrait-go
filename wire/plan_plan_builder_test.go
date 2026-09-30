@@ -69,9 +69,7 @@ func TestBasicEmitPlan(t *testing.T) {
 	roundTrip, err := wire.PlanFromProto(protoPlan, extensions.GetDefaultCollectionWithNoError())
 	require.NoError(t, err)
 
-	roundTripProto, err := wire.PlanToProto(roundTrip)
-	require.NoError(t, err)
-	assert.True(t, proto.Equal(protoPlan, roundTripProto))
+	assert.Equal(t, p, roundTrip)
 	assert.Equal(t, "NSTRUCT<a: fp32, b: string>", p.GetRoots()[0].RecordType().String())
 	assert.Equal(t, roundTrip.GetRoots()[0].RecordType(), p.GetRoots()[0].RecordType())
 }
@@ -104,9 +102,7 @@ func TestEmitEmptyPlan(t *testing.T) {
 	roundTrip, err := wire.PlanFromProto(protoPlan, extensions.GetDefaultCollectionWithNoError())
 	require.NoError(t, err)
 
-	roundTripProto, err := wire.PlanToProto(roundTrip)
-	require.NoError(t, err)
-	assert.True(t, proto.Equal(protoPlan, roundTripProto))
+	assert.Equal(t, p, roundTrip)
 }
 
 func checkRoundTrip(t *testing.T, expectedJSON string, p *plan.Plan) {
