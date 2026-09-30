@@ -56,8 +56,8 @@ func createPrimitiveBool(value bool) expr.Expression {
 func TestRelations_Copy(t *testing.T) {
 	extReg := expr.NewExtensionRegistry(extensions.NewSet(), extensions.GetDefaultCollectionWithNoError())
 	aggregateFnID := extensions.FunctionID{
-		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
-		Name: "avg",
+		URN:       extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
+		Signature: "avg:fp64",
 	}
 	aggregateFn, err := expr.NewAggregateFunc(extReg,
 		aggregateFnID, nil, types.AggregationInvocationAll,
@@ -450,8 +450,8 @@ func TestRelations_Copy(t *testing.T) {
 func TestRelations_AdvancedExtensions(t *testing.T) {
 	extReg := expr.NewExtensionRegistry(extensions.NewSet(), extensions.GetDefaultCollectionWithNoError())
 	aggregateFnID := extensions.FunctionID{
-		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
-		Name: "avg",
+		URN:       extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
+		Signature: "avg:fp64",
 	}
 	aggregateFn, err := expr.NewAggregateFunc(extReg,
 		aggregateFnID, nil, types.AggregationInvocationAll,
@@ -544,8 +544,8 @@ func TestRelations_AdvancedExtensions(t *testing.T) {
 func TestAggregateRelToBuilder(t *testing.T) {
 	extReg := expr.NewExtensionRegistry(extensions.NewSet(), extensions.GetDefaultCollectionWithNoError())
 	aggregateFnID := extensions.FunctionID{
-		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
-		Name: "avg",
+		URN:       extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
+		Signature: "avg:fp64",
 	}
 	aggregateFn, err := expr.NewAggregateFunc(extReg,
 		aggregateFnID, nil, types.AggregationInvocationAll,
