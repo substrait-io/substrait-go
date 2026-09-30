@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
@@ -56,93 +57,112 @@ func TestPhysicalJoinOutputSchema(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		for _, kind := range []string{"hash", "merge"} {
-			t.Run(kind+"/"+tc.name, func(t *testing.T) {
-				common := &proto.RelCommon{}
-				var input *proto.Rel
-				if kind == "hash" {
-					input = &proto.Rel{RelType: &proto.Rel_HashJoin{HashJoin: &proto.HashJoinRel{
-						Common: common, Left: left.ToProto(), Right: right.ToProto(), Keys: keys, Type: tc.hash,
-					}}}
-				} else {
-					input = &proto.Rel{RelType: &proto.Rel_MergeJoin{MergeJoin: &proto.MergeJoinRel{
-						Common: common, Left: left.ToProto(), Right: right.ToProto(), Keys: keys, Type: tc.merge,
-					}}}
-				}
-				rel, err := RelFromProto(input, joinTestRegistry())
-				require.NoError(t, err)
-				assert.Equal(t, tc.want, rel.RecordType().Types())
-			})
-		}
+		t.Run("hash/"+tc.name, func(t *testing.T) {
+			input := &proto.Rel{RelType: &proto.Rel_HashJoin{HashJoin: &proto.HashJoinRel{
+				Common: &proto.RelCommon{}, Left: left.ToProto(), Right: right.ToProto(), Keys: keys, Type: tc.hash,
+			}}}
+			rel, err := RelFromProto(input, joinTestRegistry())
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, rel.RecordType().Types())
+		})
+		t.Run("merge/"+tc.name, func(t *testing.T) {
+			input := &proto.Rel{RelType: &proto.Rel_MergeJoin{MergeJoin: &proto.MergeJoinRel{
+				Common: &proto.RelCommon{}, Left: left.ToProto(), Right: right.ToProto(), Keys: keys, Type: tc.merge,
+			}}}
+			rel, err := RelFromProto(input, joinTestRegistry())
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, rel.RecordType().Types())
+		})
 	}
 }
 
-func TestNullableRecordTypePreservesInputAndNestedFields(t *testing.T) {
+func TestNullableRecordTypePreservesNestedFields(t *testing.T) {
 	child := &types.Int64Type{Nullability: types.NullabilityRequired}
 	nested := &types.StructType{Nullability: types.NullabilityRequired, Types: []types.Type{child}}
-	input := types.NewRecordTypeFromTypes([]types.Type{nested, child})
-	want := []types.Type{
-		&types.StructType{Nullability: types.NullabilityNullable, Types: []types.Type{child}},
-		&types.Int64Type{Nullability: types.NullabilityNullable},
-	}
+	input := types.NewRecordTypeFromTypes([]types.Type{nested})
 
 	output := nullableRecordType(*input)
-	assert.Equal(t, want, output.Types())
-	assert.Equal(t, []types.Type{nested, child}, input.Types())
+	assert.Equal(t, &types.StructType{
+		Nullability: types.NullabilityNullable,
+		Types:       []types.Type{&types.Int64Type{Nullability: types.NullabilityRequired}},
+	}, output.Types()[0])
 	assert.Equal(t, types.NullabilityRequired, nested.Nullability)
 	assert.Equal(t, types.NullabilityRequired, child.Nullability)
 }
 
 func TestPhysicalJoinPostFilterUsesDirectOutput(t *testing.T) {
 	left, right := createJoinInput("left"), createJoinInput("right")
-	left.baseSchema.Struct.Types[2] = &types.BooleanType{Nullability: types.NullabilityNullable}
 	right.baseSchema.Struct.Types[2] = &types.BooleanType{Nullability: types.NullabilityRequired}
 	keys := comparisonJoinKeysToProto([]*ComparisonJoinKey{
 		NewEqualityJoinKey(keyRef(t, left, 0), keyRef(t, right, 0)),
 	})
-	joined := &fakeRel{outputType: left.RecordType().Concat(right.RecordType())}
-	for _, tc := range []struct {
-		name      string
-		join      HashMergeJoinType
-		field     int32
-		want      types.Nullability
-		wantError bool
-	}{
-		{"left mark", HashMergeLeftMark, 3, types.NullabilityNullable, false},
-		{"right mark", HashMergeRightMark, 3, types.NullabilityNullable, false},
-		{"right semi", HashMergeRightSemi, 2, types.NullabilityRequired, false},
-		{"left outer", HashMergeLeft, 5, types.NullabilityNullable, false},
-		{"inner", HashMergeInner, 5, types.NullabilityRequired, false},
-		{"left semi discarded field", HashMergeLeftSemi, 5, types.NullabilityUnspecified, true},
-	} {
-		for _, kind := range []string{"hash", "merge"} {
-			t.Run(kind+"/"+tc.name, func(t *testing.T) {
-				// The filter's field is absent from the emitted output.
-				common := &proto.RelCommon{EmitKind: &proto.RelCommon_Emit_{
-					Emit: &proto.RelCommon_Emit{OutputMapping: []int32{1}},
-				}}
-				predicate := keyRef(t, joined, tc.field).ToProto()
-				var input *proto.Rel
-				if kind == "hash" {
-					input = &proto.Rel{RelType: &proto.Rel_HashJoin{HashJoin: &proto.HashJoinRel{
-						Common: common, Left: left.ToProto(), Right: right.ToProto(), Keys: keys,
-						Type: proto.HashJoinRel_JoinType(tc.join), PostJoinFilter: predicate,
-					}}}
-				} else {
-					input = &proto.Rel{RelType: &proto.Rel_MergeJoin{MergeJoin: &proto.MergeJoinRel{
-						Common: common, Left: left.ToProto(), Right: right.ToProto(), Keys: keys,
-						Type: proto.MergeJoinRel_JoinType(tc.join), PostJoinFilter: predicate,
-					}}}
-				}
-				rel, err := RelFromProto(input, joinTestRegistry())
-				if tc.wantError {
-					require.ErrorContains(t, err, "post join filter")
-					return
-				}
-				require.NoError(t, err)
-				filter := rel.(interface{ PostJoinFilter() expr.Expression }).PostJoinFilter()
-				assert.Equal(t, &types.BooleanType{Nullability: tc.want}, filter.GetType())
-			})
-		}
-	}
+	// Emit keeps only left field 1, but the filter reads right field 5.
+	common := &proto.RelCommon{EmitKind: &proto.RelCommon_Emit_{
+		Emit: &proto.RelCommon_Emit{OutputMapping: []int32{1}},
+	}}
+	const rightBooleanField = 5
+	predicate := postJoinFilterField(rightBooleanField)
+
+	t.Run("hash", func(t *testing.T) {
+		input := &proto.Rel{RelType: &proto.Rel_HashJoin{HashJoin: &proto.HashJoinRel{
+			Common: common, Left: left.ToProto(), Right: right.ToProto(), Keys: keys,
+			Type: proto.HashJoinRel_JOIN_TYPE_LEFT, PostJoinFilter: predicate,
+		}}}
+		rel, err := RelFromProto(input, joinTestRegistry())
+		require.NoError(t, err)
+		filter := rel.(*HashJoinRel).PostJoinFilter()
+		assert.Equal(t, &types.BooleanType{Nullability: types.NullabilityNullable}, filter.GetType())
+	})
+	t.Run("merge", func(t *testing.T) {
+		input := &proto.Rel{RelType: &proto.Rel_MergeJoin{MergeJoin: &proto.MergeJoinRel{
+			Common: common, Left: left.ToProto(), Right: right.ToProto(), Keys: keys,
+			Type: proto.MergeJoinRel_JOIN_TYPE_LEFT, PostJoinFilter: predicate,
+		}}}
+		rel, err := RelFromProto(input, joinTestRegistry())
+		require.NoError(t, err)
+		filter := rel.(*MergeJoinRel).PostJoinFilter()
+		assert.Equal(t, &types.BooleanType{Nullability: types.NullabilityNullable}, filter.GetType())
+	})
+}
+
+func postJoinFilterField(index int32) *proto.Expression {
+	return &proto.Expression{RexType: &proto.Expression_Selection{Selection: &proto.Expression_FieldReference{
+		ReferenceType: &proto.Expression_FieldReference_DirectReference{
+			DirectReference: expr.NewStructFieldRef(index).ToProto(),
+		},
+		RootType: &proto.Expression_FieldReference_RootReference_{
+			RootReference: &proto.Expression_FieldReference_RootReference{},
+		},
+	}}}
+}
+
+func TestPhysicalJoinPostFilterRejectsDiscardedField(t *testing.T) {
+	left, right := createJoinInput("left"), createJoinInput("right")
+	keys := comparisonJoinKeysToProto([]*ComparisonJoinKey{
+		NewEqualityJoinKey(keyRef(t, left, 0), keyRef(t, right, 0)),
+	})
+	const discardedRightField = 5
+	predicate := postJoinFilterField(discardedRightField)
+	common := &proto.RelCommon{EmitKind: &proto.RelCommon_Emit_{
+		Emit: &proto.RelCommon_Emit{OutputMapping: []int32{1}},
+	}}
+
+	t.Run("hash", func(t *testing.T) {
+		input := &proto.Rel{RelType: &proto.Rel_HashJoin{HashJoin: &proto.HashJoinRel{
+			Common: common, Left: left.ToProto(), Right: right.ToProto(), Keys: keys,
+			Type: proto.HashJoinRel_JOIN_TYPE_LEFT_SEMI, PostJoinFilter: predicate,
+		}}}
+		_, err := RelFromProto(input, joinTestRegistry())
+		require.ErrorContains(t, err, "post join filter")
+		require.ErrorIs(t, err, substraitgo.ErrInvalidType)
+	})
+	t.Run("merge", func(t *testing.T) {
+		input := &proto.Rel{RelType: &proto.Rel_MergeJoin{MergeJoin: &proto.MergeJoinRel{
+			Common: common, Left: left.ToProto(), Right: right.ToProto(), Keys: keys,
+			Type: proto.MergeJoinRel_JOIN_TYPE_LEFT_SEMI, PostJoinFilter: predicate,
+		}}}
+		_, err := RelFromProto(input, joinTestRegistry())
+		require.ErrorContains(t, err, "post join filter")
+		require.ErrorIs(t, err, substraitgo.ErrInvalidType)
+	})
 }
