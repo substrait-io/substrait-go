@@ -77,7 +77,6 @@ type AdvancedExtension interface {
 // compactness, identifiers are normalized at the plan level.
 type Plan struct {
 	version           types.Version
-	extensions        extensions.Set
 	expectedTypeURLs  []string
 	advExtension      *extensions.AdvancedExtension
 	relations         []Relation
@@ -86,12 +85,11 @@ type Plan struct {
 	reg expr.ExtensionRegistry
 }
 
-// NewPlan assembles a decoded plan from its finished parts. The registry is
-// built by the caller.
-func NewPlan(version types.Version, extSet extensions.Set, advExtension *extensions.AdvancedExtension, expectedTypeURLs []string, relations []Relation, parameterBindings []DynamicParameterBinding, reg expr.ExtensionRegistry) *Plan {
+// NewPlan assembles a decoded plan from its finished parts. The extension set is
+// carried by the registry, which the caller builds.
+func NewPlan(version types.Version, advExtension *extensions.AdvancedExtension, expectedTypeURLs []string, relations []Relation, parameterBindings []DynamicParameterBinding, reg expr.ExtensionRegistry) *Plan {
 	return &Plan{
 		version:           version,
-		extensions:        extSet,
 		advExtension:      advExtension,
 		expectedTypeURLs:  expectedTypeURLs,
 		relations:         relations,

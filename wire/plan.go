@@ -173,5 +173,5 @@ func PlanFromProtoWithDecoder(p *proto.Plan, c *extensions.Collection, decoders 
 		}
 	}
 
-	return plan.NewPlan(version, extSet, advancedExtensionFromProto(p.AdvancedExtensions), p.ExpectedTypeUrls, relations, parameterBindings, reg), nil
+	return plan.NewPlan(version, advancedExtensionFromProto(p.AdvancedExtensions), p.ExpectedTypeUrls, relations, parameterBindings, reg), nil
 }

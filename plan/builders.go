@@ -633,7 +633,6 @@ func (b *builder) PlanWithBindings(root Rel, rootNames []string, expectedTypeURL
 	reg := b.reg
 	return &Plan{
 		version:           CurrentVersion,
-		extensions:        b.extSet,
 		reg:               reg,
 		expectedTypeURLs:  expectedTypeURLs,
 		relations:         relations,
