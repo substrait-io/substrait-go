@@ -4,10 +4,8 @@ package extensions
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 
-	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/types"
 	"github.com/substrait-io/substrait-go/v9/types/parser"
 )
@@ -126,17 +124,29 @@ func (a *FuncParameterList) UnmarshalYAML(fn func(interface{}) error) error {
 			name, desc string
 		)
 		if n, ok := arg["name"]; ok {
-			name = n.(string)
+			name, ok = n.(string)
+			if !ok {
+				return fmt.Errorf("args[%d].name: expected string, got %T", i, n)
+			}
 		}
 		if d, ok := arg["description"]; ok {
-			desc = d.(string)
+			desc, ok = d.(string)
+			if !ok {
+				return fmt.Errorf("args[%d].description: expected string, got %T", i, d)
+			}
 		}
 
 		if opt, ok := arg["options"]; ok {
-			vals := opt.([]any)
+			vals, ok := opt.([]any)
+			if !ok {
+				return fmt.Errorf("args[%d].options: expected list, got %T", i, opt)
+			}
 			values := make([]string, len(vals))
 			for j, v := range vals {
-				values[j] = v.(string)
+				values[j], ok = v.(string)
+				if !ok {
+					return fmt.Errorf("args[%d].options[%d]: expected string, got %T", i, j, v)
+				}
 			}
 			(*a)[i] = EnumArg{
 				Name:        name,
@@ -146,48 +156,43 @@ func (a *FuncParameterList) UnmarshalYAML(fn func(interface{}) error) error {
 		} else if val, ok := arg["value"]; ok {
 			var constant bool
 			if c, ok := arg["constant"]; ok {
-				constant = c.(bool)
+				constant, ok = c.(bool)
+				if !ok {
+					return fmt.Errorf("args[%d].constant: expected bool, got %T", i, c)
+				}
 			}
 
-			arg := ValueArg{
+			value, ok := val.(string)
+			if !ok {
+				return fmt.Errorf("args[%d].value: expected string, got %T", i, val)
+			}
+			valueType, err := parser.ParseType(value)
+			if err != nil {
+				return fmt.Errorf("args[%d].value: %w", i, err)
+			}
+			(*a)[i] = ValueArg{
 				Name:        name,
 				Description: desc,
-				Value:       new(parser.TypeExpression),
+				Value:       &parser.TypeExpression{ValueType: valueType},
 				Constant:    constant,
 			}
-			err := arg.Value.UnmarshalYAML(func(v any) error {
-				rv := reflect.ValueOf(v)
-				if rv.Type().Kind() != reflect.Ptr {
-					return substraitgo.ErrInvalidType
-				}
-				rv.Elem().Set(reflect.ValueOf(val))
-				return nil
-			})
-			if err != nil {
-				return fmt.Errorf("failure reading YAML %v", err)
-			}
-
-			(*a)[i] = arg
 
 		} else if typ, ok := arg["type"]; ok {
-			arg := TypeArg{
+			typeString, ok := typ.(string)
+			if !ok {
+				return fmt.Errorf("args[%d].type: expected string, got %T", i, typ)
+			}
+			valueType, err := parser.ParseType(typeString)
+			if err != nil {
+				return fmt.Errorf("args[%d].type: %w", i, err)
+			}
+			(*a)[i] = TypeArg{
 				Name:        name,
 				Description: desc,
-				Type:        new(parser.TypeExpression),
+				Type:        &parser.TypeExpression{ValueType: valueType},
 			}
-			err := arg.Type.UnmarshalYAML(func(v any) error {
-				rv := reflect.ValueOf(v)
-				if rv.Type().Kind() != reflect.Ptr {
-					return substraitgo.ErrInvalidType
-				}
-				rv.Elem().Set(reflect.ValueOf(typ))
-				return nil
-			})
-			if err != nil {
-				return fmt.Errorf("failure reading YAML %v", err)
-			}
-
-			(*a)[i] = arg
+		} else {
+			return fmt.Errorf("args[%d]: expected one of value, type or options", i)
 		}
 	}
 
