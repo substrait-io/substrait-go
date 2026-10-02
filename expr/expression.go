@@ -152,6 +152,12 @@ func NewIfThen(firstIf IfThenPair, elseClause Expression, elsifs ...IfThenPair) 
 	}, nil
 }
 
+// NewIfThenFromParts rebuilds an IfThen from decoded parts without validation,
+// keeping decode liberal where expr.NewIfThen would reject valid wire input.
+func NewIfThenFromParts(ifs []IfThenPair, elseClause Expression) *IfThen {
+	return &IfThen{ifs: ifs, elseClause: elseClause}
+}
+
 // NIfs returns the number of If/then pairs are in this expression
 // before the else clause. It should always be at least 1
 func (ex *IfThen) NIfs() int { return len(ex.ifs) }
@@ -378,6 +384,15 @@ func NewSwitch(match Expression, elseClause Expression, switchCases ...struct {
 		ifs:        switchCases,
 		elseClause: elseClause,
 	}, nil
+}
+
+// NewSwitchExprFromParts rebuilds a SwitchExpr from decoded parts without the
+// validation expr.NewSwitch performs; the decode path stays liberal. (issue #358)
+func NewSwitchExprFromParts(match Expression, ifs []struct {
+	If   Literal
+	Then Expression
+}, elseClause Expression) *SwitchExpr {
+	return &SwitchExpr{match: match, ifs: ifs, elseClause: elseClause}
 }
 
 func (ex *SwitchExpr) MatchExpr() Expression { return ex.match }

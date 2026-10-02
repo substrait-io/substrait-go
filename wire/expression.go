@@ -434,10 +434,7 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 			}
 		}
 
-		if len(ifs) == 0 {
-			return nil, fmt.Errorf("%w: if-then requires at least one clause", substraitgo.ErrInvalidExpr)
-		}
-		return expr.NewIfThen(ifs[0], elseExpr, ifs[1:]...)
+		return expr.NewIfThenFromParts(ifs, elseExpr), nil
 	case *proto.Expression_SwitchExpression_:
 		matched, err := ExprFromProto(et.SwitchExpression.Match, baseSchema, reg)
 		if err != nil {
@@ -461,7 +458,7 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 			}
 		}
 
-		return expr.NewSwitch(matched, elseExpr, ifs...)
+		return expr.NewSwitchExprFromParts(matched, ifs, elseExpr), nil
 	case *proto.Expression_SingularOrList_:
 		val, err := ExprFromProto(et.SingularOrList.Value, baseSchema, reg)
 		if err != nil {
