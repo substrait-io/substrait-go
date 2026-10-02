@@ -7,74 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/types"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
-
-// ExpressionConverter resolves extensions and subqueries as used in expressions.
-// It extends the base ExtensionRegistry to handle subquery expressions
-// that may appear within other expressions.
-type ExpressionConverter struct {
-	expr.ExtensionRegistry
-}
-
-// SubqueryFromProto creates a subquery expression from a protobuf message
-func (r *ExpressionConverter) SubqueryFromProto(sub *proto.Expression_Subquery, baseSchema *types.RecordType, reg expr.ExtensionRegistry) (expr.Expression, error) {
-	switch subType := sub.SubqueryType.(type) {
-	case *proto.Expression_Subquery_Scalar_:
-		rel, err := RelFromProto(subType.Scalar.Input, reg)
-		if err != nil {
-			return nil, err
-		}
-		return NewScalarSubquery(rel), nil
-
-	case *proto.Expression_Subquery_InPredicate_:
-		needles := make([]expr.Expression, len(subType.InPredicate.Needles))
-		for i, needle := range subType.InPredicate.Needles {
-			expr, err := expr.ExprFromProto(needle, baseSchema, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error parsing needle %d in IN predicate: %w", i, err)
-			}
-			needles[i] = expr
-		}
-
-		rel, err := RelFromProto(subType.InPredicate.Haystack, reg)
-		if err != nil {
-			return nil, err
-		}
-
-		return NewInPredicateSubquery(needles, rel), nil
-
-	case *proto.Expression_Subquery_SetPredicate_:
-		tuples, err := RelFromProto(subType.SetPredicate.Tuples, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing tuples in set predicate: %w", err)
-		}
-		return NewSetPredicateSubquery(SetPredicateOp(subType.SetPredicate.PredicateOp), tuples), nil
-	case *proto.Expression_Subquery_SetComparison_:
-		left, err := expr.ExprFromProto(subType.SetComparison.Left, baseSchema, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing left expression in set comparison: %w", err)
-		}
-
-		right, err := RelFromProto(subType.SetComparison.Right, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing right relation in set comparison: %w", err)
-		}
-
-		return NewSetComparisonSubquery(
-			SetComparisonReductionOp(subType.SetComparison.ReductionOp),
-			SetComparisonOp(subType.SetComparison.ComparisonOp),
-			left,
-			right,
-		), nil
-
-	default:
-		return nil, fmt.Errorf("%w: unknown subquery type: %T", substraitgo.ErrNotImplemented, subType)
-	}
-}
 
 // ScalarSubquery is a subquery that returns one row and one column
 type ScalarSubquery struct {
@@ -102,26 +37,6 @@ func (s *ScalarSubquery) GetType() types.Type {
 		panic("scalar subquery must return exactly one column")
 	}
 	return schemaTypes[0]
-}
-
-func (s *ScalarSubquery) ToProto() *proto.Expression {
-	return &proto.Expression{
-		RexType: &proto.Expression_Subquery_{
-			Subquery: &proto.Expression_Subquery{
-				SubqueryType: &proto.Expression_Subquery_Scalar_{
-					Scalar: &proto.Expression_Subquery_Scalar{
-						Input: s.Input.ToProto(),
-					},
-				},
-			},
-		},
-	}
-}
-
-func (s *ScalarSubquery) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Value{Value: s.ToProto()},
-	}
 }
 
 func (s *ScalarSubquery) Equals(other expr.Expression) bool {
@@ -184,32 +99,6 @@ func (s *InPredicateSubquery) IsScalar() bool {
 
 func (s *InPredicateSubquery) GetType() types.Type {
 	return &types.BooleanType{Nullability: types.NullabilityRequired}
-}
-
-func (s *InPredicateSubquery) ToProto() *proto.Expression {
-	needles := make([]*proto.Expression, len(s.Needles))
-	for i, needle := range s.Needles {
-		needles[i] = needle.ToProto()
-	}
-
-	return &proto.Expression{
-		RexType: &proto.Expression_Subquery_{
-			Subquery: &proto.Expression_Subquery{
-				SubqueryType: &proto.Expression_Subquery_InPredicate_{
-					InPredicate: &proto.Expression_Subquery_InPredicate{
-						Needles:  needles,
-						Haystack: s.Haystack.ToProto(),
-					},
-				},
-			},
-		},
-	}
-}
-
-func (s *InPredicateSubquery) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Value{Value: s.ToProto()},
-	}
 }
 
 func (s *InPredicateSubquery) Equals(other expr.Expression) bool {
@@ -313,27 +202,6 @@ func (s *SetPredicateSubquery) IsScalar() bool { return true }
 
 func (s *SetPredicateSubquery) GetType() types.Type {
 	return &types.BooleanType{Nullability: types.NullabilityRequired}
-}
-
-func (s *SetPredicateSubquery) ToProto() *proto.Expression {
-	return &proto.Expression{
-		RexType: &proto.Expression_Subquery_{
-			Subquery: &proto.Expression_Subquery{
-				SubqueryType: &proto.Expression_Subquery_SetPredicate_{
-					SetPredicate: &proto.Expression_Subquery_SetPredicate{
-						PredicateOp: proto.Expression_Subquery_SetPredicate_PredicateOp(s.Operation),
-						Tuples:      s.Tuples.ToProto(),
-					},
-				},
-			},
-		},
-	}
-}
-
-func (s *SetPredicateSubquery) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Value{Value: s.ToProto()},
-	}
 }
 
 func (s *SetPredicateSubquery) Equals(other expr.Expression) bool {
@@ -475,29 +343,6 @@ func (s *SetComparisonSubquery) IsScalar() bool {
 
 func (s *SetComparisonSubquery) GetType() types.Type {
 	return &types.BooleanType{Nullability: types.NullabilityRequired}
-}
-
-func (s *SetComparisonSubquery) ToProto() *proto.Expression {
-	return &proto.Expression{
-		RexType: &proto.Expression_Subquery_{
-			Subquery: &proto.Expression_Subquery{
-				SubqueryType: &proto.Expression_Subquery_SetComparison_{
-					SetComparison: &proto.Expression_Subquery_SetComparison{
-						ReductionOp:  proto.Expression_Subquery_SetComparison_ReductionOp(s.ReductionOp),
-						ComparisonOp: proto.Expression_Subquery_SetComparison_ComparisonOp(s.ComparisonOp),
-						Left:         s.Left.ToProto(),
-						Right:        s.Right.ToProto(),
-					},
-				},
-			},
-		},
-	}
-}
-
-func (s *SetComparisonSubquery) ToProtoFuncArg() *proto.FunctionArgument {
-	return &proto.FunctionArgument{
-		ArgType: &proto.FunctionArgument_Value{Value: s.ToProto()},
-	}
 }
 
 func (s *SetComparisonSubquery) Equals(other expr.Expression) bool {

@@ -3,20 +3,13 @@
 package expr_test
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/expr"
-	ext "github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/literal"
-	"github.com/substrait-io/substrait-go/v9/plan"
 	"github.com/substrait-io/substrait-go/v9/types"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
-	"google.golang.org/protobuf/encoding/protojson"
-	pb "google.golang.org/protobuf/proto"
 )
 
 // TestLambdaBuilder_ValidationErrors tests error cases in the builder.
@@ -75,33 +68,6 @@ func TestLambdaBuilder_ValidationErrors(t *testing.T) {
 	require.Contains(t, err.Error(), "parameter 5")
 	require.Contains(t, err.Error(), "1 steps out")
 	require.Contains(t, err.Error(), "only has 1 parameters")
-}
-
-// TestLambdaProtoRoundTrip tests that lambda expressions can be round-tripped
-// through protobuf serialization without losing information.
-func TestLambdaProtoRoundTrip(t *testing.T) {
-	files, err := filepath.Glob("./testdata/lambda/*.json")
-	require.NoError(t, err)
-
-	collection := ext.GetDefaultCollectionWithNoError()
-
-	for _, file := range files {
-		t.Run(filepath.Base(file), func(t *testing.T) {
-			data, err := os.ReadFile(file)
-			require.NoError(t, err)
-
-			var originalPlan proto.Plan
-			require.NoError(t, protojson.Unmarshal(data, &originalPlan))
-
-			goPlan, err := plan.FromProto(&originalPlan, collection)
-			require.NoError(t, err)
-
-			resultPlan, err := goPlan.ToProto()
-			require.NoError(t, err)
-
-			require.True(t, pb.Equal(&originalPlan, resultPlan))
-		})
-	}
 }
 
 // TestLambdaBuilder_ZeroParameters tests that lambdas with no parameters are valid.

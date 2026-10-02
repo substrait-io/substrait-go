@@ -3,7 +3,6 @@
 package plan
 
 import (
-	"fmt"
 	"slices"
 	"strconv"
 
@@ -11,7 +10,6 @@ import (
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/types"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -45,8 +43,6 @@ type SingleInputRel interface {
 type ReadRel interface {
 	Rel
 
-	fromProtoReadRel(*proto.ReadRel, expr.ExtensionRegistry) error
-
 	BaseSchema() types.NamedStruct
 	Filter() expr.Expression
 	BestEffortFilter() expr.Expression
@@ -63,33 +59,18 @@ type baseReadRel struct {
 	advExtension     *extensions.AdvancedExtension
 }
 
-func (b *baseReadRel) fromProtoReadRel(rel *proto.ReadRel, reg expr.ExtensionRegistry) error {
-	if rel.Common != nil {
-		b.RelCommon.fromProtoCommon(rel.Common)
+// NewBaseReadRel builds the base shared by all read relations. The returned
+// value is opaque to callers outside this package and is only meant to be
+// passed to one of the read-relation constructors below.
+func NewBaseReadRel(common RelCommon, baseSchema types.NamedStruct, filter, bestEffortFilter expr.Expression, projection *expr.MaskExpression, advExtension *extensions.AdvancedExtension) baseReadRel {
+	return baseReadRel{
+		RelCommon:        common,
+		baseSchema:       baseSchema,
+		filter:           filter,
+		bestEffortFilter: bestEffortFilter,
+		projection:       projection,
+		advExtension:     advExtension,
 	}
-
-	b.baseSchema = types.NewNamedStructFromProto(rel.BaseSchema)
-	var err error
-	if rel.Filter != nil {
-		b.filter, err = expr.ExprFromProto(rel.Filter, types.NewRecordTypeFromStruct(b.baseSchema.Struct), reg)
-		if err != nil {
-			return err
-		}
-	}
-
-	if rel.BestEffortFilter != nil {
-		b.bestEffortFilter, err = expr.ExprFromProto(rel.BestEffortFilter, types.NewRecordTypeFromStruct(b.baseSchema.Struct), reg)
-		if err != nil {
-			return err
-		}
-	}
-
-	if rel.Projection != nil {
-		b.projection = expr.MaskExpressionFromProto(rel.Projection)
-	}
-
-	b.advExtension = extensions.AdvancedExtensionFromProto(rel.AdvancedExtension)
-	return nil
 }
 
 func (b *baseReadRel) directOutputSchema() types.RecordType {
@@ -113,25 +94,6 @@ func (b *baseReadRel) SetAdvancedExtension(advExtension *extensions.AdvancedExte
 
 func (b *baseReadRel) SetProjection(p *expr.MaskExpression) {
 	b.projection = p
-}
-
-func (b *baseReadRel) toReadRelProto() *proto.ReadRel {
-	out := &proto.ReadRel{
-		Common:            b.RelCommon.toProto(),
-		BaseSchema:        b.baseSchema.ToProto(),
-		AdvancedExtension: extensions.AdvancedExtensionToProto(b.advExtension),
-	}
-	if b.filter != nil {
-		out.Filter = b.filter.ToProto()
-	}
-	if b.bestEffortFilter != nil {
-		out.BestEffortFilter = b.bestEffortFilter.ToProto()
-	}
-	if b.projection != nil {
-		out.Projection = b.projection.ToProto()
-	}
-
-	return out
 }
 
 func (b *baseReadRel) GetInputs() []Rel {
@@ -210,6 +172,12 @@ type NamedTableReadRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
+// NewNamedTableReadRel constructs a named-table read without validating its inputs.
+// Use it at your own risk; prefer Builder.NamedScan for new reads. (issue #358)
+func NewNamedTableReadRel(base baseReadRel, names []string, advExtension *extensions.AdvancedExtension) *NamedTableReadRel {
+	return &NamedTableReadRel{baseReadRel: base, names: names, advExtension: advExtension}
+}
+
 func (n *NamedTableReadRel) Names() []string { return n.names }
 
 func (n *NamedTableReadRel) NamedTableAdvancedExtension() *extensions.AdvancedExtension {
@@ -218,29 +186,6 @@ func (n *NamedTableReadRel) NamedTableAdvancedExtension() *extensions.AdvancedEx
 
 func (n *NamedTableReadRel) RecordType() types.RecordType {
 	return n.remap(n.directOutputSchema())
-}
-
-func (n *NamedTableReadRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: n.ToProto(),
-		},
-	}
-}
-
-func (n *NamedTableReadRel) ToProto() *proto.Rel {
-	readRel := n.toReadRelProto()
-	readRel.ReadType = &proto.ReadRel_NamedTable_{
-		NamedTable: &proto.ReadRel_NamedTable{
-			Names:             n.names,
-			AdvancedExtension: extensions.AdvancedExtensionToProto(n.advExtension),
-		},
-	}
-	return &proto.Rel{
-		RelType: &proto.Rel_Read{
-			Read: readRel,
-		},
-	}
 }
 
 func (n *NamedTableReadRel) Copy(_ ...Rel) (Rel, error) {
@@ -271,35 +216,15 @@ type VirtualTableReadRel struct {
 	values []expr.VirtualTableExpressionValue
 }
 
+// NewVirtualTableReadRel assembles a VirtualTableReadRel from already-decoded
+// parts, without the validation the plan Builder performs. Prefer the Builder for
+// new relations. (issue #358)
+func NewVirtualTableReadRel(base baseReadRel, values []expr.VirtualTableExpressionValue) *VirtualTableReadRel {
+	return &VirtualTableReadRel{baseReadRel: base, values: values}
+}
+
 func (v *VirtualTableReadRel) Values() []expr.VirtualTableExpressionValue {
 	return v.values
-}
-
-func (v *VirtualTableReadRel) ToProto() *proto.Rel {
-	readRel := v.toReadRelProto()
-	values := make([]*proto.Expression_Nested_Struct, len(v.values))
-	for i, v := range v.values {
-		values[i] = v.ToProto()
-	}
-
-	readRel.ReadType = &proto.ReadRel_VirtualTable_{
-		VirtualTable: &proto.ReadRel_VirtualTable{
-			Expressions: values,
-		},
-	}
-	return &proto.Rel{
-		RelType: &proto.Rel_Read{
-			Read: readRel,
-		},
-	}
-}
-
-func (v *VirtualTableReadRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: v.ToProto(),
-		},
-	}
 }
 
 func (v *VirtualTableReadRel) Copy(_ ...Rel) (Rel, error) {
@@ -349,29 +274,13 @@ type ExtensionTableReadRel struct {
 	detail *anypb.Any
 }
 
+// NewExtensionTableReadRel constructs an extension-table read without validating
+// its inputs. Use it at your own risk; prefer Builder.ExtensionTable for new reads. (issue #358)
+func NewExtensionTableReadRel(base baseReadRel, detail *anypb.Any) *ExtensionTableReadRel {
+	return &ExtensionTableReadRel{baseReadRel: base, detail: detail}
+}
+
 func (e *ExtensionTableReadRel) Detail() *anypb.Any { return e.detail }
-
-func (e *ExtensionTableReadRel) ToProto() *proto.Rel {
-	readRel := e.toReadRelProto()
-	readRel.ReadType = &proto.ReadRel_ExtensionTable_{
-		ExtensionTable: &proto.ReadRel_ExtensionTable{
-			Detail: e.detail,
-		},
-	}
-	return &proto.Rel{
-		RelType: &proto.Rel_Read{
-			Read: readRel,
-		},
-	}
-}
-
-func (e *ExtensionTableReadRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: e.ToProto(),
-		},
-	}
-}
 
 func (e *ExtensionTableReadRel) Copy(_ ...Rel) (Rel, error) {
 	return e, nil
@@ -428,55 +337,21 @@ type IcebergTableReadRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
+// NewIcebergTableReadRel assembles an IcebergTableReadRel from already-decoded
+// parts, without the validation the plan Builder performs. Prefer the Builder for
+// new relations. (issue #358)
+func NewIcebergTableReadRel(base baseReadRel, tableType IcebergTableType) *IcebergTableReadRel {
+	return &IcebergTableReadRel{baseReadRel: base, tableType: tableType}
+}
+
 func (n *IcebergTableReadRel) NamedTableAdvancedExtension() *extensions.AdvancedExtension {
 	return n.advExtension
 }
 
+func (n *IcebergTableReadRel) TableType() IcebergTableType { return n.tableType }
+
 func (n *IcebergTableReadRel) RecordType() types.RecordType {
 	return n.remap(n.directOutputSchema())
-}
-
-func (n *IcebergTableReadRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: n.ToProto(),
-		},
-	}
-}
-
-func (n *IcebergTableReadRel) ToProto() *proto.Rel {
-	readRel := n.toReadRelProto()
-
-	if directTableType, ok := n.tableType.(*Direct); ok {
-		direct := &proto.ReadRel_IcebergTable_MetadataFileRead{
-			MetadataUri: directTableType.MetadataUri,
-		}
-
-		// SnapshotId and SnapshotTimestamp are mutually exclusive
-		if directTableType.SnapshotId != "" {
-			direct.Snapshot = &proto.ReadRel_IcebergTable_MetadataFileRead_SnapshotId{
-				SnapshotId: string(directTableType.SnapshotId),
-			}
-		} else if directTableType.SnapshotTimestamp != 0 {
-			direct.Snapshot = &proto.ReadRel_IcebergTable_MetadataFileRead_SnapshotTimestamp{
-				SnapshotTimestamp: int64(directTableType.SnapshotTimestamp),
-			}
-		}
-
-		readRel.ReadType = &proto.ReadRel_IcebergTable_{
-			IcebergTable: &proto.ReadRel_IcebergTable{
-				TableType: &proto.ReadRel_IcebergTable_Direct{
-					Direct: direct,
-				},
-			},
-		}
-	}
-
-	return &proto.Rel{
-		RelType: &proto.Rel_Read{
-			Read: readRel,
-		},
-	}
 }
 
 func (n *IcebergTableReadRel) Copy(_ ...Rel) (Rel, error) {
@@ -551,77 +426,6 @@ type FileOrFiles struct {
 	Format FileFormat
 }
 
-func (f *FileOrFiles) fromProto(p *proto.ReadRel_LocalFiles_FileOrFiles) {
-	f.PartIndex = p.PartitionIndex
-	f.Start, f.Len = p.Start, p.Length
-
-	switch path := p.PathType.(type) {
-	case *proto.ReadRel_LocalFiles_FileOrFiles_UriFile:
-		f.PathType, f.Path = URIFile, path.UriFile
-	case *proto.ReadRel_LocalFiles_FileOrFiles_UriFolder:
-		f.PathType, f.Path = URIFolder, path.UriFolder
-	case *proto.ReadRel_LocalFiles_FileOrFiles_UriPath:
-		f.PathType, f.Path = URIPath, path.UriPath
-	case *proto.ReadRel_LocalFiles_FileOrFiles_UriPathGlob:
-		f.PathType, f.Path = URIPathGlob, path.UriPathGlob
-	}
-
-	switch format := p.FileFormat.(type) {
-	case *proto.ReadRel_LocalFiles_FileOrFiles_Arrow:
-		f.Format = &ArrowReadOptions{}
-	case *proto.ReadRel_LocalFiles_FileOrFiles_Dwrf:
-		f.Format = &DwrfReadOptions{}
-	case *proto.ReadRel_LocalFiles_FileOrFiles_Extension:
-		f.Format = (*ExtensionReadOptions)(format.Extension)
-	case *proto.ReadRel_LocalFiles_FileOrFiles_Orc:
-		f.Format = &OrcReadOptions{}
-	case *proto.ReadRel_LocalFiles_FileOrFiles_Parquet:
-		f.Format = &ParquetReadOptions{}
-	}
-}
-
-func (f *FileOrFiles) ToProto() *proto.ReadRel_LocalFiles_FileOrFiles {
-	ret := &proto.ReadRel_LocalFiles_FileOrFiles{
-		PartitionIndex: f.PartIndex,
-		Start:          f.Start,
-		Length:         f.Len,
-	}
-	switch f.PathType {
-	case URIPath:
-		ret.PathType = &proto.ReadRel_LocalFiles_FileOrFiles_UriPath{UriPath: f.Path}
-	case URIPathGlob:
-		ret.PathType = &proto.ReadRel_LocalFiles_FileOrFiles_UriPathGlob{UriPathGlob: f.Path}
-	case URIFile:
-		ret.PathType = &proto.ReadRel_LocalFiles_FileOrFiles_UriFile{UriFile: f.Path}
-	case URIFolder:
-		ret.PathType = &proto.ReadRel_LocalFiles_FileOrFiles_UriFolder{UriFolder: f.Path}
-	}
-
-	switch fm := f.Format.(type) {
-	case *ParquetReadOptions:
-		ret.FileFormat = &proto.ReadRel_LocalFiles_FileOrFiles_Parquet{
-			Parquet: &proto.ReadRel_LocalFiles_FileOrFiles_ParquetReadOptions{},
-		}
-	case *ArrowReadOptions:
-		ret.FileFormat = &proto.ReadRel_LocalFiles_FileOrFiles_Arrow{
-			Arrow: &proto.ReadRel_LocalFiles_FileOrFiles_ArrowReadOptions{},
-		}
-	case *OrcReadOptions:
-		ret.FileFormat = &proto.ReadRel_LocalFiles_FileOrFiles_Orc{
-			Orc: &proto.ReadRel_LocalFiles_FileOrFiles_OrcReadOptions{},
-		}
-	case *DwrfReadOptions:
-		ret.FileFormat = &proto.ReadRel_LocalFiles_FileOrFiles_Dwrf{
-			Dwrf: &proto.ReadRel_LocalFiles_FileOrFiles_DwrfReadOptions{},
-		}
-	case *ExtensionReadOptions:
-		ret.FileFormat = &proto.ReadRel_LocalFiles_FileOrFiles_Extension{
-			Extension: (*anypb.Any)(fm),
-		}
-	}
-	return ret
-}
-
 // LocalFileReadRel represents a list of files in input of a scan operation.
 type LocalFileReadRel struct {
 	baseReadRel
@@ -630,46 +434,32 @@ type LocalFileReadRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
+// NewLocalFileReadRel constructs a local-file read without validating its inputs.
+// Use it at your own risk. (issue #358)
+func NewLocalFileReadRel(base baseReadRel, items []FileOrFiles, advExtension *extensions.AdvancedExtension) *LocalFileReadRel {
+	return &LocalFileReadRel{baseReadRel: base, items: items, advExtension: advExtension}
+}
+
 func (lf *LocalFileReadRel) Item(i int) FileOrFiles {
 	return lf.items[i]
 }
 
+func (lf *LocalFileReadRel) Items() []FileOrFiles { return lf.items }
+
 func (lf *LocalFileReadRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return lf.advExtension
+}
+
+// ReadRelAdvancedExtension returns the advanced extension on the enclosing read
+// relation, which GetAdvancedExtension shadows with the local-files one.
+func (lf *LocalFileReadRel) ReadRelAdvancedExtension() *extensions.AdvancedExtension {
+	return lf.baseReadRel.GetAdvancedExtension()
 }
 
 func (lf *LocalFileReadRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
 	existing := lf.advExtension
 	lf.advExtension = advExtension
 	return existing
-}
-
-func (lf *LocalFileReadRel) ToProto() *proto.Rel {
-	items := make([]*proto.ReadRel_LocalFiles_FileOrFiles, len(lf.items))
-	for i, f := range lf.items {
-		items[i] = f.ToProto()
-	}
-
-	readRel := lf.toReadRelProto()
-	readRel.ReadType = &proto.ReadRel_LocalFiles_{
-		LocalFiles: &proto.ReadRel_LocalFiles{
-			Items:             items,
-			AdvancedExtension: extensions.AdvancedExtensionToProto(lf.advExtension),
-		},
-	}
-	return &proto.Rel{
-		RelType: &proto.Rel_Read{
-			Read: readRel,
-		},
-	}
-}
-
-func (lf *LocalFileReadRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: lf.ToProto(),
-		},
-	}
 }
 
 func (lf *LocalFileReadRel) Copy(_ ...Rel) (Rel, error) {
@@ -704,6 +494,12 @@ type ProjectRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
+// NewProjectRel assembles a ProjectRel from already-decoded parts, without the
+// validation the plan Builder performs. Prefer the Builder for new relations. (issue #358)
+func NewProjectRel(input Rel, exprs []expr.Expression, common RelCommon, advExtension *extensions.AdvancedExtension) *ProjectRel {
+	return &ProjectRel{RelCommon: common, input: input, exprs: exprs, advExtension: advExtension}
+}
+
 func (p *ProjectRel) directOutputSchema() types.RecordType {
 	initial := p.input.RecordType()
 	output := slices.Grow(slices.Clone(initial.Types()), len(p.exprs))
@@ -726,32 +522,6 @@ func (p *ProjectRel) SetAdvancedExtension(advExtension *extensions.AdvancedExten
 	existing := p.advExtension
 	p.advExtension = advExtension
 	return existing
-}
-
-func (p *ProjectRel) ToProto() *proto.Rel {
-	exprs := make([]*proto.Expression, len(p.exprs))
-	for i, e := range p.exprs {
-		exprs[i] = e.ToProto()
-	}
-
-	return &proto.Rel{
-		RelType: &proto.Rel_Project{
-			Project: &proto.ProjectRel{
-				Common:            p.toProto(),
-				Input:             p.input.ToProto(),
-				Expressions:       exprs,
-				AdvancedExtension: extensions.AdvancedExtensionToProto(p.advExtension),
-			},
-		},
-	}
-}
-
-func (p *ProjectRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: p.ToProto(),
-		},
-	}
 }
 
 func (p *ProjectRel) GetInputs() []Rel {
@@ -858,6 +628,20 @@ type JoinRel struct {
 	advExtension   *extensions.AdvancedExtension
 }
 
+// NewJoinRel assembles a JoinRel from already-decoded parts, without the
+// validation the plan Builder performs. Prefer the Builder for new relations. (issue #358)
+func NewJoinRel(left, right Rel, joinType JoinType, cond, postJoinFilter expr.Expression, common RelCommon, advExtension *extensions.AdvancedExtension) *JoinRel {
+	return &JoinRel{
+		RelCommon:      common,
+		left:           left,
+		right:          right,
+		expr:           cond,
+		postJoinFilter: postJoinFilter,
+		joinType:       joinType,
+		advExtension:   advExtension,
+	}
+}
+
 func (j *JoinRel) directOutputSchema() types.RecordType {
 	var typeList []types.Type
 	switch j.joinType {
@@ -912,7 +696,8 @@ func (j *JoinRel) PostJoinFilter() expr.Expression {
 	}
 	return j.postJoinFilter
 }
-func (j *JoinRel) Type() JoinType { return j.joinType }
+func (j *JoinRel) RawPostJoinFilter() expr.Expression { return j.postJoinFilter }
+func (j *JoinRel) Type() JoinType                     { return j.joinType }
 func (j *JoinRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return j.advExtension
 }
@@ -920,35 +705,6 @@ func (j *JoinRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtensio
 	existing := j.advExtension
 	j.advExtension = advExtension
 	return existing
-}
-
-func (j *JoinRel) ToProto() *proto.Rel {
-	outRel := &proto.JoinRel{
-		Common:            j.toProto(),
-		Left:              j.left.ToProto(),
-		Right:             j.right.ToProto(),
-		Expression:        j.expr.ToProto(),
-		Type:              proto.JoinRel_JoinType(j.joinType),
-		AdvancedExtension: extensions.AdvancedExtensionToProto(j.advExtension),
-	}
-
-	if j.postJoinFilter != nil {
-		outRel.PostJoinFilter = j.postJoinFilter.ToProto()
-	}
-
-	return &proto.Rel{
-		RelType: &proto.Rel_Join{
-			Join: outRel,
-		},
-	}
-}
-
-func (j *JoinRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: j.ToProto(),
-		},
-	}
 }
 
 func (j *JoinRel) GetInputs() []Rel {
@@ -997,6 +753,12 @@ type CrossRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
+// NewCrossRel assembles a CrossRel from already-decoded parts, without the
+// validation the plan Builder performs. Prefer the Builder for new relations. (issue #358)
+func NewCrossRel(left, right Rel, common RelCommon, advExtension *extensions.AdvancedExtension) *CrossRel {
+	return &CrossRel{RelCommon: common, left: left, right: right, advExtension: advExtension}
+}
+
 func (c *CrossRel) directOutputSchema() types.RecordType {
 	return c.left.RecordType().Concat(c.right.RecordType())
 }
@@ -1012,27 +774,6 @@ func (c *CrossRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtensi
 	existing := c.advExtension
 	c.advExtension = advExtension
 	return existing
-}
-
-func (c *CrossRel) ToProto() *proto.Rel {
-	return &proto.Rel{
-		RelType: &proto.Rel_Cross{
-			Cross: &proto.CrossRel{
-				Common:            c.toProto(),
-				Left:              c.left.ToProto(),
-				Right:             c.right.ToProto(),
-				AdvancedExtension: extensions.AdvancedExtensionToProto(c.advExtension),
-			},
-		},
-	}
-}
-
-func (c *CrossRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: c.ToProto(),
-		},
-	}
 }
 
 func (c *CrossRel) GetInputs() []Rel {
@@ -1069,6 +810,12 @@ type FetchRel struct {
 	advExtension  *extensions.AdvancedExtension
 }
 
+// NewFetchRel assembles a FetchRel from already-decoded parts, without the
+// validation the plan Builder performs. Prefer the Builder for new relations. (issue #358)
+func NewFetchRel(input Rel, offset, count expr.Expression, common RelCommon, advExtension *extensions.AdvancedExtension) *FetchRel {
+	return &FetchRel{RelCommon: common, input: input, offset: offset, count: count, advExtension: advExtension}
+}
+
 func (f *FetchRel) directOutputSchema() types.RecordType { return f.input.RecordType() }
 func (f *FetchRel) RecordType() types.RecordType {
 	return f.remap(f.directOutputSchema())
@@ -1088,29 +835,6 @@ func (f *FetchRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtensi
 	existing := f.advExtension
 	f.advExtension = advExtension
 	return existing
-}
-
-func (f *FetchRel) ToProto() *proto.Rel {
-	fetchRel := &proto.FetchRel{
-		Common:            f.toProto(),
-		Input:             f.input.ToProto(),
-		AdvancedExtension: extensions.AdvancedExtensionToProto(f.advExtension),
-	}
-	if f.offset != nil {
-		fetchRel.OffsetMode = &proto.FetchRel_OffsetExpr{OffsetExpr: f.offset.ToProto()}
-	}
-	if f.count != nil {
-		fetchRel.CountMode = &proto.FetchRel_CountExpr{CountExpr: f.count.ToProto()}
-	}
-	return &proto.Rel{RelType: &proto.Rel_Fetch{Fetch: fetchRel}}
-}
-
-func (f *FetchRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: f.ToProto(),
-		},
-	}
 }
 
 func (f *FetchRel) GetInputs() []Rel {
@@ -1170,6 +894,12 @@ type AggRelMeasure struct {
 	filter  expr.Expression
 }
 
+// NewAggRelMeasure builds a single aggregate measure with its optional filter. It
+// mainly exists as a construction seam for decoding. (issue #358)
+func NewAggRelMeasure(measure *expr.AggregateFunction, filter expr.Expression) AggRelMeasure {
+	return AggRelMeasure{measure: measure, filter: filter}
+}
+
 func (am *AggRelMeasure) Measure() *expr.AggregateFunction { return am.measure }
 func (am *AggRelMeasure) Filter() expr.Expression {
 	if am.filter == nil {
@@ -1178,15 +908,7 @@ func (am *AggRelMeasure) Filter() expr.Expression {
 	return am.filter
 }
 
-func (am *AggRelMeasure) ToProto() *proto.AggregateRel_Measure {
-	ret := &proto.AggregateRel_Measure{
-		Measure: am.measure.ToProto(),
-	}
-	if am.filter != nil {
-		ret.Filter = am.filter.ToProto()
-	}
-	return ret
-}
+func (am *AggRelMeasure) RawFilter() expr.Expression { return am.filter }
 
 // AggregateRel is a relational operator representing a GROUP BY aggregate.
 type AggregateRel struct {
@@ -1197,6 +919,19 @@ type AggregateRel struct {
 	groupingExpressions []expr.Expression
 	groupingReferences  [][]uint32
 	advExtension        *extensions.AdvancedExtension
+}
+
+// NewAggregateRel assembles an AggregateRel from already-decoded parts, without
+// the validation the plan Builder performs. Prefer the Builder for new relations. (issue #358)
+func NewAggregateRel(input Rel, measures []AggRelMeasure, groupingExpressions []expr.Expression, groupingReferences [][]uint32, common RelCommon, advExtension *extensions.AdvancedExtension) *AggregateRel {
+	return &AggregateRel{
+		RelCommon:           common,
+		input:               input,
+		measures:            measures,
+		groupingExpressions: groupingExpressions,
+		groupingReferences:  groupingReferences,
+		advExtension:        advExtension,
+	}
 }
 
 func (ar *AggregateRel) directOutputSchema() types.RecordType {
@@ -1231,46 +966,6 @@ func (ar *AggregateRel) SetAdvancedExtension(advExtension *extensions.AdvancedEx
 	existing := ar.advExtension
 	ar.advExtension = advExtension
 	return existing
-}
-
-func (ar *AggregateRel) ToProto() *proto.Rel {
-	groupingExpressionsProto := make([]*proto.Expression, len(ar.groupingExpressions))
-	for i, e := range ar.groupingExpressions {
-		groupingExpressionsProto[i] = e.ToProto()
-	}
-
-	groupings := make([]*proto.AggregateRel_Grouping, len(ar.groupingReferences))
-	for i := range ar.groupingReferences {
-		groupings[i] = &proto.AggregateRel_Grouping{
-			ExpressionReferences: ar.groupingReferences[i],
-		}
-	}
-
-	measures := make([]*proto.AggregateRel_Measure, len(ar.measures))
-	for i, m := range ar.measures {
-		measures[i] = m.ToProto()
-	}
-
-	return &proto.Rel{
-		RelType: &proto.Rel_Aggregate{
-			Aggregate: &proto.AggregateRel{
-				Common:              ar.toProto(),
-				Input:               ar.input.ToProto(),
-				GroupingExpressions: groupingExpressionsProto,
-				Groupings:           groupings,
-				Measures:            measures,
-				AdvancedExtension:   extensions.AdvancedExtensionToProto(ar.advExtension),
-			},
-		},
-	}
-}
-
-func (ar *AggregateRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: ar.ToProto(),
-		},
-	}
 }
 
 func (ar *AggregateRel) GetInputs() []Rel {
@@ -1389,6 +1084,12 @@ type SortRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
+// NewSortRel assembles a SortRel from already-decoded parts, without the
+// validation the plan Builder performs. Prefer the Builder for new relations. (issue #358)
+func NewSortRel(input Rel, sorts []expr.SortField, common RelCommon, advExtension *extensions.AdvancedExtension) *SortRel {
+	return &SortRel{RelCommon: common, input: input, sorts: sorts, advExtension: advExtension}
+}
+
 func (sr *SortRel) directOutputSchema() types.RecordType { return sr.input.RecordType() }
 func (sr *SortRel) RecordType() types.RecordType {
 	return sr.remap(sr.directOutputSchema())
@@ -1402,31 +1103,6 @@ func (sr *SortRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtensi
 	existing := sr.advExtension
 	sr.advExtension = advExtension
 	return existing
-}
-
-func (sr *SortRel) ToProto() *proto.Rel {
-	sorts := make([]*proto.SortField, len(sr.sorts))
-	for i, s := range sr.sorts {
-		sorts[i] = s.ToProto()
-	}
-	return &proto.Rel{
-		RelType: &proto.Rel_Sort{
-			Sort: &proto.SortRel{
-				Common:            sr.toProto(),
-				Input:             sr.input.ToProto(),
-				Sorts:             sorts,
-				AdvancedExtension: extensions.AdvancedExtensionToProto(sr.advExtension),
-			},
-		},
-	}
-}
-
-func (sr *SortRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: sr.ToProto(),
-		},
-	}
 }
 
 func (sr *SortRel) GetInputs() []Rel {
@@ -1479,6 +1155,12 @@ type FilterRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
+// NewFilterRel assembles a FilterRel from already-decoded parts, without the
+// validation the plan Builder performs. Prefer the Builder for new relations. (issue #358)
+func NewFilterRel(input Rel, cond expr.Expression, common RelCommon, advExtension *extensions.AdvancedExtension) *FilterRel {
+	return &FilterRel{RelCommon: common, input: input, cond: cond, advExtension: advExtension}
+}
+
 func (fr *FilterRel) directOutputSchema() types.RecordType { return fr.input.RecordType() }
 func (fr *FilterRel) RecordType() types.RecordType {
 	return fr.remap(fr.directOutputSchema())
@@ -1492,27 +1174,6 @@ func (fr *FilterRel) SetAdvancedExtension(advExtension *extensions.AdvancedExten
 	existing := fr.advExtension
 	fr.advExtension = advExtension
 	return existing
-}
-
-func (fr *FilterRel) ToProto() *proto.Rel {
-	return &proto.Rel{
-		RelType: &proto.Rel_Filter{
-			Filter: &proto.FilterRel{
-				Common:            fr.toProto(),
-				Input:             fr.input.ToProto(),
-				Condition:         fr.cond.ToProto(),
-				AdvancedExtension: extensions.AdvancedExtensionToProto(fr.advExtension),
-			},
-		},
-	}
-}
-
-func (fr *FilterRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: fr.ToProto(),
-		},
-	}
 }
 
 func (fr *FilterRel) GetInputs() []Rel {
@@ -1599,6 +1260,12 @@ type SetRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
+// NewSetRel assembles a SetRel from already-decoded parts, without the
+// validation the plan Builder performs. Prefer the Builder for new relations. (issue #358)
+func NewSetRel(inputs []Rel, op SetOp, common RelCommon, advExtension *extensions.AdvancedExtension) *SetRel {
+	return &SetRel{RelCommon: common, inputs: inputs, op: op, advExtension: advExtension}
+}
+
 func (s *SetRel) directOutputSchema() types.RecordType { return s.inputs[0].RecordType() }
 func (s *SetRel) RecordType() types.RecordType {
 	return s.remap(s.directOutputSchema())
@@ -1612,31 +1279,6 @@ func (s *SetRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension
 	existing := s.advExtension
 	s.advExtension = advExtension
 	return existing
-}
-
-func (s *SetRel) ToProto() *proto.Rel {
-	inputs := make([]*proto.Rel, len(s.inputs))
-	for i, in := range s.inputs {
-		inputs[i] = in.ToProto()
-	}
-	return &proto.Rel{
-		RelType: &proto.Rel_Set{
-			Set: &proto.SetRel{
-				Common:            s.toProto(),
-				Inputs:            inputs,
-				Op:                proto.SetRel_SetOp(s.op),
-				AdvancedExtension: extensions.AdvancedExtensionToProto(s.advExtension),
-			},
-		},
-	}
-}
-
-func (s *SetRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: s.ToProto(),
-		},
-	}
 }
 
 func (s *SetRel) GetInputs() []Rel {
@@ -1680,6 +1322,11 @@ type UndecodedExtension struct {
 	detail *anypb.Any
 }
 
+// NewUndecodedExtension wraps an extension detail that no decoder claimed.
+func NewUndecodedExtension(detail *anypb.Any) *UndecodedExtension {
+	return &UndecodedExtension{detail: detail}
+}
+
 // Schema returns an empty record type for unknown extensions.
 func (ue *UndecodedExtension) Schema(inputs []Rel) types.RecordType {
 	if len(inputs) == 1 {
@@ -1712,6 +1359,13 @@ type ExtensionSingleRel struct {
 	definition ExtensionRelDefinition
 }
 
+// NewExtensionSingleRel assembles an ExtensionSingleRel from already-decoded
+// parts, without the validation the plan Builder performs. Prefer the Builder for
+// new relations. (issue #358)
+func NewExtensionSingleRel(input Rel, definition ExtensionRelDefinition, common RelCommon) *ExtensionSingleRel {
+	return &ExtensionSingleRel{RelCommon: common, input: input, definition: definition}
+}
+
 func (es *ExtensionSingleRel) directOutputSchema() types.RecordType {
 	return es.definition.Schema([]Rel{es.input})
 }
@@ -1729,26 +1383,6 @@ func (es *ExtensionSingleRel) Detail() *anypb.Any {
 
 // Definition returns the extension definition if present.
 func (es *ExtensionSingleRel) Definition() ExtensionRelDefinition { return es.definition }
-
-func (es *ExtensionSingleRel) ToProto() *proto.Rel {
-	return &proto.Rel{
-		RelType: &proto.Rel_ExtensionSingle{
-			ExtensionSingle: &proto.ExtensionSingleRel{
-				Common: es.toProto(),
-				Input:  es.input.ToProto(),
-				Detail: es.Detail(),
-			},
-		},
-	}
-}
-
-func (es *ExtensionSingleRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: es.ToProto(),
-		},
-	}
-}
 
 func (es *ExtensionSingleRel) GetInputs() []Rel {
 	return []Rel{es.input}
@@ -1781,6 +1415,13 @@ type ExtensionLeafRel struct {
 	definition ExtensionRelDefinition
 }
 
+// NewExtensionLeafRel assembles an ExtensionLeafRel from already-decoded parts,
+// without the validation the plan Builder performs. Prefer the Builder for new
+// relations. (issue #358)
+func NewExtensionLeafRel(definition ExtensionRelDefinition, common RelCommon) *ExtensionLeafRel {
+	return &ExtensionLeafRel{RelCommon: common, definition: definition}
+}
+
 func (el *ExtensionLeafRel) directOutputSchema() types.RecordType {
 	return el.definition.Schema([]Rel{})
 }
@@ -1795,25 +1436,6 @@ func (el *ExtensionLeafRel) Detail() *anypb.Any {
 
 // Definition returns the extension definition if present.
 func (el *ExtensionLeafRel) Definition() ExtensionRelDefinition { return el.definition }
-
-func (el *ExtensionLeafRel) ToProto() *proto.Rel {
-	return &proto.Rel{
-		RelType: &proto.Rel_ExtensionLeaf{
-			ExtensionLeaf: &proto.ExtensionLeafRel{
-				Common: el.toProto(),
-				Detail: el.Detail(),
-			},
-		},
-	}
-}
-
-func (el *ExtensionLeafRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: el.ToProto(),
-		},
-	}
-}
 
 func (el *ExtensionLeafRel) GetInputs() []Rel {
 	return []Rel{}
@@ -1839,6 +1461,13 @@ type ExtensionMultiRel struct {
 	definition ExtensionRelDefinition
 }
 
+// NewExtensionMultiRel assembles an ExtensionMultiRel from already-decoded parts,
+// without the validation the plan Builder performs. Prefer the Builder for new
+// relations. (issue #358)
+func NewExtensionMultiRel(inputs []Rel, definition ExtensionRelDefinition, common RelCommon) *ExtensionMultiRel {
+	return &ExtensionMultiRel{RelCommon: common, inputs: inputs, definition: definition}
+}
+
 func (em *ExtensionMultiRel) directOutputSchema() types.RecordType {
 	return em.definition.Schema(em.inputs)
 }
@@ -1854,30 +1483,6 @@ func (em *ExtensionMultiRel) Detail() *anypb.Any {
 
 // Definition returns the extension definition if present.
 func (em *ExtensionMultiRel) Definition() ExtensionRelDefinition { return em.definition }
-
-func (em *ExtensionMultiRel) ToProto() *proto.Rel {
-	inputs := make([]*proto.Rel, len(em.inputs))
-	for i, in := range em.inputs {
-		inputs[i] = in.ToProto()
-	}
-	return &proto.Rel{
-		RelType: &proto.Rel_ExtensionMulti{
-			ExtensionMulti: &proto.ExtensionMultiRel{
-				Common: em.toProto(),
-				Inputs: inputs,
-				Detail: em.Detail(),
-			},
-		},
-	}
-}
-
-func (em *ExtensionMultiRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: em.ToProto(),
-		},
-	}
-}
 
 func (em *ExtensionMultiRel) GetInputs() []Rel {
 	return em.inputs
@@ -1980,9 +1585,9 @@ func (t SimpleComparisonType) String() string {
 
 // JoinKeyComparison describes how the two sides of a ComparisonJoinKey are
 // compared. It is either a SimpleComparison or a CustomComparison. The
-// unexported toProto method seals it to this package.
+// unexported isJoinKeyComparison method seals it to this package.
 type JoinKeyComparison interface {
-	toProto() *proto.ComparisonJoinKey_ComparisonType
+	isJoinKeyComparison()
 }
 
 // SimpleComparison uses one of the predefined SimpleComparisonType behaviors.
@@ -1990,11 +1595,7 @@ type SimpleComparison struct {
 	Type SimpleComparisonType
 }
 
-func (c SimpleComparison) toProto() *proto.ComparisonJoinKey_ComparisonType {
-	return &proto.ComparisonJoinKey_ComparisonType{
-		InnerType: &proto.ComparisonJoinKey_ComparisonType_Simple{Simple: proto.ComparisonJoinKey_SimpleComparisonType(c.Type)},
-	}
-}
+func (SimpleComparison) isJoinKeyComparison() {}
 
 // CustomComparison references a binary function with a boolean return type
 // describing a custom comparison behavior.
@@ -2002,13 +1603,7 @@ type CustomComparison struct {
 	FunctionReference uint32
 }
 
-func (c CustomComparison) toProto() *proto.ComparisonJoinKey_ComparisonType {
-	return &proto.ComparisonJoinKey_ComparisonType{
-		InnerType: &proto.ComparisonJoinKey_ComparisonType_CustomFunctionReference{
-			CustomFunctionReference: c.FunctionReference,
-		},
-	}
-}
+func (CustomComparison) isJoinKeyComparison() {}
 
 // ComparisonJoinKey is a single key comparison used by HashJoinRel and
 // MergeJoinRel, pairing a left and right field reference with the comparison
@@ -2033,54 +1628,6 @@ func (k *ComparisonJoinKey) Left() *expr.FieldReference    { return k.left }
 func (k *ComparisonJoinKey) Right() *expr.FieldReference   { return k.right }
 func (k *ComparisonJoinKey) Comparison() JoinKeyComparison { return k.comparison }
 
-func (k *ComparisonJoinKey) ToProto() *proto.ComparisonJoinKey {
-	return &proto.ComparisonJoinKey{
-		Left:       k.left.ToProtoFieldRef(),
-		Right:      k.right.ToProtoFieldRef(),
-		Comparison: k.comparison.toProto(),
-	}
-}
-
-// comparisonJoinKeysToProto converts a list of join keys to their proto form.
-func comparisonJoinKeysToProto(keys []*ComparisonJoinKey) []*proto.ComparisonJoinKey {
-	out := make([]*proto.ComparisonJoinKey, len(keys))
-	for i, k := range keys {
-		out[i] = k.ToProto()
-	}
-	return out
-}
-
-// tryEqualityJoinKeysToLegacyProto returns the deprecated left_keys/right_keys
-// representation of the given join keys with ok=true, but only when every key
-// is a plain SIMPLE_COMPARISON_TYPE_EQ comparison. Those are the only joins the
-// deprecated fields can express; IS_NOT_DISTINCT_FROM, MIGHT_EQUAL and custom
-// comparisons have no legacy encoding and an old consumer would silently treat
-// them as equality, so for those it returns ok=false and the caller should emit
-// only the modern keys field.
-func tryEqualityJoinKeysToLegacyProto(keys []*ComparisonJoinKey) (leftKeys, rightKeys []*proto.Expression_FieldReference, ok bool) {
-	for _, k := range keys {
-		switch simple := k.comparison.(type) {
-		case SimpleComparison:
-			if simple.Type != SimpleComparisonTypeEq {
-				return nil, nil, false
-			}
-		case *SimpleComparison:
-			if simple == nil || simple.Type != SimpleComparisonTypeEq {
-				return nil, nil, false
-			}
-		default:
-			return nil, nil, false
-		}
-	}
-	leftKeys = make([]*proto.Expression_FieldReference, len(keys))
-	rightKeys = make([]*proto.Expression_FieldReference, len(keys))
-	for i, k := range keys {
-		leftKeys[i] = k.left.ToProtoFieldRef()
-		rightKeys[i] = k.right.ToProtoFieldRef()
-	}
-	return leftKeys, rightKeys, true
-}
-
 // leftJoinKeys returns the left-hand field references of the given join keys.
 func leftJoinKeys(keys []*ComparisonJoinKey) []*expr.FieldReference {
 	out := make([]*expr.FieldReference, len(keys))
@@ -2099,66 +1646,6 @@ func rightJoinKeys(keys []*ComparisonJoinKey) []*expr.FieldReference {
 	return out
 }
 
-// joinKeyComparisonFromProto converts a proto comparison into its model form.
-func joinKeyComparisonFromProto(c *proto.ComparisonJoinKey_ComparisonType) (JoinKeyComparison, error) {
-	switch it := c.GetInnerType().(type) {
-	case *proto.ComparisonJoinKey_ComparisonType_Simple:
-		return SimpleComparison{Type: SimpleComparisonType(it.Simple)}, nil
-	case *proto.ComparisonJoinKey_ComparisonType_CustomFunctionReference:
-		return CustomComparison{FunctionReference: it.CustomFunctionReference}, nil
-	default:
-		return nil, fmt.Errorf("%w: unsupported join key comparison type %T", substraitgo.ErrInvalidRel, it)
-	}
-}
-
-// comparisonJoinKeysFromProto builds the join keys for a hash/merge join,
-// preferring the keys field. The deprecated leftKeys/rightKeys are only used
-// when keys is empty, in which case they are paired with an EQ comparison.
-func comparisonJoinKeysFromProto(
-	keys []*proto.ComparisonJoinKey,
-	leftKeys, rightKeys []*proto.Expression_FieldReference,
-	leftSchema, rightSchema *types.RecordType,
-	reg expr.ExtensionRegistry,
-) ([]*ComparisonJoinKey, error) {
-	if len(keys) > 0 {
-		out := make([]*ComparisonJoinKey, len(keys))
-		for i, k := range keys {
-			left, err := expr.FieldReferenceFromProto(k.GetLeft(), leftSchema, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error getting left key %d for join: %w", i, err)
-			}
-			right, err := expr.FieldReferenceFromProto(k.GetRight(), rightSchema, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error getting right key %d for join: %w", i, err)
-			}
-			comparison, err := joinKeyComparisonFromProto(k.GetComparison())
-			if err != nil {
-				return nil, err
-			}
-			out[i] = NewComparisonJoinKey(left, right, comparison)
-		}
-		return out, nil
-	}
-
-	if len(leftKeys) != len(rightKeys) {
-		return nil, fmt.Errorf("%w: mismatched number of keys for join. Left: %d, Right: %d",
-			substraitgo.ErrInvalidRel, len(leftKeys), len(rightKeys))
-	}
-	out := make([]*ComparisonJoinKey, len(leftKeys))
-	for i := range leftKeys {
-		left, err := expr.FieldReferenceFromProto(leftKeys[i], leftSchema, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting left key %d for join: %w", i, err)
-		}
-		right, err := expr.FieldReferenceFromProto(rightKeys[i], rightSchema, reg)
-		if err != nil {
-			return nil, fmt.Errorf("error getting right key %d for join: %w", i, err)
-		}
-		out[i] = NewEqualityJoinKey(left, right)
-	}
-	return out, nil
-}
-
 // HashJoinRel represents a relational operator to build a hash table out
 // of the right input based on a set of join keys. It will then probe
 // the hash table for incoming inputs, finding matches.
@@ -2172,8 +1659,28 @@ type HashJoinRel struct {
 	advExtension   *extensions.AdvancedExtension
 }
 
+// NewHashJoinRel constructs a hash join without validating its inputs.
+// Use it at your own risk. (issue #358)
+func NewHashJoinRel(left, right Rel, keys []*ComparisonJoinKey, joinType HashMergeJoinType, postJoinFilter expr.Expression, common RelCommon, advExtension *extensions.AdvancedExtension) *HashJoinRel {
+	return &HashJoinRel{
+		RelCommon:      common,
+		left:           left,
+		right:          right,
+		keys:           keys,
+		postJoinFilter: postJoinFilter,
+		joinType:       joinType,
+		advExtension:   advExtension,
+	}
+}
+
 func (hr *HashJoinRel) directOutputSchema() types.RecordType {
 	return hr.joinType.outputSchema(hr.left.RecordType(), hr.right.RecordType())
+}
+
+// DirectOutputSchema is the join's output schema before emit. Decoders bind the
+// post-join filter against it.
+func (hr *HashJoinRel) DirectOutputSchema() types.RecordType {
+	return hr.directOutputSchema()
 }
 
 func (hr *HashJoinRel) RecordType() types.RecordType {
@@ -2199,7 +1706,8 @@ func (hr *HashJoinRel) PostJoinFilter() expr.Expression {
 	}
 	return hr.postJoinFilter
 }
-func (hr *HashJoinRel) Type() HashMergeJoinType { return hr.joinType }
+func (hr *HashJoinRel) RawPostJoinFilter() expr.Expression { return hr.postJoinFilter }
+func (hr *HashJoinRel) Type() HashMergeJoinType            { return hr.joinType }
 func (hr *HashJoinRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return hr.advExtension
 }
@@ -2207,39 +1715,6 @@ func (hr *HashJoinRel) SetAdvancedExtension(advExtension *extensions.AdvancedExt
 	existing := hr.advExtension
 	hr.advExtension = advExtension
 	return existing
-}
-
-func (hr *HashJoinRel) ToProto() *proto.Rel {
-	ret := &proto.Rel_HashJoin{
-		HashJoin: &proto.HashJoinRel{
-			Common:            hr.toProto(),
-			Left:              hr.left.ToProto(),
-			Right:             hr.right.ToProto(),
-			Keys:              comparisonJoinKeysToProto(hr.keys),
-			Type:              proto.HashJoinRel_JoinType(hr.joinType),
-			AdvancedExtension: extensions.AdvancedExtensionToProto(hr.advExtension),
-		},
-	}
-
-	if leftKeys, rightKeys, ok := tryEqualityJoinKeysToLegacyProto(hr.keys); ok {
-		ret.HashJoin.LeftKeys = leftKeys
-		ret.HashJoin.RightKeys = rightKeys
-	}
-
-	if hr.postJoinFilter != nil {
-		ret.HashJoin.PostJoinFilter = hr.postJoinFilter.ToProto()
-	}
-
-	return &proto.Rel{
-		RelType: ret}
-}
-
-func (hr *HashJoinRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: hr.ToProto(),
-		},
-	}
 }
 
 func (hr *HashJoinRel) GetInputs() []Rel {
@@ -2289,8 +1764,28 @@ type MergeJoinRel struct {
 	advExtension   *extensions.AdvancedExtension
 }
 
+// NewMergeJoinRel constructs a merge join without validating its inputs.
+// Use it at your own risk. (issue #358)
+func NewMergeJoinRel(left, right Rel, keys []*ComparisonJoinKey, joinType HashMergeJoinType, postJoinFilter expr.Expression, common RelCommon, advExtension *extensions.AdvancedExtension) *MergeJoinRel {
+	return &MergeJoinRel{
+		RelCommon:      common,
+		left:           left,
+		right:          right,
+		keys:           keys,
+		postJoinFilter: postJoinFilter,
+		joinType:       joinType,
+		advExtension:   advExtension,
+	}
+}
+
 func (mr *MergeJoinRel) directOutputSchema() types.RecordType {
 	return mr.joinType.outputSchema(mr.left.RecordType(), mr.right.RecordType())
+}
+
+// DirectOutputSchema is the join's output schema before emit. Decoders bind the
+// post-join filter against it.
+func (mr *MergeJoinRel) DirectOutputSchema() types.RecordType {
+	return mr.directOutputSchema()
 }
 
 func (mr *MergeJoinRel) RecordType() types.RecordType {
@@ -2316,7 +1811,8 @@ func (mr *MergeJoinRel) PostJoinFilter() expr.Expression {
 	}
 	return mr.postJoinFilter
 }
-func (mr *MergeJoinRel) Type() HashMergeJoinType { return mr.joinType }
+func (mr *MergeJoinRel) RawPostJoinFilter() expr.Expression { return mr.postJoinFilter }
+func (mr *MergeJoinRel) Type() HashMergeJoinType            { return mr.joinType }
 func (mr *MergeJoinRel) GetAdvancedExtension() *extensions.AdvancedExtension {
 	return mr.advExtension
 }
@@ -2324,39 +1820,6 @@ func (mr *MergeJoinRel) SetAdvancedExtension(advExtension *extensions.AdvancedEx
 	existing := mr.advExtension
 	mr.advExtension = advExtension
 	return existing
-}
-
-func (mr *MergeJoinRel) ToProto() *proto.Rel {
-	ret := &proto.Rel_MergeJoin{
-		MergeJoin: &proto.MergeJoinRel{
-			Common:            mr.toProto(),
-			Left:              mr.left.ToProto(),
-			Right:             mr.right.ToProto(),
-			Keys:              comparisonJoinKeysToProto(mr.keys),
-			Type:              proto.MergeJoinRel_JoinType(mr.joinType),
-			AdvancedExtension: extensions.AdvancedExtensionToProto(mr.advExtension),
-		},
-	}
-
-	if leftKeys, rightKeys, ok := tryEqualityJoinKeysToLegacyProto(mr.keys); ok {
-		ret.MergeJoin.LeftKeys = leftKeys
-		ret.MergeJoin.RightKeys = rightKeys
-	}
-
-	if mr.postJoinFilter != nil {
-		ret.MergeJoin.PostJoinFilter = mr.postJoinFilter.ToProto()
-	}
-
-	return &proto.Rel{
-		RelType: ret}
-}
-
-func (mr *MergeJoinRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: mr.ToProto(),
-		},
-	}
 }
 
 func (mr *MergeJoinRel) GetInputs() []Rel {
@@ -2461,6 +1924,21 @@ type NamedTableWriteRel struct {
 	outputMode  OutputMode
 }
 
+// NewNamedTableWriteRel assembles a NamedTableWriteRel from already-decoded parts,
+// without the validation the plan Builder performs. Prefer the Builder for new
+// relations. (issue #358)
+func NewNamedTableWriteRel(tableSchema types.NamedStruct, op WriteOp, input Rel, outputMode OutputMode, common RelCommon, names []string, advExtension *extensions.AdvancedExtension) *NamedTableWriteRel {
+	return &NamedTableWriteRel{
+		RelCommon:    common,
+		tableSchema:  tableSchema,
+		op:           op,
+		input:        input,
+		outputMode:   outputMode,
+		names:        names,
+		advExtension: advExtension,
+	}
+}
+
 func (wr *NamedTableWriteRel) directOutputSchema() types.RecordType {
 	switch wr.outputMode {
 	case OutputModeNoOutput:
@@ -2489,33 +1967,6 @@ func (wr *NamedTableWriteRel) Op() WriteOp { return wr.op }
 func (wr *NamedTableWriteRel) Input() Rel  { return wr.input }
 func (wr *NamedTableWriteRel) OutputMode() OutputMode {
 	return wr.outputMode
-}
-
-func (wr *NamedTableWriteRel) ToProto() *proto.Rel {
-	return &proto.Rel{
-		RelType: &proto.Rel_Write{
-			Write: &proto.WriteRel{
-				Common: wr.toProto(),
-				WriteType: &proto.WriteRel_NamedTable{
-					NamedTable: &proto.NamedObjectWrite{
-						Names:             wr.names,
-						AdvancedExtension: extensions.AdvancedExtensionToProto(wr.advExtension),
-					},
-				},
-				TableSchema: wr.tableSchema.ToProto(),
-				Op:          proto.WriteRel_WriteOp(wr.op),
-				Input:       wr.input.ToProto(),
-			},
-		},
-	}
-}
-
-func (wr *NamedTableWriteRel) ToProtoPlanRel() *proto.PlanRel {
-	return &proto.PlanRel{
-		RelType: &proto.PlanRel_Rel{
-			Rel: wr.ToProto(),
-		},
-	}
 }
 
 func (wr *NamedTableWriteRel) GetInputs() []Rel {
