@@ -1086,3 +1086,42 @@ func TestValidateConstrainedAnyTypeConsistency(t *testing.T) {
 		require.Contains(t, err.Error(), "type parameter any1 cannot be both")
 	})
 }
+
+func TestOnTheFlyVariantKeepsItsCompoundName(t *testing.T) {
+	// "dec" is what (*DecimalType).ShortString writes into a compound name, and
+	// ParseType rejects it, so the arguments stay unknown. The name a plan gave
+	// must survive anyway: it is the variant's identity.
+	id := extensions.FunctionID{
+		URN:  "extension:io.substrait:functions_arithmetic_decimal",
+		Name: "no_such_function:dec_dec",
+	}
+
+	scalar := extensions.NewScalarFuncVariant(id)
+	assert.Equal(t, "no_such_function", scalar.Name())
+	assert.Empty(t, scalar.Args())
+	assert.Equal(t, id.Name, scalar.CompoundName())
+	assert.Equal(t, id, scalar.ID())
+
+	for _, variant := range []interface {
+		CompoundName() string
+		ID() extensions.FunctionID
+	}{
+		extensions.NewScalarFuncVariantWithProps(id, nil, false, true),
+		extensions.NewAggFuncVariant(id),
+		extensions.NewAggFuncVariantOpts(id, extensions.AggVariantOptions{}),
+		extensions.NewWindowFuncVariant(id),
+		extensions.NewWindowFuncVariantOpts(id, extensions.WindowVariantOpts{}),
+	} {
+		assert.Equal(t, id.Name, variant.CompoundName())
+		assert.Equal(t, id, variant.ID())
+	}
+
+	parsed := extensions.NewScalarFuncVariant(extensions.FunctionID{URN: id.URN, Name: "no_such_function:i32_i64"})
+	assert.Len(t, parsed.Args(), 2)
+	assert.Equal(t, "no_such_function:i32_i64", parsed.CompoundName())
+
+	// A name a plan gave without a signature keeps that form, where rebuilding
+	// it from no arguments produced a trailing colon.
+	bare := extensions.NewScalarFuncVariant(extensions.FunctionID{URN: id.URN, Name: "no_such_function"})
+	assert.Equal(t, "no_such_function", bare.CompoundName())
+}
