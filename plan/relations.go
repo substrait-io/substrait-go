@@ -172,9 +172,8 @@ type NamedTableReadRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
-// NewNamedTableReadRel assembles a NamedTableReadRel from already-decoded parts,
-// without the validation the plan Builder performs. Prefer the Builder for new
-// relations. (issue #358)
+// NewNamedTableReadRel constructs a named-table read without validating its inputs.
+// Use it at your own risk; prefer Builder.NamedScan for new reads. (issue #358)
 func NewNamedTableReadRel(base baseReadRel, names []string, advExtension *extensions.AdvancedExtension) *NamedTableReadRel {
 	return &NamedTableReadRel{baseReadRel: base, names: names, advExtension: advExtension}
 }
@@ -275,9 +274,8 @@ type ExtensionTableReadRel struct {
 	detail *anypb.Any
 }
 
-// NewExtensionTableReadRel assembles an ExtensionTableReadRel from already-decoded
-// parts, without the validation the plan Builder performs. Prefer the Builder for
-// new relations. (issue #358)
+// NewExtensionTableReadRel constructs an extension-table read without validating
+// its inputs. Use it at your own risk; prefer Builder.ExtensionTable for new reads. (issue #358)
 func NewExtensionTableReadRel(base baseReadRel, detail *anypb.Any) *ExtensionTableReadRel {
 	return &ExtensionTableReadRel{baseReadRel: base, detail: detail}
 }
@@ -436,9 +434,8 @@ type LocalFileReadRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
-// NewLocalFileReadRel assembles a LocalFileReadRel from already-decoded parts,
-// without the validation the plan Builder performs. Prefer the Builder for new
-// relations. (issue #358)
+// NewLocalFileReadRel constructs a local-file read without validating its inputs.
+// Use it at your own risk. (issue #358)
 func NewLocalFileReadRel(base baseReadRel, items []FileOrFiles, advExtension *extensions.AdvancedExtension) *LocalFileReadRel {
 	return &LocalFileReadRel{baseReadRel: base, items: items, advExtension: advExtension}
 }
@@ -1662,8 +1659,8 @@ type HashJoinRel struct {
 	advExtension   *extensions.AdvancedExtension
 }
 
-// NewHashJoinRel assembles a HashJoinRel from already-decoded parts, without the
-// validation the plan Builder performs. Prefer the Builder for new relations. (issue #358)
+// NewHashJoinRel constructs a hash join without validating its inputs.
+// Use it at your own risk. (issue #358)
 func NewHashJoinRel(left, right Rel, keys []*ComparisonJoinKey, joinType HashMergeJoinType, postJoinFilter expr.Expression, common RelCommon, advExtension *extensions.AdvancedExtension) *HashJoinRel {
 	return &HashJoinRel{
 		RelCommon:      common,
@@ -1767,8 +1764,8 @@ type MergeJoinRel struct {
 	advExtension   *extensions.AdvancedExtension
 }
 
-// NewMergeJoinRel assembles a MergeJoinRel from already-decoded parts, without the
-// validation the plan Builder performs. Prefer the Builder for new relations. (issue #358)
+// NewMergeJoinRel constructs a merge join without validating its inputs.
+// Use it at your own risk. (issue #358)
 func NewMergeJoinRel(left, right Rel, keys []*ComparisonJoinKey, joinType HashMergeJoinType, postJoinFilter expr.Expression, common RelCommon, advExtension *extensions.AdvancedExtension) *MergeJoinRel {
 	return &MergeJoinRel{
 		RelCommon:      common,
