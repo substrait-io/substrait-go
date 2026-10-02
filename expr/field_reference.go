@@ -406,18 +406,26 @@ func NewFieldReference(root RootRefType, ref Reference, knownType types.Type) *F
 	return &FieldReference{Root: root, Reference: ref, knownType: knownType}
 }
 
+// NewMaskExpression rebuilds a MaskExpression from decoded parts. It exists as a
+// construction seam for decoding; there is no builder equivalent. (issue #358)
 func NewMaskExpression(sel MaskStructSelect, maintainSingular bool) *MaskExpression {
 	return &MaskExpression{sel: sel, maintainSingular: maintainSingular}
 }
 
+// NewMaskStructItem rebuilds a MaskStructItem from decoded parts. It exists as a
+// construction seam for decoding; there is no builder equivalent. (issue #358)
 func NewMaskStructItem(field int32, child MaskSelect) MaskStructItem {
 	return MaskStructItem{field: field, child: child}
 }
 
+// NewMaskListSelect rebuilds a MaskListSelect from decoded parts. It exists as a
+// construction seam for decoding; there is no builder equivalent. (issue #358)
 func NewMaskListSelect(selection []MaskListSelectItem, child MaskSelect) *MaskListSelect {
 	return &MaskListSelect{selection: selection, child: child}
 }
 
+// NewMaskMapSelect rebuilds a MaskMapSelect from decoded parts. It exists as a
+// construction seam for decoding; there is no builder equivalent. (issue #358)
 func NewMaskMapSelect(kind MapSelectKind, key string, child MaskSelect) *MaskMapSelect {
 	return &MaskMapSelect{kind: kind, key: key, child: child}
 }

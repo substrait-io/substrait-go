@@ -16,6 +16,8 @@ func NewIntervalCompoundType() IntervalCompoundType {
 	return IntervalCompoundType{}
 }
 
+// NewIntervalCompoundTypeFromParts rebuilds an IntervalCompoundType from decoded
+// parts. Prefer the type builder for new values; this is a decode seam. (issue #358)
 func NewIntervalCompoundTypeFromParts(precision TimePrecision, typeVariationRef uint32, nullability Nullability) *IntervalCompoundType {
 	return &IntervalCompoundType{
 		precision:        precision,

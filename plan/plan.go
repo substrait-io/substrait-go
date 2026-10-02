@@ -55,7 +55,8 @@ type Relation struct {
 }
 
 // NewRelation builds a top-level plan relation from either a root or a plain
-// relation (exactly one is non-nil).
+// relation (exactly one is non-nil). It mainly exists as a construction seam for
+// decoding; new plans come from the plan Builder. (issue #358)
 func NewRelation(root *Root, rel Rel) Relation {
 	return Relation{root: root, rel: rel}
 }
@@ -172,7 +173,8 @@ type Root struct {
 	names []string
 }
 
-// NewRoot builds a root relation from its input and output names.
+// NewRoot builds a root relation from its input and output names. It mainly
+// exists as a construction seam for decoding; new plans come from the plan Builder. (issue #358)
 func NewRoot(input Rel, names []string) *Root {
 	return &Root{input: input, names: names}
 }

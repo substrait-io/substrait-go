@@ -205,7 +205,8 @@ type RelCommon struct {
 	advExtension *extensions.AdvancedExtension
 }
 
-// NewRelCommon builds the common fields embedded in every relation.
+// NewRelCommon builds the common fields embedded in every relation. It mainly
+// exists as a construction seam for decoding; the plan Builder sets these itself. (issue #358)
 func NewRelCommon(hint *Hint, mapping []int32, advExtension *extensions.AdvancedExtension) RelCommon {
 	return RelCommon{hint: hint, mapping: mapping, advExtension: advExtension}
 }

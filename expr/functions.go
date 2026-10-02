@@ -207,6 +207,8 @@ func NewScalarFunc(
 	}, nil
 }
 
+// NewScalarFunctionFromParts assembles a ScalarFunction from decoded parts
+// without the validation NewScalarFunc performs. Prefer the builder. (issue #358)
 func NewScalarFunctionFromParts(
 	funcRef uint32, declaration *extensions.ScalarFunctionVariant,
 	args []types.FuncArg, options []*types.FunctionOption, outputType types.Type,
@@ -435,6 +437,8 @@ func NewWindowFunc(
 	}, nil
 }
 
+// NewWindowFunctionFromParts assembles a WindowFunction from decoded parts
+// without the validation NewWindowFunc performs. Prefer the builder. (issue #358)
 func NewWindowFunctionFromParts(
 	funcRef uint32, declaration *extensions.WindowFunctionVariant,
 	args []types.FuncArg, options []*types.FunctionOption, outputType types.Type,
@@ -687,6 +691,8 @@ func NewCustomAggregateFunc(
 	}, nil
 }
 
+// NewAggregateFunctionFromParts assembles an AggregateFunction from decoded parts
+// without the validation NewAggregateFunc performs. Prefer the builder. (issue #358)
 func NewAggregateFunctionFromParts(
 	funcRef uint32, declaration *extensions.AggregateFunctionVariant,
 	args []types.FuncArg, options []*types.FunctionOption, outputType types.Type,

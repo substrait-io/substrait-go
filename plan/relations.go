@@ -172,6 +172,9 @@ type NamedTableReadRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
+// NewNamedTableReadRel assembles a NamedTableReadRel from already-decoded parts,
+// without the validation the plan Builder performs. Prefer the Builder for new
+// relations. (issue #358)
 func NewNamedTableReadRel(base baseReadRel, names []string, advExtension *extensions.AdvancedExtension) *NamedTableReadRel {
 	return &NamedTableReadRel{baseReadRel: base, names: names, advExtension: advExtension}
 }
@@ -214,6 +217,9 @@ type VirtualTableReadRel struct {
 	values []expr.VirtualTableExpressionValue
 }
 
+// NewVirtualTableReadRel assembles a VirtualTableReadRel from already-decoded
+// parts, without the validation the plan Builder performs. Prefer the Builder for
+// new relations. (issue #358)
 func NewVirtualTableReadRel(base baseReadRel, values []expr.VirtualTableExpressionValue) *VirtualTableReadRel {
 	return &VirtualTableReadRel{baseReadRel: base, values: values}
 }
@@ -269,6 +275,9 @@ type ExtensionTableReadRel struct {
 	detail *anypb.Any
 }
 
+// NewExtensionTableReadRel assembles an ExtensionTableReadRel from already-decoded
+// parts, without the validation the plan Builder performs. Prefer the Builder for
+// new relations. (issue #358)
 func NewExtensionTableReadRel(base baseReadRel, detail *anypb.Any) *ExtensionTableReadRel {
 	return &ExtensionTableReadRel{baseReadRel: base, detail: detail}
 }
@@ -330,6 +339,9 @@ type IcebergTableReadRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
+// NewIcebergTableReadRel assembles an IcebergTableReadRel from already-decoded
+// parts, without the validation the plan Builder performs. Prefer the Builder for
+// new relations. (issue #358)
 func NewIcebergTableReadRel(base baseReadRel, tableType IcebergTableType) *IcebergTableReadRel {
 	return &IcebergTableReadRel{baseReadRel: base, tableType: tableType}
 }
@@ -424,6 +436,9 @@ type LocalFileReadRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
+// NewLocalFileReadRel assembles a LocalFileReadRel from already-decoded parts,
+// without the validation the plan Builder performs. Prefer the Builder for new
+// relations. (issue #358)
 func NewLocalFileReadRel(base baseReadRel, items []FileOrFiles, advExtension *extensions.AdvancedExtension) *LocalFileReadRel {
 	return &LocalFileReadRel{baseReadRel: base, items: items, advExtension: advExtension}
 }
@@ -482,6 +497,8 @@ type ProjectRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
+// NewProjectRel assembles a ProjectRel from already-decoded parts, without the
+// validation the plan Builder performs. Prefer the Builder for new relations. (issue #358)
 func NewProjectRel(input Rel, exprs []expr.Expression, common RelCommon, advExtension *extensions.AdvancedExtension) *ProjectRel {
 	return &ProjectRel{RelCommon: common, input: input, exprs: exprs, advExtension: advExtension}
 }
@@ -614,6 +631,8 @@ type JoinRel struct {
 	advExtension   *extensions.AdvancedExtension
 }
 
+// NewJoinRel assembles a JoinRel from already-decoded parts, without the
+// validation the plan Builder performs. Prefer the Builder for new relations. (issue #358)
 func NewJoinRel(left, right Rel, joinType JoinType, cond, postJoinFilter expr.Expression, common RelCommon, advExtension *extensions.AdvancedExtension) *JoinRel {
 	return &JoinRel{
 		RelCommon:      common,
@@ -737,6 +756,8 @@ type CrossRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
+// NewCrossRel assembles a CrossRel from already-decoded parts, without the
+// validation the plan Builder performs. Prefer the Builder for new relations. (issue #358)
 func NewCrossRel(left, right Rel, common RelCommon, advExtension *extensions.AdvancedExtension) *CrossRel {
 	return &CrossRel{RelCommon: common, left: left, right: right, advExtension: advExtension}
 }
@@ -792,6 +813,8 @@ type FetchRel struct {
 	advExtension  *extensions.AdvancedExtension
 }
 
+// NewFetchRel assembles a FetchRel from already-decoded parts, without the
+// validation the plan Builder performs. Prefer the Builder for new relations. (issue #358)
 func NewFetchRel(input Rel, offset, count expr.Expression, common RelCommon, advExtension *extensions.AdvancedExtension) *FetchRel {
 	return &FetchRel{RelCommon: common, input: input, offset: offset, count: count, advExtension: advExtension}
 }
@@ -874,7 +897,8 @@ type AggRelMeasure struct {
 	filter  expr.Expression
 }
 
-// NewAggRelMeasure builds a single aggregate measure with its optional filter.
+// NewAggRelMeasure builds a single aggregate measure with its optional filter. It
+// mainly exists as a construction seam for decoding. (issue #358)
 func NewAggRelMeasure(measure *expr.AggregateFunction, filter expr.Expression) AggRelMeasure {
 	return AggRelMeasure{measure: measure, filter: filter}
 }
@@ -900,6 +924,8 @@ type AggregateRel struct {
 	advExtension        *extensions.AdvancedExtension
 }
 
+// NewAggregateRel assembles an AggregateRel from already-decoded parts, without
+// the validation the plan Builder performs. Prefer the Builder for new relations. (issue #358)
 func NewAggregateRel(input Rel, measures []AggRelMeasure, groupingExpressions []expr.Expression, groupingReferences [][]uint32, common RelCommon, advExtension *extensions.AdvancedExtension) *AggregateRel {
 	return &AggregateRel{
 		RelCommon:           common,
@@ -1061,6 +1087,8 @@ type SortRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
+// NewSortRel assembles a SortRel from already-decoded parts, without the
+// validation the plan Builder performs. Prefer the Builder for new relations. (issue #358)
 func NewSortRel(input Rel, sorts []expr.SortField, common RelCommon, advExtension *extensions.AdvancedExtension) *SortRel {
 	return &SortRel{RelCommon: common, input: input, sorts: sorts, advExtension: advExtension}
 }
@@ -1130,6 +1158,8 @@ type FilterRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
+// NewFilterRel assembles a FilterRel from already-decoded parts, without the
+// validation the plan Builder performs. Prefer the Builder for new relations. (issue #358)
 func NewFilterRel(input Rel, cond expr.Expression, common RelCommon, advExtension *extensions.AdvancedExtension) *FilterRel {
 	return &FilterRel{RelCommon: common, input: input, cond: cond, advExtension: advExtension}
 }
@@ -1233,6 +1263,8 @@ type SetRel struct {
 	advExtension *extensions.AdvancedExtension
 }
 
+// NewSetRel assembles a SetRel from already-decoded parts, without the
+// validation the plan Builder performs. Prefer the Builder for new relations. (issue #358)
 func NewSetRel(inputs []Rel, op SetOp, common RelCommon, advExtension *extensions.AdvancedExtension) *SetRel {
 	return &SetRel{RelCommon: common, inputs: inputs, op: op, advExtension: advExtension}
 }
@@ -1330,6 +1362,9 @@ type ExtensionSingleRel struct {
 	definition ExtensionRelDefinition
 }
 
+// NewExtensionSingleRel assembles an ExtensionSingleRel from already-decoded
+// parts, without the validation the plan Builder performs. Prefer the Builder for
+// new relations. (issue #358)
 func NewExtensionSingleRel(input Rel, definition ExtensionRelDefinition, common RelCommon) *ExtensionSingleRel {
 	return &ExtensionSingleRel{RelCommon: common, input: input, definition: definition}
 }
@@ -1383,6 +1418,9 @@ type ExtensionLeafRel struct {
 	definition ExtensionRelDefinition
 }
 
+// NewExtensionLeafRel assembles an ExtensionLeafRel from already-decoded parts,
+// without the validation the plan Builder performs. Prefer the Builder for new
+// relations. (issue #358)
 func NewExtensionLeafRel(definition ExtensionRelDefinition, common RelCommon) *ExtensionLeafRel {
 	return &ExtensionLeafRel{RelCommon: common, definition: definition}
 }
@@ -1426,6 +1464,9 @@ type ExtensionMultiRel struct {
 	definition ExtensionRelDefinition
 }
 
+// NewExtensionMultiRel assembles an ExtensionMultiRel from already-decoded parts,
+// without the validation the plan Builder performs. Prefer the Builder for new
+// relations. (issue #358)
 func NewExtensionMultiRel(inputs []Rel, definition ExtensionRelDefinition, common RelCommon) *ExtensionMultiRel {
 	return &ExtensionMultiRel{RelCommon: common, inputs: inputs, definition: definition}
 }
@@ -1621,6 +1662,8 @@ type HashJoinRel struct {
 	advExtension   *extensions.AdvancedExtension
 }
 
+// NewHashJoinRel assembles a HashJoinRel from already-decoded parts, without the
+// validation the plan Builder performs. Prefer the Builder for new relations. (issue #358)
 func NewHashJoinRel(left, right Rel, keys []*ComparisonJoinKey, joinType HashMergeJoinType, postJoinFilter expr.Expression, common RelCommon, advExtension *extensions.AdvancedExtension) *HashJoinRel {
 	return &HashJoinRel{
 		RelCommon:      common,
@@ -1724,6 +1767,8 @@ type MergeJoinRel struct {
 	advExtension   *extensions.AdvancedExtension
 }
 
+// NewMergeJoinRel assembles a MergeJoinRel from already-decoded parts, without the
+// validation the plan Builder performs. Prefer the Builder for new relations. (issue #358)
 func NewMergeJoinRel(left, right Rel, keys []*ComparisonJoinKey, joinType HashMergeJoinType, postJoinFilter expr.Expression, common RelCommon, advExtension *extensions.AdvancedExtension) *MergeJoinRel {
 	return &MergeJoinRel{
 		RelCommon:      common,
@@ -1882,6 +1927,9 @@ type NamedTableWriteRel struct {
 	outputMode  OutputMode
 }
 
+// NewNamedTableWriteRel assembles a NamedTableWriteRel from already-decoded parts,
+// without the validation the plan Builder performs. Prefer the Builder for new
+// relations. (issue #358)
 func NewNamedTableWriteRel(tableSchema types.NamedStruct, op WriteOp, input Rel, outputMode OutputMode, common RelCommon, names []string, advExtension *extensions.AdvancedExtension) *NamedTableWriteRel {
 	return &NamedTableWriteRel{
 		RelCommon:    common,

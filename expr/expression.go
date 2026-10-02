@@ -152,6 +152,10 @@ func NewIfThen(firstIf IfThenPair, elseClause Expression, elsifs ...IfThenPair) 
 	}, nil
 }
 
+// NewIfThenFromParts assembles an IfThen from decoded parts without validation.
+// Decoding needs it: NewIfThen requires each branch's then/else types to be
+// exactly equal, which rejects valid plans whose branches differ only in
+// nullability.
 func NewIfThenFromParts(ifs []IfThenPair, elseClause Expression) *IfThen {
 	return &IfThen{ifs: ifs, elseClause: elseClause}
 }
@@ -384,6 +388,8 @@ func NewSwitch(match Expression, elseClause Expression, switchCases ...struct {
 	}, nil
 }
 
+// NewSwitchExprFromParts assembles a SwitchExpr from already-decoded parts
+// without the validation NewSwitch performs. Prefer the builder. (issue #358)
 func NewSwitchExprFromParts(match Expression, ifs []struct {
 	If   Literal
 	Then Expression
@@ -1082,6 +1088,8 @@ type Extended struct {
 
 func (ex *Extended) Registry() *ExtensionRegistry { return &ex.reg }
 
+// NewExtendedFromParts rebuilds an Extended from decoded parts. It exists as a
+// construction seam for decoding; there is no builder equivalent. (issue #358)
 func NewExtendedFromParts(
 	version types.Version, exts extensions.Set, referredExpr []ExpressionReference,
 	baseSchema types.NamedStruct, advancedExts *extensions.AdvancedExtension,
