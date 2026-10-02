@@ -185,5 +185,5 @@ func GetExtensionSet(plan extensionCarrier, c *extensions.Collection) (extension
 		}
 	}
 
-	return extensions.NewSetFromParts(urns, types, typeVariations, funcs), nil
+	return extensions.NewSetFromParts(urns, types, typeVariations, funcs)
 }

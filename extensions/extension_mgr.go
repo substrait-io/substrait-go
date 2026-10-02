@@ -409,7 +409,32 @@ type set struct {
 	funcs   map[FunctionID]uint32
 }
 
-func NewSetFromParts(urns map[uint32]string, types map[uint32]TypeID, typeVariations map[uint32]TypeVariationID, funcs map[uint32]FunctionID) Set {
+// NewSetFromParts reconstructs a set with preassigned anchors, as needed when
+// decoding a plan. For new sets, use NewSet so anchors are assigned automatically.
+//
+// Every anchored type, type variation and function must reference a URN that the
+// urns map declares; otherwise the set is malformed and an error is returned.
+func NewSetFromParts(urns map[uint32]string, types map[uint32]TypeID, typeVariations map[uint32]TypeVariationID, funcs map[uint32]FunctionID) (Set, error) {
+	declared := make(map[string]struct{}, len(urns))
+	for _, urn := range urns {
+		declared[urn] = struct{}{}
+	}
+	for anchor, id := range types {
+		if _, ok := declared[id.URN]; !ok {
+			return nil, fmt.Errorf("%w: type anchor %d references undeclared URN %q", substraitgo.ErrInvalidArg, anchor, id.URN)
+		}
+	}
+	for anchor, id := range typeVariations {
+		if _, ok := declared[id.URN]; !ok {
+			return nil, fmt.Errorf("%w: type variation anchor %d references undeclared URN %q", substraitgo.ErrInvalidArg, anchor, id.URN)
+		}
+	}
+	for anchor, id := range funcs {
+		if _, ok := declared[id.URN]; !ok {
+			return nil, fmt.Errorf("%w: function anchor %d references undeclared URN %q", substraitgo.ErrInvalidArg, anchor, id.URN)
+		}
+	}
+
 	s := &set{
 		urns:             make(map[uint32]string, len(urns)),
 		funcMap:          make(map[uint32]FunctionID),
@@ -431,7 +456,7 @@ func NewSetFromParts(urns map[uint32]string, types map[uint32]TypeID, typeVariat
 	for anchor, id := range funcs {
 		s.encodeFunc(anchor, id)
 	}
-	return s
+	return s, nil
 }
 
 func (e *set) URNs() map[uint32]string {

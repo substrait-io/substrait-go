@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/types"
 )
@@ -992,4 +993,48 @@ func TestDefaultCollectionHasNoMetadata(t *testing.T) {
 
 	addFunc, _ := c.GetScalarFunc(extensions.FunctionID{URN: "extension:io.substrait:functions_arithmetic", Name: "add:i32_i32"})
 	assert.Nil(t, addFunc.Metadata())
+}
+
+func TestNewSetFromParts(t *testing.T) {
+	const urn = "extension:test:sample"
+	urns := map[uint32]string{1: urn}
+
+	t.Run("valid", func(t *testing.T) {
+		s, err := extensions.NewSetFromParts(
+			urns,
+			map[uint32]extensions.TypeID{2: {URN: urn, Name: "point"}},
+			map[uint32]extensions.TypeVariationID{3: {URN: urn, Name: "u8"}},
+			map[uint32]extensions.FunctionID{4: {URN: urn, Name: "distance:i32_i32"}},
+		)
+		require.NoError(t, err)
+		id, ok := s.DecodeType(2)
+		require.True(t, ok)
+		assert.Equal(t, extensions.TypeID{URN: urn, Name: "point"}, id)
+	})
+
+	t.Run("type references undeclared urn", func(t *testing.T) {
+		_, err := extensions.NewSetFromParts(
+			urns,
+			map[uint32]extensions.TypeID{2: {URN: "extension:test:other", Name: "point"}},
+			nil, nil,
+		)
+		require.ErrorIs(t, err, substraitgo.ErrInvalidArg)
+	})
+
+	t.Run("type variation references undeclared urn", func(t *testing.T) {
+		_, err := extensions.NewSetFromParts(
+			urns, nil,
+			map[uint32]extensions.TypeVariationID{3: {URN: "extension:test:other", Name: "u8"}},
+			nil,
+		)
+		require.ErrorIs(t, err, substraitgo.ErrInvalidArg)
+	})
+
+	t.Run("function references undeclared urn", func(t *testing.T) {
+		_, err := extensions.NewSetFromParts(
+			urns, nil, nil,
+			map[uint32]extensions.FunctionID{4: {URN: "extension:test:other", Name: "distance:i32_i32"}},
+		)
+		require.ErrorIs(t, err, substraitgo.ErrInvalidArg)
+	})
 }
