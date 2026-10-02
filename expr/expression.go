@@ -152,14 +152,6 @@ func NewIfThen(firstIf IfThenPair, elseClause Expression, elsifs ...IfThenPair) 
 	}, nil
 }
 
-// NewIfThenFromParts assembles an IfThen from decoded parts without validation.
-// Decoding needs it: NewIfThen requires each branch's then/else types to be
-// exactly equal, which rejects valid plans whose branches differ only in
-// nullability.
-func NewIfThenFromParts(ifs []IfThenPair, elseClause Expression) *IfThen {
-	return &IfThen{ifs: ifs, elseClause: elseClause}
-}
-
 // NIfs returns the number of If/then pairs are in this expression
 // before the else clause. It should always be at least 1
 func (ex *IfThen) NIfs() int { return len(ex.ifs) }
@@ -386,15 +378,6 @@ func NewSwitch(match Expression, elseClause Expression, switchCases ...struct {
 		ifs:        switchCases,
 		elseClause: elseClause,
 	}, nil
-}
-
-// NewSwitchExprFromParts assembles a SwitchExpr from already-decoded parts
-// without the validation NewSwitch performs. Prefer the builder. (issue #358)
-func NewSwitchExprFromParts(match Expression, ifs []struct {
-	If   Literal
-	Then Expression
-}, elseClause Expression) *SwitchExpr {
-	return &SwitchExpr{match: match, ifs: ifs, elseClause: elseClause}
 }
 
 func (ex *SwitchExpr) MatchExpr() Expression { return ex.match }
