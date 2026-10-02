@@ -414,11 +414,10 @@ func TypeFromProto(t *proto.Type) types.Type {
 		if err != nil {
 			panic(fmt.Sprintf("Invalid precision %v", err))
 		}
-		return types.NewIntervalCompoundTypeFromParts(
-			precision,
-			t.IntervalCompound.TypeVariationReference,
-			types.Nullability(t.IntervalCompound.Nullability),
-		)
+		return types.NewIntervalCompoundType().
+			WithPrecision(precision).
+			WithTypeVariationRef(t.IntervalCompound.TypeVariationReference).
+			WithNullability(types.Nullability(t.IntervalCompound.Nullability))
 	case *proto.Type_TimestampTz:
 		return &types.TimestampTzType{
 			Nullability:      types.Nullability(t.TimestampTz.Nullability),

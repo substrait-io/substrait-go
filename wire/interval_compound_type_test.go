@@ -29,6 +29,24 @@ func TestIntervalCompoundTypeToProto(t *testing.T) {
 	}
 }
 
+func TestIntervalCompoundTypeDecodeEncode(t *testing.T) {
+	original := &proto.Type{Kind: &proto.Type_IntervalCompound_{
+		IntervalCompound: &proto.Type_IntervalCompound{
+			Precision:              types.PrecisionNanoSeconds.ToProtoVal(),
+			TypeVariationReference: 37,
+			Nullability:            proto.Type_NULLABILITY_NULLABLE,
+		},
+	}}
+
+	decoded := TypeFromProto(original)
+	if _, ok := decoded.(types.IntervalCompoundType); !ok {
+		t.Fatalf("expected an IntervalCompoundType value, got %T", decoded)
+	}
+	if diff := cmp.Diff(original, TypeToProto(decoded), protocmp.Transform()); diff != "" {
+		t.Errorf("IntervalCompoundType round trip mismatch (-want +got):\n%s", diff)
+	}
+}
+
 func assertIntervalCompoundTypeProto(t *testing.T, expectedPrecision types.TimePrecision,
 	expectedNullability types.Nullability, toVerifyType types.IntervalCompoundType) {
 
