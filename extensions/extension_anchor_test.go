@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/v9/extensions"
+	"github.com/substrait-io/substrait-go/v9/wire"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	extensionspb "github.com/substrait-io/substrait-protobuf/go/substraitpb/extensions"
 )
@@ -80,7 +81,7 @@ func testImportedAnchors[T comparable](t *testing.T, c *extensions.Collection, u
 				ExtensionUrns: []*extensionspb.SimpleExtensionURN{{ExtensionUrnAnchor: 1, Urn: urn}},
 				Extensions:    []*extensionspb.SimpleExtensionDeclaration{declaration(importedAnchor, importedID)},
 			}
-			s, err := extensions.GetExtensionSet(plan, c)
+			s, err := wire.GetExtensionSet(plan, c)
 			require.NoError(t, err)
 			newAnchor := getAnchor(s, newID)
 			assert.NotZero(t, newAnchor)
@@ -97,9 +98,9 @@ func testImportedAnchors[T comparable](t *testing.T, c *extensions.Collection, u
 				assert.Equal(t, newID, id)
 			}
 			check(s)
-			plan.ExtensionUrns, plan.Extensions = s.ToProto(c)
+			plan.ExtensionUrns, plan.Extensions = wire.ExtensionSetToProto(s)
 			require.Len(t, plan.Extensions, 2)
-			s, err = extensions.GetExtensionSet(plan, c)
+			s, err = wire.GetExtensionSet(plan, c)
 			require.NoError(t, err)
 			check(s)
 		})
@@ -120,7 +121,7 @@ func TestExtensionSetPreservesImportedURNAnchors(t *testing.T) {
 					},
 				}}},
 			}
-			s, err := extensions.GetExtensionSet(plan, c)
+			s, err := wire.GetExtensionSet(plan, c)
 			require.NoError(t, err)
 			var functionAnchor uint32
 			require.NotPanics(t, func() { functionAnchor = s.GetFuncAnchor(newID) })
@@ -132,9 +133,9 @@ func TestExtensionSetPreservesImportedURNAnchors(t *testing.T) {
 			require.True(t, ok)
 			assert.Equal(t, importedAnchor, anchor)
 
-			plan.ExtensionUrns, plan.Extensions = s.ToProto(c)
+			plan.ExtensionUrns, plan.Extensions = wire.ExtensionSetToProto(s)
 			require.Len(t, plan.ExtensionUrns, 2)
-			s, err = extensions.GetExtensionSet(plan, c)
+			s, err = wire.GetExtensionSet(plan, c)
 			require.NoError(t, err)
 			id, ok := s.DecodeFunc(1)
 			require.True(t, ok)
@@ -170,15 +171,15 @@ func TestExtensionSetAllocatesAfterConsecutiveImportedAnchors(t *testing.T) {
 					},
 				})
 			}
-			s, err := extensions.GetExtensionSet(plan, c)
+			s, err := wire.GetExtensionSet(plan, c)
 			require.NoError(t, err)
 			for i := 2; i < 4; i++ {
 				assert.Equal(t, firstAnchor+uint32(i), s.GetFuncAnchor(ids[i]))
 			}
 
-			plan.ExtensionUrns, plan.Extensions = s.ToProto(c)
+			plan.ExtensionUrns, plan.Extensions = wire.ExtensionSetToProto(s)
 			require.Len(t, plan.Extensions, 4)
-			s, err = extensions.GetExtensionSet(plan, c)
+			s, err = wire.GetExtensionSet(plan, c)
 			require.NoError(t, err)
 			assert.Equal(t, firstAnchor+4, s.GetFuncAnchor(ids[4]), "allocation must resume without replacing a round-tripped declaration")
 			for i, id := range ids {
