@@ -77,7 +77,7 @@ func (b *baseReadRel) directOutputSchema() types.RecordType {
 	schema := b.baseSchema.Struct
 	if b.projection != nil {
 		var err error
-		schema, err = projectReadStruct(schema, b.projection.Select())
+		schema, err = ProjectReadSchema(schema, b.projection.Select())
 		if err != nil {
 			panic(err)
 		}

@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package plan
+package codec_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/substrait-io/substrait-go/codec/v9"
 	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/extensions"
+	"github.com/substrait-io/substrait-go/v9/plan"
 	"github.com/substrait-io/substrait-go/v9/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	protobuf "google.golang.org/protobuf/proto"
@@ -26,7 +28,7 @@ func projectionStruct(fields ...int32) *proto.Expression_MaskExpression_StructSe
 func projectionRead(schema types.NamedStruct, projection *proto.Expression_MaskExpression) *proto.Rel {
 	return &proto.Rel{RelType: &proto.Rel_Read{Read: &proto.ReadRel{
 		Common:     &proto.RelCommon{EmitKind: &proto.RelCommon_Direct_{Direct: &proto.RelCommon_Direct{}}},
-		BaseSchema: schema.ToProto(),
+		BaseSchema: codec.NamedStructToProto(schema),
 		Projection: projection,
 		ReadType:   &proto.ReadRel_NamedTable_{NamedTable: &proto.ReadRel_NamedTable{Names: []string{"table"}}},
 	}}}
@@ -62,20 +64,20 @@ func TestReadProjectionPlanRoundTrip(t *testing.T) {
 	original := &proto.Plan{Version: &proto.Version{MinorNumber: 85}, Relations: []*proto.PlanRel{{
 		RelType: &proto.PlanRel_Root{Root: &proto.RelRoot{Input: project, Names: []string{"label", "copy"}}},
 	}}}
-	wire, err := protobuf.Marshal(original)
+	encoded, err := protobuf.Marshal(original)
 	require.NoError(t, err)
 	decoded := &proto.Plan{}
-	require.NoError(t, protobuf.Unmarshal(wire, decoded))
-	p, err := FromProto(decoded, extensions.GetDefaultCollectionWithNoError())
+	require.NoError(t, protobuf.Unmarshal(encoded, decoded))
+	p, err := codec.PlanFromProto(decoded, extensions.GetDefaultCollectionWithNoError())
 	require.NoError(t, err)
-	parent := p.GetRoots()[0].Input().(*ProjectRel)
+	parent := p.GetRoots()[0].Input().(*plan.ProjectRel)
 	assert.Equal(t, schema.Struct.Types[2], parent.Expressions()[0].GetType())
 	assert.Equal(t, []types.Type{schema.Struct.Types[2], schema.Struct.Types[2]}, parent.RecordType().Types())
-	scan := parent.Input().(*NamedTableReadRel)
+	scan := parent.Input().(*plan.NamedTableReadRel)
 	assert.Equal(t, schema, scan.BaseSchema())
 	assert.Equal(t, schema.Struct.Types[1], scan.Filter().GetType())
 	assert.Equal(t, schema.Struct.Types[1], scan.BestEffortFilter().GetType())
-	roundTripped, err := p.ToProto()
+	roundTripped, err := codec.PlanToProto(p)
 	require.NoError(t, err)
 	assert.True(t, protobuf.Equal(original, roundTripped), "original: %s\nround trip: %s", original, roundTripped)
 }
@@ -84,7 +86,7 @@ func TestReadProjectionBeforeEmit(t *testing.T) {
 	schema := types.NamedStruct{Struct: types.StructType{Types: []types.Type{&types.Int64Type{}, &types.StringType{}, &types.BooleanType{}}}}
 	read := projectionRead(schema, &proto.Expression_MaskExpression{Select: projectionStruct(1, 2), MaintainSingularStruct: true})
 	read.GetRead().Common = &proto.RelCommon{EmitKind: &proto.RelCommon_Emit_{Emit: &proto.RelCommon_Emit{OutputMapping: []int32{1, 0, 1}}}}
-	r, err := RelFromProto(read, expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError()))
+	r, err := codec.RelFromProto(read, expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError()))
 	require.NoError(t, err)
 	assert.Equal(t, []types.Type{schema.Struct.Types[2], schema.Struct.Types[1], schema.Struct.Types[2]}, r.RecordType().Types())
 	r, err = r.Remap(1)
@@ -94,10 +96,10 @@ func TestReadProjectionBeforeEmit(t *testing.T) {
 
 func TestReadProjectionSetAndClear(t *testing.T) {
 	schema := types.NamedStruct{Struct: types.StructType{Types: []types.Type{&types.Int64Type{}, &types.StringType{}}}}
-	r := NewBuilderDefault().NamedScan([]string{"table"}, schema)
-	r.SetProjection(expr.MaskExpressionFromProto(&proto.Expression_MaskExpression{Select: projectionStruct(1), MaintainSingularStruct: true}))
+	r := plan.NewBuilderDefault().NamedScan([]string{"table"}, schema)
+	r.SetProjection(codec.MaskExpressionFromProto(&proto.Expression_MaskExpression{Select: projectionStruct(1), MaintainSingularStruct: true}))
 	assert.Equal(t, []types.Type{schema.Struct.Types[1]}, r.RecordType().Types())
-	r.SetProjection(expr.MaskExpressionFromProto(&proto.Expression_MaskExpression{Select: projectionStruct()}))
+	r.SetProjection(codec.MaskExpressionFromProto(&proto.Expression_MaskExpression{Select: projectionStruct()}))
 	assert.Zero(t, r.RecordType().FieldCount())
 	r.SetProjection(nil)
 	assert.Equal(t, schema.Struct.Types, r.RecordType().Types())
@@ -140,11 +142,11 @@ func TestReadProjectionNestedMasks(t *testing.T) {
 			mask := &proto.Expression_MaskExpression{MaintainSingularStruct: true, Select: &proto.Expression_MaskExpression_StructSelect{StructItems: []*proto.Expression_MaskExpression_StructItem{{Field: 1, Child: tc.mask}}}}
 			original := projectionRead(schema, mask)
 			saved := protobuf.Clone(original)
-			r, err := RelFromProto(original, expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError()))
+			r, err := codec.RelFromProto(original, expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError()))
 			require.NoError(t, err)
 			assert.Equal(t, []types.Type{tc.want}, r.RecordType().Types())
-			assert.True(t, protobuf.Equal(saved, r.ToProto()), "read, base schema and mask must round trip unchanged")
-			assert.Equal(t, schema, r.(ReadRel).BaseSchema())
+			assert.True(t, protobuf.Equal(saved, codec.RelToProto(r)), "read, base schema and mask must round trip unchanged")
+			assert.Equal(t, schema, r.(plan.ReadRel).BaseSchema())
 		})
 	}
 }
@@ -156,11 +158,11 @@ func TestReadProjectionSingularStruct(t *testing.T) {
 		t.Run(map[bool]string{false: "default", true: "maintain"}[maintain], func(t *testing.T) {
 			schema := types.NamedStruct{Struct: types.StructType{Types: []types.Type{&types.Int64Type{}, inner}}}
 			mask := &proto.Expression_MaskExpression{MaintainSingularStruct: maintain, Select: &proto.Expression_MaskExpression_StructSelect{StructItems: []*proto.Expression_MaskExpression_StructItem{{Field: 0}, {Field: 1, Child: &proto.Expression_MaskExpression_Select{Type: &proto.Expression_MaskExpression_Select_Struct{Struct: projectionStruct(1)}}}}}}
-			r, err := RelFromProto(projectionRead(schema, mask), expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError()))
+			r, err := codec.RelFromProto(projectionRead(schema, mask), expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError()))
 			require.NoError(t, err)
 			want := &types.StructType{Nullability: inner.Nullability, TypeVariationRef: inner.TypeVariationRef, Types: []types.Type{leaf}}
 			assert.Equal(t, []types.Type{schema.Struct.Types[0], want}, r.RecordType().Types())
-			assert.Equal(t, schema, r.(ReadRel).BaseSchema())
+			assert.Equal(t, schema, r.(plan.ReadRel).BaseSchema())
 		})
 	}
 }
@@ -168,7 +170,7 @@ func TestReadProjectionSingularStruct(t *testing.T) {
 func TestReadProjectionInvalidField(t *testing.T) {
 	schema := types.NamedStruct{Struct: types.StructType{Types: []types.Type{&types.Int64Type{}}}}
 	for _, field := range []int32{-1, 1} {
-		_, err := RelFromProto(projectionRead(schema, &proto.Expression_MaskExpression{Select: projectionStruct(field)}), expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError()))
+		_, err := codec.RelFromProto(projectionRead(schema, &proto.Expression_MaskExpression{Select: projectionStruct(field)}), expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError()))
 		assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 	}
 }
@@ -192,7 +194,7 @@ func TestReadProjectionInvalidNestedSelection(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			schema := types.NamedStruct{Struct: types.StructType{Types: []types.Type{tc.input}}}
 			projection := &proto.Expression_MaskExpression{MaintainSingularStruct: true, Select: &proto.Expression_MaskExpression_StructSelect{StructItems: []*proto.Expression_MaskExpression_StructItem{{Field: 0, Child: tc.selection}}}}
-			r, err := RelFromProto(projectionRead(schema, projection), expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError()))
+			r, err := codec.RelFromProto(projectionRead(schema, projection), expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError()))
 			assert.Nil(t, r)
 			assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 			assert.ErrorContains(t, err, tc.message)

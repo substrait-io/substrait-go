@@ -10,10 +10,11 @@ import (
 	"github.com/substrait-io/substrait-go/v9/types"
 )
 
-// A read projection removes fields before emit remapping. Preserve the row
+// ProjectReadSchema applies a read projection before emit remapping, rejecting
+// selections that do not match the input schema. It preserves the row
 // struct and nested containers; maintain_singular_struct only controls the
 // outer result of a general mask expression, and a read always returns a row.
-func projectReadStruct(input types.StructType, selection expr.MaskStructSelect) (types.StructType, error) {
+func ProjectReadSchema(input types.StructType, selection expr.MaskStructSelect) (types.StructType, error) {
 	output := input
 	output.Types = make([]types.Type, len(selection))
 	for i, item := range selection {
@@ -39,7 +40,7 @@ func projectReadType(input types.Type, selection expr.MaskSelect) (types.Type, e
 	switch selection := selection.(type) {
 	case expr.MaskStructSelect:
 		if input, ok := input.(*types.StructType); ok {
-			output, err := projectReadStruct(*input, selection)
+			output, err := ProjectReadSchema(*input, selection)
 			if err != nil {
 				return nil, err
 			}

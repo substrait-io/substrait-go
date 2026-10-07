@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package expr_test
+package codec_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/substrait-io/substrait-go/codec/v9"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	protobuf "google.golang.org/protobuf/proto"
@@ -62,11 +63,11 @@ func TestMaskExpressionOptionalCollectionChildRoundTrip(t *testing.T) {
 							{Field: 2, Child: tc.selectChild(child)},
 						}},
 					}
-					wire, err := protobuf.Marshal(original)
+					encoded, err := protobuf.Marshal(original)
 					require.NoError(t, err)
 					decoded := &proto.Expression_MaskExpression{}
-					require.NoError(t, protobuf.Unmarshal(wire, decoded))
-					mask := expr.MaskExpressionFromProto(decoded)
+					require.NoError(t, protobuf.Unmarshal(encoded, decoded))
+					mask := codec.MaskExpressionFromProto(decoded)
 					selection := mask.Select()
 					require.Len(t, selection, 1)
 					collection := selection[0].Child().(interface{ Child() expr.MaskSelect })
@@ -75,7 +76,7 @@ func TestMaskExpressionOptionalCollectionChildRoundTrip(t *testing.T) {
 					} else {
 						assert.Nil(t, collection.Child(), "an absent child selects the whole element or value")
 					}
-					assert.True(t, protobuf.Equal(original, mask.ToProto()), "mask must preserve its collection selection and optional child")
+					assert.True(t, protobuf.Equal(original, codec.MaskExpressionToProto(mask)), "mask must preserve its collection selection and optional child")
 				})
 			}
 		})

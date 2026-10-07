@@ -589,6 +589,9 @@ func readRelBaseFromProto(rel *proto.ReadRel, reg expr.ExtensionRegistry) (decod
 
 	if rel.Projection != nil {
 		b.projection = MaskExpressionFromProto(rel.Projection)
+		if _, err := plan.ProjectReadSchema(b.baseSchema.Struct, b.projection.Select()); err != nil {
+			return b, err
+		}
 	}
 
 	b.advExtension = advancedExtensionFromProto(rel.AdvancedExtension)
