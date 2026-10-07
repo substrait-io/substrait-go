@@ -11,6 +11,7 @@ import (
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/plan"
 	"github.com/substrait-io/substrait-go/v9/types"
+	"github.com/substrait-io/substrait-go/v9/wire"
 	substraitproto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/proto"
 )
@@ -93,13 +94,13 @@ func TestAggregateGroupingSchema(t *testing.T) {
 			names := []string{"a", "b", "c", "d", "e", "f"}[:len(tc.want)]
 			p, err := b.Plan(aggregate, names)
 			require.NoError(t, err)
-			serialized, err := p.ToProto()
+			serialized, err := wire.PlanToProto(p)
 			require.NoError(t, err)
-			wire, err := proto.Marshal(serialized)
+			encoded, err := proto.Marshal(serialized)
 			require.NoError(t, err)
 			decoded := &substraitproto.Plan{}
-			require.NoError(t, proto.Unmarshal(wire, decoded))
-			roundTrip, err := plan.FromProto(decoded, extensions.GetDefaultCollectionWithNoError())
+			require.NoError(t, proto.Unmarshal(encoded, decoded))
+			roundTrip, err := wire.PlanFromProto(decoded, extensions.GetDefaultCollectionWithNoError())
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, roundTrip.GetRoots()[0].Input().RecordType().Types())
 		})
@@ -125,10 +126,10 @@ func TestAggregateGroupingSchemaEmit(t *testing.T) {
 	assert.Equal(t, want, remapped.RecordType().Types())
 	p, err := b.Plan(remapped, []string{"grouping", "count", "key"})
 	require.NoError(t, err)
-	serialized, err := p.ToProto()
+	serialized, err := wire.PlanToProto(p)
 	require.NoError(t, err)
 	assert.Equal(t, []int32{2, 1, 0}, serialized.Relations[0].GetRoot().Input.GetAggregate().Common.GetEmit().OutputMapping)
-	roundTrip, err := plan.FromProto(serialized, extensions.GetDefaultCollectionWithNoError())
+	roundTrip, err := wire.PlanFromProto(serialized, extensions.GetDefaultCollectionWithNoError())
 	require.NoError(t, err)
 	assert.Equal(t, want, roundTrip.GetRoots()[0].Input().RecordType().Types())
 }
@@ -149,13 +150,13 @@ func TestAggregateGroupingSchemaPreservesInputTypes(t *testing.T) {
 			require.NoError(t, err)
 			aggregate, err := b.AggregateExprs(scan, nil, []expr.Expression{key}, []expr.Expression{})
 			require.NoError(t, err)
-			before := proto.Clone(types.TypeToProto(inputType))
+			before := proto.Clone(wire.TypeToProto(inputType))
 			for i := 0; i < 2; i++ {
 				output := aggregate.RecordType().Types()[0]
 				assert.Equal(t, types.NullabilityNullable, output.GetNullability())
 				assert.Equal(t, uint32(7), output.GetTypeVariationReference())
 				assert.Equal(t, inputType.GetParameters(), output.GetParameters())
-				assert.True(t, proto.Equal(before, types.TypeToProto(inputType)), "computing the aggregate schema must not mutate the input type")
+				assert.True(t, proto.Equal(before, wire.TypeToProto(inputType)), "computing the aggregate schema must not mutate the input type")
 				assert.Equal(t, types.NullabilityRequired, key.GetType().GetNullability())
 			}
 		})
