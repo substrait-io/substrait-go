@@ -13,6 +13,7 @@ import (
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/types"
 	"github.com/substrait-io/substrait-go/v9/types/parser"
+	"github.com/substrait-io/substrait-go/v9/wire"
 )
 
 func phaseType(t *testing.T, s string) types.Type {
@@ -72,14 +73,14 @@ func TestAggregateFunctionPhases(t *testing.T) {
 						fn, err := expr.NewWindowFunc(reg, id, nil, types.AggregationInvocationAll, phase, args...)
 						require.NoError(t, err)
 						assert.Equal(t, phaseType(t, expected), fn.GetType())
-						assert.Equal(t, types.TypeToProto(phaseType(t, expected)), fn.ToProto().GetWindowFunction().OutputType)
+						assert.Equal(t, wire.TypeToProto(phaseType(t, expected)), wire.ExprToProto(fn).GetWindowFunction().OutputType)
 						assert.Equal(t, id, fn.ID())
 						assert.Equal(t, phase, fn.Phase())
 					} else {
 						fn, err := expr.NewAggregateFunc(reg, id, nil, types.AggregationInvocationAll, phase, nil, args...)
 						require.NoError(t, err)
 						assert.Equal(t, phaseType(t, expected), fn.GetType())
-						assert.Equal(t, types.TypeToProto(phaseType(t, expected)), fn.ToProto().OutputType)
+						assert.Equal(t, wire.TypeToProto(phaseType(t, expected)), wire.AggregateFunctionToProto(fn).OutputType)
 						assert.Equal(t, id, fn.ID())
 						assert.Equal(t, phase, fn.Phase())
 					}
