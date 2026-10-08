@@ -674,6 +674,14 @@ func (j *JoinRel) directOutputSchema() types.RecordType {
 		typeList = j.left.RecordType().Types()
 	case JoinTypeRightSemi, JoinTypeRightAnti:
 		return j.right.RecordType()
+	case JoinTypeLeftMark, JoinTypeRightMark:
+		input := j.left
+		if j.joinType == JoinTypeRightMark {
+			input = j.right
+		}
+		mark := &types.BooleanType{Nullability: types.NullabilityNullable}
+		fields := slices.Concat(input.RecordType().Types(), []types.Type{mark})
+		return *types.NewRecordTypeFromTypes(fields)
 	}
 
 	return *types.NewRecordTypeFromTypes(typeList)
@@ -681,6 +689,12 @@ func (j *JoinRel) directOutputSchema() types.RecordType {
 
 func (j *JoinRel) RecordType() types.RecordType {
 	return j.remap(j.directOutputSchema())
+}
+
+// DirectOutputSchema is the join's output schema before emit. Decoders bind the
+// post-join filter against it.
+func (j *JoinRel) DirectOutputSchema() types.RecordType {
+	return j.directOutputSchema()
 }
 
 func (j *JoinRel) JoinedRecordType() types.RecordType {
