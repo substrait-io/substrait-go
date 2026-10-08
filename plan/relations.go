@@ -74,7 +74,15 @@ func NewBaseReadRel(common RelCommon, baseSchema types.NamedStruct, filter, best
 }
 
 func (b *baseReadRel) directOutputSchema() types.RecordType {
-	return *types.NewRecordTypeFromStruct(b.baseSchema.Struct)
+	schema := *types.NewRecordTypeFromStruct(b.baseSchema.Struct)
+	if b.projection == nil {
+		return schema
+	}
+	projected, err := b.projection.ProjectRecordType(schema)
+	if err != nil {
+		panic(err)
+	}
+	return projected
 }
 
 func (b *baseReadRel) RecordType() types.RecordType {
@@ -92,6 +100,8 @@ func (b *baseReadRel) SetAdvancedExtension(advExtension *extensions.AdvancedExte
 	return existing
 }
 
+// SetProjection replaces the read mask. RecordType requires a whole-column mask;
+// ProjectRecordType can validate a mask before it is set.
 func (b *baseReadRel) SetProjection(p *expr.MaskExpression) {
 	b.projection = p
 }
