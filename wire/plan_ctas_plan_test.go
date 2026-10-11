@@ -75,9 +75,9 @@ func makeProjectionMaskExpr(columnIds []int) *expr.MaskExpression {
 }
 
 // makeNamedTableReadRel creates a named table read relation with the selected column IDs.
-func makeNamedTableReadRel(b plan.Builder, tableNames []string, tableSchema types.NamedStruct, columnIds []int) plan.Rel {
+func makeNamedTableReadRel(t *testing.T, b plan.Builder, tableNames []string, tableSchema types.NamedStruct, columnIds []int) plan.Rel {
 	namedTableReadRel := b.NamedScan(tableNames, tableSchema)
-	namedTableReadRel.SetProjection(makeProjectionMaskExpr(columnIds))
+	require.NoError(t, namedTableReadRel.SetProjection(makeProjectionMaskExpr(columnIds)))
 	return namedTableReadRel
 }
 
@@ -115,14 +115,14 @@ func makeProjectRel(t *testing.T, b plan.Builder, input plan.Rel, columnIds []in
 
 // getProjectionForTest1 returns project rel for "Select name, salary from employees"
 func getProjectionForTest1(t *testing.T, b plan.Builder) plan.Rel {
-	namedScanRel := makeNamedTableReadRel(b, []string{"employees"}, employeeSchema, []int{1, 3})
+	namedScanRel := makeNamedTableReadRel(t, b, []string{"employees"}, employeeSchema, []int{1, 3})
 	return makeProjectRel(t, b, namedScanRel, []int{0, 1})
 }
 
 // getProjectionForTest2 returns project rel for "Select * from employees where role LIKE 'Engineer'"
 func getProjectionForTest2(t *testing.T, b plan.Builder) plan.Rel {
 	// scanRel outputs role, employee_id, name, department_id, salary
-	namedScanRel := makeNamedTableReadRel(b, []string{"employees"}, employeeSchema, []int{4, 0, 1, 2, 3})
+	namedScanRel := makeNamedTableReadRel(t, b, []string{"employees"}, employeeSchema, []int{4, 0, 1, 2, 3})
 
 	// column 0 from the output of namedScanRel is role
 	// Build the filter with condition `role LIKE 'Engineer'`

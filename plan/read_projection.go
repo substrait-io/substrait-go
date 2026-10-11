@@ -47,7 +47,7 @@ func projectReadType(input types.Type, selection expr.MaskSelect) (types.Type, e
 			return &output, nil
 		}
 	case *expr.MaskListSelect:
-		if input, ok := input.(*types.ListType); ok {
+		if input, ok := input.(*types.ListType); ok && selection != nil {
 			output := *input
 			var err error
 			output.Type, err = projectReadType(input.Type, selection.Child())
@@ -57,7 +57,7 @@ func projectReadType(input types.Type, selection expr.MaskSelect) (types.Type, e
 			return &output, nil
 		}
 	case *expr.MaskMapSelect:
-		if input, ok := input.(*types.MapType); ok {
+		if input, ok := input.(*types.MapType); ok && selection != nil {
 			output := *input
 			var err error
 			output.Value, err = projectReadType(input.Value, selection.Child())

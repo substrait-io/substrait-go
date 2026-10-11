@@ -100,8 +100,26 @@ func (b *baseReadRel) SetAdvancedExtension(advExtension *extensions.AdvancedExte
 	return existing
 }
 
-func (b *baseReadRel) SetProjection(p *expr.MaskExpression) {
+// SetProjection validates the mask against the base schema and checks that the
+// projected schema supports the current emit mapping before replacing the
+// projection. If validation fails, the existing projection is unchanged. A nil
+// mask clears the projection if the base schema supports the emit mapping.
+func (b *baseReadRel) SetProjection(p *expr.MaskExpression) error {
+	schema := b.baseSchema.Struct
+	if p != nil {
+		var err error
+		schema, err = ProjectReadSchema(schema, p.Select())
+		if err != nil {
+			return err
+		}
+	}
+	for _, index := range b.mapping {
+		if index < 0 || int(index) >= len(schema.Types) {
+			return errOutputMappingOutOfRange
+		}
+	}
 	b.projection = p
+	return nil
 }
 
 func (b *baseReadRel) GetInputs() []Rel {

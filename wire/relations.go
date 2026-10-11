@@ -589,8 +589,14 @@ func readRelBaseFromProto(rel *proto.ReadRel, reg expr.ExtensionRegistry) (decod
 
 	if rel.Projection != nil {
 		b.projection = MaskExpressionFromProto(rel.Projection)
-		if _, err := plan.ProjectReadSchema(b.baseSchema.Struct, b.projection.Select()); err != nil {
+		schema, err := plan.ProjectReadSchema(b.baseSchema.Struct, b.projection.Select())
+		if err != nil {
 			return b, err
+		}
+		for _, index := range b.common.OutputMapping() {
+			if index < 0 || int(index) >= len(schema.Types) {
+				return b, fmt.Errorf("%w: output mapping index out of range", substraitgo.ErrInvalidRel)
+			}
 		}
 	}
 
