@@ -94,14 +94,28 @@ func TestReadProjectionBeforeEmit(t *testing.T) {
 	assert.Equal(t, []types.Type{schema.Struct.Types[1]}, r.RecordType().Types())
 }
 
+func TestReadProjectionInvalidEmit(t *testing.T) {
+	schema := types.NamedStruct{Struct: types.StructType{Types: []types.Type{&types.Int64Type{}, &types.StringType{}}}}
+	for _, index := range []int32{-1, 1} {
+		read := projectionRead(schema, &proto.Expression_MaskExpression{Select: projectionStruct(0)})
+		read.GetRead().Common = &proto.RelCommon{EmitKind: &proto.RelCommon_Emit_{Emit: &proto.RelCommon_Emit{OutputMapping: []int32{index}}}}
+		r, err := codec.RelFromProto(read, expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError()))
+		assert.Nil(t, r)
+		assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+		assert.ErrorContains(t, err, "output mapping index out of range")
+	}
+}
+
 func TestReadProjectionSetAndClear(t *testing.T) {
 	schema := types.NamedStruct{Struct: types.StructType{Types: []types.Type{&types.Int64Type{}, &types.StringType{}}}}
 	r := plan.NewBuilderDefault().NamedScan([]string{"table"}, schema)
-	r.SetProjection(codec.MaskExpressionFromProto(&proto.Expression_MaskExpression{Select: projectionStruct(1), MaintainSingularStruct: true}))
+	require.NoError(t, r.SetProjection(codec.MaskExpressionFromProto(&proto.Expression_MaskExpression{Select: projectionStruct(1), MaintainSingularStruct: true})))
 	assert.Equal(t, []types.Type{schema.Struct.Types[1]}, r.RecordType().Types())
-	r.SetProjection(codec.MaskExpressionFromProto(&proto.Expression_MaskExpression{Select: projectionStruct()}))
+	require.NoError(t, r.SetProjection(codec.MaskExpressionFromProto(&proto.Expression_MaskExpression{Select: projectionStruct()})))
 	assert.Zero(t, r.RecordType().FieldCount())
-	r.SetProjection(nil)
+	require.NoError(t, r.SetProjection(expr.NewMaskExpression(nil, false)))
+	assert.Zero(t, r.RecordType().FieldCount())
+	require.NoError(t, r.SetProjection(nil))
 	assert.Equal(t, schema.Struct.Types, r.RecordType().Types())
 }
 
@@ -170,8 +184,15 @@ func TestReadProjectionSingularStruct(t *testing.T) {
 func TestReadProjectionInvalidField(t *testing.T) {
 	schema := types.NamedStruct{Struct: types.StructType{Types: []types.Type{&types.Int64Type{}}}}
 	for _, field := range []int32{-1, 1} {
-		_, err := codec.RelFromProto(projectionRead(schema, &proto.Expression_MaskExpression{Select: projectionStruct(field)}), expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError()))
+		projection := &proto.Expression_MaskExpression{Select: projectionStruct(field)}
+		_, err := codec.RelFromProto(projectionRead(schema, projection), expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError()))
 		assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+		scan := plan.NewBuilderDefault().NamedScan([]string{"table"}, schema)
+		previous := codec.MaskExpressionFromProto(&proto.Expression_MaskExpression{Select: projectionStruct(0)})
+		require.NoError(t, scan.SetProjection(previous))
+		assert.ErrorIs(t, scan.SetProjection(codec.MaskExpressionFromProto(projection)), substraitgo.ErrInvalidRel)
+		assert.Same(t, previous, scan.Projection())
+		assert.NotPanics(t, func() { assert.Equal(t, schema.Struct.Types, scan.RecordType().Types()) })
 	}
 }
 
@@ -198,6 +219,65 @@ func TestReadProjectionInvalidNestedSelection(t *testing.T) {
 			assert.Nil(t, r)
 			assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
 			assert.ErrorContains(t, err, tc.message)
+			scan := plan.NewBuilderDefault().NamedScan([]string{"table"}, schema)
+			previous := codec.MaskExpressionFromProto(&proto.Expression_MaskExpression{Select: projectionStruct(0)})
+			require.NoError(t, scan.SetProjection(previous))
+			err = scan.SetProjection(codec.MaskExpressionFromProto(projection))
+			assert.ErrorIs(t, err, substraitgo.ErrInvalidRel)
+			assert.ErrorContains(t, err, tc.message)
+			assert.Same(t, previous, scan.Projection())
+			assert.NotPanics(t, func() { assert.Equal(t, schema.Struct.Types, scan.RecordType().Types()) })
+		})
+	}
+}
+
+func TestReadProjectionSetTypedNilSelection(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		input     types.Type
+		selection expr.MaskSelect
+	}{
+		{"list", &types.ListType{Type: &types.Int64Type{}}, (*expr.MaskListSelect)(nil)},
+		{"map", &types.MapType{Key: &types.StringType{}, Value: &types.Int64Type{}}, (*expr.MaskMapSelect)(nil)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			schema := types.NamedStruct{Struct: types.StructType{Types: []types.Type{tc.input}}}
+			scan := plan.NewBuilderDefault().NamedScan([]string{"table"}, schema)
+			previous := expr.NewMaskExpression(expr.MaskStructSelect{expr.NewMaskStructItem(0, nil)}, false)
+			require.NoError(t, scan.SetProjection(previous))
+			projection := expr.NewMaskExpression(expr.MaskStructSelect{expr.NewMaskStructItem(0, tc.selection)}, false)
+			assert.NotPanics(t, func() {
+				assert.ErrorIs(t, scan.SetProjection(projection), substraitgo.ErrInvalidRel)
+			})
+			assert.Same(t, previous, scan.Projection())
+			assert.Equal(t, schema.Struct.Types, scan.RecordType().Types())
+		})
+	}
+}
+
+func TestReadProjectionSetPreservesEmit(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		types      []types.Type
+		fields     []int32
+		projection *expr.MaskExpression
+	}{
+		{"shrink", []types.Type{&types.Int64Type{}, &types.StringType{}}, []int32{1, 0},
+			expr.NewMaskExpression(expr.MaskStructSelect{expr.NewMaskStructItem(1, nil)}, false)},
+		{"clear", []types.Type{&types.Int64Type{}}, []int32{0, 0}, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			schema := types.NamedStruct{Struct: types.StructType{Types: tc.types}}
+			scan := plan.NewBuilderDefault().NamedScan([]string{"table"}, schema)
+			previous := codec.MaskExpressionFromProto(&proto.Expression_MaskExpression{Select: projectionStruct(tc.fields...)})
+			require.NoError(t, scan.SetProjection(previous))
+			_, err := scan.Remap(1)
+			require.NoError(t, err)
+			want := scan.RecordType()
+			assert.ErrorIs(t, scan.SetProjection(tc.projection), substraitgo.ErrInvalidRel)
+			assert.Same(t, previous, scan.Projection())
+			assert.Equal(t, []int32{1}, scan.OutputMapping())
+			assert.NotPanics(t, func() { assert.Equal(t, want, scan.RecordType()) })
 		})
 	}
 }
