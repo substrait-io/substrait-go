@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/codec/v9"
+	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/plan"
@@ -65,8 +66,10 @@ func TestExprBuilder(t *testing.T) {
 		{"wrap expression", "subtract(.field(3) => i32, i32(3)) => i32",
 			b.ScalarFunc(subID).Args(b.RootRef(expr.NewStructFieldRef(3)),
 				b.Wrap(expr.NewLiteral(int32(3), false))), ""},
-		{"window func", "",
-			b.WindowFunc(rankID), "invalid expression: non-decomposable window or agg function '{extension:io.substrait:functions_arithmetic rank}' must use InitialToResult phase"},
+		{"window func default phase", "rank(; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_UNSPECIFIED) => i64?",
+			b.WindowFunc(rankID), ""},
+		{"window func unspecified phase", "",
+			b.WindowFunc(rankID).Phase(types.AggregationPhaseUnspecified), "invalid expression: non-decomposable window or agg function '{extension:io.substrait:functions_arithmetic rank}' must use InitialToResult phase"},
 		{"window func", "rank(; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_UNSPECIFIED) => i64?",
 			b.WindowFunc(rankID).Phase(types.AggregationPhaseInitialToResult), ""},
 		{"window func",
@@ -112,6 +115,85 @@ func TestExprBuilder(t *testing.T) {
 				assert.EqualError(t, err, tt.err)
 			}
 		})
+	}
+}
+
+func TestFunctionBuilderAggregationPhase(t *testing.T) {
+	initial := &types.Int32Type{Nullability: types.NullabilityRequired}
+	state := &types.StructType{Nullability: types.NullabilityRequired, Types: []types.Type{
+		&types.Int64Type{Nullability: types.NullabilityRequired},
+		&types.Int64Type{Nullability: types.NullabilityRequired},
+	}}
+	result := &types.Int32Type{Nullability: types.NullabilityNullable}
+	id := extensions.FunctionID{
+		URN:  extensions.SubstraitDefaultURNPrefix + "functions_arithmetic",
+		Name: "avg:i32",
+	}
+	for _, tt := range []struct {
+		name        string
+		input       types.Type
+		phase       types.AggregationPhase
+		explicit    bool
+		output      types.Type
+		expectedErr error
+	}{
+		{"default", initial, types.AggregationPhaseInitialToResult, false, result, nil},
+		{"explicit_unspecified", state, types.AggregationPhaseUnspecified, true, result, nil},
+		{"explicit_intermediate_to_result", state, types.AggregationPhaseIntermediateToResult, true, result, nil},
+		{"explicit_initial_to_intermediate", initial, types.AggregationPhaseInitialToIntermediate, true, state, nil},
+		{"unspecified_rejects_initial_input", initial, types.AggregationPhaseUnspecified, true, nil, substraitgo.ErrInvalidType},
+	} {
+		for _, window := range []bool{false, true} {
+			kind := "aggregate"
+			if window {
+				kind = "window"
+			}
+			t.Run(tt.name+"/"+kind, func(t *testing.T) {
+				b := expr.ExprBuilder{Reg: expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())}
+				arg := b.Expression(&expr.DynamicParameter{OutputType: tt.input})
+				if window {
+					builder := b.WindowFunc(id).Args(arg)
+					if tt.explicit {
+						builder.Phase(tt.phase)
+					}
+					fn, err := builder.Build()
+					if tt.expectedErr != nil {
+						require.ErrorIs(t, err, tt.expectedErr)
+						return
+					}
+					require.NoError(t, err)
+					assert.Equal(t, tt.output, fn.GetType())
+					assert.Equal(t, tt.phase, fn.Phase())
+					encoded := wire.ExprToProto(fn)
+					assert.EqualValues(t, tt.phase, encoded.GetWindowFunction().Phase)
+					assert.Equal(t, wire.TypeToProto(tt.output), encoded.GetWindowFunction().OutputType)
+					decoded, err := wire.ExprFromProto(encoded, nil, b.Reg)
+					require.NoError(t, err)
+					assert.True(t, fn.Equals(decoded))
+				} else {
+					builder := b.AggFunc(id).Args(arg)
+					if tt.explicit {
+						builder.Phase(tt.phase)
+					}
+					fn, err := builder.Build()
+					if tt.expectedErr != nil {
+						require.ErrorIs(t, err, tt.expectedErr)
+						return
+					}
+					require.NoError(t, err)
+					assert.Equal(t, tt.output, fn.GetType())
+					assert.Equal(t, tt.phase, fn.Phase())
+					encoded := wire.AggregateFunctionToProto(fn)
+					assert.EqualValues(t, tt.phase, encoded.Phase)
+					assert.Equal(t, wire.TypeToProto(tt.output), encoded.OutputType)
+					decoded, err := wire.AggregateFunctionFromProto(encoded, nil, b.Reg)
+					require.NoError(t, err)
+					assert.Equal(t, tt.phase, decoded.Phase())
+					assert.Equal(t, tt.output, decoded.GetType())
+					assert.Equal(t, fn.ID(), decoded.ID())
+				}
+			})
+		}
 	}
 }
 

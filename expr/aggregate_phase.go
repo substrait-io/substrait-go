@@ -93,14 +93,14 @@ func resolveAggregateVariant[T aggregateVariant](
 		parameters = extensions.FuncParameterList{extensions.ValueArg{Value: &parser.TypeExpression{ValueType: intermediate}}}
 		variadic = nil
 	}
-	out, err := extensions.EvaluateTypeExpression(decl.URN(), decl.Nullability(), output, parameters, variadic, argTypes, reg.Set)
-	if err != nil {
-		return nil, nil, err
-	}
 	// A single state can repeat integer parameters across its fields. Check
 	// those bindings even when the final output has no parameters to resolve.
 	if !initial && !types.AreSyncTypeParametersMatching([]types.FuncDefArgType{intermediate}, argTypes) {
 		return nil, nil, fmt.Errorf("%w: intermediate state has conflicting type parameters", substraitgo.ErrInvalidType)
+	}
+	out, err := extensions.EvaluateTypeExpression(decl.URN(), decl.Nullability(), output, parameters, variadic, argTypes, reg.Set)
+	if err != nil {
+		return nil, nil, err
 	}
 	return decl, out, nil
 }
