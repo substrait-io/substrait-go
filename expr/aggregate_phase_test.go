@@ -183,19 +183,25 @@ aggregate_functions:
 	tests := []struct {
 		name, input, output string
 		phase               types.AggregationPhase
+		target              error
+		errMessage          string
 	}{
-		{"nested:any", "string", "struct<string,i64>", types.AggregationPhaseInitialToIntermediate},
-		{"nested:any", "struct<string,i64>", "string", types.AggregationPhaseIntermediateToResult},
-		{"nested:any", "struct<string,i64>", "struct<string,i64>", types.AggregationPhaseIntermediateToIntermediate},
-		{"mirror:dec", "struct?<decimal<12,2>,i64>", "decimal?<12,2>", types.AggregationPhaseIntermediateToResult},
-		{"mirror:dec", "struct<decimal?<12,2>,i64>", "decimal<12,2>", types.AggregationPhaseIntermediateToResult},
-		{"discrete:dec", "struct<decimal<12,2>,i64>", "decimal?<12,2>", types.AggregationPhaseIntermediateToResult},
-		{"discrete:dec", "struct?<decimal<12,2>,i64>", "", types.AggregationPhaseIntermediateToResult},
-		{"discrete:dec", "struct<decimal?<12,2>,i64>", "", types.AggregationPhaseIntermediateToResult},
-		{"lost_parameter:dec", "decimal<12,2>", "decimal<38,2>", types.AggregationPhaseInitialToIntermediate},
-		{"lost_parameter:dec", "decimal<38,2>", "", types.AggregationPhaseIntermediateToResult},
-		{"derived_parameter:dec", "decimal<12,2>", "decimal<13,2>", types.AggregationPhaseInitialToIntermediate},
-		{"derived_parameter:dec", "decimal<13,2>", "", types.AggregationPhaseIntermediateToResult},
+		{"nested:any", "string", "struct<string,i64>", types.AggregationPhaseInitialToIntermediate, nil, ""},
+		{"nested:any", "struct<string,i64>", "string", types.AggregationPhaseIntermediateToResult, nil, ""},
+		{"nested:any", "struct<string,i64>", "struct<string,i64>", types.AggregationPhaseIntermediateToIntermediate, nil, ""},
+		{"mirror:dec", "decimal?<12,2>", "struct?<decimal<12,2>,i64>", types.AggregationPhaseInitialToIntermediate, nil, ""},
+		{"mirror:dec", "decimal<12,2>", "struct<decimal<12,2>,i64>", types.AggregationPhaseInitialToIntermediate, nil, ""},
+		{"mirror:dec", "struct?<decimal<12,2>,i64>", "decimal?<12,2>", types.AggregationPhaseIntermediateToResult, nil, ""},
+		{"mirror:dec", "struct<decimal?<12,2>,i64>", "decimal<12,2>", types.AggregationPhaseIntermediateToResult, nil, ""},
+		{"discrete:dec", "decimal?<12,2>", "struct<decimal<12,2>,i64>", types.AggregationPhaseInitialToIntermediate, nil, ""},
+		{"discrete:dec", "decimal<12,2>", "", types.AggregationPhaseInitialToIntermediate, substraitgo.ErrInvalidType, ""},
+		{"discrete:dec", "struct<decimal<12,2>,i64>", "decimal?<12,2>", types.AggregationPhaseIntermediateToResult, nil, ""},
+		{"discrete:dec", "struct?<decimal<12,2>,i64>", "", types.AggregationPhaseIntermediateToResult, substraitgo.ErrInvalidType, ""},
+		{"discrete:dec", "struct<decimal?<12,2>,i64>", "", types.AggregationPhaseIntermediateToResult, substraitgo.ErrInvalidType, ""},
+		{"lost_parameter:dec", "decimal<12,2>", "decimal<38,2>", types.AggregationPhaseInitialToIntermediate, nil, ""},
+		{"lost_parameter:dec", "decimal<38,2>", "", types.AggregationPhaseIntermediateToResult, nil, "parameter P is not defined"},
+		{"derived_parameter:dec", "decimal<12,2>", "decimal<13,2>", types.AggregationPhaseInitialToIntermediate, nil, ""},
+		{"derived_parameter:dec", "decimal<13,2>", "", types.AggregationPhaseIntermediateToResult, substraitgo.ErrNotImplemented, ""},
 	}
 	for _, tt := range tests {
 		for _, window := range []bool{false, true} {
@@ -203,7 +209,7 @@ aggregate_functions:
 			if window {
 				kind = "window"
 			}
-			t.Run(tt.name+"/"+tt.phase.String()+"/"+kind, func(t *testing.T) {
+			t.Run(tt.name+"/"+tt.phase.String()+"/"+tt.input+"/"+kind, func(t *testing.T) {
 				reg := expr.NewEmptyExtensionRegistry(&col)
 				id := extensions.FunctionID{URN: "extension:test:aggregate_phases", Name: tt.name}
 				arg := &expr.DynamicParameter{OutputType: phaseType(t, tt.input)}
@@ -222,8 +228,12 @@ aggregate_functions:
 						output = fn.GetType()
 					}
 				}
-				if tt.output == "" {
-					require.Error(t, err)
+				if tt.target != nil {
+					require.ErrorIs(t, err, tt.target)
+					return
+				}
+				if tt.errMessage != "" {
+					require.EqualError(t, err, tt.errMessage)
 					return
 				}
 				require.NoError(t, err)
@@ -313,7 +323,7 @@ aggregate_functions:
 					if tt.valid {
 						require.NoError(t, err)
 					} else {
-						require.Error(t, err)
+						require.ErrorIs(t, err, substraitgo.ErrInvalidType)
 					}
 				})
 			}
