@@ -612,7 +612,8 @@ func (e *set) FindURN(urn string) (uint32, bool) {
 }
 
 // unusedAnchor preserves the dense allocation sequence while avoiding collisions
-// with imported anchors. Zero is reserved for the system-preferred type variation.
+// with imported anchors. Zero is skipped in every namespace; type variations
+// reserve it for the system-preferred variation.
 // The cursor skips previously scanned ranges on subsequent allocations.
 func unusedAnchor[T any](anchors map[uint32]T, next *uint32) uint32 {
 	if *next == 0 {
@@ -632,13 +633,12 @@ func unusedAnchor[T any](anchors map[uint32]T, next *uint32) uint32 {
 	}
 }
 
-func (e *set) addOrGetURN(urn string) uint32 {
-	for k, v := range e.urns {
+func (e *set) addOrGetURN(urn string) {
+	for _, v := range e.urns {
 		if v == urn {
-			return k
+			return
 		}
 	}
 	anchor := unusedAnchor(e.urns, &e.nextURNAnchor)
 	e.urns[anchor] = urn
-	return anchor
 }
