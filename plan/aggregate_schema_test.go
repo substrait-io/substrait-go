@@ -47,6 +47,10 @@ func TestAggregateGroupingSchema(t *testing.T) {
 			want: []types.Type{stringType, boolType, floatType, countType, floatType, groupingIndexType},
 		},
 		{
+			name: "single grouping set without measures preserves required keys", groups: [][]uint32{{0, 1}}, keyCount: 2, noMeasures: true,
+			want: []types.Type{stringType, boolType},
+		},
+		{
 			name: "single empty grouping set", groups: [][]uint32{{}},
 			want: []types.Type{countType, floatType},
 		},
