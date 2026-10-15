@@ -80,11 +80,7 @@ jobs:
         working-directory: codec
       - name: Run codec Tests with Coverage
         if: runner.os == 'Linux'
-        # -coverpkg credits the core code these tests exercise; the sed maps the
-        # codec/v9 import path to codec/ so codecov counts the codec files.
-        run: |
-          go test -v -coverpkg=github.com/substrait-io/substrait-go/v9/...,github.com/substrait-io/substrait-go/codec/v9/... -coverprofile=codec-coverage.out ./...
-          sed -i 's#github.com/substrait-io/substrait-go/codec/v9/#github.com/substrait-io/substrait-go/v9/codec/#g' codec-coverage.out
+        run: go test -v -coverpkg=github.com/substrait-io/substrait-go/v9/...,github.com/substrait-io/substrait-go/codec/v9/... -coverprofile=codec-coverage.out ./...
         working-directory: codec
       - name: Upload coverage to Codecov
         if: runner.os == 'Linux' && github.repository == 'substrait-io/substrait-go'
