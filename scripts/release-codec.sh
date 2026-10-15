@@ -1,23 +1,25 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
 #
-# Tag codec/vX.Y.Z for an existing core release vX.Y.Z (lockstep, #280). The
-# commit is made on a detached HEAD, so main keeps its dev replace; the caller
-# pushes the tag. Re-running an existing codec tag is a no-op.
+# Prepare and tag a codec release matching an already-published core release,
+# in lockstep with core (#280). For the core vX.Y.Z just released, this pins
+# codec to that exact core version, proves codec builds the way a consumer
+# resolves it, and tags codec/vX.Y.Z. The work happens on a detached HEAD so
+# main keeps its dev-time replace directive, and the caller pushes the tag.
+# Re-running for an existing codec tag is a no-op.
+#
 # Usage: ./scripts/release-codec.sh v9.1.0
 
 set -euo pipefail
 
 version="${1:-}"
 [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "usage: $0 vX.Y.Z"; exit 1; }
-major="${version%%.*}"
 
 cd "$(git rev-parse --show-toplevel)"
 core=$(go mod edit -json | jq -r .Module.Path)
-codec=$(cd codec && go mod edit -json | jq -r .Module.Path)
-for m in "$core" "$codec"; do
-    [[ "$m" == */"$major" ]] || { echo "$m is not major $major; bump the module paths first"; exit 1; }
-done
+# core and codec must already be on this release's major; reuse the release gate.
+# GITHUB_ENV is cleared so the gate's version handoff only fires in the release hook.
+RELEASE_VERSION="$version" GITHUB_ENV= bash scripts/check-module-version.sh
 
 git rev-parse -q --verify "refs/tags/$version" >/dev/null || { echo "core tag $version missing; release core first"; exit 1; }
 git rev-parse -q --verify "refs/tags/codec/$version" >/dev/null && { echo "codec/$version exists; nothing to do"; exit 0; }
