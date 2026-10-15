@@ -43,17 +43,22 @@ jobs:
           go-version-file: 'go.mod'
       - name: Release codec
         # codec is versioned in lockstep with core: tag codec/vX.Y.Z for the core
-        # vX.Y.Z just released. release-codec.sh is a no-op if the codec tag
-        # already exists, so a failed run is safe to re-run by hand.
+        # vX.Y.Z just released. RELEASE_VERSION comes from the go-semantic-release
+        # preRelease hook (check-module-version.sh); empty means no core release this
+        # run, so there is nothing to tag. A re-run of the workflow will not re-tag
+        # (no new core release), so a stuck codec tag is fixed by running
+        # scripts/release-codec.sh by hand; it is a no-op if the tag already exists.
         run: |
-          git fetch --tags --force
-          # stable core releases only; codec is not tagged for prereleases
-          version=$(git tag --points-at HEAD --list 'v[0-9]*.[0-9]*.[0-9]*' \
-            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
-          if [ -z "$version" ]; then
-            echo "no stable core release at HEAD; nothing to tag for codec"
+          if [ -z "${RELEASE_VERSION:-}" ]; then
+            echo "no core release this run; nothing to tag for codec"
             exit 0
           fi
+          version="v${RELEASE_VERSION#v}"
+          # stable releases only; codec is not tagged for prereleases
+          case "$version" in
+            *-*) echo "prerelease $version; nothing to tag for codec"; exit 0 ;;
+          esac
+          git fetch --tags --force
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           bash scripts/release-codec.sh "$version"
