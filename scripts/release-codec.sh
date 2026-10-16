@@ -4,8 +4,9 @@
 # Prepare and tag a codec release matching an already-published core release,
 # in lockstep with core (#280). For the core vX.Y.Z just released, this pins
 # codec to that exact core version, proves codec builds the way a consumer
-# resolves it, and tags codec/vX.Y.Z. The work happens on a detached HEAD so
-# main keeps its dev-time replace directive, and the caller pushes the tag.
+# resolves it, and tags codec/vX.Y.Z.
+# Commits the dependency changes on detached HEAD and tags that new commit.
+# The caller pushes the tag; main is unchanged and keeps its dev-time replace.
 # Re-running for an existing codec tag is a no-op.
 #
 # Usage: ./scripts/release-codec.sh v9.1.0

@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-# Validates that the go.mod module-path major version matches the release version,
-# for both the core module and the codec module. They version in lockstep (#280),
-# so this fails the release if either major has not been bumped to match, which
-# keeps core from ever releasing ahead of codec.
+# Check both module majors before publishing core, so a codec major-version
+# mismatch cannot leave only core published (#280).
 #
 # Run as a preRelease hook in go-semantic-release, where RELEASE_VERSION is the
 # computed next version (e.g., "9.0.0"). On success it also publishes
@@ -45,8 +43,6 @@ check_module() {
 check_module core .
 check_module codec codec
 
-# Hand the computed version to later CI steps so the codec release uses it directly
-# instead of rediscovering it from tags at HEAD.
 if [ -n "${GITHUB_ENV:-}" ]; then
     echo "RELEASE_VERSION=$RELEASE_VERSION" >> "$GITHUB_ENV"
 fi

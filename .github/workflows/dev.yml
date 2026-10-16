@@ -35,10 +35,8 @@ jobs:
         with:
           go-version-file: 'go.mod'
       - name: substrait-protobuf must stay in codec/
-        # Core domain packages must not reach substrait-protobuf, directly or
-        # transitively, so a consumer that only builds and inspects plans does
-        # not pull the generated types into its dependency graph. All encode and
-        # decode lives in the codec module (issue #280).
+        # Keep substrait-protobuf out of core's dependency graph so core-only
+        # consumers don't pull in the generated protobuf types (#280).
         run: |
           set -euo pipefail
           if go mod graph | grep -Fq 'github.com/substrait-io/substrait-protobuf'; then
