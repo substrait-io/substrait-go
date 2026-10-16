@@ -30,21 +30,3 @@ break codec's API. The two version numbers do not need to match.
 The local `replace` in `codec/go.mod` lets development and CI use core from the
 checkout. Go ignores that replacement when codec is used as a dependency, so
 check that the declared core version contains the APIs codec needs.
-
-## Repository setup
-
-Configure a personal access token as the `RELEASE_PLEASE_TOKEN` repository secret,
-with permission to create release PRs, labels, and releases. This allows generated
-release PRs to trigger CI. The built-in `GITHUB_TOKEN` does not normally trigger
-workflows for resources it creates. See
-[the action's authentication guidance](https://github.com/googleapis/release-please-action#github-credentials).
-
-The manifest and bootstrap commit start at core's latest stable release,
-`v8.1.1`. Codec has no stable release yet, so its configuration sets the initial
-version to `9.0.0` to match its existing module path. The first release PRs
-propose `v9.0.0` and `codec/v9.0.0`. Codec already requires core `v9.0.0`, so
-publish core successfully before merging the initial codec release PR.
-
-Update the bootstrap values if stable releases are published before this
-migration merges. Release Please maintains the manifest after initialization.
-Existing alpha tags are not changed.
