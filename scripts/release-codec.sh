@@ -19,8 +19,7 @@ version="${1:-}"
 cd "$(git rev-parse --show-toplevel)"
 core=$(go mod edit -json | jq -r .Module.Path)
 # core and codec must already be on this release's major; reuse the release gate.
-# GITHUB_ENV is cleared so the gate's version handoff only fires in the release hook.
-RELEASE_VERSION="$version" GITHUB_ENV= bash scripts/check-module-version.sh
+RELEASE_VERSION="$version" bash scripts/check-module-version.sh
 
 git rev-parse -q --verify "refs/tags/$version" >/dev/null || { echo "core tag $version missing; release core first"; exit 1; }
 git rev-parse -q --verify "refs/tags/codec/$version" >/dev/null && { echo "codec/$version exists; nothing to do"; exit 0; }

@@ -3,9 +3,7 @@
 # mismatch cannot leave only core published (#280).
 #
 # Run as a preRelease hook in go-semantic-release, where RELEASE_VERSION is the
-# computed next version (e.g., "9.0.0"). On success it also publishes
-# RELEASE_VERSION to $GITHUB_ENV so later CI steps (the codec release) use the
-# computed version rather than rediscovering it from tags.
+# computed next version (e.g., "9.0.0"). Also called by release-codec.sh.
 #
 # Usage:
 #   RELEASE_VERSION=9.0.0 ./scripts/check-module-version.sh
@@ -42,7 +40,3 @@ check_module() {
 
 check_module core .
 check_module codec codec
-
-if [ -n "${GITHUB_ENV:-}" ]; then
-    echo "RELEASE_VERSION=$RELEASE_VERSION" >> "$GITHUB_ENV"
-fi
