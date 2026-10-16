@@ -14,7 +14,7 @@ For local development, the `replace` directive in `codec/go.mod` uses the core
 module in this repository. The replacement stays in released source; Go ignores
 it when codec is used as a dependency.
 
-Release Please prepares a combined release PR for modules with releasable
-changes. After that PR merges, it publishes their tags and GitHub releases.
+Release Please prepares a separate release PR for each module with releasable
+changes. After a module's release PR merges, it publishes its tag and GitHub release.
 Codec tags use the `codec/vX.Y.Z` prefix. See
 [the release process](../RELEASING.md).

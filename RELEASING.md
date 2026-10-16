@@ -1,7 +1,7 @@
 # Releases
 
-Core and codec are versioned independently. Release Please prepares one combined
-release PR for modules with releasable changes.
+Core and codec are versioned independently. Release Please prepares a separate
+release PR for each module with releasable changes.
 
 ## Prepare and publish
 
@@ -11,8 +11,8 @@ release PR for modules with releasable changes.
 2. Review the proposed versions and changelogs. For a major release, update the
    affected module path and imports before merging. Release Please does not make
    those Go source changes or validate module-path majors automatically.
-3. Merge the release PR. Release Please creates tags and GitHub releases for the
-   affected modules. Core tags use `vX.Y.Z`; codec tags use `codec/vX.Y.Z`.
+3. Merge a module's release PR when it is ready. Release Please creates its tag
+   and GitHub release. Core tags use `vX.Y.Z`; codec tags use `codec/vX.Y.Z`.
 
 Release PRs update the affected module changelogs and
 `.release-please-manifest.json`. Publication does not modify files or create
@@ -41,9 +41,9 @@ workflows for resources it creates. See
 
 The manifest and bootstrap commit start at core's latest stable release,
 `v8.1.1`. Codec has no stable release yet, so its configuration sets the initial
-version to `9.0.0` to match its existing module path. The first combined release
-PR proposes `v9.0.0` and `codec/v9.0.0`. Codec already requires core `v9.0.0`, so
-that initial publication depends on core publishing successfully too.
+version to `9.0.0` to match its existing module path. The first release PRs
+propose `v9.0.0` and `codec/v9.0.0`. Codec already requires core `v9.0.0`, so
+publish core successfully before merging the initial codec release PR.
 
 Update the bootstrap values if stable releases are published before this
 migration merges. Release Please maintains the manifest after initialization.
