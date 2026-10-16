@@ -10,7 +10,7 @@ require (
 	github.com/goccy/go-yaml v1.17.1
 	github.com/google/go-cmp v0.7.0
 	github.com/stretchr/testify v1.10.0
-	github.com/substrait-io/substrait-go/v9 v9.0.0
+	github.com/substrait-io/substrait-go/v9 v9.0.0 // x-release-please-version
 	github.com/substrait-io/substrait-protobuf/go v0.85.0
 	google.golang.org/protobuf v1.36.6
 )

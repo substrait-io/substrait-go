@@ -11,6 +11,9 @@ Core and codec are released with matching versions. A `codec/vX.Y.Z` release
 declares a dependency on core `vX.Y.Z`.
 
 For local development, the `replace` directive in `codec/go.mod` uses the core
-module in this repository. The `scripts/release-codec.sh` script prepares a
-release by updating the core dependency, removing the replacement, and creating
-a separate release commit and codec tag. The release workflow pushes that tag.
+module in this repository. The replacement stays in released source; Go ignores
+it when codec is used as a dependency.
+
+Release Please updates codec's core dependency in a shared release PR. After
+that PR merges, the release workflow publishes both module tags on the same
+commit, without modifying files. See [the release process](../RELEASING.md).

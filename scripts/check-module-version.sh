@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
-# Check both module majors before publishing core, so a codec major-version
-# mismatch cannot leave only core published (#280).
-#
-# Run as a preRelease hook in go-semantic-release, where RELEASE_VERSION is the
-# computed next version (e.g., "9.0.0"). Also called by release-codec.sh.
+# Validate both module majors and codec's core requirement in a release PR.
+# RELEASE_VERSION is the version proposed in .release-please-manifest.json.
 #
 # Usage:
 #   RELEASE_VERSION=9.0.0 ./scripts/check-module-version.sh
@@ -12,7 +9,7 @@ set -euo pipefail
 
 if [ -z "${RELEASE_VERSION:-}" ]; then
     echo "ERROR: RELEASE_VERSION not set"
-    echo "This script should be run as a preRelease hook in go-semantic-release"
+    echo "Set RELEASE_VERSION to the version proposed by the release PR"
     exit 1
 fi
 
@@ -40,3 +37,15 @@ check_module() {
 
 check_module core .
 check_module codec codec
+
+CORE_MODULE=$(go mod edit -json | jq -r '.Module.Path')
+CORE_VERSION=$( (cd codec && go mod edit -json) | jq -r --arg core "$CORE_MODULE" \
+    '.Require[] | select(.Path == $core) | .Version')
+EXPECTED_CORE_VERSION="v${RELEASE_VERSION#v}"
+
+if [ "$CORE_VERSION" != "$EXPECTED_CORE_VERSION" ]; then
+    echo "ERROR: codec must require $CORE_MODULE $EXPECTED_CORE_VERSION, not $CORE_VERSION"
+    exit 1
+fi
+
+echo "OK: codec requires core $EXPECTED_CORE_VERSION"
