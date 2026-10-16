@@ -20,33 +20,8 @@ jobs:
     if: github.repository == 'substrait-io/substrait-go' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - name: Prepare or publish the shared release
-        id: release
+      - name: Prepare or publish releases
         uses: googleapis/release-please-action@v4
         with:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           target-branch: main
-      - name: Checkout the release commit
-        if: steps.release.outputs.release_created == 'true'
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ steps.release.outputs.sha }}
-          fetch-depth: 0
-      - name: Publish the matching codec tag
-        if: steps.release.outputs.release_created == 'true'
-        env:
-          CORE_TAG: ${{ steps.release.outputs.tag_name }}
-          RELEASE_COMMIT: ${{ steps.release.outputs.sha }}
-        run: |
-          set -euo pipefail
-          codec_tag="codec/$CORE_TAG"
-          if git show-ref --verify --quiet "refs/tags/$codec_tag"; then
-            codec_commit=$(git rev-parse "refs/tags/$codec_tag^{commit}")
-            if [ "$codec_commit" != "$RELEASE_COMMIT" ]; then
-              echo "ERROR: $codec_tag already points to a different commit; refusing to move it"
-              exit 1
-            fi
-          else
-            git tag "$codec_tag" "$RELEASE_COMMIT"
-          fi
-          git push origin "refs/tags/$codec_tag"

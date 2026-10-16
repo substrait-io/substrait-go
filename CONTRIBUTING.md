@@ -34,10 +34,10 @@ example `fix(expr): initialize MapLiteral KeyValue entries before use`. Append `
 after the type or scope for a breaking change (`refactor(extensions)!: …`).
 
 [Release Please](https://github.com/googleapis/release-please) uses these commit
-messages to prepare a shared release PR for core and codec. The type and the `!`
-marker determine the proposed version. Pull requests are squash-merged, so please
-ensure that your PR title and initial comment together form a valid commit
-message. See [the release process](RELEASING.md) for preparation and publication.
+messages to prepare a combined release PR for core and codec. Each module is
+versioned independently based on the changes that affect it. Pull requests are
+squash-merged, so please ensure that your PR title and initial comment together
+form a valid commit message. See [the release process](RELEASING.md) for preparation and publication.
 
 ## Building and testing
 

@@ -1,15 +1,16 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "release-type": "go",
+  "bootstrap-sha": "5a0335060c8110dc7be16afe4f92a789db065063",
   "packages": {
     ".": {
       "include-component-in-tag": false,
-      "extra-files": [
-        {
-          "type": "generic",
-          "path": "codec/go.mod"
-        }
-      ]
+      "exclude-paths": ["codec"]
+    },
+    "codec": {
+      "component": "codec",
+      "tag-separator": "/",
+      "initial-version": "9.0.0"
     }
   }
 }

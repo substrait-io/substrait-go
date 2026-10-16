@@ -1,57 +1,50 @@
 # Releases
 
-Core and codec share release versions. A breaking change in either module
-requires updating both module paths and the affected imports before release.
+Core and codec are versioned independently. Release Please prepares one combined
+release PR for modules with releasable changes.
 
 ## Prepare and publish
 
-1. Merge changes using Conventional Commits. Release Please opens or updates one
-   release PR targeting `main`.
-2. Review the proposed version, changelog, and codec's updated core requirement.
-   The release-version CI check validates both module majors and that requirement.
-   If the major changes, update both module paths and affected imports before
-   merging the release PR.
-3. Merge the release PR. The workflow publishes core as `vX.Y.Z` and adds
-   `codec/vX.Y.Z` at the same commit. Publication does not modify files or create
-   release-only commits. Codec has a Go module tag, not a separate GitHub release.
+1. Merge changes using Conventional Commits. Release Please uses the commit
+   messages and changed file paths to propose a version for each affected module.
+   Changes only under `codec/` do not bump core.
+2. Review the proposed versions and changelogs. For a major release, update the
+   affected module path and imports before merging. Release Please does not make
+   those Go source changes or validate module-path majors automatically.
+3. Merge the release PR. Release Please creates tags and GitHub releases for the
+   affected modules. Core tags use `vX.Y.Z`; codec tags use `codec/vX.Y.Z`.
 
-The release PR updates `CHANGELOG.md`, `.release-please-manifest.json`, and the
-core requirement marked with `// x-release-please-version` in `codec/go.mod`.
-The local `replace` stays in that file so tests can use core from this checkout.
-Go ignores dependency modules' replacement directives for consumers.
+Release PRs update the affected module changelogs and
+`.release-please-manifest.json`. Publication does not modify files or create
+release-only commits. Publishing multiple modules is not atomic; inspect the
+existing tags and releases before retrying a failed workflow. Never delete or
+move published tags.
 
-Between merging the release PR and publishing core, codec temporarily requires
-an unpublished core version. The local replacement keeps development and CI
-working, but consumers of that unreleased commit may fail until core is published.
+## Updating codec's core dependency
+
+Update the requirement in `codec/go.mod` in a normal PR when codec needs a newer
+core version. Publish that core version first. For example, core can release
+`v9.1.0`, then a codec dependency update can ship as `codec/v9.0.1` if it does not
+break codec's API. The two version numbers do not need to match.
+
+The local `replace` in `codec/go.mod` lets development and CI use core from the
+checkout. Go ignores that replacement when codec is used as a dependency, so
+check that the declared core version contains the APIs codec needs.
 
 ## Repository setup
 
 Configure a personal access token as the `RELEASE_PLEASE_TOKEN` repository secret,
-with permission to create release PRs, labels, and releases. This allows generated release PRs to trigger CI. The built-in
-`GITHUB_TOKEN` does not normally trigger workflows for resources it creates. See
+with permission to create release PRs, labels, and releases. This allows generated
+release PRs to trigger CI. The built-in `GITHUB_TOKEN` does not normally trigger
+workflows for resources it creates. See
 [the action's authentication guidance](https://github.com/googleapis/release-please-action#github-credentials).
-Require the `Release Version` check and normal build/test checks before merging
-release PRs.
 
-The manifest is bootstrapped from the latest stable core release, `8.1.1`. Update
-that starting value if another stable release is published before this migration
-merges. Release Please maintains it after the first release PR. Existing alpha
-tags are not changed.
+The manifest and bootstrap commit start at core's latest stable release,
+`v8.1.1`. Codec has no stable release yet, so its configuration sets the initial
+version to `9.0.0` to match its existing module path. The first combined release
+PR proposes `v9.0.0` and `codec/v9.0.0`. Codec already requires core `v9.0.0`, so
+that initial publication depends on core publishing successfully too.
 
-## Retry codec tagging
-
-Core publication and codec tagging are not atomic. If core publishes but codec
-tagging fails, rerunning Release Please may not retry tagging after the core
-release is marked complete.
-
-To create a missing codec tag for an existing core release:
-
-```sh
-git fetch origin --tags
-core_tag=v9.1.0
-git tag "codec/$core_tag" "$core_tag^{commit}"
-git push origin "refs/tags/codec/$core_tag"
-```
-
-If the codec tag already exists, verify it points to the core release commit.
-Never delete or move a published tag.
+Update the bootstrap values if stable releases are published before this
+migration merges. Release Please maintains the manifest after initialization.
+Existing alpha tags are not changed.

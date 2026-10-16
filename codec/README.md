@@ -7,13 +7,14 @@ format (issue #280).
 
     go get github.com/substrait-io/substrait-go/codec/v9
 
-Core and codec are released with matching versions. A `codec/vX.Y.Z` release
-declares a dependency on core `vX.Y.Z`.
+Core and codec are versioned independently. Update codec's core requirement in
+`go.mod` when codec needs a newer core version, after that version is published.
 
 For local development, the `replace` directive in `codec/go.mod` uses the core
 module in this repository. The replacement stays in released source; Go ignores
 it when codec is used as a dependency.
 
-Release Please updates codec's core dependency in a shared release PR. After
-that PR merges, the release workflow publishes both module tags on the same
-commit, without modifying files. See [the release process](../RELEASING.md).
+Release Please prepares a combined release PR for modules with releasable
+changes. After that PR merges, it publishes their tags and GitHub releases.
+Codec tags use the `codec/vX.Y.Z` prefix. See
+[the release process](../RELEASING.md).

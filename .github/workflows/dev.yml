@@ -8,17 +8,6 @@ permissions:
   contents: read
 
 jobs:
-  release-version:
-    name: Release Version
-    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'release-please--')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: 'go.mod'
-      - name: Validate the shared release version
-        run: RELEASE_VERSION=$(jq -er '.["."]' .release-please-manifest.json) ./scripts/check-module-version.sh
   golangci:
     name: Code Linting (ubuntu-latest)
     runs-on: ubuntu-latest
