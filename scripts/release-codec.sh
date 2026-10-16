@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
 #
-# Prepare and tag a codec release matching an already-published core release,
-# in lockstep with core (#280). For the core vX.Y.Z just released, this pins
-# codec to that exact core version, proves codec builds the way a consumer
-# resolves it, and tags codec/vX.Y.Z.
-# Commits the dependency changes on detached HEAD and tags that new commit.
-# The caller pushes the tag; main is unchanged and keeps its dev-time replace.
-# Re-running for an existing codec tag is a no-op.
+# Create codec/vX.Y.Z for an already-published core release vX.Y.Z.
+#
+# This script:
+# - Checks that both module majors match the requested version.
+# - Checks out the core release tag on detached HEAD.
+# - Updates codec's core dependency and removes its local replace directive.
+# - Tidies dependencies, builds, and tests codec.
+# - Commits the dependency changes and tags the new commit.
+#
+# The release commit is not added to main. The caller must push the codec tag.
+# HEAD remains detached. If the codec tag already exists, no changes are made.
 #
 # Usage: ./scripts/release-codec.sh v9.1.0
 
