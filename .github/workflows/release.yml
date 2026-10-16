@@ -8,11 +8,9 @@ on:
   #   - cron: "0 2 * * 0"
   workflow_dispatch:
 
-# we do not want more than one release workflow executing at the same time, ever
+# Serialize releases and never cancel an in-progress publication.
 concurrency:
   group: release
-  # cancelling in the middle of a release would create incomplete releases
-  # so cancel-in-progress is false
   cancel-in-progress: false
 
 permissions:
@@ -42,12 +40,14 @@ jobs:
         with:
           go-version-file: 'go.mod'
       - name: Release codec
-        # codec is versioned in lockstep with core: tag codec/vX.Y.Z for the core
-        # vX.Y.Z just released. RELEASE_VERSION comes from the go-semantic-release
-        # preRelease hook (check-module-version.sh); empty means no core release this
-        # run, so there is nothing to tag. A re-run of the workflow will not re-tag
-        # (no new core release), so a stuck codec tag is fixed by running
-        # scripts/release-codec.sh by hand; it is a no-op if the tag already exists.
+        # Publish codec with the same version as core.
+        #
+        # - The core pre-release hook exports RELEASE_VERSION through GITHUB_ENV.
+        # - Skip codec if core publication was skipped or the version is a prerelease.
+        # - The script creates codec's release commit and tag; this step pushes it.
+        #
+        # If codec fails after core publishes, rerunning this workflow won't retry it.
+        # Run scripts/release-codec.sh vX.Y.Z manually, then push codec/vX.Y.Z.
         run: |
           if [ -z "${RELEASE_VERSION:-}" ]; then
             echo "no core release this run; nothing to tag for codec"
