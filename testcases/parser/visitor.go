@@ -356,7 +356,11 @@ func (v *TestCaseVisitor) VisitTestCase(ctx *baseparser.TestCaseContext) interfa
 func (v *TestCaseVisitor) VisitArguments(ctx *baseparser.ArgumentsContext) interface{} {
 	args := make([]*CaseLiteral, 0, len(ctx.AllArgument()))
 	for _, argument := range ctx.AllArgument() {
-		testArg := v.Visit(argument).(*CaseLiteral)
+		testArg, ok := v.Visit(argument).(*CaseLiteral)
+		if !ok {
+			// the argument visitor has already reported the error
+			return args
+		}
 		if err := testArg.updateLiteralType(); err != nil {
 			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid argument %v", err))
 		}

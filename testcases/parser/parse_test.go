@@ -161,6 +161,7 @@ func TestParseUserDefinedNullArg(t *testing.T) {
 			testFile, err := ParseTestCasesFromString(header + groupDesc + tc)
 			require.Error(t, err, "user-defined null arg should be a parse error, not a panic")
 			assert.Contains(t, err.Error(), "user-defined type")
+			assert.NotContains(t, err.Error(), "Tree Visit panic error")
 			assert.Nil(t, testFile)
 		})
 	}
