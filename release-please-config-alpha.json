@@ -1,0 +1,20 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "go",
+  "versioning": "prerelease",
+  "prerelease": true,
+  "prerelease-type": "alpha.0",
+  "separate-pull-requests": true,
+  "bootstrap-sha": "5a0335060c8110dc7be16afe4f92a789db065063",
+  "packages": {
+    ".": {
+      "include-component-in-tag": false,
+      "exclude-paths": ["codec"]
+    },
+    "codec": {
+      "component": "codec",
+      "tag-separator": "/",
+      "initial-version": "9.0.0-alpha.0"
+    }
+  }
+}

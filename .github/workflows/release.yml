@@ -1,11 +1,8 @@
 name: Release
 
 on:
-  pull_request:    
-  # Uncomment to enable scheduled releases.
-  # schedule:
-  #   # 2 AM on Sunday
-  #   - cron: "0 2 * * 0"
+  push:
+    branches: [main, alpha]
   workflow_dispatch:
 
 # Serialize releases and never cancel an in-progress publication.
@@ -15,51 +12,18 @@ concurrency:
 
 permissions:
   contents: write
-  checks: write
-  id-token: write
-  statuses: write
+  issues: write
+  pull-requests: write
 
 jobs:
   release:
-    if: github.repository == 'substrait-io/substrait-go'
+    if: github.repository == 'substrait-io/substrait-go' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/alpha')
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-        with:          
-          fetch-depth: 0
-      - name: Run go-semantic-release  
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}         
-        run: |          
-          wget https://github.com/Nightapes/go-semantic-release/releases/download/v2.1.1/go-semantic-release.linux_x86_64.zip
-          unzip go-semantic-release.linux_x86_64.zip
-          ./go-semantic-release.linux_x86_64 release -l trace
-      - name: Install go
-        uses: actions/setup-go@v5
+      - name: Prepare or publish releases
+        uses: googleapis/release-please-action@v4
         with:
-          go-version-file: 'go.mod'
-      - name: Release codec
-        # Publish codec with the same version as core.
-        #
-        # - The core pre-release hook exports RELEASE_VERSION through GITHUB_ENV.
-        # - Skip codec if core publication was skipped or the version is a prerelease.
-        # - The script creates codec's release commit and tag; this step pushes it.
-        #
-        # If codec fails after core publishes, rerunning this workflow won't retry it.
-        # Run scripts/release-codec.sh vX.Y.Z manually, then push codec/vX.Y.Z.
-        run: |
-          if [ -z "${RELEASE_VERSION:-}" ]; then
-            echo "no core release this run; nothing to tag for codec"
-            exit 0
-          fi
-          version="v${RELEASE_VERSION#v}"
-          # stable releases only; codec is not tagged for prereleases
-          case "$version" in
-            *-*) echo "prerelease $version; nothing to tag for codec"; exit 0 ;;
-          esac
-          git fetch --tags --force
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          bash scripts/release-codec.sh "$version"
-          git push origin "codec/$version"
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          target-branch: ${{ github.ref_name }}
+          config-file: ${{ github.ref_name == 'alpha' && 'release-please-config-alpha.json' || 'release-please-config.json' }}
+          manifest-file: ${{ github.ref_name == 'alpha' && '.release-please-manifest-alpha.json' || '.release-please-manifest.json' }}

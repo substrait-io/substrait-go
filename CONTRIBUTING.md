@@ -33,12 +33,11 @@ message structure, with an optional scope naming the affected package — for
 example `fix(expr): initialize MapLiteral KeyValue entries before use`. Append `!`
 after the type or scope for a breaking change (`refactor(extensions)!: …`).
 
-Releases are cut by
-[`go-semantic-release`](https://github.com/Nightapes/go-semantic-release), which
-derives the next version and the release notes from these commit messages, so the
-type and the `!` marker directly determine what gets released. Pull requests are
+[Release Please](https://github.com/googleapis/release-please) uses these commit
+messages to prepare separate release PRs for core and codec. Each module is
+versioned independently based on the changes that affect it. Pull requests are
 squash-merged, so please ensure that your PR title and initial comment together
-form a valid commit message.
+form a valid commit message. See [the release process](RELEASING.md) for preparation and publication.
 
 ## Building and testing
 
