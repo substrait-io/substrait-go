@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-module github.com/substrait-io/substrait-go/codec/v9
+module github.com/substrait-io/substrait-go/encoding/substraitproto
 
 go 1.23.0
 
@@ -30,4 +30,4 @@ require (
 )
 
 // core is developed in the same repo and unreleased; resolve it locally.
-replace github.com/substrait-io/substrait-go/v9 => ../
+replace github.com/substrait-io/substrait-go/v9 => ../../
