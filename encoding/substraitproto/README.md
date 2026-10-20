@@ -7,9 +7,9 @@ format (issue #280).
 
     go get github.com/substrait-io/substrait-go/encoding/substraitproto
 
-For local development, use a Go workspace to build core and this module from
-the checkout. See [cross-module development](../../CONTRIBUTING.md#cross-module-development)
-for setup and test commands.
+The repository's `go.work` builds core and this module from the checkout during
+local development. See [cross-module development](../../CONTRIBUTING.md#cross-module-development)
+for build and test commands.
 
-Without a workspace, this module uses the published core version declared in
-`go.mod`, which is also how CI builds and tests it.
+CI sets `GOWORK=off` to build and test against the published core version
+declared in `go.mod`.

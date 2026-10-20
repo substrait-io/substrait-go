@@ -53,18 +53,17 @@ declared dependencies rather than a local workspace.
 
 ### Cross-module development
 
-To develop core and `encoding/substraitproto` together, create a local workspace
-from the repository root:
+The committed `go.work` lets you develop core and `encoding/substraitproto`
+together without any setup. From the repository root, run:
 
 ```sh
-go work init . ./encoding/substraitproto
 go build ./... ./encoding/substraitproto/...
 go test ./... ./encoding/substraitproto/...
 ```
 
 The workspace uses core from the checkout without changing the encoding module's
-published dependency requirement. `go.work` and `go.work.sum` are ignored by Git.
-To test the encoding module against its declared core version, run:
+published dependency requirement. To test the encoding module against its
+declared core version, run:
 
 ```sh
 (cd encoding/substraitproto && GOWORK=off go test ./...)
