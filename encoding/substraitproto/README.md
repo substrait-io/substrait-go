@@ -7,10 +7,9 @@ format (issue #280).
 
     go get github.com/substrait-io/substrait-go/encoding/substraitproto
 
-Core and codec are released with matching versions. A `codec/vX.Y.Z` release
-declares a dependency on core `vX.Y.Z`.
+The repository's `go.work` builds core and this module from the checkout during
+local development. See [cross-module development](../../CONTRIBUTING.md#cross-module-development)
+for build and test commands.
 
-For local development, the `replace` directive in `encoding/substraitproto/go.mod` uses the core
-module in this repository. The `scripts/release-codec.sh` script prepares a
-release by updating the core dependency, removing the replacement, and creating
-a separate release commit and codec tag. The release workflow pushes that tag.
+CI sets `GOWORK=off` to build and test against the published core version
+declared in `go.mod`.

@@ -48,7 +48,30 @@ go test ./...
 ```
 
 CI builds and tests on Linux, Windows and macOS, and reports coverage from the
-Linux job to Codecov.
+Linux job to Codecov. It sets `GOWORK=off` so each module is checked against its
+declared dependencies rather than a local workspace.
+
+### Cross-module development
+
+The committed `go.work` lets you develop core and `encoding/substraitproto`
+together without any setup. From the repository root, run:
+
+```sh
+go build ./... ./encoding/substraitproto/...
+go test ./... ./encoding/substraitproto/...
+```
+
+The workspace uses core from the checkout without changing the encoding module's
+published dependency requirement. To test the encoding module against its
+declared core version, run:
+
+```sh
+(cd encoding/substraitproto && GOWORK=off go test ./...)
+```
+
+If the encoding module needs a new core API, publish the core version and update
+its requirement in `encoding/substraitproto/go.mod` before merging the dependent
+encoding change.
 
 ## Linting
 
