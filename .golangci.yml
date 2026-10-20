@@ -16,7 +16,6 @@ linters:
       - std-error-handling
     # exclude files in specific subdirectories
     paths:
-      - proto
       - third_party$
       - builtin$
       - examples$
@@ -32,7 +31,6 @@ formatters:
     generated: lax
     # exclude files in specific subdirectories
     paths:
-      - proto
       - third_party$
       - builtin$
       - examples$
