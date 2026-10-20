@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package codec_test
+package substraitproto_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/codec/v9"
+	"github.com/substrait-io/substrait-go/encoding/substraitproto"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/types"
@@ -57,8 +57,8 @@ func TestWindowFunctionBoundsType(t *testing.T) {
 			require.NoError(t, err)
 
 			// Roundtrip: serialize and deserialize
-			protoExpr := codec.ExprToProto(wf)
-			deserialized, err := codec.ExprFromProto(protoExpr, schema, reg)
+			protoExpr := substraitproto.ExprToProto(wf)
+			deserialized, err := substraitproto.ExprFromProto(protoExpr, schema, reg)
 			require.NoError(t, err)
 
 			// Verify the entire expression survived the roundtrip

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package codec_test
+package substraitproto_test
 
 import (
 	"reflect"
@@ -9,7 +9,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/codec/v9"
+	"github.com/substrait-io/substrait-go/encoding/substraitproto"
 	"github.com/substrait-io/substrait-go/v9/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -19,9 +19,9 @@ import (
 // A version-less proto maps to the unset placeholder, which renders visibly and serializes back out
 // as a producer "UNSET" version rather than an absent one.
 func TestVersionFromProtoNilIsUnset(t *testing.T) {
-	unset := codec.VersionFromProto(nil)
+	unset := substraitproto.VersionFromProto(nil)
 	assert.Equal(t, "0.0.0 (UNSET)", unset.String())
-	assert.Equal(t, "UNSET", codec.VersionToProto(unset).GetProducer())
+	assert.Equal(t, "UNSET", substraitproto.VersionToProto(unset).GetProducer())
 }
 
 // Guard against spec drift: fail if the Version proto message gains, drops, or renumbers a field
@@ -62,14 +62,14 @@ func TestVersionRoundTrip(t *testing.T) {
 		{"not a hash at all", &proto.Version{MinorNumber: 29, GitHash: "HEAD"}},
 	} {
 		t.Run(td.name, func(t *testing.T) {
-			domain := codec.VersionFromProto(td.protoVersion)
+			domain := substraitproto.VersionFromProto(td.protoVersion)
 			assert.Equal(t, td.protoVersion.GetMajorNumber(), domain.MajorNumber)
 			assert.Equal(t, td.protoVersion.GetMinorNumber(), domain.MinorNumber)
 			assert.Equal(t, td.protoVersion.GetPatchNumber(), domain.PatchNumber)
 			assert.Equal(t, td.protoVersion.GetGitHash(), domain.GitHash)
 			assert.Equal(t, td.protoVersion.GetProducer(), domain.Producer)
 
-			if diff := cmp.Diff(td.protoVersion, codec.VersionToProto(domain), protocmp.Transform()); diff != "" {
+			if diff := cmp.Diff(td.protoVersion, substraitproto.VersionToProto(domain), protocmp.Transform()); diff != "" {
 				t.Errorf("version proto didn't match, diff:\n%v", diff)
 			}
 		})

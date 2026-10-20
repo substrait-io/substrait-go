@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package codec_test
+package substraitproto_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/codec/v9"
+	"github.com/substrait-io/substrait-go/encoding/substraitproto"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	substraitpb "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
@@ -67,7 +67,7 @@ func TestBoundFromProto(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			bound := codec.BoundFromProto(tc.proto)
+			bound := substraitproto.BoundFromProto(tc.proto)
 			require.Equal(t, tc.expected, bound)
 			if bound != nil {
 				require.Equal(t, tc.expectedStr, bound.String())

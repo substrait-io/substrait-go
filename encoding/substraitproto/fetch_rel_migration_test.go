@@ -1,26 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package codec_test
+package substraitproto_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/codec/v9"
+	"github.com/substrait-io/substrait-go/encoding/substraitproto"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/plan"
-	substraitproto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
+	substraitpb "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
 // fetchRelFromJSON parses a plan JSON string and returns the FetchRel from the first root relation.
 func fetchRelFromJSON(t *testing.T, jsonStr string) *plan.FetchRel {
 	t.Helper()
-	var proto substraitproto.Plan
+	var proto substraitpb.Plan
 	require.NoError(t, protojson.Unmarshal([]byte(jsonStr), &proto))
-	p, err := codec.PlanFromProto(&proto, extensions.GetDefaultCollectionWithNoError())
+	p, err := substraitproto.PlanFromProto(&proto, extensions.GetDefaultCollectionWithNoError())
 	require.NoError(t, err)
 	fetch, ok := p.GetRoots()[0].Input().(*plan.FetchRel)
 	require.True(t, ok, "expected root relation to be a FetchRel")

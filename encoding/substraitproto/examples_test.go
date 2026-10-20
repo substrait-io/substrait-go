@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package codec_test
+package substraitproto_test
 
 import (
 	"fmt"
 
-	"github.com/substrait-io/substrait-go/codec/v9"
+	"github.com/substrait-io/substrait-go/encoding/substraitproto"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	ext "github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/types"
@@ -41,7 +41,7 @@ func ExampleExpression_scalarFunction() {
 	}
 
 	collection := ext.GetDefaultCollectionWithNoError()
-	extSet, err := codec.GetExtensionSet(&plan, collection)
+	extSet, err := substraitproto.GetExtensionSet(&plan, collection)
 	if err != nil {
 		panic(err)
 	}
@@ -67,7 +67,7 @@ func ExampleExpression_scalarFunction() {
 
 	reg := expr.NewExtensionRegistry(extSet, collection)
 	// convert from protobuf to Expression!
-	fromProto, err := codec.ExprFromProto(&exprProto, nil, reg)
+	fromProto, err := substraitproto.ExprFromProto(&exprProto, nil, reg)
 	if err != nil {
 		panic(err)
 	}
@@ -84,7 +84,7 @@ func ExampleExpression_scalarFunction() {
 		refArg, expr.NewPrimitiveLiteral(float64(10), false))
 
 	// convert our manual expression to proto.Expression
-	toProto := codec.ExprToProto(ex)
+	toProto := substraitproto.ExprToProto(ex)
 
 	// output some info!
 

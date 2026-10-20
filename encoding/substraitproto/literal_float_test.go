@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package codec_test
+package substraitproto_test
 
 import (
 	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/substrait-io/substrait-go/codec/v9"
+	"github.com/substrait-io/substrait-go/encoding/substraitproto"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/literal"
 )
@@ -33,7 +33,7 @@ func TestNewFloat32(t *testing.T) {
 			if !math.IsNaN(float64(tt.value)) {
 				assert.Equalf(t, tt.want, got, "literal.NewFloat32(%v)", tt.value)
 			} else {
-				protoExp := codec.ExprToProto(got)
+				protoExp := substraitproto.ExprToProto(got)
 				assert.True(t, math.IsNaN(float64(protoExp.GetLiteral().GetFp32())), "literal.NewFloat32(%v)", tt.value)
 			}
 		})
@@ -61,7 +61,7 @@ func TestNewFloat64(t *testing.T) {
 			if !math.IsNaN(tt.value) {
 				assert.Equalf(t, tt.want, got, "literal.NewFloat64(%v)", tt.value)
 			} else {
-				protoExp := codec.ExprToProto(got)
+				protoExp := substraitproto.ExprToProto(got)
 				assert.True(t, math.IsNaN(protoExp.GetLiteral().GetFp64()), "literal.NewFloat64(%v)", tt.value)
 			}
 		})

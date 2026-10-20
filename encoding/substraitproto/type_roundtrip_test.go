@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package codec_test
+package substraitproto_test
 
 import (
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/substrait-io/substrait-go/codec/v9"
+	"github.com/substrait-io/substrait-go/encoding/substraitproto"
 	. "github.com/substrait-io/substrait-go/v9/types"
 )
 
@@ -59,8 +59,8 @@ func TestTypeRoundtrip(t *testing.T) {
 
 			for _, tt := range tests {
 				t.Run(tt.String(), func(t *testing.T) {
-					converted := codec.TypeToProto(tt)
-					convertedType := codec.TypeFromProto(converted)
+					converted := substraitproto.TypeToProto(tt)
+					convertedType := substraitproto.TypeFromProto(converted)
 					assert.True(t, tt.Equals(convertedType))
 				})
 			}

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package codec_test
+package substraitproto_test
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 	"github.com/goccy/go-yaml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/codec/v9"
+	"github.com/substrait-io/substrait-go/encoding/substraitproto"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	ext "github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/plan"
@@ -109,7 +109,7 @@ func TestExpressionsRoundtrip(t *testing.T) {
 	}
 	// get the extension set
 	collection := ext.GetDefaultCollectionWithNoError()
-	extSet, err := codec.GetExtensionSet(&plan, collection)
+	extSet, err := substraitproto.GetExtensionSet(&plan, collection)
 	if err != nil {
 		panic(err)
 	}
@@ -119,8 +119,8 @@ func TestExpressionsRoundtrip(t *testing.T) {
 	}
 
 	for _, exp := range tests {
-		protoExpr := codec.ExprToProto(exp)
-		out, err := codec.ExprFromProto(protoExpr, nil, reg)
+		protoExpr := substraitproto.ExprToProto(exp)
+		out, err := substraitproto.ExprFromProto(protoExpr, nil, reg)
 		require.NoError(t, err)
 		assert.Truef(t, exp.Equals(out), "expected: %s\ngot: %s", exp, out)
 	}
@@ -133,7 +133,7 @@ func TestScalarFunctionMissingOutputTypeReturnsError(t *testing.T) {
 		Name: "add:i64_i64",
 	})
 
-	_, err := codec.ExprFromProto(&proto.Expression{
+	_, err := substraitproto.ExprFromProto(&proto.Expression{
 		RexType: &proto.Expression_ScalarFunction_{ScalarFunction: &proto.Expression_ScalarFunction{
 			FunctionReference: functionReference,
 			// OutputType intentionally omitted.
@@ -154,7 +154,7 @@ func TestWindowFunctionMissingOutputTypeReturnsError(t *testing.T) {
 		Name: "sum:i64",
 	})
 
-	_, err := codec.ExprFromProto(&proto.Expression{
+	_, err := substraitproto.ExprFromProto(&proto.Expression{
 		RexType: &proto.Expression_WindowFunction_{WindowFunction: &proto.Expression_WindowFunction{
 			FunctionReference: functionReference,
 			// OutputType intentionally omitted.
@@ -167,7 +167,7 @@ func TestWindowFunctionMissingOutputTypeReturnsError(t *testing.T) {
 func TestCastMissingTypeReturnsError(t *testing.T) {
 	registry := expr.NewEmptyExtensionRegistry(ext.GetDefaultCollectionWithNoError())
 
-	_, err := codec.ExprFromProto(&proto.Expression{
+	_, err := substraitproto.ExprFromProto(&proto.Expression{
 		RexType: &proto.Expression_Cast_{Cast: &proto.Expression_Cast{
 			// Type intentionally omitted.
 			Input: &proto.Expression{
@@ -240,7 +240,7 @@ func TestRoundTripUsingTestData(t *testing.T) {
 	}
 	// get the extension set
 	collection := ext.GetDefaultCollectionWithNoError()
-	extSet, err := codec.GetExtensionSet(&plan, collection)
+	extSet, err := substraitproto.GetExtensionSet(&plan, collection)
 	if err != nil {
 		panic(err)
 	}
@@ -260,7 +260,7 @@ func TestRoundTripUsingTestData(t *testing.T) {
 	raw, err := json.Marshal(tmp["baseSchema"])
 	require.NoError(t, err)
 	require.NoError(t, protojson.Unmarshal(raw, &protoSchema))
-	baseSchema := codec.NamedStructFromProto(&protoSchema)
+	baseSchema := substraitproto.NamedStructFromProto(&protoSchema)
 	reg := expr.NewExtensionRegistry(extSet, collection)
 	for _, tc := range tmp["cases"].([]any) {
 		tt := tc.(map[string]any)
@@ -273,10 +273,10 @@ func TestRoundTripUsingTestData(t *testing.T) {
 			var ex proto.Expression
 			require.NoError(t, protojson.Unmarshal(buf.Bytes(), &ex))
 
-			e, err := codec.ExprFromProto(&ex, types.NewRecordTypeFromStruct(baseSchema.Struct), reg)
+			e, err := substraitproto.ExprFromProto(&ex, types.NewRecordTypeFromStruct(baseSchema.Struct), reg)
 			require.NoError(t, err)
 
-			result := codec.ExprToProto(e)
+			result := substraitproto.ExprToProto(e)
 			assert.Truef(t, pb.Equal(&ex, result), "expected: %s\ngot: %s", &ex, result)
 
 			assert.True(t, e.Equals(e))
@@ -317,10 +317,10 @@ func TestRoundTripExtendedExpression(t *testing.T) {
 		var ex proto.ExtendedExpression
 		require.NoError(t, protojson.Unmarshal(buf.Bytes(), &ex))
 
-		result, err := codec.ExtendedFromProto(&ex, ext.GetDefaultCollectionWithNoError())
+		result, err := substraitproto.ExtendedFromProto(&ex, ext.GetDefaultCollectionWithNoError())
 		require.NoError(t, err)
 
-		out := codec.ExtendedToProto(result)
+		out := substraitproto.ExtendedToProto(result)
 		// because we read the extensions into a map, we can't guarantee
 		// the order of the extensions. But we also don't care about the
 		// order, so we can just sort them by functionAnchor to ensure
@@ -356,7 +356,7 @@ func TestCastVisit(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			visitedCastExpr := castExpr.Visit(tc.rewriteFunction)
-			visitedCastProto := codec.ExprToProto(visitedCastExpr)
+			visitedCastProto := substraitproto.ExprToProto(visitedCastExpr)
 			assert.IsType(t, &proto.Expression_Cast_{}, visitedCastProto.GetRexType())
 			assert.Equal(t, tc.want, visitedCastProto.GetCast().GetInput().GetLiteral().GetFp64())
 		})
@@ -384,7 +384,7 @@ func TestSubqueryExpressionRoundtrip(t *testing.T) {
 
 	// get the extension set and create registry with subquery handler
 	c := ext.GetDefaultCollectionWithNoError()
-	extSet, err := codec.GetExtensionSet(&planProto, c)
+	extSet, err := substraitproto.GetExtensionSet(&planProto, c)
 	if err != nil {
 		panic(err)
 	}
@@ -495,12 +495,12 @@ func TestSubqueryExpressionRoundtrip(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Convert expression to protobuf
-			protoExpr := codec.ExprToProto(tt.subExpr)
+			protoExpr := substraitproto.ExprToProto(tt.subExpr)
 			require.NotNil(t, protoExpr)
 			require.NotNil(t, protoExpr.GetSubquery())
 
 			// Convert back from protobuf using ExprFromProto with subquery handler
-			fromProto, err := codec.ExprFromProto(protoExpr, baseSchema, baseReg)
+			fromProto, err := substraitproto.ExprFromProto(protoExpr, baseSchema, baseReg)
 			require.NoError(t, err)
 			require.NotNil(t, fromProto)
 
@@ -517,7 +517,7 @@ func TestSubqueryExpressionRoundtrip(t *testing.T) {
 			}
 
 			// Verify protobuf roundtrip
-			roundtripProto := codec.ExprToProto(fromProto)
+			roundtripProto := substraitproto.ExprToProto(fromProto)
 			assert.True(t, pb.Equal(protoExpr, roundtripProto), "protobuf roundtrip failed")
 
 			// Verify basic properties

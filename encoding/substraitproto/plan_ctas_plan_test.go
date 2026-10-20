@@ -1,4 +1,4 @@
-package codec_test
+package substraitproto_test
 
 import (
 	"embed"
@@ -6,13 +6,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/codec/v9"
+	"github.com/substrait-io/substrait-go/encoding/substraitproto"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/literal"
 	"github.com/substrait-io/substrait-go/v9/plan"
 	"github.com/substrait-io/substrait-go/v9/types"
-	substraitproto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
+	substraitpb "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
 // Embed test JSON files for expected output comparison.
@@ -56,17 +56,17 @@ var (
 
 // makeProjectionMaskExpr generates a MaskExpression to project or reorder columns by the given IDs.
 func makeProjectionMaskExpr(columnIds []int) *expr.MaskExpression {
-	structItems := make([]*substraitproto.Expression_MaskExpression_StructItem, len(columnIds))
+	structItems := make([]*substraitpb.Expression_MaskExpression_StructItem, len(columnIds))
 
 	for index, columnId := range columnIds {
-		structItems[index] = &substraitproto.Expression_MaskExpression_StructItem{
+		structItems[index] = &substraitpb.Expression_MaskExpression_StructItem{
 			Field: int32(columnId),
 		}
 	}
 
-	return codec.MaskExpressionFromProto(
-		&substraitproto.Expression_MaskExpression{
-			Select: &substraitproto.Expression_MaskExpression_StructSelect{
+	return substraitproto.MaskExpressionFromProto(
+		&substraitpb.Expression_MaskExpression{
+			Select: &substraitpb.Expression_MaskExpression_StructSelect{
 				StructItems: structItems,
 			},
 			MaintainSingularStruct: true,

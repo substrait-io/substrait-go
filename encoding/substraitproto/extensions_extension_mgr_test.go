@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package codec_test
+package substraitproto_test
 
 import (
 	"strings"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/codec/v9"
+	"github.com/substrait-io/substrait-go/encoding/substraitproto"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	extensionspb "github.com/substrait-io/substrait-protobuf/go/substraitpb/extensions"
@@ -108,10 +108,10 @@ func TestToProtoPopulatesURN(t *testing.T) {
 		},
 	}
 
-	extSet, err := codec.GetExtensionSet(plan, c)
+	extSet, err := substraitproto.GetExtensionSet(plan, c)
 	require.NoError(t, err)
 
-	urns, decls := codec.ExtensionSetToProto(extSet)
+	urns, decls := substraitproto.ExtensionSetToProto(extSet)
 
 	require.Len(t, urns, 1)
 	assert.Equal(t, "extension:test:sample", urns[0].Urn)
@@ -143,7 +143,7 @@ func TestResolveRefToURNAllConditions(t *testing.T) {
 			},
 		}
 
-		extSet, err := codec.GetExtensionSet(plan, c)
+		extSet, err := substraitproto.GetExtensionSet(plan, c)
 		require.NoError(t, err)
 		require.NotNil(t, extSet)
 
@@ -170,7 +170,7 @@ func TestResolveRefToURNAllConditions(t *testing.T) {
 			},
 		}
 
-		_, err := codec.GetExtensionSet(plan, c)
+		_, err := substraitproto.GetExtensionSet(plan, c)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "URN 'extension:nonexistent:urn' not found in extension collection")
 	})
@@ -192,7 +192,7 @@ func TestResolveRefToURNAllConditions(t *testing.T) {
 			},
 		}
 
-		extSet, err := codec.GetExtensionSet(plan, c)
+		extSet, err := substraitproto.GetExtensionSet(plan, c)
 		require.NoError(t, err)
 		require.NotNil(t, extSet)
 
@@ -216,7 +216,7 @@ func TestResolveRefToURNAllConditions(t *testing.T) {
 			},
 		}
 
-		_, err := codec.GetExtensionSet(plan, c)
+		_, err := substraitproto.GetExtensionSet(plan, c)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unable to resolve extension reference: URN reference 99 could not be resolved")
 	})

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package codec_test
+package substraitproto_test
 
 import (
 	"strings"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/codec/v9"
+	"github.com/substrait-io/substrait-go/encoding/substraitproto"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/plan"
@@ -107,7 +107,7 @@ func TestExprBuilder(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, tt.expected, e.String())
 				// Also test that converting to proto does not panic.
-				codec.ExprToProto(e)
+				substraitproto.ExprToProto(e)
 			} else {
 				assert.EqualError(t, err, tt.err)
 			}
@@ -164,7 +164,7 @@ window_functions:
 	customType2 := planBuilder.UserDefinedType("extension:test:custom", "custom_type2")
 	customType3 := planBuilder.UserDefinedType("extension:test:custom", "custom_type3")
 
-	anyVal, err := anypb.New(codec.ExprToProto(expr.NewPrimitiveLiteral("foo", false)))
+	anyVal, err := anypb.New(substraitproto.ExprToProto(expr.NewPrimitiveLiteral("foo", false)))
 	require.NoError(t, err)
 
 	customLiteral := planBuilder.GetExprBuilder().Literal(&expr.ProtoLiteral{
@@ -180,7 +180,7 @@ window_functions:
 		customLiteral,
 	).BuildExpr()
 	require.NoError(t, err)
-	scalarProto := codec.ExprToProto(scalar)
+	scalarProto := substraitproto.ExprToProto(scalar)
 
 	fnCall := scalarProto.GetScalarFunction()
 	require.Len(t, fnCall.Arguments, 1)
@@ -195,7 +195,7 @@ window_functions:
 		customLiteral,
 	).Build()
 	require.NoError(t, err)
-	aggrProto := codec.AggregateFunctionToProto(aggr)
+	aggrProto := substraitproto.AggregateFunctionToProto(aggr)
 
 	require.Len(t, aggrProto.Arguments, 1)
 	require.Equal(t, customType2.TypeReference, aggrProto.Arguments[0].GetValue().GetLiteral().GetUserDefined().GetTypeReference())
@@ -209,7 +209,7 @@ window_functions:
 		customLiteral,
 	).Phase(types.AggregationPhaseInitialToResult).Build()
 	require.NoError(t, err)
-	windowProto := codec.ExprToProto(window)
+	windowProto := substraitproto.ExprToProto(window)
 
 	windowFnCall := windowProto.GetWindowFunction()
 	require.Len(t, windowFnCall.Arguments, 1)
@@ -229,7 +229,7 @@ window_functions:
 	p, err := planBuilder.Plan(project, []string{"output1", "output2"})
 	require.NoError(t, err)
 
-	pp, err := codec.PlanToProto(p)
+	pp, err := substraitproto.PlanToProto(p)
 	require.NoError(t, err)
 
 	// custom_type1 is referenced as an argument and return type, so should be registered in the extensions

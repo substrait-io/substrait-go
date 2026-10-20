@@ -1,4 +1,4 @@
-package codec_test
+package substraitproto_test
 
 import (
 	"fmt"

@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package codec_test
+package substraitproto_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/codec/v9"
+	"github.com/substrait-io/substrait-go/encoding/substraitproto"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/types"
@@ -43,14 +43,14 @@ func TestDynamicParameterToProtoRoundtrip(t *testing.T) {
 			assert.True(t, tt.dp.IsScalar())
 			assert.True(t, tt.dp.GetType().Equals(tt.dp.OutputType))
 
-			protoExpr := codec.ExprToProto(tt.dp)
+			protoExpr := substraitproto.ExprToProto(tt.dp)
 			require.NotNil(t, protoExpr)
 
-			fromProto, err := codec.ExprFromProto(protoExpr, nil, reg)
+			fromProto, err := substraitproto.ExprFromProto(protoExpr, nil, reg)
 			require.NoError(t, err)
 			assert.True(t, tt.dp.Equals(fromProto), "roundtrip should produce equal expression")
 
-			protoRoundTrip := codec.ExprToProto(fromProto)
+			protoRoundTrip := substraitproto.ExprToProto(fromProto)
 			assert.True(t, pb.Equal(protoExpr, protoRoundTrip), "proto roundtrip should be equal")
 		})
 	}
@@ -63,7 +63,7 @@ func TestDynamicParameterFromProtoNilDynamicParam(t *testing.T) {
 		},
 	}
 
-	_, err := codec.ExprFromProto(protoExpr, nil, expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError()))
+	_, err := substraitproto.ExprFromProto(protoExpr, nil, expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError()))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "dynamic parameter is nil")
 }

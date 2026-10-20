@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package codec_test
+package substraitproto_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/codec/v9"
+	"github.com/substrait-io/substrait-go/encoding/substraitproto"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/types"
 )
@@ -21,7 +21,7 @@ func TestNewLiteralWithIntervalYearToMonth(t *testing.T) {
 	assert.Equal(t, "1 years, 2 months", lit.ValueString())
 	assert.Equal(t, "P1Y2M", lit.(types.IsoValuePrinter).IsoValueString())
 
-	pb := codec.LiteralToProto(lit).GetIntervalYearToMonth()
+	pb := substraitproto.LiteralToProto(lit).GetIntervalYearToMonth()
 	assert.Equal(t, int32(1), pb.GetYears())
 	assert.Equal(t, int32(2), pb.GetMonths())
 }
@@ -36,7 +36,7 @@ func TestNewLiteralWithIntervalDayToSecond(t *testing.T) {
 	assert.Equal(t, "1 days, 2 seconds, 3 subseconds", lit.ValueString())
 	assert.Equal(t, "P1DT2.000003S", lit.(types.IsoValuePrinter).IsoValueString())
 
-	pb := codec.LiteralToProto(lit).GetIntervalDayToSecond()
+	pb := substraitproto.LiteralToProto(lit).GetIntervalDayToSecond()
 	assert.Equal(t, int32(1), pb.GetDays())
 	assert.Equal(t, int32(2), pb.GetSeconds())
 	assert.Equal(t, int64(3), pb.GetSubseconds())

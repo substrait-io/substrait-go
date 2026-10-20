@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package codec_test
+package substraitproto_test
 
 import (
 	"github.com/substrait-io/substrait-go/v9/expr"

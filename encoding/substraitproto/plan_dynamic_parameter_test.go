@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package codec_test
+package substraitproto_test
 
 import (
 	"fmt"
@@ -8,12 +8,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/codec/v9"
+	"github.com/substrait-io/substrait-go/encoding/substraitproto"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/plan"
 	"github.com/substrait-io/substrait-go/v9/types"
-	substraitproto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
+	substraitpb "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
@@ -27,13 +27,13 @@ func TestDynamicParameterPlanRoundtrip(t *testing.T) {
 			planJSON, err := testdata.ReadFile(fmt.Sprintf("testdata/%s.json", name))
 			require.NoError(t, err)
 
-			var protoPlan substraitproto.Plan
+			var protoPlan substraitpb.Plan
 			require.NoError(t, protojson.Unmarshal(planJSON, &protoPlan))
 
-			p, err := codec.PlanFromProto(&protoPlan, extensions.GetDefaultCollectionWithNoError())
+			p, err := substraitproto.PlanFromProto(&protoPlan, extensions.GetDefaultCollectionWithNoError())
 			require.NoError(t, err)
 
-			backToProto, err := codec.PlanToProto(p)
+			backToProto, err := substraitproto.PlanToProto(p)
 			require.NoError(t, err)
 			assert.Truef(t, proto.Equal(&protoPlan, backToProto),
 				"expected: %s\ngot: %s",
@@ -59,7 +59,7 @@ func TestDynamicParameterPlanWithoutBindings(t *testing.T) {
 
 	assert.Empty(t, p.ParameterBindings())
 
-	protoPlan, err := codec.PlanToProto(p)
+	protoPlan, err := substraitproto.PlanToProto(p)
 	require.NoError(t, err)
 	assert.Empty(t, protoPlan.ParameterBindings)
 }

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package codec_test
+package substraitproto_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/substrait-io/substrait-go/codec/v9"
+	"github.com/substrait-io/substrait-go/encoding/substraitproto"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/plan"
 )
@@ -27,7 +27,7 @@ func TestJoinRelNilPostJoinFilterOmitted(t *testing.T) {
 
 	assert.Nil(t, rel.RawPostJoinFilter(), "raw accessor must preserve nil")
 	assert.NotNil(t, rel.PostJoinFilter(), "getter substitutes the default true literal")
-	assert.Nil(t, codec.RelToProto(rel).GetJoin().GetPostJoinFilter(),
+	assert.Nil(t, substraitproto.RelToProto(rel).GetJoin().GetPostJoinFilter(),
 		"a nil post-join filter must be absent from the encoded proto")
 }
 
@@ -37,7 +37,7 @@ func TestHashJoinRelNilPostJoinFilterOmitted(t *testing.T) {
 
 	assert.Nil(t, rel.RawPostJoinFilter())
 	assert.NotNil(t, rel.PostJoinFilter())
-	assert.Nil(t, codec.RelToProto(rel).GetHashJoin().GetPostJoinFilter(),
+	assert.Nil(t, substraitproto.RelToProto(rel).GetHashJoin().GetPostJoinFilter(),
 		"a nil post-join filter must be absent from the encoded proto")
 }
 
@@ -47,6 +47,6 @@ func TestMergeJoinRelNilPostJoinFilterOmitted(t *testing.T) {
 
 	assert.Nil(t, rel.RawPostJoinFilter())
 	assert.NotNil(t, rel.PostJoinFilter())
-	assert.Nil(t, codec.RelToProto(rel).GetMergeJoin().GetPostJoinFilter(),
+	assert.Nil(t, substraitproto.RelToProto(rel).GetMergeJoin().GetPostJoinFilter(),
 		"a nil post-join filter must be absent from the encoded proto")
 }

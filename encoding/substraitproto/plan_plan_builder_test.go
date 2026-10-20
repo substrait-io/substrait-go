@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package codec_test
+package substraitproto_test
 
 import (
 	"encoding/json"
@@ -10,12 +10,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/codec/v9"
+	"github.com/substrait-io/substrait-go/encoding/substraitproto"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/plan"
 	"github.com/substrait-io/substrait-go/v9/types"
-	substraitproto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
+	substraitpb "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -63,10 +63,10 @@ func TestBasicEmitPlan(t *testing.T) {
 	p, err := b.Plan(root, []string{"a", "b"})
 	require.NoError(t, err)
 
-	protoPlan, err := codec.PlanToProto(p)
+	protoPlan, err := substraitproto.PlanToProto(p)
 	require.NoError(t, err)
 
-	roundTrip, err := codec.PlanFromProto(protoPlan, extensions.GetDefaultCollectionWithNoError())
+	roundTrip, err := substraitproto.PlanFromProto(protoPlan, extensions.GetDefaultCollectionWithNoError())
 	require.NoError(t, err)
 
 	assert.Equal(t, p, roundTrip)
@@ -96,10 +96,10 @@ func TestEmitEmptyPlan(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, "NSTRUCT<a: fp32, b: string>", p.GetRoots()[0].RecordType().String())
 
-	protoPlan, err := codec.PlanToProto(p)
+	protoPlan, err := substraitproto.PlanToProto(p)
 	require.NoError(t, err)
 
-	roundTrip, err := codec.PlanFromProto(protoPlan, extensions.GetDefaultCollectionWithNoError())
+	roundTrip, err := substraitproto.PlanFromProto(protoPlan, extensions.GetDefaultCollectionWithNoError())
 	require.NoError(t, err)
 
 	assert.Equal(t, p, roundTrip)
@@ -107,10 +107,10 @@ func TestEmitEmptyPlan(t *testing.T) {
 
 func checkRoundTrip(t *testing.T, expectedJSON string, p *plan.Plan) {
 	t.Helper()
-	protoPlan, err := codec.PlanToProto(p)
+	protoPlan, err := substraitproto.PlanToProto(p)
 	require.NoError(t, err)
 
-	var expectedProto substraitproto.Plan
+	var expectedProto substraitpb.Plan
 	require.NoError(t, protojson.Unmarshal([]byte(expectedJSON), &expectedProto))
 
 	// Equalize producer field; it may differ between golden JSON and protoPlan
@@ -120,10 +120,10 @@ func checkRoundTrip(t *testing.T, expectedJSON string, p *plan.Plan) {
 	assert.Truef(t, proto.Equal(&expectedProto, protoPlan), "JSON expected: %s\ngot: %s",
 		protojson.Format(&expectedProto), protojson.Format(protoPlan))
 
-	roundTrip, err := codec.PlanFromProto(&expectedProto, extensions.GetDefaultCollectionWithNoError())
+	roundTrip, err := substraitproto.PlanFromProto(&expectedProto, extensions.GetDefaultCollectionWithNoError())
 	require.NoError(t, err)
 
-	roundTripProto, err := codec.PlanToProto(roundTrip)
+	roundTripProto, err := substraitproto.PlanToProto(roundTrip)
 	require.NoError(t, err)
 
 	assert.Truef(t, proto.Equal(protoPlan, roundTripProto), "plan expected: %s\ngot: %s",

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package codec_test
+package substraitproto_test
 
 import (
 	"reflect"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/codec/v9"
+	"github.com/substrait-io/substrait-go/encoding/substraitproto"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	pbproto "google.golang.org/protobuf/proto"
@@ -88,6 +88,6 @@ func TestMaskListSelectRoundTrip(t *testing.T) {
 		},
 	}
 
-	got := codec.MaskExpressionToProto(codec.MaskExpressionFromProto(pb))
+	got := substraitproto.MaskExpressionToProto(substraitproto.MaskExpressionFromProto(pb))
 	assert.Truef(t, pbproto.Equal(pb, got), "mask expression round-trip mismatch:\nwant: %v\ngot:  %v", pb, got)
 }

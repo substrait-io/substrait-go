@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package codec_test
+package substraitproto_test
 
 import (
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/codec/v9"
+	"github.com/substrait-io/substrait-go/encoding/substraitproto"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/literal"
@@ -73,10 +73,10 @@ func TestUserDefinedLiteralRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, pointLiteral)
 
-	protoLiteral := codec.LiteralToProto(pointLiteral)
+	protoLiteral := substraitproto.LiteralToProto(pointLiteral)
 	require.NotNil(t, protoLiteral)
 
-	roundTripPointLiteral := codec.LiteralFromProto(protoLiteral)
+	roundTripPointLiteral := substraitproto.LiteralFromProto(protoLiteral)
 	require.NotNil(t, roundTripPointLiteral)
 	require.Equal(t, pointLiteral, roundTripPointLiteral)
 }
@@ -128,10 +128,10 @@ func TestUserDefinedLiteralWithAnyRepresentation(t *testing.T) {
 		},
 	}
 
-	protoLiteral := codec.LiteralToProto(pointLiteral)
+	protoLiteral := substraitproto.LiteralToProto(pointLiteral)
 	require.NotNil(t, protoLiteral)
 
-	roundTrip := codec.LiteralFromProto(protoLiteral)
+	roundTrip := substraitproto.LiteralFromProto(protoLiteral)
 	require.NotNil(t, roundTrip)
 	require.Equal(t, pointLiteral, roundTrip)
 }
@@ -158,10 +158,10 @@ func TestUserDefinedLiteralWithStructRepresentation(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, pointLiteral)
 
-	protoLiteral := codec.LiteralToProto(pointLiteral)
+	protoLiteral := substraitproto.LiteralToProto(pointLiteral)
 	require.NotNil(t, protoLiteral)
 
-	roundTrip := codec.LiteralFromProto(protoLiteral)
+	roundTrip := substraitproto.LiteralFromProto(protoLiteral)
 	require.NotNil(t, roundTrip)
 	require.Equal(t, pointLiteral, roundTrip)
 }
@@ -189,10 +189,10 @@ func TestNestedUserDefinedLiteralWithAnyRepresentation(t *testing.T) {
 		},
 	}
 
-	protoLiteral := codec.LiteralToProto(triangleLiteral)
+	protoLiteral := substraitproto.LiteralToProto(triangleLiteral)
 	require.NotNil(t, protoLiteral)
 
-	roundTrip := codec.LiteralFromProto(protoLiteral)
+	roundTrip := substraitproto.LiteralFromProto(protoLiteral)
 	require.NotNil(t, roundTrip)
 	require.Equal(t, triangleLiteral, roundTrip)
 }
@@ -251,10 +251,10 @@ func TestNestedUserDefinedLiteralWithStructRepresentation(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, triangle)
 
-	protoExpression := codec.LiteralToProto(triangle)
+	protoExpression := substraitproto.LiteralToProto(triangle)
 	require.NotNil(t, protoExpression)
 
-	result := codec.LiteralFromProto(protoExpression)
+	result := substraitproto.LiteralFromProto(protoExpression)
 	require.Equal(t, triangle, result)
 }
 
@@ -296,10 +296,10 @@ func TestMixedRepresentationNestedUserDefinedLiteral(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, triangle)
 
-	protoExpression := codec.LiteralToProto(triangle)
+	protoExpression := substraitproto.LiteralToProto(triangle)
 	require.NotNil(t, protoExpression)
 
-	result := codec.LiteralFromProto(protoExpression)
+	result := substraitproto.LiteralFromProto(protoExpression)
 	require.Equal(t, triangle, result)
 }
 
@@ -314,7 +314,7 @@ func TestUserDefinedLiteralNilStructDecodes(t *testing.T) {
 			},
 		},
 	}
-	require.NotPanics(t, func() { codec.LiteralFromProto(protoLit) })
+	require.NotPanics(t, func() { substraitproto.LiteralFromProto(protoLit) })
 }
 
 // TestUserDefinedLiteralPointerValueRoundtrip verifies that a pointer value
@@ -327,7 +327,7 @@ func TestUserDefinedLiteralPointerValueRoundtrip(t *testing.T) {
 		Value: &expr.UserDefinedValueAny{Value: anyValue},
 		Type:  &types.UserDefinedType{Nullability: types.NullabilityRequired, TypeReference: 1},
 	}
-	protoLit := codec.LiteralToProto(lit)
+	protoLit := substraitproto.LiteralToProto(lit)
 
 	userDefined := protoLit.GetUserDefined()
 	require.NotNil(t, userDefined)
@@ -340,11 +340,11 @@ func TestUserDefinedLiteralPointerStructRoundtrip(t *testing.T) {
 		Value: &expr.UserDefinedValueStruct{Value: structValue},
 		Type:  &types.UserDefinedType{Nullability: types.NullabilityRequired, TypeReference: 1},
 	}
-	protoLit := codec.LiteralToProto(lit)
+	protoLit := substraitproto.LiteralToProto(lit)
 
 	userDefined := protoLit.GetUserDefined()
 	require.NotNil(t, userDefined)
-	require.Equal(t, codec.StructLiteralValueToProto(structValue), userDefined.GetStruct())
+	require.Equal(t, substraitproto.StructLiteralValueToProto(structValue), userDefined.GetStruct())
 }
 
 // TestParameterizedVectorUDTRoundtrip verifies round-trip conversion of a parameterized
@@ -374,10 +374,10 @@ func TestParameterizedVectorUDTRoundtrip(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, vectorI32)
 
-	protoExpression := codec.LiteralToProto(vectorI32)
+	protoExpression := substraitproto.LiteralToProto(vectorI32)
 	require.NotNil(t, protoExpression)
 
-	result := codec.LiteralFromProto(protoExpression)
+	result := substraitproto.LiteralFromProto(protoExpression)
 	require.Equal(t, vectorI32, result)
 
 	// Verify type parameters are preserved

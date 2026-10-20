@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package codec_test
+package substraitproto_test
 
 import (
 	"os"
@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/codec/v9"
+	"github.com/substrait-io/substrait-go/encoding/substraitproto"
 	ext "github.com/substrait-io/substrait-go/v9/extensions"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -31,10 +31,10 @@ func TestLambdaProtoRoundTrip(t *testing.T) {
 			var originalPlan proto.Plan
 			require.NoError(t, protojson.Unmarshal(data, &originalPlan))
 
-			goPlan, err := codec.PlanFromProto(&originalPlan, collection)
+			goPlan, err := substraitproto.PlanFromProto(&originalPlan, collection)
 			require.NoError(t, err)
 
-			resultPlan, err := codec.PlanToProto(goPlan)
+			resultPlan, err := substraitproto.PlanToProto(goPlan)
 			require.NoError(t, err)
 
 			require.True(t, pb.Equal(&originalPlan, resultPlan))

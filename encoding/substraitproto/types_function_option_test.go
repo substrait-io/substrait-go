@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package codec_test
+package substraitproto_test
 
 import (
 	"reflect"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/codec/v9"
+	"github.com/substrait-io/substrait-go/encoding/substraitproto"
 	"github.com/substrait-io/substrait-go/v9/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -42,5 +42,5 @@ func TestFunctionOptionsRoundTrip(t *testing.T) {
 		{Name: "overflow"},
 	}
 
-	assert.Equal(t, options, codec.FunctionOptionsFromProto(codec.FunctionOptionsToProto(options)))
+	assert.Equal(t, options, substraitproto.FunctionOptionsFromProto(substraitproto.FunctionOptionsToProto(options)))
 }

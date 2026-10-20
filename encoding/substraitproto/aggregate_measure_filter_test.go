@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package codec_test
+package substraitproto_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/codec/v9"
+	"github.com/substrait-io/substrait-go/encoding/substraitproto"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/plan"
 	"github.com/substrait-io/substrait-go/v9/types"
@@ -38,7 +38,7 @@ func TestAggRelMeasureNilFilterOmitted(t *testing.T) {
 	agg, err := b.AggregateColumns(scan, []plan.AggRelMeasure{b.Measure(aggCount, nil)}, 0)
 	require.NoError(t, err)
 
-	measures := codec.RelToProto(agg).GetAggregate().GetMeasures()
+	measures := substraitproto.RelToProto(agg).GetAggregate().GetMeasures()
 	require.Len(t, measures, 1)
 	assert.Nil(t, measures[0].GetFilter(), "a nil measure filter must be absent from the encoded proto")
 }
