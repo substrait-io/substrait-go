@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Check both module majors before publishing core, so a codec major-version
-# mismatch cannot leave only core published (#280).
+# Check core's module major before publishing core. encoding/substraitproto is
+# versioned independently of core, so it is not checked here.
 #
 # Run as a preRelease hook in go-semantic-release, where RELEASE_VERSION is the
 # computed next version (e.g., "9.0.0"). Also called by release-codec.sh.
@@ -39,4 +39,3 @@ check_module() {
 }
 
 check_module core .
-check_module codec codec
