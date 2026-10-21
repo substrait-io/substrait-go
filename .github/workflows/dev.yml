@@ -25,7 +25,7 @@ jobs:
         uses: golangci/golangci-lint-action@v8
         with:
           version: v2.1.6
-          working-directory: codec
+          working-directory: encoding/substraitproto
   proto-isolation:
     name: Proto Isolation (#280)
     runs-on: ubuntu-latest
@@ -71,21 +71,21 @@ jobs:
       # neither go build ./... nor go test ./... descends into a nested module
       - name: Build codec
         run: go build ./...
-        working-directory: codec
+        working-directory: encoding/substraitproto
       - name: Run codec Tests
         if: runner.os != 'Linux'
         run: go test -v ./...
-        working-directory: codec
+        working-directory: encoding/substraitproto
       - name: Run codec Tests with Coverage
         if: runner.os == 'Linux'
-        run: go test -v -coverpkg=github.com/substrait-io/substrait-go/v9/...,github.com/substrait-io/substrait-go/codec/v9/... -coverprofile=codec-coverage.out ./...
-        working-directory: codec
+        run: go test -v -coverpkg=github.com/substrait-io/substrait-go/v9/...,github.com/substrait-io/substrait-go/encoding/substraitproto/... -coverprofile=codec-coverage.out ./...
+        working-directory: encoding/substraitproto
       - name: Upload coverage to Codecov
         if: runner.os == 'Linux' && github.repository == 'substrait-io/substrait-go'
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           disable_search: true
-          files: ./coverage.out,./codec/codec-coverage.out
+          files: ./coverage.out,./encoding/substraitproto/codec-coverage.out
           fail_ci_if_error: true
           codecov_yml_path: .codecov.yml
