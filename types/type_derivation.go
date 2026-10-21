@@ -310,25 +310,70 @@ type SymbolInfo struct {
 func buildTypeParametersNameValueMap(funcParameters []FuncDefArgType, argumentTypes []Type) (map[string]any, error) {
 	symbolTable := make(map[string]any)
 	for i, p := range funcParameters {
-		paramNames := p.GetParameterizedParams()
-		if len(paramNames) > 0 {
-			paramValues := argumentTypes[i].GetParameters()
-			if len(paramNames) != len(paramValues) {
-				return nil, fmt.Errorf("function parameter %s has %d parameters, but %d were provided", p.String(), len(paramNames), len(paramValues))
-			}
-			for j, param := range paramNames {
-				if intParam, ok := param.(*integer_parameters.VariableIntParam); ok {
-					name := string(*intParam)
-					if existingValue, ok := symbolTable[name]; ok && existingValue != paramValues[j] {
-						return nil, fmt.Errorf("sync parameters %s has conflicting values: %v and %v", name, existingValue, paramValues[j])
-					}
-					symbolTable[name] = paramValues[j]
-					continue
-				}
-			}
+		if i >= len(argumentTypes) {
+			// A variadic parameter can have zero values. Bind only supplied
+			// arguments; output derivation reports any unresolved parameters.
+			break
+		}
+		if err := bindTypeParameters(p, argumentTypes[i], symbolTable); err != nil {
+			return nil, err
 		}
 	}
 	return symbolTable, nil
+}
+
+func bindTypeParameters(parameter FuncDefArgType, argument Type, symbolTable map[string]any) error {
+	paramNames := parameter.GetParameterizedParams()
+	// Composite GetParameterizedParams methods omit concrete children. Keep
+	// every child here so its position still corresponds to the actual type.
+	switch p := parameter.(type) {
+	case *ParameterizedStructType:
+		paramNames = make([]interface{}, len(p.Types))
+		for i, child := range p.Types {
+			paramNames[i] = child
+		}
+	case *ParameterizedListType:
+		paramNames = []interface{}{p.Type}
+	case *ParameterizedMapType:
+		paramNames = []interface{}{p.Key, p.Value}
+	case *ParameterizedFuncType:
+		paramNames = make([]interface{}, len(p.Parameters)+1)
+		for i, child := range p.Parameters {
+			paramNames[i] = child
+		}
+		paramNames[len(p.Parameters)] = p.Return
+	case *OutputDerivation:
+		return bindTypeParameters(p.FinalType, argument, symbolTable)
+	}
+	if len(paramNames) == 0 {
+		return nil
+	}
+	if argument == nil {
+		return fmt.Errorf("missing argument for function parameter %s", parameter)
+	}
+	paramValues := argument.GetParameters()
+	if len(paramNames) != len(paramValues) {
+		return fmt.Errorf("function parameter %s has %d parameters, but %d were provided", parameter.String(), len(paramNames), len(paramValues))
+	}
+	for i, param := range paramNames {
+		switch p := param.(type) {
+		case *integer_parameters.VariableIntParam:
+			name := string(*p)
+			if existingValue, ok := symbolTable[name]; ok && existingValue != paramValues[i] {
+				return fmt.Errorf("sync parameters %s has conflicting values: %v and %v", name, existingValue, paramValues[i])
+			}
+			symbolTable[name] = paramValues[i]
+		case FuncDefArgType:
+			child, ok := paramValues[i].(Type)
+			if !ok {
+				return fmt.Errorf("function parameter %s requires a type at position %d", parameter, i)
+			}
+			if err := bindTypeParameters(p, child, symbolTable); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (m *OutputDerivation) ReturnType(funcParameters []FuncDefArgType, argumentTypes []Type) (Type, error) {
