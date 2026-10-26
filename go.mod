@@ -12,11 +12,9 @@ require (
 	github.com/cockroachdb/apd/v3 v3.2.1
 	github.com/creasty/defaults v1.8.0
 	github.com/goccy/go-yaml v1.17.1
-	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.10.0
 	github.com/substrait-io/substrait v0.87.0
-	github.com/substrait-io/substrait-protobuf/go v0.85.0
 	google.golang.org/protobuf v1.36.6
 )
 
