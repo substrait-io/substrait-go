@@ -8,11 +8,9 @@ on:
   #   - cron: "0 2 * * 0"
   workflow_dispatch:
 
-# we do not want more than one release workflow executing at the same time, ever
+# Serialize releases and never cancel an in-progress publication.
 concurrency:
   group: release
-  # cancelling in the middle of a release would create incomplete releases
-  # so cancel-in-progress is false
   cancel-in-progress: false
 
 permissions:
@@ -37,3 +35,31 @@ jobs:
           wget https://github.com/Nightapes/go-semantic-release/releases/download/v2.1.1/go-semantic-release.linux_x86_64.zip
           unzip go-semantic-release.linux_x86_64.zip
           ./go-semantic-release.linux_x86_64 release -l trace
+      - name: Install go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+      - name: Release codec
+        # Publish codec with the same version as core.
+        #
+        # - The core pre-release hook exports RELEASE_VERSION through GITHUB_ENV.
+        # - Skip codec if core publication was skipped or the version is a prerelease.
+        # - The script creates codec's release commit and tag; this step pushes it.
+        #
+        # If codec fails after core publishes, rerunning this workflow won't retry it.
+        # Run scripts/release-codec.sh vX.Y.Z manually, then push codec/vX.Y.Z.
+        run: |
+          if [ -z "${RELEASE_VERSION:-}" ]; then
+            echo "no core release this run; nothing to tag for codec"
+            exit 0
+          fi
+          version="v${RELEASE_VERSION#v}"
+          # stable releases only; codec is not tagged for prereleases
+          case "$version" in
+            *-*) echo "prerelease $version; nothing to tag for codec"; exit 0 ;;
+          esac
+          git fetch --tags --force
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          bash scripts/release-codec.sh "$version"
+          git push origin "codec/$version"
