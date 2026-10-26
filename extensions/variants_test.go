@@ -492,11 +492,6 @@ window_functions:
 	})
 	require.True(t, ok)
 	require.Equal(t, "struct<any1>", window.ReturnType().String())
-
-	id := extensions.FunctionID{URN: "extension:x:test", Name: "f:any"}
-	require.Nil(t, extensions.NewScalarFuncVariant(id).ReturnType())
-	require.Nil(t, extensions.NewAggFuncVariant(id).ReturnType())
-	require.Nil(t, extensions.NewWindowFuncVariant(id).ReturnType())
 }
 
 func TestResolveType(t *testing.T) {
@@ -1085,66 +1080,4 @@ func TestValidateConstrainedAnyTypeConsistency(t *testing.T) {
 		require.Error(t, err, "nested any1 mismatch should fail")
 		require.Contains(t, err.Error(), "type parameter any1 cannot be both")
 	})
-}
-
-func TestOnTheFlyVariadicVariantWithUnknownArguments(t *testing.T) {
-	id := extensions.FunctionID{
-		URN:  "extension:io.substrait:functions_arithmetic_decimal",
-		Name: "no_such_function:dec_dec",
-	}
-	variadic := &extensions.VariadicBehavior{Min: 1}
-	for name, variant := range map[string]interface {
-		Match([]types.Type) (bool, error)
-	}{
-		"scalar":    extensions.NewScalarFuncVariantWithProps(id, variadic, false, true),
-		"aggregate": extensions.NewAggFuncVariantOpts(id, extensions.AggVariantOptions{Variadic: variadic}),
-		"window":    extensions.NewWindowFuncVariantOpts(id, extensions.WindowVariantOpts{Variadic: variadic}),
-	} {
-		t.Run(name, func(t *testing.T) {
-			for _, args := range [][]types.Type{nil, {&types.DecimalType{Precision: 10, Scale: 2}}} {
-				matched, err := variant.Match(args)
-				require.NoError(t, err)
-				require.False(t, matched)
-			}
-		})
-	}
-}
-
-func TestOnTheFlyVariantKeepsItsCompoundName(t *testing.T) {
-	// "dec" is what (*DecimalType).ShortString writes into a compound name, and
-	// ParseType rejects it, so the arguments stay unknown. The name a plan gave
-	// must survive anyway: it is the variant's identity.
-	id := extensions.FunctionID{
-		URN:  "extension:io.substrait:functions_arithmetic_decimal",
-		Name: "no_such_function:dec_dec",
-	}
-
-	scalar := extensions.NewScalarFuncVariant(id)
-	assert.Equal(t, "no_such_function", scalar.Name())
-	assert.Empty(t, scalar.Args())
-	assert.Equal(t, id.Name, scalar.CompoundName())
-	assert.Equal(t, id, scalar.ID())
-
-	for _, variant := range []interface {
-		CompoundName() string
-		ID() extensions.FunctionID
-	}{
-		extensions.NewScalarFuncVariantWithProps(id, nil, false, true),
-		extensions.NewAggFuncVariant(id),
-		extensions.NewAggFuncVariantOpts(id, extensions.AggVariantOptions{}),
-		extensions.NewWindowFuncVariant(id),
-		extensions.NewWindowFuncVariantOpts(id, extensions.WindowVariantOpts{}),
-	} {
-		assert.Equal(t, id.Name, variant.CompoundName())
-		assert.Equal(t, id, variant.ID())
-	}
-
-	parsed := extensions.NewScalarFuncVariant(extensions.FunctionID{URN: id.URN, Name: "no_such_function:i32_i64"})
-	assert.Len(t, parsed.Args(), 2)
-	assert.Equal(t, "no_such_function:i32_i64", parsed.CompoundName())
-
-	// A name a plan gave without a signature keeps that form, where rebuilding
-	// it from no arguments produced a trailing colon.
-	bare := extensions.NewScalarFuncVariant(extensions.FunctionID{URN: id.URN, Name: "no_such_function"})
-	assert.Equal(t, "no_such_function", bare.CompoundName())
 }

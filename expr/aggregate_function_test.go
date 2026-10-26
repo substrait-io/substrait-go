@@ -14,14 +14,16 @@ import (
 func TestCustomAggregateFunctionMetadata(t *testing.T) {
 	id := extensions.FunctionID{
 		URN:  "extension:io.substrait:functions_arithmetic_decimal",
-		Name: "no_such_function:dec_dec",
+		Name: "sum:dec",
 	}
-	reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
-	variant := extensions.NewAggFuncVariant(id)
+	collection := extensions.GetDefaultCollectionWithNoError()
+	reg := expr.NewEmptyExtensionRegistry(collection)
+	variant, ok := collection.GetAggregateFunc(id)
+	require.True(t, ok)
 	fn, err := expr.NewCustomAggregateFunc(reg, variant, &types.Int64Type{}, nil,
 		types.AggregationInvocationAll, types.AggregationPhaseInitialToResult, nil)
 	require.NoError(t, err)
-	require.Equal(t, "no_such_function", fn.Name())
+	require.Equal(t, "sum", fn.Name())
 	require.Equal(t, id.Name, fn.CompoundName())
 	require.Equal(t, id, fn.ID())
 }
