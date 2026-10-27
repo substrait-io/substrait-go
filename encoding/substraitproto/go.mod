@@ -28,6 +28,3 @@ require (
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-// core is developed in the same repo and unreleased; resolve it locally.
-replace github.com/substrait-io/substrait-go/v9 => ../../
