@@ -24,6 +24,7 @@ func TestIntervalCompoundLiteralToProto(t *testing.T) {
 	)
 	precisionVal := types.PrecisionNanoSeconds
 	nanoSecPrecision := &proto.Expression_Literal_IntervalDayToSecond_Precision{Precision: precisionVal.ToProtoVal()}
+	secondsPrecision := &proto.Expression_Literal_IntervalDayToSecond_Precision{Precision: types.PrecisionSeconds.ToProtoVal()}
 	nullable := true
 	nullability := types.NullabilityNullable
 
@@ -32,29 +33,40 @@ func TestIntervalCompoundLiteralToProto(t *testing.T) {
 		inputLiteral              expr.IntervalCompoundLiteral
 		expectedExpressionLiteral *proto.Expression_Literal_IntervalCompound_
 	}{
-		{"WithOnlyYearAndMonth",
+		{"AllZeroStillSetsYearToMonthAndDayToSecond",
+			expr.IntervalCompoundLiteral{Nullability: nullability},
+			&proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
+				IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{},
+				IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{PrecisionMode: secondsPrecision},
+			}},
+		},
+		{"YearToMonthWithZeroDayToSecond",
 			expr.IntervalCompoundLiteral{Nullability: nullability, Years: yearVal, Months: monthVal},
 			&proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
 				IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: yearVal, Months: monthVal},
+				IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{PrecisionMode: secondsPrecision},
 			}},
 		},
-		{"WithOnlyYearAndMonthNegativeVal",
+		{"YearToMonthNegativeValWithZeroDayToSecond",
 			expr.IntervalCompoundLiteral{Nullability: nullability, Years: negativeInt32Val, Months: negativeInt32Val},
 			&proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
 				IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: negativeInt32Val, Months: negativeInt32Val},
+				IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{PrecisionMode: secondsPrecision},
 			}},
 		},
-		{"WithOnlyDayToSecond",
+		{"DayToSecondWithZeroYearToMonth",
 			expr.IntervalCompoundLiteral{Nullability: nullability, Days: dayVal, Seconds: secondsVal, SubSeconds: subSecondsVal, SubSecondPrecision: precisionVal},
 			&proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
+				IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{},
 				IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{
 					Days: dayVal, Seconds: secondsVal, PrecisionMode: nanoSecPrecision, Subseconds: subSecondsVal,
 				},
 			}},
 		},
-		{"WithOnlyDayToSecondNegativeVal",
+		{"DayToSecondNegativeValWithZeroYearToMonth",
 			expr.IntervalCompoundLiteral{Nullability: nullability, Days: negativeInt32Val, Seconds: negativeInt32Val, SubSeconds: negativeInt64Val, SubSecondPrecision: precisionVal},
 			&proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
+				IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{},
 				IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{
 					Days: negativeInt32Val, Seconds: negativeInt32Val, PrecisionMode: nanoSecPrecision, Subseconds: negativeInt64Val,
 				},
