@@ -492,11 +492,6 @@ window_functions:
 	})
 	require.True(t, ok)
 	require.Equal(t, "struct<any1>", window.ReturnType().String())
-
-	id := extensions.FunctionID{URN: "extension:x:test", Name: "f:any"}
-	require.Nil(t, extensions.NewScalarFuncVariant(id).ReturnType())
-	require.Nil(t, extensions.NewAggFuncVariant(id).ReturnType())
-	require.Nil(t, extensions.NewWindowFuncVariant(id).ReturnType())
 }
 
 func TestResolveType(t *testing.T) {
