@@ -15,6 +15,12 @@ stable releases; `alpha` publishes prereleases.
 3. Merge a module's release PR when it is ready. Release Please creates its tag
    and GitHub release. Core tags use `vX.Y.Z`; codec tags use `codec/vX.Y.Z`.
 
+There is currently no CI or publication-time check that the proposed release
+major matches the module path in `go.mod`. Verify this manually before merging a
+release PR. For example, `v10.0.0` requires a module path ending in `/v10`, not
+`/v9`. GitHub can publish a mismatched tag, but Go consumers will reject that
+version.
+
 Release PRs update the affected module changelogs and the channel's version
 manifest. Publication does not modify files or create release-only commits.
 Publishing multiple modules is not atomic; inspect the existing tags and
