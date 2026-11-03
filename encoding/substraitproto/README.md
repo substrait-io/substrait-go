@@ -13,3 +13,8 @@ for build and test commands.
 
 CI sets `GOWORK=off` to build and test against the published core version
 declared in `go.mod`.
+
+Core and substraitproto are versioned independently. Release Please prepares a
+separate release PR for each module. Merging substraitproto's release PR publishes
+its tag and GitHub release. Tags use `encoding/substraitproto/vX.Y.Z`. See
+[the release process](../../RELEASING.md) for publication and dependency updates.
