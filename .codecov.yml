@@ -4,5 +4,5 @@ coverage:
     - "types/parser/baseparser/*.go"
     - "testcases/parser/baseparser/*.go"
 fixes:
-  - "github.com/substrait-io/substrait-go/codec/v9/::codec/"
+  - "github.com/substrait-io/substrait-go/encoding/substraitproto/::encoding/substraitproto/"
   - "github.com/substrait-io/substrait-go/v9/::"

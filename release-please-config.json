@@ -6,12 +6,12 @@
   "packages": {
     ".": {
       "include-component-in-tag": false,
-      "exclude-paths": ["codec"]
+      "exclude-paths": ["encoding/substraitproto"]
     },
-    "codec": {
-      "component": "codec",
+    "encoding/substraitproto": {
+      "component": "encoding/substraitproto",
       "tag-separator": "/",
-      "initial-version": "9.0.0"
+      "initial-version": "0.1.0"
     }
   }
 }
