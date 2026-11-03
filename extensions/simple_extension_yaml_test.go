@@ -60,6 +60,7 @@ scalar_functions:
 	}
 }
 
+// Arguments must define a value, type, or enum options; metadata alone isn't enough.
 func TestUnmarshalFunctionArgumentMissingDefinition(t *testing.T) {
 	tests := []struct {
 		name, argument string
@@ -121,6 +122,7 @@ func TestUnmarshalFunctionEnumArgument(t *testing.T) {
 	}, arg)
 }
 
+// A type argument supplies a type to the function, rather than a runtime value.
 func TestUnmarshalFunctionTypeArgument(t *testing.T) {
 	arg, ok := unmarshalFunctionArgument(t, `{name: target, description: output type, type: "decimal<P,S>"}`).(extensions.TypeArg)
 
