@@ -1,5 +1,12 @@
 # Changelog
 
+## [9.0.1](https://github.com/substrait-io/substrait-go/compare/v9.0.0...v9.0.1) (2026-11-03)
+
+
+### Bug Fixes
+
+* **extensions:** return errors for malformed function argument YAML ([#327](https://github.com/substrait-io/substrait-go/issues/327)) ([652df2c](https://github.com/substrait-io/substrait-go/commit/652df2c79a600405c97863d022c06012d16e8375)), closes [#287](https://github.com/substrait-io/substrait-go/issues/287)
+
 ## [9.0.0](https://github.com/substrait-io/substrait-go/compare/v8.1.1...v9.0.0) (2026-11-03)
 
 
