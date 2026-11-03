@@ -1017,9 +1017,9 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 		}
 
 		common := relCommonFromProto(rel.Join.Common)
-		// The joined record type depends only on the inputs and join type, so a
-		// key-less relation gives the base schema for decoding the expressions.
-		base := plan.NewJoinRel(left, right, plan.JoinType(rel.Join.Type), nil, nil, common, advancedExtensionFromProto(rel.Join.AdvancedExtension)).JoinedRecordType()
+		out := plan.NewJoinRel(left, right, plan.JoinType(rel.Join.Type), nil, nil, common, advancedExtensionFromProto(rel.Join.AdvancedExtension))
+		// The join condition sees both inputs before the join changes the output.
+		base := out.JoinedRecordType()
 		cond, err := ExprFromProto(rel.Join.Expression, &base, reg)
 		if err != nil {
 			return nil, fmt.Errorf("error getting expr for JoinRel: %w", err)
@@ -1027,6 +1027,7 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 
 		var postJoinFilter expr.Expression
 		if rel.Join.PostJoinFilter != nil {
+			base = out.DirectOutputSchema()
 			postJoinFilter, err = ExprFromProto(rel.Join.PostJoinFilter, &base, reg)
 			if err != nil {
 				return nil, fmt.Errorf("error parsing PostJoinFilter for JoinRel: %w", err)
