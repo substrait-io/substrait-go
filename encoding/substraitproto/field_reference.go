@@ -5,10 +5,14 @@ package substraitproto
 import (
 	"fmt"
 
+	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
+
+// mapSelectAll matches expr.MapSelectAll, which the released core dependency does not yet define.
+const mapSelectAll expr.MapSelectKind = expr.MapSelectExpr + 1
 
 // RefSegmentToProto encodes a reference segment as its protobuf message.
 func RefSegmentToProto(r expr.ReferenceSegment) *proto.Expression_ReferenceSegment {
@@ -86,6 +90,10 @@ func maskStructSelectToProto(m expr.MaskStructSelect) *proto.Expression_MaskExpr
 }
 
 func maskSelectToProto(s expr.MaskSelect) *proto.Expression_MaskExpression_Select {
+	if s == nil {
+		return nil
+	}
+
 	switch s := s.(type) {
 	case expr.MaskStructSelect:
 		return &proto.Expression_MaskExpression_Select{
@@ -159,11 +167,12 @@ func maskMapSelectToProto(m *expr.MaskMapSelect) *proto.Expression_MaskExpressio
 		},
 	}
 
-	if m.KeyKind() == expr.MapSelectKey {
+	switch m.KeyKind() {
+	case expr.MapSelectKey:
 		mapSelect.Map.Select = &proto.Expression_MaskExpression_MapSelect_Key{
 			Key: &proto.Expression_MaskExpression_MapSelect_MapKey{MapKey: m.Key()},
 		}
-	} else {
+	case expr.MapSelectExpr:
 		mapSelect.Map.Select = &proto.Expression_MaskExpression_MapSelect_Expression{
 			Expression: &proto.Expression_MaskExpression_MapSelect_MapKeyExpression{MapKeyExpression: m.Key()},
 		}
@@ -247,57 +256,122 @@ func RefSegmentFromProto(p *proto.Expression_ReferenceSegment) expr.ReferenceSeg
 	return nil
 }
 
-// MaskExpressionFromProto decodes a mask expression from its protobuf message.
+// MaskExpressionFromProto decodes a well-formed mask expression from its protobuf
+// message. It panics if a required selection or oneof payload is missing.
+// RelFromProto and ExprFromProto report malformed mask errors without panicking.
 func MaskExpressionFromProto(p *proto.Expression_MaskExpression) *expr.MaskExpression {
-	sel := make(expr.MaskStructSelect, len(p.Select.StructItems))
-	for i, item := range p.Select.StructItems {
-		var child expr.MaskSelect
-		if item.Child != nil {
-			child = maskSelectFromProto(item.Child)
-		}
-		sel[i] = expr.NewMaskStructItem(item.Field, child)
+	out, err := maskExpressionFromProto(p)
+	if err != nil {
+		panic(err)
 	}
-	return expr.NewMaskExpression(sel, p.MaintainSingularStruct)
+	return out
 }
 
-func maskSelectFromProto(p *proto.Expression_MaskExpression_Select) expr.MaskSelect {
+func maskExpressionFromProto(p *proto.Expression_MaskExpression) (*expr.MaskExpression, error) {
+	if p == nil {
+		return nil, fmt.Errorf("%w: mask expression is missing", substraitgo.ErrInvalidExpr)
+	}
+	if p.Select == nil {
+		return nil, fmt.Errorf("%w: mask expression requires a root struct selection", substraitgo.ErrInvalidExpr)
+	}
+	sel, err := maskStructSelectFromProto(p.Select)
+	if err != nil {
+		return nil, err
+	}
+	return expr.NewMaskExpression(sel, p.MaintainSingularStruct), nil
+}
+
+func maskStructSelectFromProto(p *proto.Expression_MaskExpression_StructSelect) (expr.MaskStructSelect, error) {
+	items := make(expr.MaskStructSelect, len(p.StructItems))
+	for i, item := range p.StructItems {
+		if item == nil {
+			return nil, fmt.Errorf("%w: mask struct item %d is missing", substraitgo.ErrInvalidExpr, i)
+		}
+		child, err := maskSelectFromProto(item.Child)
+		if err != nil {
+			return nil, fmt.Errorf("mask struct item %d: %w", i, err)
+		}
+		items[i] = expr.NewMaskStructItem(item.Field, child)
+	}
+	return items, nil
+}
+
+func maskSelectFromProto(p *proto.Expression_MaskExpression_Select) (expr.MaskSelect, error) {
+	if p == nil {
+		return nil, nil
+	}
+
 	switch s := p.Type.(type) {
 	case *proto.Expression_MaskExpression_Select_Struct:
-		items := make(expr.MaskStructSelect, len(s.Struct.StructItems))
-		for i, item := range s.Struct.StructItems {
-			var child expr.MaskSelect
-			if item.Child != nil {
-				child = maskSelectFromProto(item.Child)
-			}
-			items[i] = expr.NewMaskStructItem(item.Field, child)
+		if s == nil || s.Struct == nil {
+			return nil, fmt.Errorf("%w: mask struct selection is missing", substraitgo.ErrInvalidExpr)
 		}
-		return items
+		return maskStructSelectFromProto(s.Struct)
 	case *proto.Expression_MaskExpression_Select_List:
+		if s == nil || s.List == nil {
+			return nil, fmt.Errorf("%w: mask list selection is missing", substraitgo.ErrInvalidExpr)
+		}
 		selection := make([]expr.MaskListSelectItem, len(s.List.Selection))
 		for i, sel := range s.List.Selection {
-			switch s := sel.Type.(type) {
-			case *proto.Expression_MaskExpression_ListSelect_ListSelectItem_Item:
-				selection[i] = &expr.MaskListElement{Field: s.Item.Field}
-			case *proto.Expression_MaskExpression_ListSelect_ListSelectItem_Slice:
-				selection[i] = &expr.MaskListSlice{Start: s.Slice.Start, End: s.Slice.End}
+			if sel == nil {
+				return nil, fmt.Errorf("%w: mask list selection item %d is missing", substraitgo.ErrInvalidExpr, i)
 			}
+			item, err := maskListSelectItemFromProto(sel)
+			if err != nil {
+				return nil, fmt.Errorf("mask list selection item %d: %w", i, err)
+			}
+			selection[i] = item
 		}
-		return expr.NewMaskListSelect(selection, maskSelectFromProto(s.List.Child))
+		child, err := maskSelectFromProto(s.List.Child)
+		if err != nil {
+			return nil, fmt.Errorf("mask list child: %w", err)
+		}
+		return expr.NewMaskListSelect(selection, child), nil
 	case *proto.Expression_MaskExpression_Select_Map:
-		var child expr.MaskSelect
-		if s.Map.Child != nil {
-			child = maskSelectFromProto(s.Map.Child)
+		if s == nil || s.Map == nil {
+			return nil, fmt.Errorf("%w: mask map selection is missing", substraitgo.ErrInvalidExpr)
+		}
+		child, err := maskSelectFromProto(s.Map.Child)
+		if err != nil {
+			return nil, fmt.Errorf("mask map child: %w", err)
 		}
 
 		switch sk := s.Map.Select.(type) {
 		case *proto.Expression_MaskExpression_MapSelect_Expression:
-			return expr.NewMaskMapSelect(expr.MapSelectExpr, sk.Expression.MapKeyExpression, child)
+			if sk == nil || sk.Expression == nil {
+				return nil, fmt.Errorf("%w: mask map key expression is missing", substraitgo.ErrInvalidExpr)
+			}
+			return expr.NewMaskMapSelect(expr.MapSelectExpr, sk.Expression.MapKeyExpression, child), nil
 		case *proto.Expression_MaskExpression_MapSelect_Key:
-			return expr.NewMaskMapSelect(expr.MapSelectKey, sk.Key.MapKey, child)
+			if sk == nil || sk.Key == nil {
+				return nil, fmt.Errorf("%w: mask map key is missing", substraitgo.ErrInvalidExpr)
+			}
+			return expr.NewMaskMapSelect(expr.MapSelectKey, sk.Key.MapKey, child), nil
+		case nil:
+			return expr.NewMaskMapSelect(mapSelectAll, "", child), nil
+		default:
+			return nil, fmt.Errorf("%w: unsupported mask map selection %T", substraitgo.ErrInvalidExpr, sk)
 		}
-		return expr.NewMaskMapSelect(expr.MapSelectKey, "", child)
+	default:
+		return nil, fmt.Errorf("%w: mask selection requires a type", substraitgo.ErrInvalidExpr)
 	}
-	panic("unimplemented mask select type")
+}
+
+func maskListSelectItemFromProto(p *proto.Expression_MaskExpression_ListSelect_ListSelectItem) (expr.MaskListSelectItem, error) {
+	switch s := p.Type.(type) {
+	case *proto.Expression_MaskExpression_ListSelect_ListSelectItem_Item:
+		if s == nil || s.Item == nil {
+			return nil, fmt.Errorf("%w: mask list element is missing", substraitgo.ErrInvalidExpr)
+		}
+		return &expr.MaskListElement{Field: s.Item.Field}, nil
+	case *proto.Expression_MaskExpression_ListSelect_ListSelectItem_Slice:
+		if s == nil || s.Slice == nil {
+			return nil, fmt.Errorf("%w: mask list slice is missing", substraitgo.ErrInvalidExpr)
+		}
+		return &expr.MaskListSlice{Start: s.Slice.Start, End: s.Slice.End}, nil
+	default:
+		return nil, fmt.Errorf("%w: mask list selection item requires a type", substraitgo.ErrInvalidExpr)
+	}
 }
 
 // FieldReferenceFromProto decodes a field reference from its protobuf message.
@@ -341,7 +415,13 @@ func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema *typ
 		ref = refseg
 
 	case *proto.Expression_FieldReference_MaskedReference:
-		ref = MaskExpressionFromProto(rt.MaskedReference)
+		if rt == nil {
+			return nil, fmt.Errorf("%w: masked reference is missing", substraitgo.ErrInvalidExpr)
+		}
+		ref, err = maskExpressionFromProto(rt.MaskedReference)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return expr.NewFieldReference(root, ref, knownType), nil
