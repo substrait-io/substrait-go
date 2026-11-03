@@ -5,9 +5,9 @@ on:
     branches: [main, alpha]
   workflow_dispatch:
 
-# Serialize releases and never cancel an in-progress publication.
+# Serialize releases within each channel and never cancel an in-progress publication.
 concurrency:
-  group: release
+  group: release-${{ github.ref_name }}
   cancel-in-progress: false
 
 permissions:
