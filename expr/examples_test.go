@@ -11,10 +11,18 @@ import (
 )
 
 func sampleNestedExpr(reg expr.ExtensionRegistry, substraitExtURN string) expr.Expression {
+	collection := ext.GetDefaultCollectionWithNoError()
+	lookup := func(name string) *ext.ScalarFunctionVariant {
+		variant, ok := collection.GetScalarFunc(ext.FunctionID{URN: substraitExtURN, Name: name})
+		if !ok {
+			panic("function not found: " + name)
+		}
+		return variant
+	}
 	var (
-		add = ext.NewScalarFuncVariant(ext.FunctionID{URN: substraitExtURN, Name: "add"})
-		sub = ext.NewScalarFuncVariant(ext.FunctionID{URN: substraitExtURN, Name: "subtract"})
-		mul = ext.NewScalarFuncVariant(ext.FunctionID{URN: substraitExtURN, Name: "multiply"})
+		add = lookup("add:fp64_fp64")
+		sub = lookup("subtract:fp32_fp32")
+		mul = lookup("multiply:i64_i64")
 	)
 
 	baseSchema := types.NewRecordTypeFromTypes(

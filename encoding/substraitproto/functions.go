@@ -7,7 +7,6 @@ import (
 
 	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/expr"
-	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
@@ -234,7 +233,7 @@ func AggregateFunctionFromProto(
 	}
 	decl, ok := reg.LookupAggregateFunction(agg.FunctionReference)
 	if !ok {
-		return expr.NewCustomAggregateFunc(reg, extensions.NewAggFuncVariant(id), TypeFromProto(agg.OutputType), FunctionOptionsFromProto(agg.Options), types.AggregationInvocation(agg.Invocation), types.AggregationPhase(agg.Phase), sorts, args...)
+		return nil, fmt.Errorf("%w: aggregate function %s not found in extension collection", substraitgo.ErrNotFound, id)
 	}
 
 	return expr.NewAggregateFunctionFromParts(

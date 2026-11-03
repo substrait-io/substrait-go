@@ -317,7 +317,7 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 
 		decl, ok := reg.LookupScalarFunction(et.ScalarFunction.FunctionReference)
 		if !ok {
-			return expr.NewCustomScalarFunc(reg, extensions.NewScalarFuncVariant(id), TypeFromProto(et.ScalarFunction.OutputType), FunctionOptionsFromProto(et.ScalarFunction.Options), args...)
+			return nil, fmt.Errorf("%w: scalar function %s not found in extension collection", substraitgo.ErrNotFound, id)
 		}
 
 		return expr.NewScalarFunctionFromParts(
@@ -360,18 +360,7 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 		}
 		decl, ok := reg.LookupWindowFunction(et.WindowFunction.FunctionReference)
 		if !ok {
-			fn, err := expr.NewCustomWindowFunc(reg, extensions.NewWindowFuncVariant(id), TypeFromProto(et.WindowFunction.OutputType),
-				FunctionOptionsFromProto(et.WindowFunction.Options), types.AggregationInvocation(et.WindowFunction.Invocation), types.AggregationPhase(et.WindowFunction.Phase), args...)
-			if err != nil {
-				return nil, err
-			}
-
-			fn.Partitions = parts
-			fn.Sorts = sorts
-			fn.LowerBound = BoundFromProto(et.WindowFunction.LowerBound)
-			fn.BoundsType = types.BoundsType(et.WindowFunction.BoundsType)
-			fn.UpperBound = BoundFromProto(et.WindowFunction.UpperBound)
-			return fn, nil
+			return nil, fmt.Errorf("%w: window function %s not found in extension collection", substraitgo.ErrNotFound, id)
 		}
 
 		return expr.NewWindowFunctionFromParts(

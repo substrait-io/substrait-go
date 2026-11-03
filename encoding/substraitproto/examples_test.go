@@ -76,7 +76,10 @@ func ExampleExpression_scalarFunction() {
 	// having to construct the protobuf
 	const substraitext = `extension:io.substrait:functions_arithmetic`
 
-	var addVariant = ext.NewScalarFuncVariant(ext.FunctionID{URN: substraitext, Name: "add:i32_i32"})
+	addVariant, ok := collection.GetScalarFunc(ext.FunctionID{URN: substraitext, Name: "add:i32_i32"})
+	if !ok {
+		panic("add:i32_i32 not found in extension collection")
+	}
 
 	var ex expr.Expression
 	refArg, _ := expr.NewRootFieldRef(expr.NewStructFieldRef(0), types.NewRecordTypeFromTypes([]types.Type{&types.Int32Type{}}))

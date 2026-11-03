@@ -681,13 +681,14 @@ func NewCustomAggregateFunc(
 	}
 
 	return &AggregateFunction{
-		funcRef:    reg.GetFuncAnchor(v.ID()),
-		outputType: outputType,
-		options:    opts,
-		args:       args,
-		invocation: invoke,
-		phase:      phase,
-		Sorts:      sorts,
+		funcRef:     reg.GetFuncAnchor(v.ID()),
+		declaration: v,
+		outputType:  outputType,
+		options:     opts,
+		args:        args,
+		invocation:  invoke,
+		phase:       phase,
+		Sorts:       sorts,
 	}, nil
 }
 
