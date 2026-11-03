@@ -6,8 +6,9 @@ stable releases; `alpha` publishes prereleases.
 
 ## Prepare and publish
 
-1. Merge changes using Conventional Commits. Release Please uses the commit
-   messages and changed file paths to propose a version for each affected module.
+1. Merge changes using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
+   Release Please uses the commit messages and changed file paths to propose a
+   version for each affected module.
    Changes only under `codec/` do not bump core.
 2. Review the proposed versions and changelogs. For a major release, update the
    affected module path and imports before merging. Release Please does not make
@@ -19,7 +20,8 @@ There is currently no CI or publication-time check that the proposed release
 major matches the module path in `go.mod`. Verify this manually before merging a
 release PR. For example, `v10.0.0` requires a module path ending in `/v10`, not
 `/v9`. GitHub can publish a mismatched tag, but Go consumers will reject that
-version.
+version. A fix is tracked in
+[#133](https://github.com/substrait-io/substrait-go/issues/133).
 
 Release PRs update the affected module changelogs and the channel's version
 manifest. Publication does not modify files or create release-only commits.
