@@ -99,6 +99,8 @@ func (e *ExprBuilder) ScalarFunc(
 // types and number of arguments will be checked at the point that the
 // Build method is called to construct the final expression and will return
 // an error if invalid.
+// The aggregation phase defaults to InitialToResult. Use Phase to override
+// it, including explicitly selecting Unspecified (IntermediateToResult).
 //
 // The extension registry inside of ExprBuilder will be used to resolve
 // the ID, but only at the point at which Build is called. Therefore this
@@ -109,9 +111,10 @@ func (e *ExprBuilder) WindowFunc(
 	id extensions.FunctionID, opts ...*types.FunctionOption,
 ) *windowFuncBuilder {
 	return &windowFuncBuilder{
-		b:    e,
-		id:   id,
-		opts: opts,
+		b:     e,
+		id:    id,
+		opts:  opts,
+		phase: types.AggregationPhaseInitialToResult,
 	}
 }
 
@@ -122,6 +125,8 @@ func (e *ExprBuilder) WindowFunc(
 // types and number of arguments will be checked at the point that the
 // Build method is called to construct the final expression and will return
 // an error if invalid.
+// The aggregation phase defaults to InitialToResult. Use Phase to override
+// it, including explicitly selecting Unspecified (IntermediateToResult).
 //
 // The extension registry inside of ExprBuilder will be used to resolve
 // the ID, but only at the point at which Build is called. Therefore this
@@ -132,9 +137,10 @@ func (e *ExprBuilder) AggFunc(
 	id extensions.FunctionID, opts ...*types.FunctionOption,
 ) *aggregateFuncBuilder {
 	return &aggregateFuncBuilder{
-		b:    e,
-		id:   id,
-		opts: opts,
+		b:     e,
+		id:    id,
+		opts:  opts,
+		phase: types.AggregationPhaseInitialToResult,
 	}
 }
 
