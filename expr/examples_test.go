@@ -11,39 +11,29 @@ import (
 )
 
 func sampleNestedExpr(reg expr.ExtensionRegistry, substraitExtURN string) expr.Expression {
-	collection := ext.GetDefaultCollectionWithNoError()
-	lookup := func(name string) *ext.ScalarFunctionVariant {
-		variant, ok := collection.GetScalarFunc(ext.FunctionID{URN: substraitExtURN, Name: name})
-		if !ok {
-			panic("function not found: " + name)
-		}
-		return variant
+	function := func(name string) ext.FunctionID {
+		return ext.FunctionID{URN: substraitExtURN, Name: name}
 	}
-	var (
-		add = lookup("add:fp64_fp64")
-		sub = lookup("subtract:fp32_fp32")
-		mul = lookup("multiply:i64_i64")
-	)
 
 	baseSchema := types.NewRecordTypeFromTypes(
 		[]types.Type{
 			&types.BooleanType{},
 			&types.Int32Type{},
-			&types.Int64Type{},
-			&types.Float32Type{},
+			&types.Int64Type{Nullability: types.NullabilityRequired},
+			&types.Int64Type{Nullability: types.NullabilityRequired},
 		})
 
 	// add(literal, sub(ref, mul(literal, ref)))
-	exp := expr.MustExpr(expr.NewCustomScalarFunc(reg, add, &types.Float64Type{}, nil,
-		expr.NewPrimitiveLiteral(float64(1.0), false),
-		expr.MustExpr(expr.NewCustomScalarFunc(reg, sub, &types.Float32Type{}, nil,
+	exp := expr.MustExpr(expr.NewScalarFunc(reg, function("add:i64_i64"), nil,
+		expr.NewPrimitiveLiteral(int64(1), false),
+		expr.MustExpr(expr.NewScalarFunc(reg, function("subtract:i64_i64"), nil,
 			expr.MustExpr(expr.NewRootFieldRef(expr.NewStructFieldRef(3), baseSchema)),
-			expr.MustExpr(expr.NewCustomScalarFunc(reg, mul, &types.Int64Type{}, nil,
+			expr.MustExpr(expr.NewScalarFunc(reg, function("multiply:i64_i64"), nil,
 				expr.NewPrimitiveLiteral(int64(2), false),
 				expr.MustExpr(expr.NewFieldRef(expr.NewNestedLiteral(expr.StructLiteralValue{
 					expr.NewByteSliceLiteral([]byte("baz"), true),
 					expr.NewPrimitiveLiteral("foobar", false),
-					expr.NewPrimitiveLiteral(int32(5), false),
+					expr.NewPrimitiveLiteral(int64(5), false),
 				}, false), expr.NewStructFieldRef(2), nil)),
 			)),
 		)),
@@ -76,20 +66,20 @@ func ExampleExpression_Visit() {
 
 	// Output:
 	// PreOrder:
-	// fp64(1)
-	// subtract(.field(3) => fp32, multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64) => fp32
-	// .field(3) => fp32
-	// multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64
+	// i64(1)
+	// subtract(.field(3) => i64, multiply(i64(2), [root:(struct<binary?, string, i64>([binary?([98 97 122]) string(foobar) i64(5)]))].field(2) => i64) => i64) => i64
+	// .field(3) => i64
+	// multiply(i64(2), [root:(struct<binary?, string, i64>([binary?([98 97 122]) string(foobar) i64(5)]))].field(2) => i64) => i64
 	// i64(2)
-	// [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32
-	// add(fp64(1), subtract(.field(3) => fp32, multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64) => fp32) => fp64
+	// [root:(struct<binary?, string, i64>([binary?([98 97 122]) string(foobar) i64(5)]))].field(2) => i64
+	// add(i64(1), subtract(.field(3) => i64, multiply(i64(2), [root:(struct<binary?, string, i64>([binary?([98 97 122]) string(foobar) i64(5)]))].field(2) => i64) => i64) => i64) => i64
 	//
 	// PostOrder:
-	// fp64(1)
-	// .field(3) => fp32
+	// i64(1)
+	// .field(3) => i64
 	// i64(2)
-	// [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32
-	// multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64
-	// subtract(.field(3) => fp32, multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64) => fp32
-	// add(fp64(1), subtract(.field(3) => fp32, multiply(i64(2), [root:(struct<binary?, string, i32>([binary?([98 97 122]) string(foobar) i32(5)]))].field(2) => i32) => i64) => fp32) => fp64
+	// [root:(struct<binary?, string, i64>([binary?([98 97 122]) string(foobar) i64(5)]))].field(2) => i64
+	// multiply(i64(2), [root:(struct<binary?, string, i64>([binary?([98 97 122]) string(foobar) i64(5)]))].field(2) => i64) => i64
+	// subtract(.field(3) => i64, multiply(i64(2), [root:(struct<binary?, string, i64>([binary?([98 97 122]) string(foobar) i64(5)]))].field(2) => i64) => i64) => i64
+	// add(i64(1), subtract(.field(3) => i64, multiply(i64(2), [root:(struct<binary?, string, i64>([binary?([98 97 122]) string(foobar) i64(5)]))].field(2) => i64) => i64) => i64) => i64
 }

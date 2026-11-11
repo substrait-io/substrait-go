@@ -176,11 +176,26 @@ func SortFieldFromProto(
 	case *proto.SortField_Direction:
 		sf.Kind = types.SortDirection(k.Direction)
 	case *proto.SortField_ComparisonFunctionReference:
+		if err = checkScalarFunctionReference(k.ComparisonFunctionReference, reg); err != nil {
+			return
+		}
 		sf.Kind = types.FunctionRef(k.ComparisonFunctionReference)
 	default:
 		err = substraitgo.ErrNotImplemented
 	}
 	return
+}
+
+// checkScalarFunctionReference resolves comparators that carry only an anchor.
+func checkScalarFunctionReference(anchor uint32, reg expr.ExtensionRegistry) error {
+	id, ok := reg.DecodeFunc(anchor)
+	if !ok {
+		return substraitgo.ErrNotFound
+	}
+	if _, ok := reg.LookupScalarFunction(anchor); !ok {
+		return fmt.Errorf("%w: scalar function %s not found in extension collection", substraitgo.ErrNotFound, id)
+	}
+	return nil
 }
 
 // BoundFromProto decodes a window function bound from its protobuf message.

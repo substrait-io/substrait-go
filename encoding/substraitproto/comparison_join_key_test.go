@@ -155,13 +155,16 @@ func TestJoinWritesLegacyKeysForEqualityOnly(t *testing.T) {
 func TestJoinKeysRoundTrip(t *testing.T) {
 	left, right := joinInputs()
 	reg := joinTestRegistry()
+	comparator := reg.GetFuncAnchor(extensions.FunctionID{
+		URN: "extension:io.substrait:functions_comparison", Name: "equal:any_any",
+	})
 
 	keys := []*plan.ComparisonJoinKey{
 		plan.NewEqualityJoinKey(keyRef(t, left, 0), keyRef(t, right, 2)),
 		plan.NewComparisonJoinKey(keyRef(t, left, 1), keyRef(t, right, 0),
 			plan.SimpleComparison{Type: plan.SimpleComparisonTypeIsNotDistinctFrom}),
 		plan.NewComparisonJoinKey(keyRef(t, left, 2), keyRef(t, right, 1),
-			plan.CustomComparison{FunctionReference: 42}),
+			plan.CustomComparison{FunctionReference: comparator}),
 	}
 
 	for _, tc := range []struct {
@@ -191,7 +194,7 @@ func TestJoinKeysRoundTrip(t *testing.T) {
 			require.Len(t, gotKeys, 3)
 			assert.Equal(t, plan.SimpleComparison{Type: plan.SimpleComparisonTypeEq}, gotKeys[0].Comparison())
 			assert.Equal(t, plan.SimpleComparison{Type: plan.SimpleComparisonTypeIsNotDistinctFrom}, gotKeys[1].Comparison())
-			assert.Equal(t, plan.CustomComparison{FunctionReference: 42}, gotKeys[2].Comparison())
+			assert.Equal(t, plan.CustomComparison{FunctionReference: comparator}, gotKeys[2].Comparison())
 		})
 	}
 }

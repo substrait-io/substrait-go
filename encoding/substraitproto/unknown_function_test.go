@@ -88,3 +88,23 @@ func TestFunctionDecodersRequireLoadedDefinitions(t *testing.T) {
 		})
 	}
 }
+
+func TestAggregateShortNameDecodesAsAggregateAndWindow(t *testing.T) {
+	for _, name := range []string{"bool_and", "bool_and:bool"} {
+		t.Run(name, func(t *testing.T) {
+			reg := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
+			anchor := reg.GetFuncAnchor(extensions.FunctionID{
+				URN: "extension:io.substrait:functions_boolean", Name: name,
+			})
+			body := fmt.Sprintf(`{"functionReference": %d, "outputType": {"bool": {}}, "arguments": [{"value": {"literal": {"boolean": true}}}]}`, anchor)
+			var aggregate proto.AggregateFunction
+			require.NoError(t, protojson.Unmarshal([]byte(body), &aggregate))
+			_, err := substraitproto.AggregateFunctionFromProto(&aggregate, nil, reg)
+			require.NoError(t, err)
+			var window proto.Expression
+			require.NoError(t, protojson.Unmarshal([]byte(`{"windowFunction": `+body+`}`), &window))
+			_, err = substraitproto.ExprFromProto(&window, nil, reg)
+			require.NoError(t, err)
+		})
+	}
+}

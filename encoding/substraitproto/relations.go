@@ -649,11 +649,14 @@ func virtualTableExprFromLiteralProto(s *proto.Expression_Literal_Struct) expr.V
 	return fields
 }
 
-func joinKeyComparisonFromProto(c *proto.ComparisonJoinKey_ComparisonType) (plan.JoinKeyComparison, error) {
+func joinKeyComparisonFromProto(c *proto.ComparisonJoinKey_ComparisonType, reg expr.ExtensionRegistry) (plan.JoinKeyComparison, error) {
 	switch it := c.GetInnerType().(type) {
 	case *proto.ComparisonJoinKey_ComparisonType_Simple:
 		return plan.SimpleComparison{Type: plan.SimpleComparisonType(it.Simple)}, nil
 	case *proto.ComparisonJoinKey_ComparisonType_CustomFunctionReference:
+		if err := checkScalarFunctionReference(it.CustomFunctionReference, reg); err != nil {
+			return nil, err
+		}
 		return plan.CustomComparison{FunctionReference: it.CustomFunctionReference}, nil
 	default:
 		return nil, fmt.Errorf("%w: unsupported join key comparison type %T", substraitgo.ErrInvalidRel, it)
@@ -680,7 +683,7 @@ func comparisonJoinKeysFromProto(
 			if err != nil {
 				return nil, fmt.Errorf("error getting right key %d for join: %w", i, err)
 			}
-			comparison, err := joinKeyComparisonFromProto(k.GetComparison())
+			comparison, err := joinKeyComparisonFromProto(k.GetComparison(), reg)
 			if err != nil {
 				return nil, err
 			}
