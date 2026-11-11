@@ -1,0 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
+
+go 1.23.0
+
+toolchain go1.24.4
+
+use (
+	.
+	./encoding/substraitproto
+)

@@ -7,6 +7,9 @@ on: [push, pull_request]
 permissions:
   contents: read
 
+env:
+  GOWORK: 'off'
+
 jobs:
   golangci:
     name: Code Linting (ubuntu-latest)
