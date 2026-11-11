@@ -142,15 +142,9 @@ func EvaluateTypeExpression(urn string, nullHandling NullabilityHandling, return
 		return nil, err
 	}
 
-	// If the return type expression is a ParameterizedUserDefinedType, we need to
-	// fill in the TypeReference since ParameterizedUserDefinedType.ReturnType()
-	// doesn't have access to the registry to set it itself.
-	// For other types like AnyType, the TypeReference is already correctly set.
-	if udt, ok := outType.(*types.UserDefinedType); ok {
-		if paramUDT, ok := returnTypeExpr.(*types.ParameterizedUserDefinedType); ok {
-			udt.TypeReference = registry.GetTypeAnchor(TypeID{Name: paramUDT.Name, URN: urn})
-		}
-	}
+	// ReturnType has no registry with which to bind declared UDTs, including
+	// those nested inside containers or other parameterized types.
+	bindReturnTypeReferences(urn, returnTypeExpr, outType, registry)
 
 	if nullHandling == MirrorNullability || nullHandling == "" {
 		if allNonNull {
@@ -160,6 +154,43 @@ func EvaluateTypeExpression(urn string, nullHandling NullabilityHandling, return
 	}
 
 	return outType, nil
+}
+
+// bindReturnTypeReferences walks the declaration alongside its resolved type.
+// ReturnType constructs fresh nodes for parameterized declarations, so those
+// nodes can be updated in place. AnyType results already carry their argument's
+// anchors, possibly from another extension, and must not be rebound or mutated.
+func bindReturnTypeReferences(urn string, declaration types.FuncDefArgType, resolved types.Type, registry Set) {
+	switch declaration := declaration.(type) {
+	case *types.ParameterizedUserDefinedType:
+		udt := resolved.(*types.UserDefinedType)
+		udt.TypeReference = registry.GetTypeAnchor(TypeID{Name: declaration.Name, URN: urn})
+		for i, parameter := range declaration.TypeParameters {
+			if dataType, ok := parameter.(*types.DataTypeUDTParam); ok {
+				resolvedParameter := udt.TypeParameters[i].(*types.DataTypeParameter)
+				bindReturnTypeReferences(urn, dataType.Type, resolvedParameter.Type, registry)
+			}
+		}
+	case *types.ParameterizedListType:
+		bindReturnTypeReferences(urn, declaration.Type, resolved.(*types.ListType).Type, registry)
+	case *types.ParameterizedMapType:
+		mapType := resolved.(*types.MapType)
+		bindReturnTypeReferences(urn, declaration.Key, mapType.Key, registry)
+		bindReturnTypeReferences(urn, declaration.Value, mapType.Value, registry)
+	case *types.ParameterizedStructType:
+		structType := resolved.(*types.StructType)
+		for i, field := range declaration.Types {
+			bindReturnTypeReferences(urn, field, structType.Types[i], registry)
+		}
+	case *types.ParameterizedFuncType:
+		funcType := resolved.(*types.FuncType)
+		for i, parameter := range declaration.Parameters {
+			bindReturnTypeReferences(urn, parameter, funcType.ParameterTypes[i], registry)
+		}
+		bindReturnTypeReferences(urn, declaration.Return, funcType.ReturnType, registry)
+	case *types.OutputDerivation:
+		bindReturnTypeReferences(urn, declaration.FinalType, resolved, registry)
+	}
 }
 
 func matchArguments(nullability NullabilityHandling, paramTypeList FuncParameterList, variadicBehavior *VariadicBehavior, actualTypes []types.Type) (bool, error) {
