@@ -1038,3 +1038,18 @@ func TestNewSetFromParts(t *testing.T) {
 		require.ErrorIs(t, err, substraitgo.ErrInvalidArg)
 	})
 }
+
+func TestCollectionRetainsAggregateWindowShortName(t *testing.T) {
+	collection := extensions.GetDefaultCollectionWithNoError()
+	for _, name := range []string{"bool_and", "bool_and:bool"} {
+		t.Run(name, func(t *testing.T) {
+			id := extensions.FunctionID{URN: "extension:io.substrait:functions_boolean", Name: name}
+			aggregate, ok := collection.GetAggregateFunc(id)
+			require.True(t, ok)
+			require.Equal(t, "bool_and:bool", aggregate.CompoundName())
+			window, ok := collection.GetWindowFunc(id)
+			require.True(t, ok)
+			require.Equal(t, "bool_and:bool", window.CompoundName())
+		})
+	}
+}
