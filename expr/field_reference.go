@@ -258,6 +258,24 @@ func (e *MaskExpression) Select() MaskStructSelect {
 	return slices.Clone(e.sel)
 }
 
+// ProjectRecordType applies a whole-column read projection in mask order.
+// The output remains a row, including when the mask selects one or no fields.
+// Nested masks are not supported.
+func (e *MaskExpression) ProjectRecordType(base types.RecordType) (types.RecordType, error) {
+	fields := make([]types.Type, len(e.sel))
+	for i, item := range e.sel {
+		if item.field < 0 || item.field >= base.FieldCount() {
+			return types.RecordType{}, fmt.Errorf("%w: projection field %d is outside a %d-field schema",
+				substraitgo.ErrInvalidExpr, item.field, base.FieldCount())
+		}
+		if item.child != nil {
+			return types.RecordType{}, fmt.Errorf("%w: nested read projection", substraitgo.ErrNotImplemented)
+		}
+		fields[i] = base.GetFieldRef(item.field)
+	}
+	return *types.NewRecordTypeFromTypes(fields), nil
+}
+
 type MaskSelect interface {
 }
 

@@ -589,6 +589,16 @@ func readRelBaseFromProto(rel *proto.ReadRel, reg expr.ExtensionRegistry) (decod
 
 	if rel.Projection != nil {
 		b.projection = MaskExpressionFromProto(rel.Projection)
+		projected, err := b.projection.ProjectRecordType(*types.NewRecordTypeFromStruct(b.baseSchema.Struct))
+		if err != nil {
+			return b, fmt.Errorf("read projection: %w", err)
+		}
+		for _, field := range b.common.OutputMapping() {
+			if field < 0 || field >= projected.FieldCount() {
+				return b, fmt.Errorf("%w: read emit field %d is outside the projected schema",
+					substraitgo.ErrInvalidRel, field)
+			}
+		}
 	}
 
 	b.advExtension = advancedExtensionFromProto(rel.AdvancedExtension)
