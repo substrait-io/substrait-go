@@ -650,26 +650,11 @@ func (j *JoinRel) directOutputSchema() types.RecordType {
 	case JoinTypeLeftSemi:
 		return j.left.RecordType()
 	case JoinTypeOuter:
-		typeList = j.JoinedRecordType().Types()
-		for i, t := range typeList {
-			typeList[i] = t.WithNullability(types.NullabilityNullable)
-		}
+		return nullableRecordType(j.left.RecordType()).Concat(nullableRecordType(j.right.RecordType()))
 	case JoinTypeLeft, JoinTypeLeftSingle:
-		left := j.left.RecordType()
-		right := j.right.RecordType()
-		typeList = make([]types.Type, 0, left.FieldCount()+right.FieldCount())
-		typeList = append(typeList, left.Types()...)
-		for _, r := range right.Types() {
-			typeList = append(typeList, r.WithNullability(types.NullabilityNullable))
-		}
+		return j.left.RecordType().Concat(nullableRecordType(j.right.RecordType()))
 	case JoinTypeRight, JoinTypeRightSingle:
-		left := j.left.RecordType()
-		right := j.right.RecordType()
-		typeList = make([]types.Type, 0, left.FieldCount()+right.FieldCount())
-		for _, l := range left.Types() {
-			typeList = append(typeList, l.WithNullability(types.NullabilityNullable))
-		}
-		typeList = append(typeList, right.Types()...)
+		return nullableRecordType(j.left.RecordType()).Concat(j.right.RecordType())
 	case JoinTypeLeftAnti:
 		typeList = j.left.RecordType().Types()
 	case JoinTypeRightSemi, JoinTypeRightAnti:
@@ -1565,7 +1550,10 @@ func (t HashMergeJoinType) outputSchema(left, right types.RecordType) types.Reco
 func nullableRecordType(record types.RecordType) types.RecordType {
 	fields := make([]types.Type, record.FieldCount())
 	for i, field := range record.Types() {
-		fields[i] = field.WithNullability(types.NullabilityNullable)
+		// Outer references can have unresolved types until their scope is bound.
+		if field != nil {
+			fields[i] = field.WithNullability(types.NullabilityNullable)
+		}
 	}
 	return *types.NewRecordTypeFromTypes(fields)
 }
