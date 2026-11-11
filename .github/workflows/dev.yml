@@ -14,21 +14,54 @@ jobs:
   golangci:
     name: Code Linting (ubuntu-latest)
     runs-on: ubuntu-latest
+    env:
+      GOLANGCI_LINT_VERSION: 2.1.6
+      # Update this when changing GOLANGCI_LINT_VERSION.
+      GOLANGCI_LINT_SCHEMA_SHA256: f960a2a4ee9c11bc93211a7c10b62da81b969ce86b1b2d1676a04e8462dcca6c
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
+      # Verify both configs with the pinned schema below instead of the action's single-shot fetch.
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.1.6
+          version: v${{ env.GOLANGCI_LINT_VERSION }}
+          verify: false
       # golangci-lint analyzes one module per run
       - name: golangci-lint (codec)
         uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.1.6
+          version: v${{ env.GOLANGCI_LINT_VERSION }}
+          verify: false
           working-directory: encoding/substraitproto
+      - name: Verify golangci-lint configuration
+        run: |
+          set -euo pipefail
+          schema_file="$(mktemp)"
+          trap 'rm "$schema_file"' EXIT
+
+          curl --fail --silent --show-error --location \
+            --retry 5 \
+            --retry-delay 2 \
+            --retry-max-time 60 \
+            --connect-timeout 10 \
+            --max-time 30 \
+            "https://raw.githubusercontent.com/golangci/golangci-lint/v${GOLANGCI_LINT_VERSION}/jsonschema/golangci.jsonschema.json" \
+            --output "$schema_file"
+
+          if ! printf '%s  %s\n' "$GOLANGCI_LINT_SCHEMA_SHA256" "$schema_file" | sha256sum --check --status; then
+            echo "golangci-lint schema checksum mismatch for v${GOLANGCI_LINT_VERSION}" >&2
+            exit 1
+          fi
+
+          schema_url="file://${schema_file}"
+          golangci-lint config verify --schema="$schema_url"
+          (
+            cd encoding/substraitproto
+            golangci-lint config verify --schema="$schema_url"
+          )
   proto-isolation:
     name: Proto Isolation (#280)
     runs-on: ubuntu-latest
