@@ -7,6 +7,7 @@ import (
 
 	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/expr"
+	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
@@ -176,26 +177,11 @@ func SortFieldFromProto(
 	case *proto.SortField_Direction:
 		sf.Kind = types.SortDirection(k.Direction)
 	case *proto.SortField_ComparisonFunctionReference:
-		if err = checkScalarFunctionReference(k.ComparisonFunctionReference, reg); err != nil {
-			return
-		}
 		sf.Kind = types.FunctionRef(k.ComparisonFunctionReference)
 	default:
 		err = substraitgo.ErrNotImplemented
 	}
 	return
-}
-
-// checkScalarFunctionReference resolves comparators that carry only an anchor.
-func checkScalarFunctionReference(anchor uint32, reg expr.ExtensionRegistry) error {
-	id, ok := reg.DecodeFunc(anchor)
-	if !ok {
-		return substraitgo.ErrNotFound
-	}
-	if _, ok := reg.LookupScalarFunction(anchor); !ok {
-		return fmt.Errorf("%w: scalar function %s not found in extension collection", substraitgo.ErrNotFound, id)
-	}
-	return nil
 }
 
 // BoundFromProto decodes a window function bound from its protobuf message.
@@ -248,7 +234,7 @@ func AggregateFunctionFromProto(
 	}
 	decl, ok := reg.LookupAggregateFunction(agg.FunctionReference)
 	if !ok {
-		return nil, fmt.Errorf("%w: aggregate function %s not found in extension collection", substraitgo.ErrNotFound, id)
+		return expr.NewCustomAggregateFunc(reg, extensions.NewAggFuncVariant(id), TypeFromProto(agg.OutputType), FunctionOptionsFromProto(agg.Options), types.AggregationInvocation(agg.Invocation), types.AggregationPhase(agg.Phase), sorts, args...)
 	}
 
 	return expr.NewAggregateFunctionFromParts(

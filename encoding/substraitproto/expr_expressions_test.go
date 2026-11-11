@@ -25,29 +25,31 @@ import (
 )
 
 func sampleNestedExpr(reg expr.ExtensionRegistry, substraitExtURN string) expr.Expression {
-	function := func(name string) ext.FunctionID {
-		return ext.FunctionID{URN: substraitExtURN, Name: name}
-	}
+	var (
+		add = ext.NewScalarFuncVariant(ext.FunctionID{URN: substraitExtURN, Name: "add"})
+		sub = ext.NewScalarFuncVariant(ext.FunctionID{URN: substraitExtURN, Name: "subtract"})
+		mul = ext.NewScalarFuncVariant(ext.FunctionID{URN: substraitExtURN, Name: "multiply"})
+	)
 
 	baseSchema := types.NewRecordTypeFromTypes(
 		[]types.Type{
 			&types.BooleanType{},
 			&types.Int32Type{},
-			&types.Int64Type{Nullability: types.NullabilityRequired},
-			&types.Int64Type{Nullability: types.NullabilityRequired},
+			&types.Int64Type{},
+			&types.Float32Type{},
 		})
 
 	// add(literal, sub(ref, mul(literal, ref)))
-	exp := expr.MustExpr(expr.NewScalarFunc(reg, function("add:i64_i64"), nil,
-		expr.NewPrimitiveLiteral(int64(1), false),
-		expr.MustExpr(expr.NewScalarFunc(reg, function("subtract:i64_i64"), nil,
+	exp := expr.MustExpr(expr.NewCustomScalarFunc(reg, add, &types.Float64Type{}, nil,
+		expr.NewPrimitiveLiteral(float64(1.0), false),
+		expr.MustExpr(expr.NewCustomScalarFunc(reg, sub, &types.Float32Type{}, nil,
 			expr.MustExpr(expr.NewRootFieldRef(expr.NewStructFieldRef(3), baseSchema)),
-			expr.MustExpr(expr.NewScalarFunc(reg, function("multiply:i64_i64"), nil,
+			expr.MustExpr(expr.NewCustomScalarFunc(reg, mul, &types.Int64Type{}, nil,
 				expr.NewPrimitiveLiteral(int64(2), false),
 				expr.MustExpr(expr.NewFieldRef(expr.NewNestedLiteral(expr.StructLiteralValue{
 					expr.NewByteSliceLiteral([]byte("baz"), true),
 					expr.NewPrimitiveLiteral("foobar", false),
-					expr.NewPrimitiveLiteral(int64(5), false),
+					expr.NewPrimitiveLiteral(int32(5), false),
 				}, false), expr.NewStructFieldRef(2), nil)),
 			)),
 		)),
@@ -71,14 +73,14 @@ func TestExpressionsRoundtrip(t *testing.T) {
 				"extensionFunction": {
 					"extensionUrnReference": 1,
 					"functionAnchor": 2,
-					"name": "add:i64_i64"
+					"name": "add:fp64_fp64"
 				}
 			},
 			{
 				"extensionFunction": {
 					"extensionUrnReference": 1,
 					"functionAnchor": 3,
-					"name": "subtract:i64_i64"
+					"name": "subtract:fp32_fp32"
 				}
 			},
 			{

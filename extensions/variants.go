@@ -4,10 +4,12 @@ package extensions
 
 import (
 	"fmt"
+	"strings"
 
 	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/types"
 	"github.com/substrait-io/substrait-go/v9/types/integer_parameters"
+	"github.com/substrait-io/substrait-go/v9/types/parser"
 )
 
 type FunctionVariant interface {
@@ -274,6 +276,24 @@ func getFuncDefFromArgList(paramTypeList FuncParameterList) ([]types.FuncDefArgT
 	return out, nil
 }
 
+func parseFuncName(compoundName string) (name string, args FuncParameterList) {
+	name, argsStr, _ := strings.Cut(compoundName, ":")
+	if len(argsStr) == 0 {
+		return name, nil
+	}
+	splitArgs := strings.Split(argsStr, "_")
+	for _, argStr := range splitArgs {
+		parsed, err := parser.ParseType(argStr)
+		if err != nil {
+			panic(err)
+		}
+		exp := ValueArg{Name: name, Value: &parser.TypeExpression{ValueType: parsed}}
+		args = append(args, exp)
+	}
+
+	return name, args
+}
+
 func minArgumentCount(paramTypeList FuncParameterList, variadicBehavior *VariadicBehavior) int {
 	if variadicBehavior == nil {
 		return len(paramTypeList)
@@ -286,6 +306,38 @@ func maxArgumentCount(paramTypeList FuncParameterList, variadicBehavior *Variadi
 		return len(paramTypeList)
 	}
 	return len(paramTypeList) + variadicBehavior.Max
+}
+
+// NewScalarFuncVariant constructs a variant with the provided name and urn
+// and uses the defaults for everything else.
+//
+// Return expressions aren't included here as using this variant to construct
+// an expression requires an output type argument. This is for creating an
+// on-the-fly function variant that will not be registered as an extension.
+func NewScalarFuncVariant(id FunctionID) *ScalarFunctionVariant {
+	simpleName, args := parseFuncName(id.Name)
+	return &ScalarFunctionVariant{
+		name: simpleName,
+		urn:  id.URN,
+		impl: ScalarFunctionImpl{Args: args},
+	}
+}
+
+// NewScalarFuncVariantWithProps is the same as NewScalarFuncVariant but allows
+// setting the values for the SessionDependant, Variadic Behavior and Deterministic
+// properties.
+func NewScalarFuncVariantWithProps(id FunctionID, variadic *VariadicBehavior, sessionDependant, deterministic bool) *ScalarFunctionVariant {
+	simpleName, args := parseFuncName(id.Name)
+	return &ScalarFunctionVariant{
+		name: simpleName,
+		urn:  id.URN,
+		impl: ScalarFunctionImpl{
+			Args:             args,
+			Variadic:         variadic,
+			SessionDependent: sessionDependant,
+			Deterministic:    deterministic,
+		},
+	}
 }
 
 type ScalarFunctionVariant struct {
@@ -339,6 +391,76 @@ func (s *ScalarFunctionVariant) MinArgumentCount() int {
 
 func (s *ScalarFunctionVariant) MaxArgumentCount() int {
 	return maxArgumentCount(s.impl.Args, s.impl.Variadic)
+}
+
+// NewAggFuncVariant constructs a variant with the provided name and urn
+// and uses the defaults for everything else.
+//
+// Return expressions aren't included here as using this variant to construct
+// an expression requires an output type argument. This is for creating an
+// on-the-fly function variant that will not be registered as an extension.
+func NewAggFuncVariant(id FunctionID) *AggregateFunctionVariant {
+	simpleName, args := parseFuncName(id.Name)
+	return &AggregateFunctionVariant{
+		name: simpleName,
+		urn:  id.URN,
+		impl: AggregateFunctionImpl{
+			ScalarFunctionImpl: ScalarFunctionImpl{
+				Args: args,
+			},
+			Decomposable: DecomposeNone,
+		},
+	}
+}
+
+type AggVariantOptions struct {
+	Variadic         *VariadicBehavior
+	SessionDependant bool
+	Deterministic    bool
+	Ordered          bool
+	// value of 0 == unlimited
+	MaxSet       uint
+	Decomposable DecomposeType
+	// should be a type expression
+	// must not be empty if decomposable is not DecomposeNone
+	IntermediateOutputType string
+}
+
+func NewAggFuncVariantOpts(id FunctionID, opts AggVariantOptions) *AggregateFunctionVariant {
+	var aggIntermediate parser.TypeExpression
+	if opts.Decomposable == "" {
+		opts.Decomposable = DecomposeNone
+	}
+	if opts.Decomposable != DecomposeNone {
+		if opts.IntermediateOutputType == "" {
+			panic(fmt.Errorf("%w: custom Aggregate function variant %s. must provide Intermediate output type",
+				substraitgo.ErrInvalidExpr, id))
+		}
+
+		intermediate, err := parser.ParseType(opts.IntermediateOutputType)
+		if err != nil {
+			panic(err)
+		}
+		aggIntermediate.ValueType = intermediate
+	}
+
+	simpleName, args := parseFuncName(id.Name)
+	return &AggregateFunctionVariant{
+		name: simpleName,
+		urn:  id.URN,
+		impl: AggregateFunctionImpl{
+			ScalarFunctionImpl: ScalarFunctionImpl{
+				Args:             args,
+				Variadic:         opts.Variadic,
+				SessionDependent: opts.SessionDependant,
+				Deterministic:    opts.Deterministic,
+			},
+			Ordered:      opts.Ordered,
+			MaxSet:       int(opts.MaxSet),
+			Decomposable: opts.Decomposable,
+			Intermediate: aggIntermediate,
+		},
+	}
 }
 
 type AggregateFunctionVariant struct {
@@ -407,6 +529,78 @@ type WindowFunctionVariant struct {
 	urn         string
 	impl        WindowFunctionImpl
 	metadata    map[string]any
+}
+
+func NewWindowFuncVariant(id FunctionID) *WindowFunctionVariant {
+	simpleName, args := parseFuncName(id.Name)
+	return &WindowFunctionVariant{
+		name: simpleName,
+		urn:  id.URN,
+		impl: WindowFunctionImpl{
+			AggregateFunctionImpl: AggregateFunctionImpl{
+				ScalarFunctionImpl: ScalarFunctionImpl{Args: args},
+				Decomposable:       DecomposeNone,
+			},
+			WindowType: PartitionWindow,
+		},
+	}
+}
+
+type WindowVariantOpts struct {
+	Variadic         *VariadicBehavior
+	SessionDependant bool
+	Deterministic    bool
+	Ordered          bool
+	// value of 0 == unlimited
+	MaxSet       uint
+	Decomposable DecomposeType
+	// should be a type expression
+	// must not be empty if decomposable is not DecomposeNone
+	IntermediateOutputType string
+	WindowType             WindowType
+}
+
+func NewWindowFuncVariantOpts(id FunctionID, opts WindowVariantOpts) *WindowFunctionVariant {
+	var aggIntermediate parser.TypeExpression
+	if opts.Decomposable == "" {
+		opts.Decomposable = DecomposeNone
+	}
+	if opts.WindowType == "" {
+		opts.WindowType = PartitionWindow
+	}
+	if opts.Decomposable != DecomposeNone {
+		if opts.IntermediateOutputType == "" {
+			panic(fmt.Errorf("%w: custom Aggregate function variant %s. must provide Intermediate output type",
+				substraitgo.ErrInvalidExpr, id))
+		}
+
+		intermediate, err := parser.ParseType(opts.IntermediateOutputType)
+		if err != nil {
+			panic(err)
+		}
+		aggIntermediate.ValueType = intermediate
+	}
+
+	simpleName, args := parseFuncName(id.Name)
+	return &WindowFunctionVariant{
+		name: simpleName,
+		urn:  id.URN,
+		impl: WindowFunctionImpl{
+			AggregateFunctionImpl: AggregateFunctionImpl{
+				ScalarFunctionImpl: ScalarFunctionImpl{
+					Args:             args,
+					Variadic:         opts.Variadic,
+					SessionDependent: opts.SessionDependant,
+					Deterministic:    opts.Deterministic,
+				},
+				Ordered:      opts.Ordered,
+				MaxSet:       int(opts.MaxSet),
+				Decomposable: opts.Decomposable,
+				Intermediate: aggIntermediate,
+			},
+			WindowType: opts.WindowType,
+		},
+	}
 }
 
 func (s *WindowFunctionVariant) Name() string                     { return s.name }
