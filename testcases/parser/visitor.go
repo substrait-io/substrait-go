@@ -97,14 +97,21 @@ func (v *TestCaseVisitor) VisitInclude(ctx *baseparser.IncludeContext) interface
 }
 
 func (v *TestCaseVisitor) VisitScalarFuncTestGroup(ctx *baseparser.ScalarFuncTestGroupContext) interface{} {
-	groupDesc := v.Visit(ctx.TestGroupDescription()).(string)
+	groupDesc := ""
+	if ctx.TestGroupDescription() != nil {
+		groupDesc = v.Visit(ctx.TestGroupDescription()).(string)
+	}
 	groupTestCases := make([]*TestCase, 0, len(ctx.AllTestCase()))
 	if v.testFuncType != ScalarFuncType {
 		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("expected %v testcase based on test file header, but got scalar function testcase", v.testFuncType))
 		return groupTestCases
 	}
 	for _, tc := range ctx.AllTestCase() {
-		testcase := v.Visit(tc).(*TestCase)
+		result := v.Visit(tc)
+		if v.ErrorListener.ErrorCount() > 0 {
+			return groupTestCases
+		}
+		testcase := result.(*TestCase)
 		testcase.GroupDesc = groupDesc
 		testcase.FuncType = ScalarFuncType
 		groupTestCases = append(groupTestCases, testcase)
@@ -113,14 +120,21 @@ func (v *TestCaseVisitor) VisitScalarFuncTestGroup(ctx *baseparser.ScalarFuncTes
 }
 
 func (v *TestCaseVisitor) VisitAggregateFuncTestGroup(ctx *baseparser.AggregateFuncTestGroupContext) interface{} {
-	groupDesc := v.Visit(ctx.TestGroupDescription()).(string)
+	groupDesc := ""
+	if ctx.TestGroupDescription() != nil {
+		groupDesc = v.Visit(ctx.TestGroupDescription()).(string)
+	}
 	groupTestCases := make([]*TestCase, 0, len(ctx.AllAggFuncTestCase()))
 	if v.testFuncType != AggregateFuncType {
 		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("expected %v testcase based on test file header, but got aggregate function testcase", v.testFuncType))
 		return groupTestCases
 	}
 	for _, tc := range ctx.AllAggFuncTestCase() {
-		testcase := v.Visit(tc).(*TestCase)
+		result := v.Visit(tc)
+		if v.ErrorListener.ErrorCount() > 0 {
+			return groupTestCases
+		}
+		testcase := result.(*TestCase)
 		testcase.GroupDesc = groupDesc
 		testcase.FuncType = AggregateFuncType
 		groupTestCases = append(groupTestCases, testcase)
@@ -129,8 +143,16 @@ func (v *TestCaseVisitor) VisitAggregateFuncTestGroup(ctx *baseparser.AggregateF
 }
 
 func (v *TestCaseVisitor) VisitAggFuncTestCase(ctx *baseparser.AggFuncTestCaseContext) interface{} {
-	testcase := v.Visit(ctx.AggFuncCall()).(*TestCase)
-	testcase.Result = v.Visit(ctx.Result()).(TestCaseResult)
+	call := v.Visit(ctx.AggFuncCall())
+	if v.ErrorListener.ErrorCount() > 0 {
+		return nil
+	}
+	result := v.Visit(ctx.Result())
+	if v.ErrorListener.ErrorCount() > 0 {
+		return nil
+	}
+	testcase := call.(*TestCase)
+	testcase.Result = result.(TestCaseResult)
 	if ctx.FuncOptions() != nil {
 		testcase.Options = v.Visit(ctx.FuncOptions()).(FuncOptions)
 	}
@@ -138,7 +160,11 @@ func (v *TestCaseVisitor) VisitAggFuncTestCase(ctx *baseparser.AggFuncTestCaseCo
 }
 
 func (v *TestCaseVisitor) VisitSingleArgAggregateFuncCall(ctx *baseparser.SingleArgAggregateFuncCallContext) interface{} {
-	arg := v.Visit(ctx.DataColumn()).(*CaseLiteral)
+	column := v.Visit(ctx.DataColumn())
+	if v.ErrorListener.ErrorCount() > 0 {
+		return nil
+	}
+	arg := column.(*CaseLiteral)
 	return &TestCase{
 		FuncName:      ctx.Identifier().GetText(),
 		AggregateArgs: []*AggregateArgument{{Argument: arg, ColumnType: arg.Type}},
@@ -150,6 +176,9 @@ func (v *TestCaseVisitor) VisitCompactAggregateFuncCall(ctx *baseparser.CompactA
 	var args []*AggregateArgument
 	if ctx.AggregateFuncArgs() != nil {
 		args = v.Visit(ctx.AggregateFuncArgs()).([]*AggregateArgument)
+	}
+	if v.ErrorListener.ErrorCount() > 0 {
+		return nil
 	}
 
 	numberOfColumns := int32(len(rows[0]))
@@ -173,10 +202,17 @@ func (v *TestCaseVisitor) VisitCompactAggregateFuncCall(ctx *baseparser.CompactA
 }
 
 func (v *TestCaseVisitor) VisitMultiArgAggregateFuncCall(ctx *baseparser.MultiArgAggregateFuncCallContext) interface{} {
-	testcase := v.Visit(ctx.TableData()).(*TestCase)
+	table := v.Visit(ctx.TableData())
+	if v.ErrorListener.ErrorCount() > 0 {
+		return nil
+	}
+	testcase := table.(*TestCase)
 	var args []*AggregateArgument
 	if ctx.QualifiedAggregateFuncArgs() != nil {
 		args = v.Visit(ctx.QualifiedAggregateFuncArgs()).([]*AggregateArgument)
+	}
+	if v.ErrorListener.ErrorCount() > 0 {
+		return nil
 	}
 	testcase.FuncName = ctx.Identifier().GetText()
 	testcase.AggregateArgs = args
@@ -197,15 +233,23 @@ func (v *TestCaseVisitor) VisitMultiArgAggregateFuncCall(ctx *baseparser.MultiAr
 func (v *TestCaseVisitor) VisitQualifiedAggregateFuncArgs(ctx *baseparser.QualifiedAggregateFuncArgsContext) interface{} {
 	args := make([]*AggregateArgument, 0, len(ctx.AllQualifiedAggregateFuncArg()))
 	for _, arg := range ctx.AllQualifiedAggregateFuncArg() {
-		args = append(args, v.Visit(arg).(*AggregateArgument))
+		result := v.Visit(arg)
+		if v.ErrorListener.ErrorCount() > 0 {
+			return args
+		}
+		args = append(args, result.(*AggregateArgument))
 	}
 	return args
 }
 
 func (v *TestCaseVisitor) VisitQualifiedAggregateFuncArg(ctx *baseparser.QualifiedAggregateFuncArgContext) interface{} {
 	if ctx.Argument() != nil {
+		argument := v.Visit(ctx.Argument())
+		if v.ErrorListener.ErrorCount() > 0 {
+			return nil
+		}
 		return &AggregateArgument{
-			Argument: v.Visit(ctx.Argument()).(*CaseLiteral),
+			Argument: argument.(*CaseLiteral),
 			IsScalar: true,
 		}
 	}
@@ -220,7 +264,11 @@ func (v *TestCaseVisitor) VisitTableData(ctx *baseparser.TableDataContext) inter
 	columnTypes := make([]types.Type, 0, len(ctx.AllDataType()))
 	rows := v.Visit(ctx.TableRows()).([][]expr.Literal)
 	for _, dataType := range ctx.AllDataType() {
-		columnType := v.Visit(dataType).(types.Type)
+		result := v.Visit(dataType)
+		if v.ErrorListener.ErrorCount() > 0 {
+			return nil
+		}
+		columnType := result.(types.Type)
 		columnTypes = append(columnTypes, columnType)
 	}
 	columns, newColumnTypes := v.getColumnsFromRows(ctx, rows, columnTypes)
@@ -252,7 +300,11 @@ func (v *TestCaseVisitor) getColumnsFromRows(ctx antlr.ParserRuleContext, rows [
 }
 
 func (v *TestCaseVisitor) VisitDataColumn(ctx *baseparser.DataColumnContext) interface{} {
-	columnType := v.Visit(ctx.DataType()).(types.Type)
+	dataType := v.Visit(ctx.DataType())
+	if v.ErrorListener.ErrorCount() > 0 {
+		return nil
+	}
+	columnType := dataType.(types.Type)
 	v.setLiteralTypeInContext(columnType)
 	defer v.clearLiteralTypeInContext()
 	columnValues := v.Visit(ctx.ColumnValues()).([]expr.Literal)
@@ -302,19 +354,31 @@ func (v *TestCaseVisitor) VisitColumnValues(ctx *baseparser.ColumnValuesContext)
 func (v *TestCaseVisitor) VisitAggregateFuncArgs(ctx *baseparser.AggregateFuncArgsContext) interface{} {
 	args := make([]*AggregateArgument, 0, len(ctx.AllAggregateFuncArg()))
 	for _, arg := range ctx.AllAggregateFuncArg() {
-		args = append(args, v.Visit(arg).(*AggregateArgument))
+		result := v.Visit(arg)
+		if v.ErrorListener.ErrorCount() > 0 {
+			return args
+		}
+		args = append(args, result.(*AggregateArgument))
 	}
 	return args
 }
 
 func (v *TestCaseVisitor) VisitAggregateFuncArg(ctx *baseparser.AggregateFuncArgContext) interface{} {
 	if ctx.Argument() != nil {
+		argument := v.Visit(ctx.Argument())
+		if v.ErrorListener.ErrorCount() > 0 {
+			return nil
+		}
 		return &AggregateArgument{
-			Argument: v.Visit(ctx.Argument()).(*CaseLiteral),
+			Argument: argument.(*CaseLiteral),
 			IsScalar: true,
 		}
 	}
-	argType := v.Visit(ctx.DataType()).(types.Type)
+	dataType := v.Visit(ctx.DataType())
+	if v.ErrorListener.ErrorCount() > 0 {
+		return nil
+	}
+	argType := dataType.(types.Type)
 	arg, err := newAggregateArgument("", ctx.ColumnName().GetText(), argType)
 	if err != nil {
 		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid aggregate func arg %v", err))
@@ -344,11 +408,19 @@ func (v *TestCaseVisitor) VisitTestCase(ctx *baseparser.TestCaseContext) interfa
 	if ctx.FuncOptions() != nil {
 		options = v.Visit(ctx.FuncOptions()).(FuncOptions)
 	}
+	args := v.Visit(ctx.Arguments()).([]*CaseLiteral)
+	if v.ErrorListener.ErrorCount() > 0 {
+		return nil
+	}
+	result := v.Visit(ctx.Result())
+	if v.ErrorListener.ErrorCount() > 0 {
+		return nil
+	}
 
 	return &TestCase{
 		FuncName: ctx.Identifier().GetText(),
-		Args:     v.Visit(ctx.Arguments()).([]*CaseLiteral),
-		Result:   v.Visit(ctx.Result()).(TestCaseResult),
+		Args:     args,
+		Result:   result.(TestCaseResult),
 		Options:  options,
 	}
 }
@@ -356,7 +428,11 @@ func (v *TestCaseVisitor) VisitTestCase(ctx *baseparser.TestCaseContext) interfa
 func (v *TestCaseVisitor) VisitArguments(ctx *baseparser.ArgumentsContext) interface{} {
 	args := make([]*CaseLiteral, 0, len(ctx.AllArgument()))
 	for _, argument := range ctx.AllArgument() {
-		testArg := v.Visit(argument).(*CaseLiteral)
+		testArg, ok := v.Visit(argument).(*CaseLiteral)
+		if !ok {
+			// the argument visitor has already reported the error
+			return args
+		}
 		if err := testArg.updateLiteralType(); err != nil {
 			v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid argument %v", err))
 		}
@@ -441,7 +517,11 @@ func (v *TestCaseVisitor) VisitArgument(ctx *baseparser.ArgumentContext) interfa
 }
 
 func (v *TestCaseVisitor) VisitNullArg(ctx *baseparser.NullArgContext) interface{} {
-	dataType := v.Visit(ctx.DataType()).(types.Type)
+	dataType, ok := v.Visit(ctx.DataType()).(types.Type)
+	if !ok {
+		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("unsupported null argument type: %v", ctx.DataType().GetText()))
+		return nil
+	}
 	v.validateNullLiteralType(ctx, dataType)
 	return &CaseLiteral{Value: expr.NewNullLiteral(dataType), ValueText: ctx.NullLiteral().GetText(), Type: dataType}
 }
@@ -729,7 +809,11 @@ func (v *TestCaseVisitor) VisitPrecisionTimestampTZArg(ctx *baseparser.Precision
 }
 
 func (v *TestCaseVisitor) VisitListArg(ctx *baseparser.ListArgContext) interface{} {
-	listType := v.Visit(ctx.ListType()).(*types.ListType)
+	dataType := v.Visit(ctx.ListType())
+	if v.ErrorListener.ErrorCount() > 0 {
+		return nil
+	}
+	listType := dataType.(*types.ListType)
 	v.setLiteralTypeInContext(listType.Type)
 	defer v.clearLiteralTypeInContext()
 
@@ -896,7 +980,11 @@ func (v *TestCaseVisitor) VisitResult(ctx *baseparser.ResultContext) interface{}
 	if ctx.SubstraitError() != nil {
 		return v.Visit(ctx.SubstraitError())
 	}
-	result := v.Visit(ctx.Argument()).(*CaseLiteral)
+	argument := v.Visit(ctx.Argument())
+	if v.ErrorListener.ErrorCount() > 0 {
+		return nil
+	}
+	result := argument.(*CaseLiteral)
 	if err := result.updateLiteralType(); err != nil {
 		v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid result: %v", err))
 	}
@@ -989,7 +1077,11 @@ func (v *TestCaseVisitor) VisitUuid(ctx *baseparser.UuidContext) interface{} {
 }
 
 func (v *TestCaseVisitor) VisitList(ctx *baseparser.ListContext) interface{} {
-	elementType := v.Visit(ctx.GetElemType()).(types.Type)
+	dataType := v.Visit(ctx.GetElemType())
+	if v.ErrorListener.ErrorCount() > 0 {
+		return nil
+	}
+	elementType := dataType.(types.Type)
 	return &types.ListType{Type: elementType, Nullability: getNullability(ctx)}
 }
 
@@ -1001,6 +1093,22 @@ func (v *TestCaseVisitor) VisitDataType(ctx *baseparser.DataTypeContext) interfa
 		return v.Visit(ctx.ParameterizedType())
 	}
 	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("invalid data type %v", ctx.GetText()))
+	return nil
+}
+
+// VisitUserDefined handles the `u!<identifier>[?]` scalar form that shows
+// up in parser inputs like `null::u!geometry?`. The base visitor returns
+// VisitChildren here (nil), which caused VisitNullArg to try to use nil as
+// a types.Type and panic with
+// "interface conversion: interface {} is nil, not string".
+//
+// The testcases/parser layer has no extension registry, so the identifier
+// cannot be resolved to a TypeReference. Rather than emit an unresolved
+// placeholder type (which would leave every user-defined type at anchor 0
+// and indistinguishable), report a visit error so the input fails as a
+// clean parse error.
+func (v *TestCaseVisitor) VisitUserDefined(ctx *baseparser.UserDefinedContext) interface{} {
+	v.ErrorListener.ReportVisitError(ctx, fmt.Errorf("user-defined type %q is not supported in test case parsing", ctx.GetText()))
 	return nil
 }
 
