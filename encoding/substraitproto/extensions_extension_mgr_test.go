@@ -120,6 +120,34 @@ func TestToProtoPopulatesURN(t *testing.T) {
 	assert.EqualValues(t, 1, decls[0].GetExtensionFunction().ExtensionUrnReference)
 }
 
+func TestToProtoSortsDeclarationsByAnchor(t *testing.T) {
+	const urn = "extension:test:sample"
+	extSet, err := extensions.NewSetFromParts(
+		map[uint32]string{1: urn},
+		map[uint32]extensions.TypeID{1: {URN: urn, Name: "point"}},
+		map[uint32]extensions.TypeVariationID{
+			3: {URN: urn, Name: "u16"},
+			2: {URN: urn, Name: "u8"},
+		},
+		map[uint32]extensions.FunctionID{
+			6: {URN: urn, Name: "subtract:i8_i8"},
+			5: {URN: urn, Name: "multiply:i8_i8"},
+			4: {URN: urn, Name: "add:i8_i8"},
+		},
+	)
+	require.NoError(t, err)
+
+	_, decls := substraitproto.ExtensionSetToProto(extSet)
+
+	require.Len(t, decls, 6)
+	assert.EqualValues(t, 1, decls[0].GetExtensionType().GetTypeAnchor())
+	assert.EqualValues(t, 2, decls[1].GetExtensionTypeVariation().GetTypeVariationAnchor())
+	assert.EqualValues(t, 3, decls[2].GetExtensionTypeVariation().GetTypeVariationAnchor())
+	assert.EqualValues(t, 4, decls[3].GetExtensionFunction().GetFunctionAnchor())
+	assert.EqualValues(t, 5, decls[4].GetExtensionFunction().GetFunctionAnchor())
+	assert.EqualValues(t, 6, decls[5].GetExtensionFunction().GetFunctionAnchor())
+}
+
 func TestResolveRefToURNAllConditions(t *testing.T) {
 	c := &extensions.Collection{}
 	err := c.Load(strings.NewReader(extMgrSampleYAML))
