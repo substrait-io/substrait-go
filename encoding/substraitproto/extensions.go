@@ -103,7 +103,7 @@ func ExtensionSetToProto(s extensions.Set) ([]*extensionspb.SimpleExtensionURN, 
 
 	typeDecls := decls[typesCount:]
 	sort.Slice(typeDecls, func(i, j int) bool {
-		return decls[i].GetExtensionTypeVariation().TypeVariationAnchor < decls[j].GetExtensionTypeVariation().TypeVariationAnchor
+		return typeDecls[i].GetExtensionTypeVariation().TypeVariationAnchor < typeDecls[j].GetExtensionTypeVariation().TypeVariationAnchor
 	})
 
 	typeVarCount := len(decls)
@@ -121,7 +121,7 @@ func ExtensionSetToProto(s extensions.Set) ([]*extensionspb.SimpleExtensionURN, 
 
 	typeVarDecls := decls[typeVarCount:]
 	sort.Slice(typeVarDecls, func(i, j int) bool {
-		return decls[i].GetExtensionFunction().GetFunctionAnchor() < decls[j].GetExtensionFunction().GetFunctionAnchor()
+		return typeVarDecls[i].GetExtensionFunction().GetFunctionAnchor() < typeVarDecls[j].GetExtensionFunction().GetFunctionAnchor()
 	})
 
 	return urns, decls
