@@ -60,3 +60,30 @@ func TestMarkJoinPreservesInputStorage(t *testing.T) {
 		})
 	}
 }
+
+func TestOuterJoinPreservesUnresolvedTypesBeforeEmit(t *testing.T) {
+	requiredInt := &types.Int64Type{Nullability: types.NullabilityRequired}
+	nullableInt := &types.Int64Type{Nullability: types.NullabilityNullable}
+	requiredString := &types.StringType{Nullability: types.NullabilityRequired}
+	nullableString := &types.StringType{Nullability: types.NullabilityNullable}
+	left := &fakeRel{outputType: *types.NewRecordTypeFromTypes([]types.Type{nil, requiredInt})}
+	right := &fakeRel{outputType: *types.NewRecordTypeFromTypes([]types.Type{requiredString, nil})}
+	cases := []struct {
+		kind JoinType
+		want []types.Type
+	}{
+		{JoinTypeLeft, []types.Type{nil, requiredInt, nullableString, nil}},
+		{JoinTypeRight, []types.Type{nil, nullableInt, requiredString, nil}},
+		{JoinTypeOuter, []types.Type{nil, nullableInt, nullableString, nil}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.kind.String(), func(t *testing.T) {
+			join := NewJoinRel(left, right, tc.kind, expr.NewPrimitiveLiteral(true, false), nil,
+				NewRelCommon(nil, []int32{3, 1}, nil), nil)
+			assert.Equal(t, tc.want, join.DirectOutputSchema().Types())
+			assert.Equal(t, []types.Type{nil, tc.want[1]}, join.RecordType().Types())
+			assert.Equal(t, []types.Type{nil, requiredInt}, left.RecordType().Types())
+			assert.Equal(t, []types.Type{requiredString, nil}, right.RecordType().Types())
+		})
+	}
+}
