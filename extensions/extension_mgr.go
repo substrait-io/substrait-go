@@ -193,7 +193,8 @@ func addToMaps[T variants](id FunctionID, fn extFn[T], m map[FunctionID]T, simpl
 		v := variants[0]
 		// Registering an aggregate as a window repeats the same compound name.
 		if compound, ok := simpleMap[v.Name()]; ok && compound != v.CompoundName() {
-			delete(simpleMap, v.Name())
+			// Keep the conflict so later registrations cannot restore the alias.
+			simpleMap[v.Name()] = ""
 		} else {
 			simpleMap[v.Name()] = v.CompoundName()
 		}
@@ -329,6 +330,9 @@ func (c *Collection) Load(r io.Reader) error {
 
 	// add simple name aliases
 	for k, v := range simpleNames {
+		if v == "" {
+			continue
+		}
 		id.Name = k
 		c.simpleNameMap[id] = v
 	}

@@ -1053,3 +1053,43 @@ func TestCollectionRetainsAggregateWindowShortName(t *testing.T) {
 		})
 	}
 }
+
+func TestCollectionDoesNotRestoreConflictedWindowAlias(t *testing.T) {
+	const urn = "extension:test:conflicted_alias"
+	const definitions = `
+urn: extension:test:conflicted_alias
+scalar_functions:
+  - name: f
+    impls:
+      - args:
+          - value: i64
+        return: i64
+aggregate_functions:
+  - name: f
+    impls:
+      - args:
+          - value: i64
+        return: i64
+        decomposable: NONE
+window_functions:
+  - name: f
+    impls:
+      - args:
+          - value: fp64
+        return: fp64
+        decomposable: NONE
+        window_type: PARTITION
+`
+
+	var collection extensions.Collection
+	require.NoError(t, collection.Load(strings.NewReader(definitions)))
+
+	window, ok := collection.GetWindowFunc(extensions.FunctionID{URN: urn, Name: "f"})
+	assert.False(t, ok)
+	assert.Nil(t, window)
+	for _, name := range []string{"f:i64", "f:fp64"} {
+		window, ok := collection.GetWindowFunc(extensions.FunctionID{URN: urn, Name: name})
+		require.True(t, ok)
+		require.Equal(t, name, window.CompoundName())
+	}
+}
