@@ -8,6 +8,7 @@ import (
 	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // VersionToProto encodes a version as its protobuf message.
@@ -224,7 +225,7 @@ func userDefinedTypeToProto(t *types.UserDefinedType) *proto.Type {
 func TypeParamToProto(p types.TypeParam) *proto.Type_Parameter {
 	switch p := p.(type) {
 	case types.NullParameter:
-		return &proto.Type_Parameter{Parameter: &proto.Type_Parameter_Null{}}
+		return &proto.Type_Parameter{Parameter: &proto.Type_Parameter_Null{Null: &emptypb.Empty{}}}
 	case *types.DataTypeParameter:
 		return &proto.Type_Parameter{Parameter: &proto.Type_Parameter_DataType{
 			DataType: TypeToProto(p.Type)}}

@@ -371,6 +371,9 @@ func LiteralFromProto(l *proto.Expression_Literal) (expr.Literal, error) {
 				Nullability:      nullability,
 			}}, nil
 	case *proto.Expression_Literal_I8:
+		if lit.I8 < -128 || lit.I8 > 127 {
+			return nil, fmt.Errorf("%w: i8 literal value %d is out of range", substraitgo.ErrInvalidExpr, lit.I8)
+		}
 		return &expr.PrimitiveLiteral[int8]{
 			Value: int8(lit.I8),
 			Type: &types.Int8Type{
@@ -378,6 +381,9 @@ func LiteralFromProto(l *proto.Expression_Literal) (expr.Literal, error) {
 				Nullability:      nullability,
 			}}, nil
 	case *proto.Expression_Literal_I16:
+		if lit.I16 < -32768 || lit.I16 > 32767 {
+			return nil, fmt.Errorf("%w: i16 literal value %d is out of range", substraitgo.ErrInvalidExpr, lit.I16)
+		}
 		return &expr.PrimitiveLiteral[int16]{
 			Value: int16(lit.I16),
 			Type: &types.Int16Type{
