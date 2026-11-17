@@ -38,7 +38,11 @@ func TestIntervalCompoundTypeDecodeEncode(t *testing.T) {
 		},
 	}}
 
-	decoded := TypeFromProto(original)
+	decoded, err := TypeFromProto(original)
+
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, ok := decoded.(types.IntervalCompoundType); !ok {
 		t.Fatalf("expected an IntervalCompoundType value, got %T", decoded)
 	}

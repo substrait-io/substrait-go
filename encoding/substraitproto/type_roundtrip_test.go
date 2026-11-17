@@ -60,7 +60,10 @@ func TestTypeRoundtrip(t *testing.T) {
 			for _, tt := range tests {
 				t.Run(tt.String(), func(t *testing.T) {
 					converted := substraitproto.TypeToProto(tt)
-					convertedType := substraitproto.TypeFromProto(converted)
+					convertedType, err := substraitproto.TypeFromProto(converted)
+					if err != nil {
+						t.Fatal(err)
+					}
 					assert.True(t, tt.Equals(convertedType))
 				})
 			}

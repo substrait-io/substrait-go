@@ -76,7 +76,11 @@ func TestUserDefinedLiteralRoundTrip(t *testing.T) {
 	protoLiteral := substraitproto.LiteralToProto(pointLiteral)
 	require.NotNil(t, protoLiteral)
 
-	roundTripPointLiteral := substraitproto.LiteralFromProto(protoLiteral)
+	roundTripPointLiteral, err := substraitproto.LiteralFromProto(protoLiteral)
+
+	if err != nil {
+		t.Fatal(err)
+	}
 	require.NotNil(t, roundTripPointLiteral)
 	require.Equal(t, pointLiteral, roundTripPointLiteral)
 }
@@ -131,7 +135,11 @@ func TestUserDefinedLiteralWithAnyRepresentation(t *testing.T) {
 	protoLiteral := substraitproto.LiteralToProto(pointLiteral)
 	require.NotNil(t, protoLiteral)
 
-	roundTrip := substraitproto.LiteralFromProto(protoLiteral)
+	roundTrip, err := substraitproto.LiteralFromProto(protoLiteral)
+
+	if err != nil {
+		t.Fatal(err)
+	}
 	require.NotNil(t, roundTrip)
 	require.Equal(t, pointLiteral, roundTrip)
 }
@@ -161,7 +169,11 @@ func TestUserDefinedLiteralWithStructRepresentation(t *testing.T) {
 	protoLiteral := substraitproto.LiteralToProto(pointLiteral)
 	require.NotNil(t, protoLiteral)
 
-	roundTrip := substraitproto.LiteralFromProto(protoLiteral)
+	roundTrip, err := substraitproto.LiteralFromProto(protoLiteral)
+
+	if err != nil {
+		t.Fatal(err)
+	}
 	require.NotNil(t, roundTrip)
 	require.Equal(t, pointLiteral, roundTrip)
 }
@@ -192,7 +204,11 @@ func TestNestedUserDefinedLiteralWithAnyRepresentation(t *testing.T) {
 	protoLiteral := substraitproto.LiteralToProto(triangleLiteral)
 	require.NotNil(t, protoLiteral)
 
-	roundTrip := substraitproto.LiteralFromProto(protoLiteral)
+	roundTrip, err := substraitproto.LiteralFromProto(protoLiteral)
+
+	if err != nil {
+		t.Fatal(err)
+	}
 	require.NotNil(t, roundTrip)
 	require.Equal(t, triangleLiteral, roundTrip)
 }
@@ -254,7 +270,11 @@ func TestNestedUserDefinedLiteralWithStructRepresentation(t *testing.T) {
 	protoExpression := substraitproto.LiteralToProto(triangle)
 	require.NotNil(t, protoExpression)
 
-	result := substraitproto.LiteralFromProto(protoExpression)
+	result, err := substraitproto.LiteralFromProto(protoExpression)
+
+	if err != nil {
+		t.Fatal(err)
+	}
 	require.Equal(t, triangle, result)
 }
 
@@ -299,7 +319,11 @@ func TestMixedRepresentationNestedUserDefinedLiteral(t *testing.T) {
 	protoExpression := substraitproto.LiteralToProto(triangle)
 	require.NotNil(t, protoExpression)
 
-	result := substraitproto.LiteralFromProto(protoExpression)
+	result, err := substraitproto.LiteralFromProto(protoExpression)
+
+	if err != nil {
+		t.Fatal(err)
+	}
 	require.Equal(t, triangle, result)
 }
 
@@ -314,7 +338,10 @@ func TestUserDefinedLiteralNilStructDecodes(t *testing.T) {
 			},
 		},
 	}
-	require.NotPanics(t, func() { substraitproto.LiteralFromProto(protoLit) })
+	require.NotPanics(t, func() {
+		_, err := substraitproto.LiteralFromProto(protoLit)
+		require.NoError(t, err)
+	})
 }
 
 // TestUserDefinedLiteralPointerValueRoundtrip verifies that a pointer value
@@ -377,7 +404,11 @@ func TestParameterizedVectorUDTRoundtrip(t *testing.T) {
 	protoExpression := substraitproto.LiteralToProto(vectorI32)
 	require.NotNil(t, protoExpression)
 
-	result := substraitproto.LiteralFromProto(protoExpression)
+	result, err := substraitproto.LiteralFromProto(protoExpression)
+
+	if err != nil {
+		t.Fatal(err)
+	}
 	require.Equal(t, vectorI32, result)
 
 	// Verify type parameters are preserved
