@@ -37,6 +37,7 @@
               }
             },
             "op":"WRITE_OP_INSERT",
+            "output": "OUTPUT_MODE_NO_OUTPUT",
             "input":{
               "project":{
                 "common": {

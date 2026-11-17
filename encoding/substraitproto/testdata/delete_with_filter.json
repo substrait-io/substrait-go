@@ -53,6 +53,7 @@
               }
             },
             "op":"WRITE_OP_DELETE",
+            "output": "OUTPUT_MODE_NO_OUTPUT",
             "input":{
               "filter":{
                 "common":{
