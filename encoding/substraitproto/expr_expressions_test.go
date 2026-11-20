@@ -260,7 +260,10 @@ func TestRoundTripUsingTestData(t *testing.T) {
 	raw, err := json.Marshal(tmp["baseSchema"])
 	require.NoError(t, err)
 	require.NoError(t, protojson.Unmarshal(raw, &protoSchema))
-	baseSchema := substraitproto.NamedStructFromProto(&protoSchema)
+	baseSchema, err := substraitproto.NamedStructFromProto(&protoSchema)
+	if err != nil {
+		t.Fatal(err)
+	}
 	reg := expr.NewExtensionRegistry(extSet, collection)
 	for _, tc := range tmp["cases"].([]any) {
 		tt := tc.(map[string]any)

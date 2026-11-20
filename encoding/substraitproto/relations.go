@@ -571,8 +571,11 @@ func readRelBaseFromProto(rel *proto.ReadRel, reg expr.ExtensionRegistry) (decod
 		b.common = relCommonFromProto(rel.Common)
 	}
 
-	b.baseSchema = NamedStructFromProto(rel.BaseSchema)
 	var err error
+	b.baseSchema, err = NamedStructFromProto(rel.BaseSchema)
+	if err != nil {
+		return b, fmt.Errorf("read schema: %w", err)
+	}
 	if rel.Filter != nil {
 		b.filter, err = ExprFromProto(rel.Filter, types.NewRecordTypeFromStruct(b.baseSchema.Struct), reg)
 		if err != nil {
@@ -650,12 +653,19 @@ func virtualTableExpressionFromProto(s *proto.Expression_Nested_Struct, reg expr
 }
 
 // virtualTableExprFromLiteralProto decodes a literal-valued virtual table row.
-func virtualTableExprFromLiteralProto(s *proto.Expression_Literal_Struct) expr.VirtualTableExpressionValue {
+func virtualTableExprFromLiteralProto(s *proto.Expression_Literal_Struct) (expr.VirtualTableExpressionValue, error) {
+	if s == nil {
+		return nil, fmt.Errorf("%w: virtual table literal row is nil", substraitgo.ErrInvalidExpr)
+	}
 	fields := make(expr.VirtualTableExpressionValue, len(s.Fields))
 	for i, f := range s.Fields {
-		fields[i] = LiteralFromProto(f)
+		field, err := LiteralFromProto(f)
+		if err != nil {
+			return nil, fmt.Errorf("virtual table field %d: %w", i, err)
+		}
+		fields[i] = field
 	}
-	return fields
+	return fields, nil
 }
 
 func joinKeyComparisonFromProto(c *proto.ComparisonJoinKey_ComparisonType) (plan.JoinKeyComparison, error) {
@@ -767,7 +777,11 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 			}
 			var values []expr.VirtualTableExpressionValue
 			for _, v := range readType.VirtualTable.Values {
-				values = append(values, virtualTableExprFromLiteralProto(v))
+				row, err := virtualTableExprFromLiteralProto(v)
+				if err != nil {
+					return nil, fmt.Errorf("virtual table row: %w", err)
+				}
+				values = append(values, row)
 			}
 			for _, v := range readType.VirtualTable.Expressions {
 				row, err := virtualTableExpressionFromProto(v, reg)
@@ -1114,7 +1128,10 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 		if err != nil {
 			return nil, fmt.Errorf("error getting input to WriteRel: %w", err)
 		}
-		tableSchema := NamedStructFromProto(rel.Write.TableSchema)
+		tableSchema, err := NamedStructFromProto(rel.Write.TableSchema)
+		if err != nil {
+			return nil, fmt.Errorf("write schema: %w", err)
+		}
 
 		var common plan.RelCommon
 		if rel.Write.Common != nil {

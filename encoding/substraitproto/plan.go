@@ -166,9 +166,16 @@ func PlanFromProtoWithDecoder(p *proto.Plan, c *extensions.Collection, decoders 
 	if len(p.ParameterBindings) > 0 {
 		parameterBindings = make([]plan.DynamicParameterBinding, len(p.ParameterBindings))
 		for i, pb := range p.ParameterBindings {
+			if pb == nil {
+				return nil, fmt.Errorf("%w: parameter binding %d is nil", substraitgo.ErrInvalidPlan, i)
+			}
+			value, err := LiteralFromProto(pb.Value)
+			if err != nil {
+				return nil, fmt.Errorf("parameter binding %d: %w", i, err)
+			}
 			parameterBindings[i] = plan.DynamicParameterBinding{
 				ParameterAnchor: pb.ParameterAnchor,
-				Value:           LiteralFromProto(pb.Value),
+				Value:           value,
 			}
 		}
 	}

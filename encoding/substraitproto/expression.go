@@ -279,7 +279,7 @@ func FuncArgFromProto(e *proto.FunctionArgument, baseSchema *types.RecordType, r
 	case *proto.FunctionArgument_Enum:
 		return types.Enum(et.Enum), nil
 	case *proto.FunctionArgument_Type:
-		return TypeFromProto(et.Type), nil
+		return TypeFromProto(et.Type)
 	case *proto.FunctionArgument_Value:
 		return ExprFromProto(et.Value, baseSchema, reg)
 	}
@@ -294,7 +294,7 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 
 	switch et := e.RexType.(type) {
 	case *proto.Expression_Literal_:
-		return LiteralFromProto(et.Literal), nil
+		return LiteralFromProto(et.Literal)
 	case *proto.Expression_Selection:
 		return FieldReferenceFromProto(et.Selection, baseSchema, reg)
 	case *proto.Expression_ScalarFunction_:
@@ -310,6 +310,10 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 			return nil, fmt.Errorf("%w: scalar function missing output type", substraitgo.ErrInvalidExpr)
 		}
 
+		outputType, err := TypeFromProto(et.ScalarFunction.OutputType)
+		if err != nil {
+			return nil, fmt.Errorf("scalar function output type: %w", err)
+		}
 		id, ok := reg.DecodeFunc(et.ScalarFunction.FunctionReference)
 		if !ok {
 			return nil, substraitgo.ErrNotFound
@@ -317,7 +321,7 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 
 		decl, ok := reg.LookupScalarFunction(et.ScalarFunction.FunctionReference)
 		if !ok {
-			return expr.NewCustomScalarFunc(reg, extensions.NewScalarFuncVariant(id), TypeFromProto(et.ScalarFunction.OutputType), FunctionOptionsFromProto(et.ScalarFunction.Options), args...)
+			return expr.NewCustomScalarFunc(reg, extensions.NewScalarFuncVariant(id), outputType, FunctionOptionsFromProto(et.ScalarFunction.Options), args...)
 		}
 
 		return expr.NewScalarFunctionFromParts(
@@ -325,7 +329,7 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 			decl,
 			args,
 			FunctionOptionsFromProto(et.ScalarFunction.Options),
-			TypeFromProto(et.ScalarFunction.OutputType),
+			outputType,
 		), nil
 	case *proto.Expression_WindowFunction_:
 		var err error
@@ -354,13 +358,17 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 			return nil, fmt.Errorf("%w: window function missing output type", substraitgo.ErrInvalidExpr)
 		}
 
+		outputType, err := TypeFromProto(et.WindowFunction.OutputType)
+		if err != nil {
+			return nil, fmt.Errorf("window function output type: %w", err)
+		}
 		id, ok := reg.DecodeFunc(et.WindowFunction.FunctionReference)
 		if !ok {
 			return nil, substraitgo.ErrNotFound
 		}
 		decl, ok := reg.LookupWindowFunction(et.WindowFunction.FunctionReference)
 		if !ok {
-			fn, err := expr.NewCustomWindowFunc(reg, extensions.NewWindowFuncVariant(id), TypeFromProto(et.WindowFunction.OutputType),
+			fn, err := expr.NewCustomWindowFunc(reg, extensions.NewWindowFuncVariant(id), outputType,
 				FunctionOptionsFromProto(et.WindowFunction.Options), types.AggregationInvocation(et.WindowFunction.Invocation), types.AggregationPhase(et.WindowFunction.Phase), args...)
 			if err != nil {
 				return nil, err
@@ -379,7 +387,7 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 			decl,
 			args,
 			FunctionOptionsFromProto(et.WindowFunction.Options),
-			TypeFromProto(et.WindowFunction.OutputType),
+			outputType,
 			types.AggregationPhase(et.WindowFunction.Phase),
 			types.AggregationInvocation(et.WindowFunction.Invocation),
 			sorts,
@@ -402,8 +410,12 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 			return nil, err
 		}
 
+		outputType, err := TypeFromProto(et.Cast.Type)
+		if err != nil {
+			return nil, fmt.Errorf("cast type: %w", err)
+		}
 		return &expr.Cast{
-			Type:            TypeFromProto(et.Cast.Type),
+			Type:            outputType,
 			Input:           input,
 			FailureBehavior: types.CastFailBehavior(et.Cast.FailureBehavior),
 		}, nil
@@ -411,8 +423,12 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 		if et.DynamicParameter == nil {
 			return nil, fmt.Errorf("%w: dynamic parameter is nil", substraitgo.ErrInvalidExpr)
 		}
+		outputType, err := TypeFromProto(et.DynamicParameter.Type)
+		if err != nil {
+			return nil, fmt.Errorf("dynamic parameter type: %w", err)
+		}
 		return &expr.DynamicParameter{
-			OutputType:         TypeFromProto(et.DynamicParameter.Type),
+			OutputType:         outputType,
 			ParameterReference: et.DynamicParameter.ParameterReference,
 		}, nil
 	case *proto.Expression_IfThen_:
@@ -451,7 +467,10 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 			Then expr.Expression
 		}, len(et.SwitchExpression.Ifs))
 		for i, clause := range et.SwitchExpression.Ifs {
-			ifs[i].If = LiteralFromProto(clause.If)
+			ifs[i].If, err = LiteralFromProto(clause.If)
+			if err != nil {
+				return nil, fmt.Errorf("switch clause %d: %w", i, err)
+			}
 			ifs[i].Then, err = ExprFromProto(clause.Then, baseSchema, reg)
 			if err != nil {
 				return nil, err
@@ -578,7 +597,11 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 
 		paramTypes := make([]types.Type, len(et.Lambda.Parameters.Types))
 		for i, pt := range et.Lambda.Parameters.Types {
-			paramTypes[i] = TypeFromProto(pt)
+			paramType, err := TypeFromProto(pt)
+			if err != nil {
+				return nil, fmt.Errorf("lambda parameter %d: %w", i, err)
+			}
+			paramTypes[i] = paramType
 		}
 		params := &types.StructType{
 			Types:            paramTypes,
@@ -607,8 +630,11 @@ func ExtendedFromProto(ex *proto.ExtendedExpression, c *extensions.Collection) (
 	if err != nil {
 		return nil, err
 	}
+	base, err := NamedStructFromProto(ex.BaseSchema)
+	if err != nil {
+		return nil, fmt.Errorf("extended expression schema: %w", err)
+	}
 	var (
-		base = NamedStructFromProto(ex.BaseSchema)
 		reg  = expr.NewExtensionRegistry(extSet, c)
 		refs = make([]expr.ExpressionReference, len(ex.ReferredExpr))
 	)

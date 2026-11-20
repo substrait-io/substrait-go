@@ -5,6 +5,7 @@ package substraitproto
 import (
 	"fmt"
 
+	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
@@ -225,30 +226,38 @@ func fieldReferenceRefToProto(f *expr.FieldReference) *proto.Expression_FieldRef
 }
 
 // RefSegmentFromProto decodes a reference segment from its protobuf message.
-func RefSegmentFromProto(p *proto.Expression_ReferenceSegment) expr.ReferenceSegment {
+func RefSegmentFromProto(p *proto.Expression_ReferenceSegment) (expr.ReferenceSegment, error) {
 	if p == nil {
-		return nil
+		return nil, nil
 	}
-
+	if err := requireProtoOneof(p.ProtoReflect(), "reference_type"); err != nil {
+		return nil, fmt.Errorf("%w: reference segment: %v", substraitgo.ErrInvalidExpr, err)
+	}
 	switch seg := p.ReferenceType.(type) {
 	case *proto.Expression_ReferenceSegment_MapKey_:
-		return &expr.MapKeyRef{
-			MapKey: LiteralFromProto(seg.MapKey.MapKey),
-			Child:  RefSegmentFromProto(seg.MapKey.Child),
+		key, err := LiteralFromProto(seg.MapKey.MapKey)
+		if err != nil {
+			return nil, fmt.Errorf("map reference key: %w", err)
 		}
+		child, err := RefSegmentFromProto(seg.MapKey.Child)
+		if err != nil {
+			return nil, err
+		}
+		return &expr.MapKeyRef{MapKey: key, Child: child}, nil
 	case *proto.Expression_ReferenceSegment_StructField_:
-		return &expr.StructFieldRef{
-			Field: seg.StructField.Field,
-			Child: RefSegmentFromProto(seg.StructField.Child),
+		child, err := RefSegmentFromProto(seg.StructField.Child)
+		if err != nil {
+			return nil, err
 		}
+		return &expr.StructFieldRef{Field: seg.StructField.Field, Child: child}, nil
 	case *proto.Expression_ReferenceSegment_ListElement_:
-		return &expr.ListElementRef{
-			Offset: seg.ListElement.Offset,
-			Child:  RefSegmentFromProto(seg.ListElement.Child),
+		child, err := RefSegmentFromProto(seg.ListElement.Child)
+		if err != nil {
+			return nil, err
 		}
+		return &expr.ListElementRef{Offset: seg.ListElement.Offset, Child: child}, nil
 	}
-
-	return nil
+	return nil, fmt.Errorf("%w: reference segment %T", substraitgo.ErrNotImplemented, p.ReferenceType)
 }
 
 // MaskExpressionFromProto decodes a mask expression from its protobuf message.
@@ -331,7 +340,13 @@ func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema *typ
 
 	switch rt := p.ReferenceType.(type) {
 	case *proto.Expression_FieldReference_DirectReference:
-		refseg := RefSegmentFromProto(rt.DirectReference)
+		refseg, err := RefSegmentFromProto(rt.DirectReference)
+		if err != nil {
+			return nil, err
+		}
+		if refseg == nil {
+			return nil, fmt.Errorf("%w: direct reference is missing its segment", substraitgo.ErrInvalidExpr)
+		}
 		if root == expr.RootReference && baseSchema != nil {
 			baseType := baseSchema.AsStructType()
 			knownType, err = refseg.GetType(baseType)

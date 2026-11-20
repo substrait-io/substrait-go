@@ -4,13 +4,15 @@ package substraitproto
 
 import (
 	"errors"
+	"fmt"
 
+	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
-func intervalCompoundLiteralFromProto(l *proto.Expression_Literal) expr.Literal {
+func intervalCompoundLiteralFromProto(l *proto.Expression_Literal) (expr.Literal, error) {
 	icLiteral := expr.IntervalCompoundLiteral{Nullability: nullabilityFromBool(l.Nullable)}
 	yearToMonth := l.GetIntervalCompound().GetIntervalYearToMonth()
 	if yearToMonth != nil {
@@ -20,29 +22,28 @@ func intervalCompoundLiteralFromProto(l *proto.Expression_Literal) expr.Literal 
 	dayToSecond := l.GetIntervalCompound().GetIntervalDayToSecond()
 	if dayToSecond == nil {
 		// no day to second part
-		return icLiteral
+		return icLiteral, nil
 	}
 	err := validateIntervalDayToSecondProto(dayToSecond)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("%w: interval compound literal: %w", substraitgo.ErrInvalidExpr, err)
 	}
 
 	// get subSecond/precision value from proto. To get value it takes care of deprecated microseconds
 	precision, subSeconds, err := intervalCompoundPrecisionSubSecondsFromProto(dayToSecond)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("%w: interval compound literal: %w", substraitgo.ErrInvalidExpr, err)
 	}
 	icLiteral.Days = dayToSecond.Days
 	icLiteral.Seconds = dayToSecond.Seconds
 	icLiteral.SubSeconds = subSeconds
 	icLiteral.SubSecondPrecision = precision
-	return icLiteral
+	return icLiteral, nil
 }
 
 func validateIntervalDayToSecondProto(idts *proto.Expression_Literal_IntervalDayToSecond) error {
-	if idts.PrecisionMode == nil {
-		// error, precision mode must be set for intervalCompound
-		return errors.New("missing precision mode for interval compound")
+	if err := requireProtoOneof(idts.ProtoReflect(), "precision_mode"); err != nil {
+		return err
 	}
 	if _, ok := idts.PrecisionMode.(*proto.Expression_Literal_IntervalDayToSecond_Microseconds); ok {
 		// if microsecond precision then subseconds must be set to zero
