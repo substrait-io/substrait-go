@@ -338,6 +338,35 @@ func TestVariantWithVariadic(t *testing.T) {
 	}
 }
 
+func TestEvaluateTypeExpressionEmptyVariadicParameters(t *testing.T) {
+	for _, tt := range []struct {
+		name, variadicType, returnType, expectedError string
+	}{
+		{"concrete", "i32", "decimal<P,S>", ""},
+		{"already_bound", "decimal<P,S>", "decimal<P,S>", ""},
+		{"unbound_output", "decimal<Q,T>", "decimal<Q,T>", "parameter Q is not defined"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			fixed, err := parser.ParseType("decimal<P,S>")
+			require.NoError(t, err)
+			variadic, err := parser.ParseType(tt.variadicType)
+			require.NoError(t, err)
+			output, err := parser.ParseType(tt.returnType)
+			require.NoError(t, err)
+			input := &types.DecimalType{Precision: 12, Scale: 2, Nullability: types.NullabilityRequired}
+			got, err := extensions.EvaluateTypeExpression("extension:test:variadic", extensions.DeclaredOutputNullability,
+				output, extensions.FuncParameterList{valArg(fixed), valArg(variadic)},
+				&extensions.VariadicBehavior{Min: 0}, []types.Type{input}, extensions.NewSet())
+			if tt.expectedError != "" {
+				require.EqualError(t, err, tt.expectedError)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, input, got)
+		})
+	}
+}
+
 func TestHasSyncParams(t *testing.T) {
 
 	apt_P := integer_parameters.NewVariableIntParam("P")
