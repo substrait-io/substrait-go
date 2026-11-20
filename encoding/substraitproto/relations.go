@@ -989,7 +989,17 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 		primary := inputs[0].RecordType()
 		for i, in := range inputs[1:] {
 			t := in.RecordType()
-			if !t.Equals(&primary) {
+			matches := t.FieldCount() == primary.FieldCount()
+			if matches {
+				for column, field := range primary.Types() {
+					if !field.WithNullability(types.NullabilityUnspecified).Equals(
+						t.Types()[column].WithNullability(types.NullabilityUnspecified)) {
+						matches = false
+						break
+					}
+				}
+			}
+			if !matches {
 				return nil, fmt.Errorf("%w: set operation field mismatch found in input #%d, expected %s, got %s",
 					substraitgo.ErrInvalidRel, i+1, &primary, &t)
 			}

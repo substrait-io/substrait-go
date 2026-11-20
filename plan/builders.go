@@ -586,7 +586,7 @@ func (b *builder) Set(op SetOp, inputs ...Rel) (*SetRel, error) {
 
 	for _, in := range inputs[1:] {
 		t := in.RecordType()
-		if !output.Equals(&t) {
+		if !setRecordTypesMatch(output, t) {
 			return nil, fmt.Errorf("%w: mismatched column types in set relation, %s vs %s",
 				substraitgo.ErrInvalidRel, &output, &t)
 		}
