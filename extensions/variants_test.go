@@ -530,7 +530,8 @@ func TestResolveType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// set up type registry
-			returnType, _ := parser.ParseType(tt.returnType)
+			returnType, err := parser.ParseType(tt.returnType)
+			require.NoError(t, err)
 			registry := extensions.NewSet()
 			var expectedRef uint32
 			if tt.expectedUDT {
@@ -539,7 +540,7 @@ func TestResolveType(t *testing.T) {
 
 			// call EvaluateTypeExpression to convert a FuncDefArgType to a Type
 			result, err := extensions.EvaluateTypeExpression(
-				"test://urn",
+				"extension:org:item",
 				extensions.MirrorNullability,
 				returnType,
 				extensions.FuncParameterList{},
@@ -554,11 +555,7 @@ func TestResolveType(t *testing.T) {
 				udResult, ok := result.(*types.UserDefinedType)
 				require.True(t, ok, "Expected UserDefinedType")
 
-				if udResult != nil {
-					name := strings.TrimPrefix(returnType.ShortString(), "u!")
-					udResult.TypeReference = registry.GetTypeAnchor(extensions.TypeID{Name: name, URN: "extension:org:item"})
-					assert.Equal(t, expectedRef, udResult.TypeReference)
-				}
+				assert.Equal(t, expectedRef, udResult.TypeReference)
 			} else {
 				// otherwise, just check that the string matches
 				assert.Equal(t, tt.returnType, result.String())
