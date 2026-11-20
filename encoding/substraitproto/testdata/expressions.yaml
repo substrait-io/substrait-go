@@ -50,7 +50,7 @@ cases:
     __test:
       type: i32?
       string: |
-        ntile(.field(1) => i8; sort: [{expr: <IfThen>((.field(0) => i32) ?.field(1) => i8)<Else>(i32(1)), SORT_DIRECTION_CLUSTERED}]; [options: {DECOMPOSABLE => [NONE]}]; partitions: [.field(2) => i16]; bounds: [UNBOUNDED, CURRENT ROW]; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_ALL) => i32?
+        ntile(.field(1) => i8; sort: [{expr: <IfThen>((boolean(true)) ?.field(1) => i8)<Else>(i8(1)), SORT_DIRECTION_CLUSTERED}]; [options: {DECOMPOSABLE => [NONE]}]; partitions: [.field(2) => i16]; bounds: [UNBOUNDED, CURRENT ROW]; phase: AGGREGATION_PHASE_INITIAL_TO_RESULT, invocation: AGGREGATION_INVOCATION_ALL) => i32?
     expression:
       windowFunction:
         functionReference: 5
@@ -71,15 +71,13 @@ cases:
               ifThen:
                 ifs:
                   - if:
-                      selection:
-                        rootReference: {}
-                        directReference: { structField: { field: 0 } }
+                      literal: { boolean: true }
                     then:
                       selection:
                         rootReference: {}
                         directReference: { structField: { field: 1 } }
                 else:
-                  literal: { i32: 1, nullable: false }
+                  literal: { i8: 1, nullable: false }
         lowerBound: { unbounded: {} }
         upperBound: { currentRow: {} }
         partitions:
@@ -92,9 +90,7 @@ cases:
       ifThen:
         ifs:
           - if:
-              selection:
-                rootReference: {}
-                directReference: { structField: { field: 0 } }
+              literal: { boolean: true }
             then:
               selection:
                 rootReference: {}
