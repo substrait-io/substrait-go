@@ -166,7 +166,13 @@ func matchArguments(nullability NullabilityHandling, paramTypeList FuncParameter
 	if variadicBehavior == nil && len(actualTypes) != len(paramTypeList) {
 		return false, nil
 	} else if variadicBehavior != nil {
+		if len(paramTypeList) == 0 {
+			return false, nil
+		}
 		numNonVariadicArgs := len(paramTypeList) - 1
+		if len(actualTypes) < numNonVariadicArgs {
+			return false, nil
+		}
 		if !validateVariadicBehaviorForMatch(variadicBehavior, actualTypes[numNonVariadicArgs:]) {
 			return false, nil
 		}

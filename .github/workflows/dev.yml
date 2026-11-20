@@ -76,11 +76,13 @@ jobs:
         run: go build ./...
         working-directory: encoding/substraitproto
       - name: Run codec Tests
-        if: runner.os != 'Linux'
         run: go test -v ./...
         working-directory: encoding/substraitproto
       - name: Run codec Tests with Coverage
         if: runner.os == 'Linux'
+        # Coverage must refer to this checkout, not the released core's line numbers.
+        env:
+          GOWORK: ${{ github.workspace }}/go.work
         run: go test -v -coverpkg=github.com/substrait-io/substrait-go/v9/...,github.com/substrait-io/substrait-go/encoding/substraitproto/... -coverprofile=codec-coverage.out ./...
         working-directory: encoding/substraitproto
       - name: Upload coverage to Codecov
