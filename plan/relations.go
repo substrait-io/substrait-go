@@ -1302,7 +1302,6 @@ func NewSetRel(inputs []Rel, op SetOp, common RelCommon, advExtension *extension
 	return &SetRel{RelCommon: common, inputs: inputs, op: op, advExtension: advExtension}
 }
 
-func (s *SetRel) directOutputSchema() types.RecordType { return s.inputs[0].RecordType() }
 func (s *SetRel) RecordType() types.RecordType {
 	return s.remap(s.directOutputSchema())
 }
