@@ -497,6 +497,7 @@ func namedTableWriteRelToProto(wr *plan.NamedTableWriteRel) *proto.Rel {
 				},
 				TableSchema: NamedStructToProto(wr.TableSchema()),
 				Op:          proto.WriteRel_WriteOp(wr.Op()),
+				Output:      proto.WriteRel_OutputMode(wr.OutputMode()),
 				Input:       RelToProto(wr.Input()),
 			},
 		},
