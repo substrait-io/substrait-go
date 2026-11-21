@@ -10,7 +10,7 @@ require (
 	github.com/goccy/go-yaml v1.17.1
 	github.com/google/go-cmp v0.7.0
 	github.com/stretchr/testify v1.10.0
-	github.com/substrait-io/substrait-go/v9 v9.0.0-alpha.2
+	github.com/substrait-io/substrait-go/v9 v9.0.0
 	github.com/substrait-io/substrait-protobuf/go v0.85.0
 	google.golang.org/protobuf v1.36.6
 )
@@ -28,6 +28,3 @@ require (
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-// core is developed in the same repo and unreleased; resolve it locally.
-replace github.com/substrait-io/substrait-go/v9 => ../../

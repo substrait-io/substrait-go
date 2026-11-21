@@ -11,9 +11,6 @@ import (
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
-// mapSelectAll matches expr.MapSelectAll, which the released core dependency does not yet define.
-const mapSelectAll expr.MapSelectKind = expr.MapSelectExpr + 1
-
 // RefSegmentToProto encodes a reference segment as its protobuf message.
 func RefSegmentToProto(r expr.ReferenceSegment) *proto.Expression_ReferenceSegment {
 	switch r := r.(type) {
@@ -93,7 +90,6 @@ func maskSelectToProto(s expr.MaskSelect) *proto.Expression_MaskExpression_Selec
 	if s == nil {
 		return nil
 	}
-
 	switch s := s.(type) {
 	case expr.MaskStructSelect:
 		return &proto.Expression_MaskExpression_Select{
@@ -300,7 +296,6 @@ func maskSelectFromProto(p *proto.Expression_MaskExpression_Select) (expr.MaskSe
 	if p == nil {
 		return nil, nil
 	}
-
 	switch s := p.Type.(type) {
 	case *proto.Expression_MaskExpression_Select_Struct:
 		if s == nil || s.Struct == nil {
@@ -348,7 +343,7 @@ func maskSelectFromProto(p *proto.Expression_MaskExpression_Select) (expr.MaskSe
 			}
 			return expr.NewMaskMapSelect(expr.MapSelectKey, sk.Key.MapKey, child), nil
 		case nil:
-			return expr.NewMaskMapSelect(mapSelectAll, "", child), nil
+			return expr.NewMaskMapSelect(expr.MapSelectAll, "", child), nil
 		default:
 			return nil, fmt.Errorf("%w: unsupported mask map selection %T", substraitgo.ErrInvalidExpr, sk)
 		}

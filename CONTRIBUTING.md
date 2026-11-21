@@ -33,12 +33,12 @@ message structure, with an optional scope naming the affected package — for
 example `fix(expr): initialize MapLiteral KeyValue entries before use`. Append `!`
 after the type or scope for a breaking change (`refactor(extensions)!: …`).
 
-Releases are cut by
-[`go-semantic-release`](https://github.com/Nightapes/go-semantic-release), which
-derives the next version and the release notes from these commit messages, so the
-type and the `!` marker directly determine what gets released. Pull requests are
-squash-merged, so please ensure that your PR title and initial comment together
-form a valid commit message.
+[Release Please](https://github.com/googleapis/release-please) uses these commit
+messages to prepare separate release PRs for core and `encoding/substraitproto`.
+Each module is versioned independently based on the changes that affect it. Pull
+requests are squash-merged, so please ensure that your PR title and initial
+comment together form a valid commit message. See
+[the release process](RELEASING.md) for preparation and publication.
 
 ## Building and testing
 
@@ -48,7 +48,30 @@ go test ./...
 ```
 
 CI builds and tests on Linux, Windows and macOS, and reports coverage from the
-Linux job to Codecov.
+Linux job to Codecov. It sets `GOWORK=off` so each module is checked against its
+declared dependencies rather than a local workspace.
+
+### Cross-module development
+
+The committed `go.work` lets you develop core and `encoding/substraitproto`
+together without any setup. From the repository root, run:
+
+```sh
+go build ./... ./encoding/substraitproto/...
+go test ./... ./encoding/substraitproto/...
+```
+
+The workspace uses core from the checkout without changing the encoding module's
+published dependency requirement. To test the encoding module against its
+declared core version, run:
+
+```sh
+(cd encoding/substraitproto && GOWORK=off go test ./...)
+```
+
+If the encoding module needs a new core API, publish the core version and update
+its requirement in `encoding/substraitproto/go.mod` before merging the dependent
+encoding change.
 
 ## Linting
 
