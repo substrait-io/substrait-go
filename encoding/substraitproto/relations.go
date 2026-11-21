@@ -588,7 +588,10 @@ func readRelBaseFromProto(rel *proto.ReadRel, reg expr.ExtensionRegistry) (decod
 	}
 
 	if rel.Projection != nil {
-		b.projection = MaskExpressionFromProto(rel.Projection)
+		b.projection, err = maskExpressionFromProto(rel.Projection)
+		if err != nil {
+			return b, fmt.Errorf("error getting projection for ReadRel: %w", err)
+		}
 		schema, err := plan.ProjectReadSchema(b.baseSchema.Struct, b.projection.Select())
 		if err != nil {
 			return b, err
