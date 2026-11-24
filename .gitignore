@@ -21,7 +21,3 @@
 .env
 
 .idea
-/types/parser/baseparser/*.interp
-/types/parser/baseparser/*.tokens
-/testcases/parser/baseparser/*.interp
-/testcases/parser/baseparser/*.tokens

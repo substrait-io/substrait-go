@@ -4,7 +4,7 @@ package substraitproto
 
 import (
 	"github.com/substrait-io/substrait-go/v9/expr"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
+	proto "github.com/substrait-io/substrait-packaging/go/substrait-protobuf/substraitpb"
 )
 
 func lambdaToProto(l *expr.Lambda) *proto.Expression {

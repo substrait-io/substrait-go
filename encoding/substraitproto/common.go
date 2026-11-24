@@ -4,7 +4,7 @@ package substraitproto
 
 import (
 	"github.com/substrait-io/substrait-go/v9/plan"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
+	proto "github.com/substrait-io/substrait-packaging/go/substrait-protobuf/substraitpb"
 )
 
 func relCommonToProto(rc *plan.RelCommon) *proto.RelCommon {

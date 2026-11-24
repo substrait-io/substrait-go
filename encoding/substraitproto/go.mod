@@ -11,8 +11,16 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/stretchr/testify v1.10.0
 	github.com/substrait-io/substrait-go/v9 v9.0.0
-	github.com/substrait-io/substrait-protobuf/go v0.85.0
+	github.com/substrait-io/substrait-packaging/go/substrait-protobuf v0.0.0-00010101000000-000000000000
 	google.golang.org/protobuf v1.36.6
+)
+
+// DO NOT MERGE: the go/substrait-* pre-release branches only exist on the
+// vbarua/substrait-packaging fork, so point the canonical module paths at it.
+replace (
+	github.com/substrait-io/substrait-packaging/go/substrait-antlr => github.com/vbarua/substrait-packaging/go/substrait-antlr v0.0.0-20261124184703-e1fabd7846db
+	github.com/substrait-io/substrait-packaging/go/substrait-extensions => github.com/vbarua/substrait-packaging/go/substrait-extensions v0.0.0-20261124184638-88b3a4ff5851
+	github.com/substrait-io/substrait-packaging/go/substrait-protobuf => github.com/vbarua/substrait-packaging/go/substrait-protobuf v0.0.0-20261124184706-c9daca29e656
 )
 
 require (

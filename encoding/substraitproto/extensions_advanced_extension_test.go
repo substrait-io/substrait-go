@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/v9/extensions"
-	extensionspb "github.com/substrait-io/substrait-protobuf/go/substraitpb/extensions"
+	extensionspb "github.com/substrait-io/substrait-packaging/go/substrait-protobuf/substraitpb/extensions"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
