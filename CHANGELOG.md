@@ -1,5 +1,12 @@
 # Changelog
 
+## [9.0.2](https://github.com/substrait-io/substrait-go/compare/v9.0.1...v9.0.2) (2026-11-24)
+
+
+### Bug Fixes
+
+* **release:** keep codec breaking changes below 1.0 ([#398](https://github.com/substrait-io/substrait-go/issues/398)) ([8128497](https://github.com/substrait-io/substrait-go/commit/81284971646a74e1669f7c5abb50cd746035488c))
+
 ## [9.0.1](https://github.com/substrait-io/substrait-go/compare/v9.0.0...v9.0.1) (2026-11-03)
 
 
