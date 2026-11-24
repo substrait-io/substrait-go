@@ -34,6 +34,7 @@
               }
             },
             "op": "WRITE_OP_CTAS",
+            "output": "OUTPUT_MODE_MODIFIED_RECORDS",
             "input": {
               "project": {
                 "common": {"direct": {}},
