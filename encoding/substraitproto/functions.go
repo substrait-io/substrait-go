@@ -228,13 +228,17 @@ func AggregateFunctionFromProto(
 		}
 	}
 
+	outputType, err := TypeFromProto(agg.OutputType)
+	if err != nil {
+		return nil, fmt.Errorf("aggregate output type: %w", err)
+	}
 	id, ok := reg.DecodeFunc(agg.FunctionReference)
 	if !ok {
 		return nil, substraitgo.ErrNotFound
 	}
 	decl, ok := reg.LookupAggregateFunction(agg.FunctionReference)
 	if !ok {
-		return expr.NewCustomAggregateFunc(reg, extensions.NewAggFuncVariant(id), TypeFromProto(agg.OutputType), FunctionOptionsFromProto(agg.Options), types.AggregationInvocation(agg.Invocation), types.AggregationPhase(agg.Phase), sorts, args...)
+		return expr.NewCustomAggregateFunc(reg, extensions.NewAggFuncVariant(id), outputType, FunctionOptionsFromProto(agg.Options), types.AggregationInvocation(agg.Invocation), types.AggregationPhase(agg.Phase), sorts, args...)
 	}
 
 	return expr.NewAggregateFunctionFromParts(
@@ -242,7 +246,7 @@ func AggregateFunctionFromProto(
 		decl,
 		args,
 		FunctionOptionsFromProto(agg.Options),
-		TypeFromProto(agg.OutputType),
+		outputType,
 		types.AggregationPhase(agg.Phase),
 		types.AggregationInvocation(agg.Invocation),
 		sorts,

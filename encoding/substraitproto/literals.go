@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
@@ -32,6 +33,9 @@ func IntervalDayToSecondToProto(v *types.IntervalDayToSecond) *proto.Expression_
 func IntervalDayToSecondFromProto(p *proto.Expression_Literal_IntervalDayToSecond) (*types.IntervalDayToSecond, error) {
 	if p == nil {
 		return nil, nil
+	}
+	if err := requireProtoOneof(p.ProtoReflect(), "precision_mode"); err != nil {
+		return nil, err
 	}
 	v := &types.IntervalDayToSecond{
 		Days:       p.GetDays(),
@@ -330,101 +334,118 @@ func nullabilityFromBool(nullable bool) types.Nullability {
 // StructLiteralFromProto decodes the fields of a protobuf struct literal.
 //
 // Deprecated: use VirtualTableExprFromLiteralProto
-func StructLiteralFromProto(s *proto.Expression_Literal_Struct) expr.StructLiteralValue {
+func StructLiteralFromProto(s *proto.Expression_Literal_Struct) (expr.StructLiteralValue, error) {
 	if s == nil {
-		return nil
+		return nil, nil
 	}
 	fields := make(expr.StructLiteralValue, len(s.Fields))
 	for i, f := range s.Fields {
-		fields[i] = LiteralFromProto(f)
+		field, err := LiteralFromProto(f)
+		if err != nil {
+			return nil, fmt.Errorf("struct field %d: %w", i, err)
+		}
+		fields[i] = field
 	}
-	return fields
+	return fields, nil
 }
 
-// LiteralFromProto constructs the appropriate Literal from a protobuf message.
-func LiteralFromProto(l *proto.Expression_Literal) expr.Literal {
+// LiteralFromProto decodes a protobuf literal, returning an error for malformed or unsupported input.
+func LiteralFromProto(l *proto.Expression_Literal) (expr.Literal, error) {
+	if err := requireProtoOneof(l.ProtoReflect(), "literal_type"); err != nil {
+		return nil, fmt.Errorf("%w: literal: %w", substraitgo.ErrInvalidExpr, err)
+	}
 	nullability := nullabilityFromBool(l.Nullable)
 
 	switch lit := l.LiteralType.(type) {
 	case *proto.Expression_Literal_Null:
-		return &expr.NullLiteral{Type: TypeFromProto(lit.Null)}
+		valueType, err := TypeFromProto(lit.Null)
+		if err != nil {
+			return nil, fmt.Errorf("null literal type: %w", err)
+		}
+		return &expr.NullLiteral{Type: valueType}, nil
 	case *proto.Expression_Literal_Boolean:
 		return &expr.PrimitiveLiteral[bool]{
 			Value: lit.Boolean,
 			Type: &types.BooleanType{
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
-			}}
+			}}, nil
 	case *proto.Expression_Literal_I8:
+		if lit.I8 < -128 || lit.I8 > 127 {
+			return nil, fmt.Errorf("%w: i8 literal value %d is out of range", substraitgo.ErrInvalidExpr, lit.I8)
+		}
 		return &expr.PrimitiveLiteral[int8]{
 			Value: int8(lit.I8),
 			Type: &types.Int8Type{
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
-			}}
+			}}, nil
 	case *proto.Expression_Literal_I16:
+		if lit.I16 < -32768 || lit.I16 > 32767 {
+			return nil, fmt.Errorf("%w: i16 literal value %d is out of range", substraitgo.ErrInvalidExpr, lit.I16)
+		}
 		return &expr.PrimitiveLiteral[int16]{
 			Value: int16(lit.I16),
 			Type: &types.Int16Type{
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
-			}}
+			}}, nil
 	case *proto.Expression_Literal_I32:
 		return &expr.PrimitiveLiteral[int32]{
 			Value: lit.I32,
 			Type: &types.Int32Type{
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
-			}}
+			}}, nil
 	case *proto.Expression_Literal_I64:
 		return &expr.PrimitiveLiteral[int64]{
 			Value: lit.I64,
 			Type: &types.Int64Type{
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
-			}}
+			}}, nil
 	case *proto.Expression_Literal_Fp32:
 		return &expr.PrimitiveLiteral[float32]{
 			Value: lit.Fp32,
 			Type: &types.Float32Type{
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
-			}}
+			}}, nil
 	case *proto.Expression_Literal_Fp64:
 		return &expr.PrimitiveLiteral[float64]{
 			Value: lit.Fp64,
 			Type: &types.Float64Type{
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
-			}}
+			}}, nil
 	case *proto.Expression_Literal_String_:
 		return &expr.PrimitiveLiteral[string]{
 			Value: lit.String_,
 			Type: &types.StringType{
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
-			}}
+			}}, nil
 	case *proto.Expression_Literal_Timestamp:
 		return &expr.PrimitiveLiteral[types.Timestamp]{
 			Value: types.Timestamp(lit.Timestamp),
 			Type: &types.TimestampType{
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
-			}}
+			}}, nil
 	case *proto.Expression_Literal_Date:
 		return &expr.PrimitiveLiteral[types.Date]{
 			Value: types.Date(lit.Date),
 			Type: &types.DateType{
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
-			}}
+			}}, nil
 	case *proto.Expression_Literal_Time:
 		return &expr.PrimitiveLiteral[types.Time]{
 			Value: types.Time(lit.Time),
 			Type: &types.TimeType{
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
-			}}
+			}}, nil
 	case *proto.Expression_Literal_FixedChar:
 		return &expr.PrimitiveLiteral[types.FixedChar]{
 			Value: types.FixedChar(lit.FixedChar),
@@ -432,44 +453,48 @@ func LiteralFromProto(l *proto.Expression_Literal) expr.Literal {
 				Length:           int32(len(lit.FixedChar)),
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
-			}}
+			}}, nil
 	case *proto.Expression_Literal_TimestampTz:
 		return &expr.PrimitiveLiteral[types.TimestampTz]{
 			Value: types.TimestampTz(lit.TimestampTz),
 			Type: &types.TimestampTzType{
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
-			}}
+			}}, nil
 	case *proto.Expression_Literal_PrecisionTime_:
 		precTime := lit.PrecisionTime
 		precision, err := types.ProtoToTimePrecision(precTime.Precision)
 		if err != nil {
-			return nil
+			return nil, fmt.Errorf("%w: literal: %w", substraitgo.ErrInvalidExpr, err)
 		}
 		if precTime.Value < 0 {
-			return nil
+			return nil, fmt.Errorf("%w: precision time literal has negative value", substraitgo.ErrInvalidExpr)
 		}
-		return expr.NewPrecisionTimeLiteral(precTime.Value, precision, nullability)
+		return expr.NewPrecisionTimeLiteral(precTime.Value, precision, nullability), nil
 	case *proto.Expression_Literal_PrecisionTimestamp_:
 		precTimeStamp := lit.PrecisionTimestamp
 		precision, err := types.ProtoToTimePrecision(precTimeStamp.Precision)
 		if err != nil {
-			return nil
+			return nil, fmt.Errorf("%w: literal: %w", substraitgo.ErrInvalidExpr, err)
 		}
-		return expr.NewPrecisionTimestampLiteral(precTimeStamp.Value, precision, nullability)
+		return expr.NewPrecisionTimestampLiteral(precTimeStamp.Value, precision, nullability), nil
 	case *proto.Expression_Literal_PrecisionTimestampTz:
 		precTimeStamp := lit.PrecisionTimestampTz
 		precision, err := types.ProtoToTimePrecision(precTimeStamp.Precision)
 		if err != nil {
-			return nil
+			return nil, fmt.Errorf("%w: literal: %w", substraitgo.ErrInvalidExpr, err)
 		}
-		return expr.NewPrecisionTimestampTzLiteral(precTimeStamp.Value, precision, nullability)
+		return expr.NewPrecisionTimestampTzLiteral(precTimeStamp.Value, precision, nullability), nil
 	case *proto.Expression_Literal_Struct_:
 		typeList := make([]types.Type, len(lit.Struct.Fields))
 		fields := make([]expr.Literal, len(lit.Struct.Fields))
 		for i, f := range lit.Struct.Fields {
-			fields[i] = LiteralFromProto(f)
-			typeList[i] = fields[i].GetType()
+			field, err := LiteralFromProto(f)
+			if err != nil {
+				return nil, fmt.Errorf("struct literal field %d: %w", i, err)
+			}
+			fields[i] = field
+			typeList[i] = field.GetType()
 		}
 
 		return &expr.NestedLiteral[expr.StructLiteralValue]{
@@ -478,11 +503,18 @@ func LiteralFromProto(l *proto.Expression_Literal) expr.Literal {
 				Nullability:      nullability,
 				TypeVariationRef: l.TypeVariationReference,
 				Types:            typeList,
-			}}
+			}}, nil
 	case *proto.Expression_Literal_List_:
+		if len(lit.List.Values) == 0 {
+			return nil, fmt.Errorf("%w: list literal has no values; use empty_list with an element type", substraitgo.ErrInvalidExpr)
+		}
 		ret := make(expr.ListLiteralValue, len(lit.List.Values))
 		for i, v := range lit.List.Values {
-			ret[i] = LiteralFromProto(v)
+			value, err := LiteralFromProto(v)
+			if err != nil {
+				return nil, fmt.Errorf("list literal item %d: %w", i, err)
+			}
+			ret[i] = value
 		}
 		return &expr.NestedLiteral[expr.ListLiteralValue]{
 			Value: expr.ListLiteralValue(ret),
@@ -490,20 +522,37 @@ func LiteralFromProto(l *proto.Expression_Literal) expr.Literal {
 				Nullability:      nullability,
 				TypeVariationRef: l.TypeVariationReference,
 				Type:             ret[0].GetType(),
-			}}
+			}}, nil
 	case *proto.Expression_Literal_EmptyList:
+		item, err := TypeFromProto(lit.EmptyList.Type)
+		if err != nil {
+			return nil, fmt.Errorf("empty list element type: %w", err)
+		}
 		return &expr.NestedLiteral[expr.ListLiteralValue]{
 			Value: nil,
 			Type: &types.ListType{
 				Nullability:      nullability,
 				TypeVariationRef: l.TypeVariationReference,
-				Type:             TypeFromProto(lit.EmptyList.Type),
-			}}
+				Type:             item,
+			}}, nil
 	case *proto.Expression_Literal_Map_:
+		if len(lit.Map.KeyValues) == 0 {
+			return nil, fmt.Errorf("%w: map literal has no entries; use empty_map with key and value types", substraitgo.ErrInvalidExpr)
+		}
 		ret := make(expr.MapLiteralValue, len(lit.Map.KeyValues))
 		for i, kv := range lit.Map.KeyValues {
-			ret[i].Key = LiteralFromProto(kv.Key)
-			ret[i].Value = LiteralFromProto(kv.Value)
+			if kv == nil {
+				return nil, fmt.Errorf("%w: map literal entry %d is nil", substraitgo.ErrInvalidExpr, i)
+			}
+			key, err := LiteralFromProto(kv.Key)
+			if err != nil {
+				return nil, fmt.Errorf("map literal key %d: %w", i, err)
+			}
+			value, err := LiteralFromProto(kv.Value)
+			if err != nil {
+				return nil, fmt.Errorf("map literal value %d: %w", i, err)
+			}
+			ret[i].Key, ret[i].Value = key, value
 		}
 		return &expr.MapLiteral{
 			Value: ret,
@@ -512,23 +561,31 @@ func LiteralFromProto(l *proto.Expression_Literal) expr.Literal {
 				TypeVariationRef: l.TypeVariationReference,
 				Key:              ret[0].Key.GetType(),
 				Value:            ret[0].Value.GetType(),
-			}}
+			}}, nil
 	case *proto.Expression_Literal_EmptyMap:
+		key, err := TypeFromProto(lit.EmptyMap.Key)
+		if err != nil {
+			return nil, fmt.Errorf("empty map key type: %w", err)
+		}
+		value, err := TypeFromProto(lit.EmptyMap.Value)
+		if err != nil {
+			return nil, fmt.Errorf("empty map value type: %w", err)
+		}
 		return &expr.MapLiteral{
 			Value: nil,
 			Type: &types.MapType{
 				Nullability:      nullability,
 				TypeVariationRef: l.TypeVariationReference,
-				Key:              TypeFromProto(lit.EmptyMap.Key),
-				Value:            TypeFromProto(lit.EmptyMap.Value),
-			}}
+				Key:              key,
+				Value:            value,
+			}}, nil
 	case *proto.Expression_Literal_Binary:
 		return &expr.ByteSliceLiteral[[]byte]{
 			Value: lit.Binary,
 			Type: &types.BinaryType{
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
-			}}
+			}}, nil
 	case *proto.Expression_Literal_FixedBinary:
 		return &expr.ByteSliceLiteral[types.FixedBinary]{
 			Value: lit.FixedBinary,
@@ -536,22 +593,22 @@ func LiteralFromProto(l *proto.Expression_Literal) expr.Literal {
 				Length:           int32(len(lit.FixedBinary)),
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
-			}}
+			}}, nil
 	case *proto.Expression_Literal_Uuid:
 		return &expr.ByteSliceLiteral[types.UUID]{
 			Value: lit.Uuid,
 			Type: &types.UUIDType{
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
-			}}
+			}}, nil
 	case *proto.Expression_Literal_IntervalDayToSecond_:
 		value, err := IntervalDayToSecondFromProto(lit.IntervalDayToSecond)
 		if err != nil {
-			return nil
+			return nil, fmt.Errorf("%w: literal: %w", substraitgo.ErrInvalidExpr, err)
 		}
 		precision, err := types.ProtoToTimePrecision(value.GetPrecisionProtoVal())
 		if err != nil {
-			return nil
+			return nil, fmt.Errorf("%w: literal: %w", substraitgo.ErrInvalidExpr, err)
 		}
 		return &expr.ProtoLiteral{
 			Value: value,
@@ -560,7 +617,7 @@ func LiteralFromProto(l *proto.Expression_Literal) expr.Literal {
 				Nullability:      nullability,
 				TypeVariationRef: l.TypeVariationReference,
 			},
-		}
+		}, nil
 	case *proto.Expression_Literal_VarChar_:
 		return &expr.ProtoLiteral{
 			Value: lit.VarChar.Value,
@@ -569,7 +626,7 @@ func LiteralFromProto(l *proto.Expression_Literal) expr.Literal {
 				Nullability:      nullability,
 				TypeVariationRef: l.TypeVariationReference,
 			},
-		}
+		}, nil
 	case *proto.Expression_Literal_Decimal_:
 		return &expr.ProtoLiteral{
 			Value: lit.Decimal.Value,
@@ -579,40 +636,58 @@ func LiteralFromProto(l *proto.Expression_Literal) expr.Literal {
 				Nullability:      nullability,
 				TypeVariationRef: l.TypeVariationReference,
 			},
-		}
+		}, nil
 	case *proto.Expression_Literal_UserDefined_:
 		params := make([]types.TypeParam, len(lit.UserDefined.TypeParameters))
 		for i, p := range lit.UserDefined.TypeParameters {
-			params[i] = TypeParamFromProto(p)
+			param, err := TypeParamFromProto(p)
+			if err != nil {
+				return nil, fmt.Errorf("literal type parameter %d: %w", i, err)
+			}
+			params[i] = param
 		}
 
+		value, err := userDefinedValueFromProto(lit.UserDefined)
+		if err != nil {
+			return nil, err
+		}
 		return &expr.ProtoLiteral{
-			Value: userDefinedValueFromProto(lit.UserDefined),
+			Value: value,
 			Type: &types.UserDefinedType{
 				Nullability:      nullability,
 				TypeVariationRef: l.TypeVariationReference,
 				TypeReference:    lit.UserDefined.GetTypeReference(),
 				TypeParameters:   params,
 			},
-		}
+		}, nil
 	case *proto.Expression_Literal_IntervalCompound_:
 		return intervalCompoundLiteralFromProto(l)
 	case *proto.Expression_Literal_IntervalYearToMonth_:
-		return intervalYearToMonthLiteralFromProto(l)
+		return intervalYearToMonthLiteralFromProto(l), nil
 	}
-	panic("unimplemented literal type")
+	return nil, fmt.Errorf("%w: protobuf literal %T", substraitgo.ErrNotImplemented, l.LiteralType)
 }
 
 // userDefinedValueFromProto decodes the val oneof of a UserDefined literal into
 // its domain form.
-func userDefinedValueFromProto(ud *proto.Expression_Literal_UserDefined) expr.UserDefinedLiteralValue {
+func userDefinedValueFromProto(ud *proto.Expression_Literal_UserDefined) (expr.UserDefinedLiteralValue, error) {
 	switch v := ud.Val.(type) {
 	case *proto.Expression_Literal_UserDefined_Value:
-		return expr.UserDefinedValueAny{Value: v.Value}
+		if v == nil {
+			return nil, fmt.Errorf("%w: user-defined literal has nil value wrapper", substraitgo.ErrInvalidExpr)
+		}
+		return expr.UserDefinedValueAny{Value: v.Value}, nil
 	case *proto.Expression_Literal_UserDefined_Struct:
-		return expr.UserDefinedValueStruct{Value: StructLiteralFromProto(v.Struct)}
+		if v == nil {
+			return nil, fmt.Errorf("%w: user-defined literal has nil struct wrapper", substraitgo.ErrInvalidExpr)
+		}
+		value, err := StructLiteralFromProto(v.Struct)
+		if err != nil {
+			return nil, fmt.Errorf("user-defined literal: %w", err)
+		}
+		return expr.UserDefinedValueStruct{Value: value}, nil
 	}
-	return nil
+	return nil, fmt.Errorf("%w: user-defined literal is missing its value", substraitgo.ErrInvalidExpr)
 }
 
 // setUserDefinedVal encodes a domain UserDefinedLiteralValue onto the val oneof of

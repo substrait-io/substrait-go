@@ -61,7 +61,10 @@ func TestLiteralFromProtoLiteral(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			literal := LiteralFromProto(tc.constructedProto)
+			literal, err := LiteralFromProto(tc.constructedProto)
+			if err != nil {
+				t.Fatal(err)
+			}
 			assert.Equal(t, tc.expectedLiteral, literal)
 		})
 

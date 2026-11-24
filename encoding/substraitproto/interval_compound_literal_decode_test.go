@@ -107,7 +107,10 @@ func TestIntervalCompoundFromProto(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			gotLiteral := LiteralFromProto(tc.constructedProto)
+			gotLiteral, err := LiteralFromProto(tc.constructedProto)
+			if err != nil {
+				t.Fatal(err)
+			}
 			assert.NotNil(t, gotLiteral)
 			assert.Equal(t, tc.expectedLiteral, gotLiteral)
 			// verify equal method too returns true
@@ -154,7 +157,8 @@ func TestIntervalCompoundFromProtoError(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			gotLiteral := LiteralFromProto(tc.constructedProto)
+			gotLiteral, err := LiteralFromProto(tc.constructedProto)
+			assert.Error(t, err)
 			assert.Nil(t, gotLiteral)
 		})
 
