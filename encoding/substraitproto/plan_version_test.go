@@ -10,7 +10,7 @@ import (
 	"github.com/substrait-io/substrait-go/encoding/substraitproto"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/plan"
-	substraitpb "github.com/substrait-io/substrait-protobuf/go/substraitpb"
+	substraitpb "github.com/substrait-io/substrait-packaging/go/substrait-protobuf/substraitpb"
 )
 
 // A plan parsed with no version is accepted; the missing version surfaces as "0.0.0 (UNSET)",

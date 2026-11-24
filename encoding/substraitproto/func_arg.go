@@ -7,7 +7,7 @@ import (
 
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/types"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
+	proto "github.com/substrait-io/substrait-packaging/go/substrait-protobuf/substraitpb"
 )
 
 // FuncArgToProto encodes a function argument as its protobuf message.

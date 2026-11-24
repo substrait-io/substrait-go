@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/substrait-io/substrait-go/v9/types"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
+	proto "github.com/substrait-io/substrait-packaging/go/substrait-protobuf/substraitpb"
 )
 
 // VersionToProto encodes a version as its protobuf message.

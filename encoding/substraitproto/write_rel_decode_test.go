@@ -12,7 +12,7 @@ import (
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/plan"
-	substraitpb "github.com/substrait-io/substrait-protobuf/go/substraitpb"
+	substraitpb "github.com/substrait-io/substrait-packaging/go/substrait-protobuf/substraitpb"
 )
 
 // A write op with no write type is malformed. Decoding must reject it rather

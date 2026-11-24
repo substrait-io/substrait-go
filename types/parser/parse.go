@@ -6,8 +6,8 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/types"
-	baseparser2 "github.com/substrait-io/substrait-go/v9/types/parser/baseparser"
 	"github.com/substrait-io/substrait-go/v9/types/parser/util"
+	"github.com/substrait-io/substrait-packaging/go/substrait-antlr/substraittype"
 )
 
 type TypeExpression struct {
@@ -40,9 +40,9 @@ func (t *TypeExpression) UnmarshalYAML(fn func(interface{}) error) error {
 
 func ParseType(input string) (types.FuncDefArgType, error) {
 	is := antlr.NewInputStream(input)
-	lexer := baseparser2.NewSubstraitTypeLexer(is)
+	lexer := substraittype.NewSubstraitTypeLexer(is)
 	stream := antlr.NewCommonTokenStream(lexer, 0)
-	p := baseparser2.NewSubstraitTypeParser(stream)
+	p := substraittype.NewSubstraitTypeParser(stream)
 	errorListener := util.NewSimpleErrorListener()
 	p.AddErrorListener(errorListener)
 	p.GetInterpreter().SetPredictionMode(antlr.PredictionModeSLL)
@@ -62,7 +62,7 @@ func ParseType(input string) (types.FuncDefArgType, error) {
 	return retType, nil
 }
 
-func parseType(input string, p *baseparser2.SubstraitTypeParser, errorListener *util.SimpleErrorListener, visitor *TypeVisitor) (any, error) {
+func parseType(input string, p *substraittype.SubstraitTypeParser, errorListener *util.SimpleErrorListener, visitor *TypeVisitor) (any, error) {
 	var err error
 	defer util.TransformPanicToError(&err, input, "ParseExpr", errorListener)
 	context := p.StartRule()

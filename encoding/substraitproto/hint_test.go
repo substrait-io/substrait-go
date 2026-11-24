@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/plan"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
+	proto "github.com/substrait-io/substrait-packaging/go/substrait-protobuf/substraitpb"
 )
 
 // Round-trip a fully populated Hint through the proto boundary, so a field-mapping

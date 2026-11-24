@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/encoding/substraitproto"
 	"github.com/substrait-io/substrait-go/v9/extensions"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
-	extensionspb "github.com/substrait-io/substrait-protobuf/go/substraitpb/extensions"
+	proto "github.com/substrait-io/substrait-packaging/go/substrait-protobuf/substraitpb"
+	extensionspb "github.com/substrait-io/substrait-packaging/go/substrait-protobuf/substraitpb/extensions"
 )
 
 const extMgrSampleYAML = `---

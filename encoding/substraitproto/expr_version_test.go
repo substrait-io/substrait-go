@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/encoding/substraitproto"
 	ext "github.com/substrait-io/substrait-go/v9/extensions"
-	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
+	proto "github.com/substrait-io/substrait-packaging/go/substrait-protobuf/substraitpb"
 )
 
 // An extended expression parsed with no version is accepted; the missing version surfaces as

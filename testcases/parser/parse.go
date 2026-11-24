@@ -6,8 +6,8 @@ import (
 	"io/fs"
 
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/substrait-io/substrait-go/v9/testcases/parser/baseparser"
 	"github.com/substrait-io/substrait-go/v9/types/parser/util"
+	"github.com/substrait-io/substrait-packaging/go/substrait-antlr/functestcase"
 )
 
 func ParseTestCaseFileFromFS(fs fs.FS, s string) (*TestFile, error) {
@@ -34,9 +34,9 @@ func ParseTestCasesFromString(input string) (*TestFile, error) {
 }
 
 func parseTestCasesFromStream(is *antlr.InputStream, debugStr string) (*TestFile, error) {
-	lexer := baseparser.NewFuncTestCaseLexer(is)
+	lexer := functestcase.NewFuncTestCaseLexer(is)
 	stream := antlr.NewCommonTokenStream(lexer, 0)
-	p := baseparser.NewFuncTestCaseParser(stream)
+	p := functestcase.NewFuncTestCaseParser(stream)
 	errorListener := util.NewSimpleErrorListener()
 	p.AddErrorListener(errorListener)
 	p.GetInterpreter().SetPredictionMode(antlr.PredictionModeSLL)
@@ -48,7 +48,7 @@ func parseTestCasesFromStream(is *antlr.InputStream, debugStr string) (*TestFile
 	return testFile, err
 }
 
-func parseTestCases(p *baseparser.FuncTestCaseParser, errorListener util.VisitErrorListener, debugStr string) (*TestFile, error) {
+func parseTestCases(p *functestcase.FuncTestCaseParser, errorListener util.VisitErrorListener, debugStr string) (*TestFile, error) {
 	var err error
 	defer util.TransformPanicToError(&err, debugStr, "ParseExpr", errorListener)
 

@@ -31,8 +31,8 @@ github.com/substrait-io/substrait v0.87.0 h1:40rP4LejyK6SNQlWz7NX6kQELf8cmScWMBG
 github.com/substrait-io/substrait v0.87.0/go.mod h1:MPFNw6sToJgpD5Z2rj0rQrdP/Oq8HG7Z2t3CAEHtkHw=
 github.com/substrait-io/substrait-go/v9 v9.0.0 h1:YE40wlbmkKNE2SXucWNqChPvJQtJw43LmumMKlNLdgw=
 github.com/substrait-io/substrait-go/v9 v9.0.0/go.mod h1:l3b5+pji1r/wi1wgvUQEfeTsivJuL80KA5Fmjn99QnE=
-github.com/substrait-io/substrait-protobuf/go v0.85.0 h1:zk6MtNWLtDSl8a7qCZRFH0+EIIXVrrd/hsgYK/SQTgM=
-github.com/substrait-io/substrait-protobuf/go v0.85.0/go.mod h1:hn+Szm1NmZZc91FwWK9EXD/lmuGBSRTJ5IvHhlG1YnQ=
+github.com/vbarua/substrait-packaging/go/substrait-protobuf v0.0.0-20261124184706-c9daca29e656 h1:G4NTpDe5r+ZHGZgaymwbdcJ2WkFqrqgUIJM5t6khz9o=
+github.com/vbarua/substrait-packaging/go/substrait-protobuf v0.0.0-20261124184706-c9daca29e656/go.mod h1:+0lpKi4kXL+bDS7Y8yj6VVAAU+ybn4/gX+T8relRTr4=
 golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0 h1:R84qjqJb5nVJMxqWYb3np9L5ZsaDtB+a39EqjV0JSUM=
 golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0/go.mod h1:S9Xr4PYopiDyqSyp5NjCrhFrqg6A5zA2E/iPHPhqnS8=
 google.golang.org/protobuf v1.36.6 h1:z1NpPI8ku2WgiWnf+t9wTPsn6eP1L7ksHUlkfLvd9xY=

@@ -13,8 +13,8 @@ import (
 
 	"github.com/creasty/defaults"
 	"github.com/goccy/go-yaml"
-	"github.com/substrait-io/substrait"
 	substraitgo "github.com/substrait-io/substrait-go/v9"
+	"github.com/substrait-io/substrait-packaging/go/substrait-extensions"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 

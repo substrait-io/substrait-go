@@ -9,7 +9,7 @@ import (
 	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/extensions"
-	extensionspb "github.com/substrait-io/substrait-protobuf/go/substraitpb/extensions"
+	extensionspb "github.com/substrait-io/substrait-packaging/go/substrait-protobuf/substraitpb/extensions"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
