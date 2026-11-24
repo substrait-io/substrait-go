@@ -310,8 +310,6 @@ type MapSelectKind int8
 const (
 	MapSelectKey MapSelectKind = iota
 	MapSelectExpr
-	// MapSelectAll preserves every key when the map select discriminator is absent.
-	MapSelectAll
 )
 
 type MaskMapSelect struct {

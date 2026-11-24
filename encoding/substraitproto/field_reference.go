@@ -86,9 +86,6 @@ func maskStructSelectToProto(m expr.MaskStructSelect) *proto.Expression_MaskExpr
 }
 
 func maskSelectToProto(s expr.MaskSelect) *proto.Expression_MaskExpression_Select {
-	if s == nil {
-		return nil
-	}
 	switch s := s.(type) {
 	case expr.MaskStructSelect:
 		return &proto.Expression_MaskExpression_Select{
@@ -162,12 +159,11 @@ func maskMapSelectToProto(m *expr.MaskMapSelect) *proto.Expression_MaskExpressio
 		},
 	}
 
-	switch m.KeyKind() {
-	case expr.MapSelectKey:
+	if m.KeyKind() == expr.MapSelectKey {
 		mapSelect.Map.Select = &proto.Expression_MaskExpression_MapSelect_Key{
 			Key: &proto.Expression_MaskExpression_MapSelect_MapKey{MapKey: m.Key()},
 		}
-	case expr.MapSelectExpr:
+	} else {
 		mapSelect.Map.Select = &proto.Expression_MaskExpression_MapSelect_Expression{
 			Expression: &proto.Expression_MaskExpression_MapSelect_MapKeyExpression{MapKeyExpression: m.Key()},
 		}
@@ -265,9 +261,6 @@ func MaskExpressionFromProto(p *proto.Expression_MaskExpression) *expr.MaskExpre
 }
 
 func maskSelectFromProto(p *proto.Expression_MaskExpression_Select) expr.MaskSelect {
-	if p == nil {
-		return nil
-	}
 	switch s := p.Type.(type) {
 	case *proto.Expression_MaskExpression_Select_Struct:
 		items := make(expr.MaskStructSelect, len(s.Struct.StructItems))
@@ -302,7 +295,7 @@ func maskSelectFromProto(p *proto.Expression_MaskExpression_Select) expr.MaskSel
 		case *proto.Expression_MaskExpression_MapSelect_Key:
 			return expr.NewMaskMapSelect(expr.MapSelectKey, sk.Key.MapKey, child)
 		}
-		return expr.NewMaskMapSelect(expr.MapSelectAll, "", child)
+		return expr.NewMaskMapSelect(expr.MapSelectKey, "", child)
 	}
 	panic("unimplemented mask select type")
 }
