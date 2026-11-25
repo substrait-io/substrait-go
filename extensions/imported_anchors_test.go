@@ -122,6 +122,41 @@ func TestExtensionSetPreservesImportedURNAnchors(t *testing.T) {
 	}
 }
 
+func TestExtensionSetAllocatesAfterConsecutiveImportedAnchors(t *testing.T) {
+	const urn = extensions.SubstraitDefaultURNPrefix + "functions_arithmetic"
+	ids := []extensions.FunctionID{
+		{URN: urn, Name: "add:i32_i32"},
+		{URN: urn, Name: "subtract:i32_i32"},
+		{URN: urn, Name: "multiply:i32_i32"},
+		{URN: urn, Name: "divide:i32_i32"},
+		{URN: urn, Name: "modulus:i32_i32"},
+	}
+	for _, firstAnchor := range []uint32{1, 3} {
+		t.Run(fmt.Sprint(firstAnchor), func(t *testing.T) {
+			functions := make(map[uint32]extensions.FunctionID)
+			for i, id := range ids[:2] {
+				functions[firstAnchor+uint32(i)] = id
+			}
+			s, err := extensions.NewSetFromParts(map[uint32]string{1: urn}, nil, nil, functions)
+			require.NoError(t, err)
+			for i := 2; i < 4; i++ {
+				assert.Equal(t, firstAnchor+uint32(i), s.GetFuncAnchor(ids[i]))
+			}
+
+			require.Len(t, s.Functions(), 4)
+			s = reconstructExtensionSet(t, s)
+			assert.Equal(t, firstAnchor+4, s.GetFuncAnchor(ids[4]), "allocation must resume without replacing a reconstructed declaration")
+			for i, id := range ids {
+				anchor := firstAnchor + uint32(i)
+				assert.Equal(t, anchor, s.GetFuncAnchor(id))
+				decoded, ok := s.DecodeFunc(anchor)
+				assert.True(t, ok)
+				assert.Equal(t, id, decoded)
+			}
+		})
+	}
+}
+
 func reconstructExtensionSet(t *testing.T, original extensions.Set) extensions.Set {
 	t.Helper()
 	types := make(map[uint32]extensions.TypeID)
