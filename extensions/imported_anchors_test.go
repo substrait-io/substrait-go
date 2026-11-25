@@ -85,6 +85,43 @@ func testImportedAnchors[T comparable](t *testing.T, importedID, newID T,
 	}
 }
 
+func TestExtensionSetPreservesImportedURNAnchors(t *testing.T) {
+	importedID := extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + "functions_arithmetic", Name: "add:i32_i32"}
+	newID := extensions.FunctionID{URN: extensions.SubstraitDefaultURNPrefix + "functions_boolean", Name: "and:bool_bool"}
+	for _, importedAnchor := range []uint32{0, 2, math.MaxUint32} {
+		t.Run(fmt.Sprint(importedAnchor), func(t *testing.T) {
+			s, err := extensions.NewSetFromParts(
+				map[uint32]string{importedAnchor: importedID.URN}, nil, nil,
+				map[uint32]extensions.FunctionID{1: importedID})
+			require.NoError(t, err)
+			var functionAnchor uint32
+			require.NotPanics(t, func() { functionAnchor = s.GetFuncAnchor(newID) })
+			newAnchor, ok := s.FindURN(newID.URN)
+			require.True(t, ok)
+			assert.NotZero(t, newAnchor)
+			assert.NotEqual(t, importedAnchor, newAnchor)
+			anchor, ok := s.FindURN(importedID.URN)
+			require.True(t, ok)
+			assert.Equal(t, importedAnchor, anchor)
+
+			require.Len(t, s.URNs(), 2)
+			s = reconstructExtensionSet(t, s)
+			anchor, ok = s.FindURN(importedID.URN)
+			require.True(t, ok)
+			assert.Equal(t, importedAnchor, anchor)
+			anchor, ok = s.FindURN(newID.URN)
+			require.True(t, ok)
+			assert.Equal(t, newAnchor, anchor)
+			id, ok := s.DecodeFunc(1)
+			require.True(t, ok)
+			assert.Equal(t, importedID, id)
+			id, ok = s.DecodeFunc(functionAnchor)
+			require.True(t, ok)
+			assert.Equal(t, newID, id)
+		})
+	}
+}
+
 func reconstructExtensionSet(t *testing.T, original extensions.Set) extensions.Set {
 	t.Helper()
 	types := make(map[uint32]extensions.TypeID)
