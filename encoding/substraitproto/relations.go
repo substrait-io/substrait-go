@@ -592,15 +592,6 @@ func readRelBaseFromProto(rel *proto.ReadRel, reg expr.ExtensionRegistry) (decod
 		if err != nil {
 			return b, fmt.Errorf("error getting projection for ReadRel: %w", err)
 		}
-		schema, err := plan.ProjectReadSchema(b.baseSchema.Struct, b.projection.Select())
-		if err != nil {
-			return b, err
-		}
-		for _, index := range b.common.OutputMapping() {
-			if index < 0 || int(index) >= len(schema.Types) {
-				return b, fmt.Errorf("%w: output mapping index out of range", substraitgo.ErrInvalidRel)
-			}
-		}
 	}
 
 	b.advExtension = advancedExtensionFromProto(rel.AdvancedExtension)

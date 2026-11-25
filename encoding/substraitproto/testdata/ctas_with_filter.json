@@ -160,7 +160,7 @@
                               "selection": {
                                 "directReference": {
                                   "structField": {
-                                    "field": 0
+                                    "field": 1
                                   }
                                 },
                                 "rootReference": {}

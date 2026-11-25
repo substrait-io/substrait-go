@@ -11,6 +11,10 @@ import (
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
+// mapSelectAll selects every map key. It represents an absent map select oneof, for
+// which the core release that this module requires does not define a MapSelectKind.
+const mapSelectAll = expr.MapSelectExpr + 1
+
 // RefSegmentToProto encodes a reference segment as its protobuf message.
 func RefSegmentToProto(r expr.ReferenceSegment) *proto.Expression_ReferenceSegment {
 	switch r := r.(type) {
@@ -343,7 +347,7 @@ func maskSelectFromProto(p *proto.Expression_MaskExpression_Select) (expr.MaskSe
 			}
 			return expr.NewMaskMapSelect(expr.MapSelectKey, sk.Key.MapKey, child), nil
 		case nil:
-			return expr.NewMaskMapSelect(expr.MapSelectAll, "", child), nil
+			return expr.NewMaskMapSelect(mapSelectAll, "", child), nil
 		default:
 			return nil, fmt.Errorf("%w: unsupported mask map selection %T", substraitgo.ErrInvalidExpr, sk)
 		}
