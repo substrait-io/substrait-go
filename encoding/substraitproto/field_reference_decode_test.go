@@ -206,3 +206,12 @@ func TestMaskOptionalChildrenRoundTrip(t *testing.T) {
 		})
 	}
 }
+
+func TestEncodeUnknownMaskMapSelectKind(t *testing.T) {
+	mask := expr.NewMaskExpression(expr.MaskStructSelect{
+		expr.NewMaskStructItem(0, expr.NewMaskMapSelect(expr.MapSelectKind(7), "k", nil)),
+	}, false)
+	assert.PanicsWithValue(t, "wire: unhandled mask map selection kind 7", func() {
+		MaskExpressionToProto(mask)
+	})
+}

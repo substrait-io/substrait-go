@@ -176,6 +176,10 @@ func maskMapSelectToProto(m *expr.MaskMapSelect) *proto.Expression_MaskExpressio
 		mapSelect.Map.Select = &proto.Expression_MaskExpression_MapSelect_Expression{
 			Expression: &proto.Expression_MaskExpression_MapSelect_MapKeyExpression{MapKeyExpression: m.Key()},
 		}
+	case mapSelectAll:
+		// An absent select oneof selects every key.
+	default:
+		panic(fmt.Sprintf("wire: unhandled mask map selection kind %d", m.KeyKind()))
 	}
 
 	return &proto.Expression_MaskExpression_Select{Type: mapSelect}
