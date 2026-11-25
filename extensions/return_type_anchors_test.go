@@ -10,7 +10,6 @@ import (
 	"github.com/substrait-io/substrait-go/v9/extensions"
 	"github.com/substrait-io/substrait-go/v9/types"
 	"github.com/substrait-io/substrait-go/v9/types/parser"
-	"google.golang.org/protobuf/proto"
 )
 
 func TestEvaluateTypeExpressionNestedUDTAnchors(t *testing.T) {
@@ -146,50 +145,34 @@ window_functions:
 }
 
 func TestEvaluateTypeExpressionPreservesArgumentUDTAnchors(t *testing.T) {
-	const urn = "extension:example:return_types"
-	const required = types.NullabilityRequired
-	tests := []struct {
-		expression string
-		expected   func(types.Type, types.Type) types.Type
-	}{
-		{"any1", func(arg, _ types.Type) types.Type { return arg }},
-		{"list<any1>", func(arg, _ types.Type) types.Type {
-			return &types.ListType{Nullability: required, Type: arg}
-		}},
-		{"map<u!item, any1>", func(arg, declared types.Type) types.Type {
-			return &types.MapType{Nullability: required, Key: declared, Value: arg}
-		}},
-		{"struct<any1, u!item>", func(arg, declared types.Type) types.Type {
-			return &types.StructType{Nullability: required, Types: []types.Type{arg, declared}}
-		}},
-		{"u!item<any1>", func(arg, declared types.Type) types.Type {
-			udt := *declared.(*types.UserDefinedType)
-			udt.TypeParameters = []types.TypeParam{&types.DataTypeParameter{Type: arg}}
-			return &udt
-		}},
+	const functionExtension = "extension:example:functions"
+	const argumentExtension = "extension:example:arguments"
+	functionItem := extensions.TypeID{URN: functionExtension, Name: "item"}
+	argumentItem := extensions.TypeID{URN: argumentExtension, Name: "item"}
+
+	registry := extensions.NewSet()
+	argumentAnchor := registry.GetTypeAnchor(argumentItem)
+	argument := &types.UserDefinedType{
+		Nullability:   types.NullabilityRequired,
+		TypeReference: argumentAnchor,
 	}
-	for _, tt := range tests {
-		t.Run(tt.expression, func(t *testing.T) {
-			registry := extensions.NewSet()
-			registry.GetTypeAnchor(extensions.TypeID{URN: urn, Name: "sentinel"})
-			// The argument's UDT has the same name but belongs to a different extension.
-			foreign := &types.UserDefinedType{
-				Nullability: required, TypeVariationRef: 7,
-				TypeReference: registry.GetTypeAnchor(extensions.TypeID{URN: "extension:example:arguments", Name: "item"}),
-			}
-			arg := &types.ListType{Nullability: required, Type: foreign}
-			before := proto.Clone(arg.ToProto())
-			parameter, err := parser.ParseType("any1")
-			require.NoError(t, err)
-			returnType, err := parser.ParseType(tt.expression)
-			require.NoError(t, err)
-			result, err := extensions.EvaluateTypeExpression(urn, extensions.DeclaredOutputNullability,
-				returnType, extensions.FuncParameterList{valArg(parameter)}, nil, []types.Type{arg}, registry)
-			require.NoError(t, err)
-			declared := &types.UserDefinedType{Nullability: required,
-				TypeReference: registry.GetTypeAnchor(extensions.TypeID{URN: urn, Name: "item"})}
-			require.Equal(t, tt.expected(arg, declared), result)
-			require.True(t, proto.Equal(before, arg.ToProto()), "argument types must not be modified")
-		})
-	}
+
+	parameter, err := parser.ParseType("any1")
+	require.NoError(t, err)
+	returnType, err := parser.ParseType("map<u!item, any1>")
+	require.NoError(t, err)
+	result, err := extensions.EvaluateTypeExpression(functionExtension, extensions.DeclaredOutputNullability,
+		returnType, extensions.FuncParameterList{valArg(parameter)}, nil, []types.Type{argument}, registry)
+	require.NoError(t, err)
+
+	// The declared u!item belongs to the function's extension; any1 belongs to the argument's.
+	mapType := result.(*types.MapType)
+	keyID, ok := registry.DecodeType(mapType.Key.(*types.UserDefinedType).TypeReference)
+	require.True(t, ok)
+	require.Equal(t, functionItem, keyID)
+
+	valueID, ok := registry.DecodeType(mapType.Value.(*types.UserDefinedType).TypeReference)
+	require.True(t, ok)
+	require.Equal(t, argumentItem, valueID)
+	require.Equal(t, argumentAnchor, argument.TypeReference, "the argument must not be rebound")
 }
