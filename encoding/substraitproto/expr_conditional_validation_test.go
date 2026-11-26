@@ -21,12 +21,15 @@ func TestConditionalDecoderRejectsInvalidConstruction(t *testing.T) {
 		"if without branches":            `{"ifThen":{"else":{"literal":{"i32":1}}}}`,
 		"if mismatched result":           `{"ifThen":{"ifs":[{"if":{"literal":{"boolean":true}},"then":{"literal":{"i8":1}}}],"else":{"literal":{"i32":1}}}}`,
 		"if mismatched later result":     `{"ifThen":{"ifs":[{"if":{"literal":{"boolean":true}},"then":{"literal":{"i32":1}}},{"if":{"literal":{"boolean":false}},"then":{"literal":{"i8":1}}}],"else":{"literal":{"i32":1}}}}`,
+		"if mismatched nullability":      `{"ifThen":{"ifs":[{"if":{"literal":{"boolean":true}},"then":{"literal":{"i32":2,"nullable":true}}}],"else":{"literal":{"i32":3}}}}`,
 		"if without else":                `{"ifThen":{"ifs":[{"if":{"literal":{"boolean":true}},"then":{"literal":{"i32":1}}}]}}`,
 		"if without condition":           `{"ifThen":{"ifs":[{"then":{"literal":{"i32":1}}}],"else":{"literal":{"i32":1}}}}`,
 		"switch without branches":        `{"switchExpression":{"match":{"literal":{"i32":1}},"else":{"literal":{"i32":1}}}}`,
 		"switch mismatched label":        `{"switchExpression":{"match":{"literal":{"i32":1}},"ifs":[{"if":{"i8":1},"then":{"literal":{"i32":1}}}],"else":{"literal":{"i32":1}}}}`,
 		"switch mismatched result":       `{"switchExpression":{"match":{"literal":{"i32":1}},"ifs":[{"if":{"i32":1},"then":{"literal":{"i8":1}}}],"else":{"literal":{"i32":1}}}}`,
 		"switch mismatched later result": `{"switchExpression":{"match":{"literal":{"i32":1}},"ifs":[{"if":{"i32":1},"then":{"literal":{"i32":1}}},{"if":{"i32":2},"then":{"literal":{"i8":1}}}],"else":{"literal":{"i32":1}}}}`,
+		"switch mismatched nullability":  `{"switchExpression":{"match":{"literal":{"i32":1}},"ifs":[{"if":{"i32":1},"then":{"literal":{"i32":2,"nullable":true}}}],"else":{"literal":{"i32":3}}}}`,
+		"switch later nullability":       `{"switchExpression":{"match":{"literal":{"i32":1}},"ifs":[{"if":{"i32":1},"then":{"literal":{"i32":2}}},{"if":{"i32":2},"then":{"literal":{"i32":3,"nullable":true}}}],"else":{"literal":{"i32":4}}}}`,
 		"switch without match":           `{"switchExpression":{"ifs":[{"if":{"i32":1},"then":{"literal":{"i32":1}}}],"else":{"literal":{"i32":1}}}}`,
 		"switch without label":           `{"switchExpression":{"match":{"literal":{"i32":1}},"ifs":[{"then":{"literal":{"i32":1}}}],"else":{"literal":{"i32":1}}}}`,
 	} {
@@ -47,9 +50,9 @@ func TestConditionalDecoderRejectsInvalidConstruction(t *testing.T) {
 func TestConditionalDecoderRoundTrips(t *testing.T) {
 	registry := expr.NewEmptyExtensionRegistry(extensions.GetDefaultCollectionWithNoError())
 	for name, input := range map[string]string{
-		"if":                     `{"ifThen":{"ifs":[{"if":{"literal":{"boolean":true}},"then":{"literal":{"i32":1}}},{"if":{"literal":{"boolean":false}},"then":{"literal":{"i32":2}}}],"else":{"literal":{"i32":3}}}}`,
-		"switch":                 `{"switchExpression":{"match":{"literal":{"i32":1}},"ifs":[{"if":{"i32":1},"then":{"literal":{"i32":2}}},{"if":{"i32":2},"then":{"literal":{"i32":3}}}],"else":{"literal":{"i32":4}}}}`,
-		"nullable switch branch": `{"switchExpression":{"match":{"literal":{"i32":1}},"ifs":[{"if":{"i32":1},"then":{"literal":{"i32":2,"nullable":true}}}],"else":{"literal":{"i32":3}}}}`,
+		"if":                    `{"ifThen":{"ifs":[{"if":{"literal":{"boolean":true}},"then":{"literal":{"i32":1}}},{"if":{"literal":{"boolean":false}},"then":{"literal":{"i32":2}}}],"else":{"literal":{"i32":3}}}}`,
+		"switch":                `{"switchExpression":{"match":{"literal":{"i32":1}},"ifs":[{"if":{"i32":1},"then":{"literal":{"i32":2}}},{"if":{"i32":2},"then":{"literal":{"i32":3}}}],"else":{"literal":{"i32":4}}}}`,
+		"switch nullable types": `{"switchExpression":{"match":{"literal":{"i32":1}},"ifs":[{"if":{"i32":1},"then":{"literal":{"i32":2,"nullable":true}}}],"else":{"literal":{"i32":3,"nullable":true}}}}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			var inputProto pb.Expression

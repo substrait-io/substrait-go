@@ -112,16 +112,14 @@ cases:
             then:
               selection:
                 rootReference: {}
-                directReference: { structField: { field: 2 }}
+                directReference: { structField: { field: 3 }}
           - if: { i32: 1 }
             then:
-              selection:
-                rootReference: {}
-                directReference: { structField: { field: 3 } }
+              literal: { i16: 1, nullable: true }
         else:
           selection:
             rootReference: {}
-            directReference: { structField: { field: 2 } }
+            directReference: { structField: { field: 3 } }
   - name: singular-or-list
     __test: 
       type: "boolean"

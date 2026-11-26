@@ -470,7 +470,24 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 			}
 		}
 
-		return expr.NewSwitch(matched, elseExpr, ifs...)
+		switchExpr, err := expr.NewSwitch(matched, elseExpr, ifs...)
+		if err != nil {
+			return nil, err
+		}
+
+		// NewSwitch in core v9.0.0 ignores result nullability. The spec
+		// requires identical result types, just as it does for IfThen.
+		resultType := ifs[0].Then.GetType()
+		if elseExpr != nil {
+			resultType = elseExpr.GetType()
+		}
+		for i, clause := range ifs {
+			if actual := clause.Then.GetType(); !resultType.Equals(actual) {
+				return nil, fmt.Errorf("%w: switch clause %d: expected result type %s, got %s",
+					substraitgo.ErrInvalidExpr, i, resultType, actual)
+			}
+		}
+		return switchExpr, nil
 	case *proto.Expression_SingularOrList_:
 		val, err := ExprFromProto(et.SingularOrList.Value, baseSchema, reg)
 		if err != nil {
