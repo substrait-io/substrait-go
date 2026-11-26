@@ -1038,3 +1038,58 @@ func TestNewSetFromParts(t *testing.T) {
 		require.ErrorIs(t, err, substraitgo.ErrInvalidArg)
 	})
 }
+
+func TestCollectionRetainsAggregateWindowShortName(t *testing.T) {
+	collection := extensions.GetDefaultCollectionWithNoError()
+	for _, name := range []string{"bool_and", "bool_and:bool"} {
+		t.Run(name, func(t *testing.T) {
+			id := extensions.FunctionID{URN: "extension:io.substrait:functions_boolean", Name: name}
+			aggregate, ok := collection.GetAggregateFunc(id)
+			require.True(t, ok)
+			require.Equal(t, "bool_and:bool", aggregate.CompoundName())
+			window, ok := collection.GetWindowFunc(id)
+			require.True(t, ok)
+			require.Equal(t, "bool_and:bool", window.CompoundName())
+		})
+	}
+}
+
+func TestCollectionDoesNotRestoreConflictedWindowAlias(t *testing.T) {
+	const urn = "extension:test:conflicted_alias"
+	const definitions = `
+urn: extension:test:conflicted_alias
+scalar_functions:
+  - name: f
+    impls:
+      - args:
+          - value: i64
+        return: i64
+aggregate_functions:
+  - name: f
+    impls:
+      - args:
+          - value: i64
+        return: i64
+        decomposable: NONE
+window_functions:
+  - name: f
+    impls:
+      - args:
+          - value: fp64
+        return: fp64
+        decomposable: NONE
+        window_type: PARTITION
+`
+
+	var collection extensions.Collection
+	require.NoError(t, collection.Load(strings.NewReader(definitions)))
+
+	window, ok := collection.GetWindowFunc(extensions.FunctionID{URN: urn, Name: "f"})
+	assert.False(t, ok)
+	assert.Nil(t, window)
+	for _, name := range []string{"f:i64", "f:fp64"} {
+		window, ok := collection.GetWindowFunc(extensions.FunctionID{URN: urn, Name: name})
+		require.True(t, ok)
+		require.Equal(t, name, window.CompoundName())
+	}
+}
