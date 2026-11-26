@@ -416,6 +416,9 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 			ParameterReference: et.DynamicParameter.ParameterReference,
 		}, nil
 	case *proto.Expression_IfThen_:
+		if et == nil || et.IfThen == nil || len(et.IfThen.Ifs) == 0 {
+			return nil, fmt.Errorf("%w: if-then requires at least one clause", substraitgo.ErrInvalidExpr)
+		}
 		elseExpr, err := ExprFromProto(et.IfThen.Else, baseSchema, reg)
 		if err != nil {
 			return nil, err
@@ -423,6 +426,9 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 
 		ifs := make([]expr.IfThenPair, len(et.IfThen.Ifs))
 		for i, clause := range et.IfThen.Ifs {
+			if clause == nil {
+				return nil, fmt.Errorf("%w: if-then clause %d is nil", substraitgo.ErrInvalidExpr, i)
+			}
 			ifs[i].If, err = ExprFromProto(clause.If, baseSchema, reg)
 			if err != nil {
 				return nil, err
@@ -434,8 +440,11 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 			}
 		}
 
-		return expr.NewIfThenFromParts(ifs, elseExpr), nil
+		return expr.NewIfThen(ifs[0], elseExpr, ifs[1:]...)
 	case *proto.Expression_SwitchExpression_:
+		if et == nil || et.SwitchExpression == nil {
+			return nil, fmt.Errorf("%w: switch expression is nil", substraitgo.ErrInvalidExpr)
+		}
 		matched, err := ExprFromProto(et.SwitchExpression.Match, baseSchema, reg)
 		if err != nil {
 			return nil, err
@@ -445,12 +454,18 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 		if err != nil {
 			return nil, err
 		}
+		if elseExpr == nil {
+			return nil, fmt.Errorf("%w: could not decode switch else expression", substraitgo.ErrInvalidExpr)
+		}
 
 		ifs := make([]struct {
 			If   expr.Literal
 			Then expr.Expression
 		}, len(et.SwitchExpression.Ifs))
 		for i, clause := range et.SwitchExpression.Ifs {
+			if clause == nil || clause.If == nil {
+				return nil, fmt.Errorf("%w: switch clause %d is missing its label", substraitgo.ErrInvalidExpr, i)
+			}
 			ifs[i].If = LiteralFromProto(clause.If)
 			ifs[i].Then, err = ExprFromProto(clause.Then, baseSchema, reg)
 			if err != nil {
@@ -458,7 +473,21 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 			}
 		}
 
-		return expr.NewSwitchExprFromParts(matched, ifs, elseExpr), nil
+		switchExpr, err := expr.NewSwitch(matched, elseExpr, ifs...)
+		if err != nil {
+			return nil, err
+		}
+
+		// NewSwitch in core v9.0.0 ignores result nullability. The spec
+		// requires identical result types, just as it does for IfThen.
+		resultType := elseExpr.GetType()
+		for i, clause := range ifs {
+			if actual := clause.Then.GetType(); !resultType.Equals(actual) {
+				return nil, fmt.Errorf("%w: switch clause %d: expected result type %s, got %s",
+					substraitgo.ErrInvalidExpr, i, resultType, actual)
+			}
+		}
+		return switchExpr, nil
 	case *proto.Expression_SingularOrList_:
 		val, err := ExprFromProto(et.SingularOrList.Value, baseSchema, reg)
 		if err != nil {
