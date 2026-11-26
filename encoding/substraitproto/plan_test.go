@@ -30,16 +30,11 @@ func TestRelFromProto(t *testing.T) {
 	virtualTableWithExpression := &proto.ReadRel_VirtualTable_{VirtualTable: &proto.ReadRel_VirtualTable{Expressions: []*proto.Expression_Nested_Struct{nestedStructExpr1}}}
 	readRelWithExpression := &proto.ReadRel{ReadType: virtualTableWithExpression}
 
-	literalStruct := &proto.Expression_Literal_Struct{Fields: []*proto.Expression_Literal{literal5}}
-	virtualTableWithLiteral := &proto.ReadRel_VirtualTable_{VirtualTable: &proto.ReadRel_VirtualTable{Values: []*proto.Expression_Literal_Struct{literalStruct}}}
-	readRelWithLiteral := &proto.ReadRel{ReadType: virtualTableWithLiteral}
-
 	for _, td := range []struct {
 		name     string
 		readType *proto.ReadRel
 	}{
 		{"virtual table with expression", readRelWithExpression},
-		{"virtual table with deprecated literal", readRelWithLiteral},
 	} {
 		t.Run(td.name, func(t *testing.T) {
 			rel := &proto.Rel{RelType: &proto.Rel_Read{Read: td.readType}}
@@ -51,7 +46,6 @@ func TestRelFromProto(t *testing.T) {
 			require.True(t, ok)
 			gotVirtualTableReadRel, ok := gotReadRel.Read.ReadType.(*proto.ReadRel_VirtualTable_)
 			require.True(t, ok)
-			// in case of both deprecated or new expression, the output should be the same as the new expression
 			if diff := cmp.Diff(gotVirtualTableReadRel, virtualTableWithExpression, protocmp.Transform()); diff != "" {
 				t.Errorf("expression proto didn't match, diff:\n%v", diff)
 			}

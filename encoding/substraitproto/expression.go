@@ -388,8 +388,6 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 			BoundFromProto(et.WindowFunction.LowerBound),
 			BoundFromProto(et.WindowFunction.UpperBound),
 		), nil
-	case *proto.Expression_Enum_:
-		return nil, fmt.Errorf("%w: deprecated", substraitgo.ErrNotImplemented)
 	case *proto.Expression_Subquery_:
 		return subqueryFromProto(et.Subquery, baseSchema, reg)
 	case *proto.Expression_Cast_:

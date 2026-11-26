@@ -23,8 +23,7 @@ func TestIntervalCompoundLiteralToProto(t *testing.T) {
 		negativeInt64Val int64 = -100000
 	)
 	precisionVal := types.PrecisionNanoSeconds
-	nanoSecPrecision := &proto.Expression_Literal_IntervalDayToSecond_Precision{Precision: precisionVal.ToProtoVal()}
-	secondsPrecision := &proto.Expression_Literal_IntervalDayToSecond_Precision{Precision: types.PrecisionSeconds.ToProtoVal()}
+	nanoSecPrecision := precisionVal.ToProtoVal()
 	nullable := true
 	nullability := types.NullabilityNullable
 
@@ -37,21 +36,21 @@ func TestIntervalCompoundLiteralToProto(t *testing.T) {
 			expr.IntervalCompoundLiteral{Nullability: nullability},
 			&proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
 				IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{},
-				IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{PrecisionMode: secondsPrecision},
+				IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{},
 			}},
 		},
 		{"YearToMonthWithZeroDayToSecond",
 			expr.IntervalCompoundLiteral{Nullability: nullability, Years: yearVal, Months: monthVal},
 			&proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
 				IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: yearVal, Months: monthVal},
-				IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{PrecisionMode: secondsPrecision},
+				IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{},
 			}},
 		},
 		{"YearToMonthNegativeValWithZeroDayToSecond",
 			expr.IntervalCompoundLiteral{Nullability: nullability, Years: negativeInt32Val, Months: negativeInt32Val},
 			&proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
 				IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: negativeInt32Val, Months: negativeInt32Val},
-				IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{PrecisionMode: secondsPrecision},
+				IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{},
 			}},
 		},
 		{"DayToSecondWithZeroYearToMonth",
@@ -59,7 +58,7 @@ func TestIntervalCompoundLiteralToProto(t *testing.T) {
 			&proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
 				IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{},
 				IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{
-					Days: dayVal, Seconds: secondsVal, PrecisionMode: nanoSecPrecision, Subseconds: subSecondsVal,
+					Days: dayVal, Seconds: secondsVal, Precision: nanoSecPrecision, Subseconds: subSecondsVal,
 				},
 			}},
 		},
@@ -68,7 +67,7 @@ func TestIntervalCompoundLiteralToProto(t *testing.T) {
 			&proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
 				IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{},
 				IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{
-					Days: negativeInt32Val, Seconds: negativeInt32Val, PrecisionMode: nanoSecPrecision, Subseconds: negativeInt64Val,
+					Days: negativeInt32Val, Seconds: negativeInt32Val, Precision: nanoSecPrecision, Subseconds: negativeInt64Val,
 				},
 			}},
 		},
@@ -77,7 +76,7 @@ func TestIntervalCompoundLiteralToProto(t *testing.T) {
 			&proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
 				IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: yearVal, Months: monthVal},
 				IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{
-					Days: dayVal, Seconds: secondsVal, PrecisionMode: nanoSecPrecision, Subseconds: subSecondsVal,
+					Days: dayVal, Seconds: secondsVal, Precision: nanoSecPrecision, Subseconds: subSecondsVal,
 				},
 			}},
 		},
@@ -86,7 +85,7 @@ func TestIntervalCompoundLiteralToProto(t *testing.T) {
 			&proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
 				IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: negativeInt32Val, Months: negativeInt32Val},
 				IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{
-					Days: negativeInt32Val, Seconds: negativeInt32Val, PrecisionMode: nanoSecPrecision, Subseconds: negativeInt64Val,
+					Days: negativeInt32Val, Seconds: negativeInt32Val, Precision: nanoSecPrecision, Subseconds: negativeInt64Val,
 				},
 			}},
 		},

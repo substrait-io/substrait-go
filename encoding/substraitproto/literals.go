@@ -3,7 +3,6 @@
 package substraitproto
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/substrait-io/substrait-go/v9/expr"
@@ -11,8 +10,7 @@ import (
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
 )
 
-// IntervalDayToSecondToProto encodes the domain interval as its protobuf literal message. It always
-// writes the precision precision_mode arm; the deprecated microseconds arm is never emitted.
+// IntervalDayToSecondToProto encodes the domain interval as its protobuf literal message.
 func IntervalDayToSecondToProto(v *types.IntervalDayToSecond) *proto.Expression_Literal_IntervalDayToSecond {
 	if v == nil {
 		return nil
@@ -21,33 +19,21 @@ func IntervalDayToSecondToProto(v *types.IntervalDayToSecond) *proto.Expression_
 		Days:       v.Days,
 		Seconds:    v.Seconds,
 		Subseconds: v.Subseconds,
-		PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{
-			Precision: v.Precision.ToProtoVal(),
-		},
+		Precision:  v.Precision.ToProtoVal(),
 	}
 }
 
 // IntervalDayToSecondFromProto decodes a protobuf interval literal message into the domain type.
-// An absent precision_mode is rejected: subseconds has no scale without a precision.
 func IntervalDayToSecondFromProto(p *proto.Expression_Literal_IntervalDayToSecond) (*types.IntervalDayToSecond, error) {
 	if p == nil {
 		return nil, nil
 	}
-	v := &types.IntervalDayToSecond{
+	return &types.IntervalDayToSecond{
 		Days:       p.GetDays(),
 		Seconds:    p.GetSeconds(),
 		Subseconds: p.GetSubseconds(),
-	}
-	switch m := p.PrecisionMode.(type) {
-	case *proto.Expression_Literal_IntervalDayToSecond_Precision:
-		v.Precision = types.TimePrecision(m.Precision)
-	case *proto.Expression_Literal_IntervalDayToSecond_Microseconds:
-		v.Subseconds = int64(m.Microseconds)
-		v.Precision = types.PrecisionMicroSeconds
-	default:
-		return nil, errors.New("interval day to second literal is missing its precision_mode")
-	}
-	return v, nil
+		Precision:  types.TimePrecision(p.GetPrecision()),
+	}, nil
 }
 
 // LiteralToProto encodes a literal as its protobuf message.
@@ -135,16 +121,12 @@ func primitiveLiteralToProto[T expr.PrimitiveLiteralValue](l *expr.PrimitiveLite
 		lit.LiteralType = &proto.Expression_Literal_Fp64{Fp64: v}
 	case string:
 		lit.LiteralType = &proto.Expression_Literal_String_{String_: v}
-	case types.Timestamp:
-		lit.LiteralType = &proto.Expression_Literal_Timestamp{Timestamp: int64(v)}
 	case types.Date:
 		lit.LiteralType = &proto.Expression_Literal_Date{Date: int32(v)}
-	case types.Time:
-		lit.LiteralType = &proto.Expression_Literal_Time{Time: int64(v)}
 	case types.FixedChar:
 		lit.LiteralType = &proto.Expression_Literal_FixedChar{FixedChar: string(v)}
-	case types.TimestampTz:
-		lit.LiteralType = &proto.Expression_Literal_TimestampTz{TimestampTz: int64(v)}
+	case types.Time, types.Timestamp, types.TimestampTz:
+		panic(fmt.Sprintf("wire: %T literals were removed in Substrait v0.88.0, use the precision variant instead", v))
 	default:
 		panic("invalid primitive literal type")
 	}
@@ -404,24 +386,10 @@ func LiteralFromProto(l *proto.Expression_Literal) expr.Literal {
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
 			}}
-	case *proto.Expression_Literal_Timestamp:
-		return &expr.PrimitiveLiteral[types.Timestamp]{
-			Value: types.Timestamp(lit.Timestamp),
-			Type: &types.TimestampType{
-				TypeVariationRef: l.TypeVariationReference,
-				Nullability:      nullability,
-			}}
 	case *proto.Expression_Literal_Date:
 		return &expr.PrimitiveLiteral[types.Date]{
 			Value: types.Date(lit.Date),
 			Type: &types.DateType{
-				TypeVariationRef: l.TypeVariationReference,
-				Nullability:      nullability,
-			}}
-	case *proto.Expression_Literal_Time:
-		return &expr.PrimitiveLiteral[types.Time]{
-			Value: types.Time(lit.Time),
-			Type: &types.TimeType{
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
 			}}
@@ -430,13 +398,6 @@ func LiteralFromProto(l *proto.Expression_Literal) expr.Literal {
 			Value: types.FixedChar(lit.FixedChar),
 			Type: &types.FixedCharType{
 				Length:           int32(len(lit.FixedChar)),
-				TypeVariationRef: l.TypeVariationReference,
-				Nullability:      nullability,
-			}}
-	case *proto.Expression_Literal_TimestampTz:
-		return &expr.PrimitiveLiteral[types.TimestampTz]{
-			Value: types.TimestampTz(lit.TimestampTz),
-			Type: &types.TimestampTzType{
 				TypeVariationRef: l.TypeVariationReference,
 				Nullability:      nullability,
 			}}

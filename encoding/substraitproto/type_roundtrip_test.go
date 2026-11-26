@@ -8,8 +8,22 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/substrait-io/substrait-go/encoding/substraitproto"
+	"github.com/substrait-io/substrait-go/v9/expr"
 	. "github.com/substrait-io/substrait-go/v9/types"
 )
+
+func TestRemovedTimeTypesHaveNoProto(t *testing.T) {
+	for _, typ := range []Type{&TimeType{}, &TimestampType{}, &TimestampTzType{}} {
+		assert.Panics(t, func() { substraitproto.TypeToProto(typ) }, typ.String())
+	}
+	for _, lit := range []expr.Literal{
+		expr.NewPrimitiveLiteral(Time(0), false),
+		expr.NewPrimitiveLiteral(Timestamp(0), false),
+		expr.NewPrimitiveLiteral(TimestampTz(0), false),
+	} {
+		assert.Panics(t, func() { substraitproto.LiteralToProto(lit) }, lit.String())
+	}
+}
 
 func TestTypeRoundtrip(t *testing.T) {
 	for _, nullable := range []bool{true, false} {
@@ -29,10 +43,7 @@ func TestTypeRoundtrip(t *testing.T) {
 				&Float64Type{Nullability: n},
 				&StringType{Nullability: n},
 				&BinaryType{Nullability: n},
-				&TimeType{Nullability: n},
 				&DateType{Nullability: n},
-				&TimestampType{Nullability: n},
-				&TimestampTzType{Nullability: n},
 				&IntervalYearType{Nullability: n},
 				&UUIDType{Nullability: n},
 				&FixedCharType{Nullability: n, Length: 25},
@@ -47,10 +58,11 @@ func TestTypeRoundtrip(t *testing.T) {
 				&PrecisionTimestampType{Nullability: n, Precision: PrecisionEMinus4Seconds},
 				&PrecisionTimestampTzType{PrecisionTimestampType: PrecisionTimestampType{Nullability: n, Precision: PrecisionEMinus5Seconds}},
 				&MapType{Nullability: n, Key: &Int8Type{}, Value: &Int16Type{Nullability: n}},
-				&ListType{Nullability: n, Type: &TimeType{Nullability: n}},
+				&ListType{Nullability: n, Type: &PrecisionTimeType{Nullability: n, Precision: PrecisionMicroSeconds}},
 				&StructType{Nullability: n, Types: []Type{
-					&TimeType{Nullability: n}, &TimestampType{Nullability: n},
-					&TimestampTzType{Nullability: n}}},
+					&PrecisionTimeType{Nullability: n, Precision: PrecisionMicroSeconds},
+					&PrecisionTimestampType{Nullability: n, Precision: PrecisionMicroSeconds},
+					&PrecisionTimestampTzType{PrecisionTimestampType: PrecisionTimestampType{Nullability: n, Precision: PrecisionMicroSeconds}}}},
 				&UserDefinedType{TypeParameters: []TypeParam{&DataTypeParameter{Type: &Int32Type{}}}, Nullability: n},
 				&FuncType{Nullability: n, ParameterTypes: []Type{&Int8Type{}}, ReturnType: &Int16Type{Nullability: n}},
 				&FuncType{Nullability: n, ParameterTypes: []Type{&Int32Type{Nullability: n}, &Float64Type{Nullability: n}}, ReturnType: &BooleanType{Nullability: NullabilityNullable}},

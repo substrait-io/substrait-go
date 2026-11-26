@@ -23,11 +23,7 @@ const (
 
 func TestIntervalCompoundFromProto(t *testing.T) {
 	precisionNanoVal := types.PrecisionNanoSeconds
-	nanoSecPrecision := &proto.Expression_Literal_IntervalDayToSecond_Precision{Precision: precisionNanoVal.ToProtoVal()}
-
-	var microSecondVal int32 = 70
-	deprecatedMicroSecPrecision := &proto.Expression_Literal_IntervalDayToSecond_Microseconds{
-		Microseconds: microSecondVal}
+	nanoSecPrecision := precisionNanoVal.ToProtoVal()
 	nullable := true
 	nullability := types.NullabilityNullable
 	for _, tc := range []struct {
@@ -61,7 +57,7 @@ func TestIntervalCompoundFromProto(t *testing.T) {
 			&proto.Expression_Literal{
 				LiteralType: &proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
 					IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{Days: dayVal, Seconds: secondsVal,
-						PrecisionMode: nanoSecPrecision, Subseconds: subSecondsVal},
+						Precision: nanoSecPrecision, Subseconds: subSecondsVal},
 				}},
 				Nullable: nullable},
 			expr.IntervalCompoundLiteral{Nullability: nullability, Days: dayVal, Seconds: secondsVal, SubSeconds: subSecondsVal, SubSecondPrecision: precisionNanoVal},
@@ -70,7 +66,7 @@ func TestIntervalCompoundFromProto(t *testing.T) {
 			&proto.Expression_Literal{
 				LiteralType: &proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
 					IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{Days: negativeInt32Val, Seconds: negativeInt32Val,
-						PrecisionMode: nanoSecPrecision, Subseconds: negativeInt64Val},
+						Precision: nanoSecPrecision, Subseconds: negativeInt64Val},
 				}},
 				Nullable: nullable},
 			expr.IntervalCompoundLiteral{Nullability: nullability, Days: negativeInt32Val, Seconds: negativeInt32Val, SubSeconds: negativeInt64Val, SubSecondPrecision: precisionNanoVal},
@@ -80,7 +76,7 @@ func TestIntervalCompoundFromProto(t *testing.T) {
 				LiteralType: &proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
 					IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: yearVal, Months: monthVal},
 					IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{Days: dayVal, Seconds: secondsVal,
-						PrecisionMode: nanoSecPrecision, Subseconds: subSecondsVal},
+						Precision: nanoSecPrecision, Subseconds: subSecondsVal},
 				}},
 				Nullable: nullable},
 			expr.IntervalCompoundLiteral{Nullability: nullability, Years: yearVal, Months: monthVal, Days: dayVal, Seconds: secondsVal, SubSeconds: subSecondsVal, SubSecondPrecision: precisionNanoVal},
@@ -90,20 +86,18 @@ func TestIntervalCompoundFromProto(t *testing.T) {
 				LiteralType: &proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
 					IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: negativeInt32Val, Months: negativeInt32Val},
 					IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{Days: negativeInt32Val, Seconds: negativeInt32Val,
-						PrecisionMode: nanoSecPrecision, Subseconds: negativeInt64Val},
+						Precision: nanoSecPrecision, Subseconds: negativeInt64Val},
 				}},
 				Nullable: nullable},
 			expr.IntervalCompoundLiteral{Nullability: nullability, Years: negativeInt32Val, Months: negativeInt32Val, Days: negativeInt32Val, Seconds: negativeInt32Val, SubSeconds: negativeInt64Val, SubSecondPrecision: precisionNanoVal},
 		},
-		{"WithDeprecatedMicroSecondPrecision",
+		{"DayToSecondWithSecondsPrecision",
 			&proto.Expression_Literal{
 				LiteralType: &proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
-					IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: yearVal, Months: monthVal},
-					IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{Days: dayVal, Seconds: secondsVal,
-						PrecisionMode: deprecatedMicroSecPrecision},
+					IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{Days: dayVal, Seconds: secondsVal},
 				}},
 				Nullable: nullable},
-			expr.IntervalCompoundLiteral{Nullability: nullability, Years: yearVal, Months: monthVal, Days: dayVal, Seconds: secondsVal, SubSeconds: int64(microSecondVal), SubSecondPrecision: types.PrecisionMicroSeconds},
+			expr.IntervalCompoundLiteral{Nullability: nullability, Days: dayVal, Seconds: secondsVal, SubSecondPrecision: types.PrecisionSeconds},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -122,34 +116,14 @@ func TestIntervalCompoundFromProto(t *testing.T) {
 
 func TestIntervalCompoundFromProtoError(t *testing.T) {
 	// valid precision val is [0, 9]
-	invalidPrecision := &proto.Expression_Literal_IntervalDayToSecond_Precision{Precision: 10}
-	deprecatedMicroSecPrecision := &proto.Expression_Literal_IntervalDayToSecond_Microseconds{Microseconds: 70}
 	for _, tc := range []struct {
 		name             string
 		constructedProto *proto.Expression_Literal
 	}{
-		{"NoPrecisionMode",
+		{"InvalidPrecision",
 			&proto.Expression_Literal{
 				LiteralType: &proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
-					IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{},
-				}}},
-		},
-		{"NoPrecisionModeButSubsecondsPresent",
-			&proto.Expression_Literal{
-				LiteralType: &proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
-					IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{Subseconds: 123},
-				}}},
-		},
-		{"InvalidPrecisionMode",
-			&proto.Expression_Literal{
-				LiteralType: &proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
-					IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{PrecisionMode: invalidPrecision},
-				}}},
-		},
-		{"DeprecatedMicrosecondPrecisionWithSubsecondsSet",
-			&proto.Expression_Literal{
-				LiteralType: &proto.Expression_Literal_IntervalCompound_{IntervalCompound: &proto.Expression_Literal_IntervalCompound{
-					IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{PrecisionMode: deprecatedMicroSecPrecision, Subseconds: 70},
+					IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{Precision: 10},
 				}}},
 		},
 	} {

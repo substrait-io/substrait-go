@@ -214,10 +214,10 @@ func fetchRelToProto(f *plan.FetchRel) *proto.Rel {
 		AdvancedExtension: advancedExtensionToProto(f.GetAdvancedExtension()),
 	}
 	if f.Offset() != nil {
-		fetchRel.OffsetMode = &proto.FetchRel_OffsetExpr{OffsetExpr: ExprToProto(f.Offset())}
+		fetchRel.OffsetExpr = ExprToProto(f.Offset())
 	}
 	if f.Count() != nil {
-		fetchRel.CountMode = &proto.FetchRel_CountExpr{CountExpr: ExprToProto(f.Count())}
+		fetchRel.CountExpr = ExprToProto(f.Count())
 	}
 	return &proto.Rel{RelType: &proto.Rel_Fetch{Fetch: fetchRel}}
 }
@@ -269,33 +269,6 @@ func aggregateRelToProto(ar *plan.AggregateRel) *proto.Rel {
 			},
 		},
 	}
-}
-
-// groupingExprs takes 2-dimensional slice of expressions and returns
-// a single slice of unique expressions and a slice of references to
-// the unique expressions for each group.
-func groupingExprs(groups [][]expr.Expression) ([]expr.Expression, [][]uint32) {
-	groupingExpressions := make([]expr.Expression, 0)
-	groupingReferences := make([][]uint32, 0)
-	for _, group := range groups {
-		refs := make([]uint32, 0)
-		for _, e := range group {
-			existingExpr := false
-			for eIndex, existing := range groupingExpressions {
-				if existing.Equals(e) {
-					existingExpr = true
-					refs = append(refs, uint32(eIndex))
-					break
-				}
-			}
-			if !existingExpr {
-				groupingExpressions = append(groupingExpressions, e)
-				refs = append(refs, uint32(len(groupingExpressions)-1))
-			}
-		}
-		groupingReferences = append(groupingReferences, refs)
-	}
-	return groupingExpressions, groupingReferences
 }
 
 func aggRelMeasureToProto(am *plan.AggRelMeasure) *proto.AggregateRel_Measure {
@@ -380,10 +353,6 @@ func hashJoinRelToProto(hr *plan.HashJoinRel) *proto.Rel {
 		Type:              proto.HashJoinRel_JoinType(hr.Type()),
 		AdvancedExtension: advancedExtensionToProto(hr.GetAdvancedExtension()),
 	}
-	if leftKeys, rightKeys, ok := tryEqualityJoinKeysToLegacyProto(hr.Keys()); ok {
-		ret.LeftKeys = leftKeys
-		ret.RightKeys = rightKeys
-	}
 	if f := hr.RawPostJoinFilter(); f != nil {
 		ret.PostJoinFilter = ExprToProto(f)
 	}
@@ -398,10 +367,6 @@ func mergeJoinRelToProto(mr *plan.MergeJoinRel) *proto.Rel {
 		Keys:              comparisonJoinKeysToProto(mr.Keys()),
 		Type:              proto.MergeJoinRel_JoinType(mr.Type()),
 		AdvancedExtension: advancedExtensionToProto(mr.GetAdvancedExtension()),
-	}
-	if leftKeys, rightKeys, ok := tryEqualityJoinKeysToLegacyProto(mr.Keys()); ok {
-		ret.LeftKeys = leftKeys
-		ret.RightKeys = rightKeys
 	}
 	if f := mr.RawPostJoinFilter(); f != nil {
 		ret.PostJoinFilter = ExprToProto(f)
@@ -451,37 +416,6 @@ func customComparisonToProto(c plan.CustomComparison) *proto.ComparisonJoinKey_C
 		InnerType: &proto.ComparisonJoinKey_ComparisonType_CustomFunctionReference{
 			CustomFunctionReference: c.FunctionReference},
 	}
-}
-
-// tryEqualityJoinKeysToLegacyProto returns the deprecated left_keys/right_keys
-// representation of the given join keys with ok=true, but only when every key
-// is a plain SIMPLE_COMPARISON_TYPE_EQ comparison. Those are the only joins the
-// deprecated fields can express; IS_NOT_DISTINCT_FROM, MIGHT_EQUAL and custom
-// comparisons have no legacy encoding and an old consumer would silently treat
-// them as equality, so for those it returns ok=false and the caller should emit
-// only the modern keys field.
-func tryEqualityJoinKeysToLegacyProto(keys []*plan.ComparisonJoinKey) (leftKeys, rightKeys []*proto.Expression_FieldReference, ok bool) {
-	for _, k := range keys {
-		switch simple := k.Comparison().(type) {
-		case plan.SimpleComparison:
-			if simple.Type != plan.SimpleComparisonTypeEq {
-				return nil, nil, false
-			}
-		case *plan.SimpleComparison:
-			if simple == nil || simple.Type != plan.SimpleComparisonTypeEq {
-				return nil, nil, false
-			}
-		default:
-			return nil, nil, false
-		}
-	}
-	leftKeys = make([]*proto.Expression_FieldReference, len(keys))
-	rightKeys = make([]*proto.Expression_FieldReference, len(keys))
-	for i, k := range keys {
-		leftKeys[i] = fieldReferenceRefToProto(k.Left())
-		rightKeys[i] = fieldReferenceRefToProto(k.Right())
-	}
-	return leftKeys, rightKeys, true
 }
 
 func namedTableWriteRelToProto(wr *plan.NamedTableWriteRel) *proto.Rel {
@@ -640,15 +574,6 @@ func virtualTableExpressionFromProto(s *proto.Expression_Nested_Struct, reg expr
 	return fields, nil
 }
 
-// virtualTableExprFromLiteralProto decodes a literal-valued virtual table row.
-func virtualTableExprFromLiteralProto(s *proto.Expression_Literal_Struct) expr.VirtualTableExpressionValue {
-	fields := make(expr.VirtualTableExpressionValue, len(s.Fields))
-	for i, f := range s.Fields {
-		fields[i] = LiteralFromProto(f)
-	}
-	return fields
-}
-
 func joinKeyComparisonFromProto(c *proto.ComparisonJoinKey_ComparisonType) (plan.JoinKeyComparison, error) {
 	switch it := c.GetInnerType().(type) {
 	case *proto.ComparisonJoinKey_ComparisonType_Simple:
@@ -660,50 +585,27 @@ func joinKeyComparisonFromProto(c *proto.ComparisonJoinKey_ComparisonType) (plan
 	}
 }
 
-// comparisonJoinKeysFromProto builds the join keys for a hash/merge join,
-// preferring the keys field. The deprecated leftKeys/rightKeys are only used
-// when keys is empty, in which case they are paired with an EQ comparison.
+// comparisonJoinKeysFromProto builds the join keys for a hash/merge join.
 func comparisonJoinKeysFromProto(
 	keys []*proto.ComparisonJoinKey,
-	leftKeys, rightKeys []*proto.Expression_FieldReference,
 	leftSchema, rightSchema *types.RecordType,
 	reg expr.ExtensionRegistry,
 ) ([]*plan.ComparisonJoinKey, error) {
-	if len(keys) > 0 {
-		out := make([]*plan.ComparisonJoinKey, len(keys))
-		for i, k := range keys {
-			left, err := FieldReferenceFromProto(k.GetLeft(), leftSchema, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error getting left key %d for join: %w", i, err)
-			}
-			right, err := FieldReferenceFromProto(k.GetRight(), rightSchema, reg)
-			if err != nil {
-				return nil, fmt.Errorf("error getting right key %d for join: %w", i, err)
-			}
-			comparison, err := joinKeyComparisonFromProto(k.GetComparison())
-			if err != nil {
-				return nil, err
-			}
-			out[i] = plan.NewComparisonJoinKey(left, right, comparison)
-		}
-		return out, nil
-	}
-
-	if len(leftKeys) != len(rightKeys) {
-		return nil, fmt.Errorf("%w: mismatched number of keys for join. Left: %d, Right: %d",
-			substraitgo.ErrInvalidRel, len(leftKeys), len(rightKeys))
-	}
-	out := make([]*plan.ComparisonJoinKey, len(leftKeys))
-	for i := range leftKeys {
-		left, err := FieldReferenceFromProto(leftKeys[i], leftSchema, reg)
+	out := make([]*plan.ComparisonJoinKey, len(keys))
+	for i, k := range keys {
+		left, err := FieldReferenceFromProto(k.GetLeft(), leftSchema, reg)
 		if err != nil {
 			return nil, fmt.Errorf("error getting left key %d for join: %w", i, err)
 		}
-		right, err := FieldReferenceFromProto(rightKeys[i], rightSchema, reg)
+		right, err := FieldReferenceFromProto(k.GetRight(), rightSchema, reg)
 		if err != nil {
 			return nil, fmt.Errorf("error getting right key %d for join: %w", i, err)
 		}
-		out[i] = plan.NewEqualityJoinKey(left, right)
+		comparison, err := joinKeyComparisonFromProto(k.GetComparison())
+		if err != nil {
+			return nil, err
+		}
+		out[i] = plan.NewComparisonJoinKey(left, right, comparison)
 	}
 	return out, nil
 }
@@ -753,13 +655,7 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 				return plan.NewNamedTableReadRel(plan.NewBaseReadRel(b.common, b.baseSchema, b.filter, b.bestEffortFilter, b.projection, b.advExtension), names, advExtension)
 			}
 		case *proto.ReadRel_VirtualTable_:
-			if len(readType.VirtualTable.Values) > 0 && len(readType.VirtualTable.Expressions) > 0 {
-				return nil, fmt.Errorf("VirtualTable cannot declare both Values and Expressions")
-			}
 			var values []expr.VirtualTableExpressionValue
-			for _, v := range readType.VirtualTable.Values {
-				values = append(values, virtualTableExprFromLiteralProto(v))
-			}
 			for _, v := range readType.VirtualTable.Expressions {
 				row, err := virtualTableExpressionFromProto(v, reg)
 				if err != nil {
@@ -828,11 +724,8 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 		base := input.RecordType()
 
 		var offset expr.Expression
-		switch om := rel.Fetch.OffsetMode.(type) {
-		case *proto.FetchRel_Offset:
-			offset = expr.NewPrimitiveLiteral(om.Offset, false)
-		case *proto.FetchRel_OffsetExpr:
-			e, exprErr := ExprFromProto(om.OffsetExpr, &base, reg)
+		if rel.Fetch.OffsetExpr != nil {
+			e, exprErr := ExprFromProto(rel.Fetch.OffsetExpr, &base, reg)
 			if exprErr != nil {
 				return nil, fmt.Errorf("error getting offset expression for FetchRel: %w", exprErr)
 			}
@@ -840,13 +733,8 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 		}
 
 		var count expr.Expression
-		switch cm := rel.Fetch.CountMode.(type) {
-		case *proto.FetchRel_Count:
-			if cm.Count != plan.FETCH_COUNT_ALL_RECORDS {
-				count = expr.NewPrimitiveLiteral(cm.Count, false)
-			}
-		case *proto.FetchRel_CountExpr:
-			e, exprErr := ExprFromProto(cm.CountExpr, &base, reg)
+		if rel.Fetch.CountExpr != nil {
+			e, exprErr := ExprFromProto(rel.Fetch.CountExpr, &base, reg)
 			if exprErr != nil {
 				return nil, fmt.Errorf("error getting count expression for FetchRel: %w", exprErr)
 			}
@@ -892,30 +780,15 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 		base := input.RecordType()
 		var groupingExpressions []expr.Expression
 		var groupingReferences [][]uint32
-		if len(rel.Aggregate.GroupingExpressions) > 0 {
-			for _, e := range rel.Aggregate.GroupingExpressions {
-				ge, err := ExprFromProto(e, &base, reg)
-				if err != nil {
-					return nil, fmt.Errorf("error getting grouping expr for AggregateRel: %w", err)
-				}
-				groupingExpressions = append(groupingExpressions, ge)
+		for _, e := range rel.Aggregate.GroupingExpressions {
+			ge, err := ExprFromProto(e, &base, reg)
+			if err != nil {
+				return nil, fmt.Errorf("error getting grouping expr for AggregateRel: %w", err)
 			}
-			for _, g := range rel.Aggregate.Groupings {
-				groupingReferences = append(groupingReferences, g.ExpressionReferences)
-			}
-		} else { // support old style grouping for backward compatibility
-			groups := make([][]expr.Expression, len(rel.Aggregate.Groupings))
-			for i, g := range rel.Aggregate.Groupings {
-				groups[i] = make([]expr.Expression, len(g.GroupingExpressions))
-				for j, e := range g.GroupingExpressions {
-					groups[i][j], err = ExprFromProto(e, &base, reg)
-					if err != nil {
-						return nil, fmt.Errorf("error getting grouping expr [%d][%d] for AggregateRel: %w",
-							i, j, err)
-					}
-				}
-			}
-			groupingExpressions, groupingReferences = groupingExprs(groups)
+			groupingExpressions = append(groupingExpressions, ge)
+		}
+		for _, g := range rel.Aggregate.Groupings {
+			groupingReferences = append(groupingReferences, g.ExpressionReferences)
 		}
 
 		measures := make([]plan.AggRelMeasure, len(rel.Aggregate.Measures))
@@ -1048,7 +921,7 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 		leftBase, rightBase := left.RecordType(), right.RecordType()
 
 		keys, err := comparisonJoinKeysFromProto(
-			rel.HashJoin.Keys, rel.HashJoin.LeftKeys, rel.HashJoin.RightKeys, &leftBase, &rightBase, reg)
+			rel.HashJoin.Keys, &leftBase, &rightBase, reg)
 		if err != nil {
 			return nil, fmt.Errorf("error getting keys for HashJoinRel: %w", err)
 		}
@@ -1081,7 +954,7 @@ func RelFromProto(rel *proto.Rel, reg expr.ExtensionRegistry) (plan.Rel, error) 
 		leftBase, rightBase := left.RecordType(), right.RecordType()
 
 		keys, err := comparisonJoinKeysFromProto(
-			rel.MergeJoin.Keys, rel.MergeJoin.LeftKeys, rel.MergeJoin.RightKeys, &leftBase, &rightBase, reg)
+			rel.MergeJoin.Keys, &leftBase, &rightBase, reg)
 		if err != nil {
 			return nil, fmt.Errorf("error getting keys for MergeJoinRel: %w", err)
 		}

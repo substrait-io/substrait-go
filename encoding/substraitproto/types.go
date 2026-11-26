@@ -81,21 +81,8 @@ func TypeToProto(t types.Type) *proto.Type {
 			Date: &proto.Type_Date{
 				Nullability:            proto.Type_Nullability(t.Nullability),
 				TypeVariationReference: t.TypeVariationRef}}}
-	case *types.TimeType:
-		return &proto.Type{Kind: &proto.Type_Time_{
-			Time: &proto.Type_Time{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *types.TimestampTzType:
-		return &proto.Type{Kind: &proto.Type_TimestampTz{
-			TimestampTz: &proto.Type_TimestampTZ{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
-	case *types.TimestampType:
-		return &proto.Type{Kind: &proto.Type_Timestamp_{
-			Timestamp: &proto.Type_Timestamp{
-				Nullability:            proto.Type_Nullability(t.Nullability),
-				TypeVariationReference: t.TypeVariationRef}}}
+	case *types.TimeType, *types.TimestampTzType, *types.TimestampType:
+		panic(fmt.Sprintf("wire: the %s type was removed in Substrait v0.88.0, use the precision variant instead", t.ShortString()))
 	case *types.IntervalYearType:
 		return &proto.Type{Kind: &proto.Type_IntervalYear_{
 			IntervalYear: &proto.Type_IntervalYear{
@@ -375,20 +362,10 @@ func TypeFromProto(t *proto.Type) types.Type {
 			Nullability:      types.Nullability(t.Binary.Nullability),
 			TypeVariationRef: t.Binary.TypeVariationReference,
 		}
-	case *proto.Type_Timestamp_:
-		return &types.TimestampType{
-			Nullability:      types.Nullability(t.Timestamp.Nullability),
-			TypeVariationRef: t.Timestamp.TypeVariationReference,
-		}
 	case *proto.Type_Date_:
 		return &types.DateType{
 			Nullability:      types.Nullability(t.Date.Nullability),
 			TypeVariationRef: t.Date.TypeVariationReference,
-		}
-	case *proto.Type_Time_:
-		return &types.TimeType{
-			Nullability:      types.Nullability(t.Time.Nullability),
-			TypeVariationRef: t.Time.TypeVariationReference,
 		}
 	case *proto.Type_IntervalYear_:
 		return &types.IntervalYearType{
@@ -418,11 +395,6 @@ func TypeFromProto(t *proto.Type) types.Type {
 			WithPrecision(precision).
 			WithTypeVariationRef(t.IntervalCompound.TypeVariationReference).
 			WithNullability(types.Nullability(t.IntervalCompound.Nullability))
-	case *proto.Type_TimestampTz:
-		return &types.TimestampTzType{
-			Nullability:      types.Nullability(t.TimestampTz.Nullability),
-			TypeVariationRef: t.TimestampTz.TypeVariationReference,
-		}
 	case *proto.Type_Uuid:
 		return &types.UUIDType{
 			Nullability:      types.Nullability(t.Uuid.Nullability),
