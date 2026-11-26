@@ -30,6 +30,8 @@ func TestConditionalDecoderRejectsInvalidConstruction(t *testing.T) {
 		"switch mismatched later result": `{"switchExpression":{"match":{"literal":{"i32":1}},"ifs":[{"if":{"i32":1},"then":{"literal":{"i32":1}}},{"if":{"i32":2},"then":{"literal":{"i8":1}}}],"else":{"literal":{"i32":1}}}}`,
 		"switch mismatched nullability":  `{"switchExpression":{"match":{"literal":{"i32":1}},"ifs":[{"if":{"i32":1},"then":{"literal":{"i32":2,"nullable":true}}}],"else":{"literal":{"i32":3}}}}`,
 		"switch later nullability":       `{"switchExpression":{"match":{"literal":{"i32":1}},"ifs":[{"if":{"i32":1},"then":{"literal":{"i32":2}}},{"if":{"i32":2},"then":{"literal":{"i32":3,"nullable":true}}}],"else":{"literal":{"i32":4}}}}`,
+		"switch without else":            `{"switchExpression":{"match":{"literal":{"i32":1}},"ifs":[{"if":{"i32":1},"then":{"literal":{"i32":2}}}]}}`,
+		"switch invalid else":            `{"switchExpression":{"match":{"literal":{"i32":1}},"ifs":[{"if":{"i32":1},"then":{"literal":{"i32":2}}}],"else":{"literal":{"precisionTime":{"precision":6,"value":"-1"}}}}}`,
 		"switch without match":           `{"switchExpression":{"ifs":[{"if":{"i32":1},"then":{"literal":{"i32":1}}}],"else":{"literal":{"i32":1}}}}`,
 		"switch without label":           `{"switchExpression":{"match":{"literal":{"i32":1}},"ifs":[{"then":{"literal":{"i32":1}}}],"else":{"literal":{"i32":1}}}}`,
 	} {

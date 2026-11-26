@@ -454,6 +454,9 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 		if err != nil {
 			return nil, err
 		}
+		if elseExpr == nil {
+			return nil, fmt.Errorf("%w: could not decode switch else expression", substraitgo.ErrInvalidExpr)
+		}
 
 		ifs := make([]struct {
 			If   expr.Literal
@@ -477,10 +480,7 @@ func ExprFromProto(e *proto.Expression, baseSchema *types.RecordType, reg expr.E
 
 		// NewSwitch in core v9.0.0 ignores result nullability. The spec
 		// requires identical result types, just as it does for IfThen.
-		resultType := ifs[0].Then.GetType()
-		if elseExpr != nil {
-			resultType = elseExpr.GetType()
-		}
+		resultType := elseExpr.GetType()
 		for i, clause := range ifs {
 			if actual := clause.Then.GetType(); !resultType.Equals(actual) {
 				return nil, fmt.Errorf("%w: switch clause %d: expected result type %s, got %s",
