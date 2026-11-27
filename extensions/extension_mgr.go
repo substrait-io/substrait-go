@@ -134,6 +134,7 @@ type Collection struct {
 	scalarMap        map[FunctionID]*ScalarFunctionVariant
 	aggregateMap     map[FunctionID]*AggregateFunctionVariant
 	windowMap        map[FunctionID]*WindowFunctionVariant
+	tableMap         map[FunctionID]*TableFunctionVariant
 	typeMap          map[TypeID]Type
 	typeVariationMap map[TypeVariationID]TypeVariation
 	fileMetadataMap  map[string]map[string]any // keyed by URN
@@ -158,7 +159,7 @@ func (c *Collection) GetTypeVariation(id TypeVariationID) (tv TypeVariation, ok 
 var void = struct{}{}
 
 type variants interface {
-	*ScalarFunctionVariant | *AggregateFunctionVariant | *WindowFunctionVariant
+	*ScalarFunctionVariant | *AggregateFunctionVariant | *WindowFunctionVariant | *TableFunctionVariant
 	Name() string
 	CompoundName() string
 }
@@ -211,6 +212,10 @@ func (c *Collection) GetWindowFunc(id FunctionID) (*WindowFunctionVariant, bool)
 	return checkMaps(id, c.windowMap, c.simpleNameMap)
 }
 
+func (c *Collection) GetTableFunc(id FunctionID) (*TableFunctionVariant, bool) {
+	return checkMaps(id, c.tableMap, c.simpleNameMap)
+}
+
 func (c *Collection) init() {
 	if c.urnSet == nil {
 		c.urnSet = make(map[string]struct{})
@@ -218,6 +223,7 @@ func (c *Collection) init() {
 		c.scalarMap = make(map[FunctionID]*ScalarFunctionVariant)
 		c.aggregateMap = make(map[FunctionID]*AggregateFunctionVariant)
 		c.windowMap = make(map[FunctionID]*WindowFunctionVariant)
+		c.tableMap = make(map[FunctionID]*TableFunctionVariant)
 		c.typeMap = make(map[TypeID]Type)
 		c.typeVariationMap = make(map[TypeVariationID]TypeVariation)
 		c.fileMetadataMap = make(map[string]map[string]any)
@@ -254,6 +260,9 @@ func (c *Collection) Load(r io.Reader) error {
 	}
 
 	if err := file.validateUserDefinedTypeReferences(); err != nil {
+		return err
+	}
+	if err := file.validateTableFunctionSchemas(); err != nil {
 		return err
 	}
 
@@ -303,6 +312,13 @@ func (c *Collection) Load(r io.Reader) error {
 		addToMaps[*WindowFunctionVariant](id, &f, c.windowMap, simpleNames)
 	}
 
+	for _, f := range file.TableFunctions {
+		if err := defaults.Set(&f); err != nil {
+			return fmt.Errorf("failure setting defaults for table functions: %w", err)
+		}
+		addToMaps[*TableFunctionVariant](id, &f, c.tableMap, simpleNames)
+	}
+
 	// Aggregate functions can be used as Window Functions
 	for _, f := range file.AggregateFunctions {
 		// Convert each aggregate implementation to a window implementation
@@ -350,6 +366,10 @@ func (c *Collection) GetAllAggregateFunctions() []*AggregateFunctionVariant {
 
 func (c *Collection) GetAllWindowFunctions() []*WindowFunctionVariant {
 	return getValues(c.windowMap)
+}
+
+func (c *Collection) GetAllTableFunctions() []*TableFunctionVariant {
+	return getValues(c.tableMap)
 }
 
 func getValues[M ~map[K]V, K comparable, V any](m M) []V {

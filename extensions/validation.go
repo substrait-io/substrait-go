@@ -7,6 +7,7 @@ import (
 
 	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/types"
+	"github.com/substrait-io/substrait-go/v9/types/parser"
 )
 
 // validateUserDefinedTypeReferences ensures every user-defined type used in a
@@ -46,20 +47,21 @@ func (s *SimpleExtensionFile) functionTypes() []types.FuncDefArgType {
 	// Extension impl structs embed their shared fields in layers:
 	// ScalarFunctionImpl <- AggregateFunctionImpl <- WindowFunctionImpl.
 	// Collect the shared args/return fields once, then add aggregate/window
-	// intermediate types through the aggregate layer.
-	addScalarImpl := func(impl ScalarFunctionImpl) {
-		for _, arg := range impl.Args {
+	// intermediate types through the aggregate layer. Table functions have
+	// their own impl struct, whose schema plays the role of the return type.
+	addSignature := func(args FuncParameterList, ret *parser.TypeExpression) {
+		for _, arg := range args {
 			if typ := arg.GetTypeExpression(); typ != nil {
 				out = append(out, typ)
 			}
 		}
-		if impl.Return != nil && impl.Return.ValueType != nil {
-			out = append(out, impl.Return.ValueType)
+		if ret != nil && ret.ValueType != nil {
+			out = append(out, ret.ValueType)
 		}
 	}
 
 	addAggregateImpl := func(impl AggregateFunctionImpl) {
-		addScalarImpl(impl.ScalarFunctionImpl)
+		addSignature(impl.Args, impl.Return)
 		if impl.Intermediate.ValueType != nil {
 			out = append(out, impl.Intermediate.ValueType)
 		}
@@ -67,7 +69,7 @@ func (s *SimpleExtensionFile) functionTypes() []types.FuncDefArgType {
 
 	for _, fn := range s.ScalarFunctions {
 		for _, impl := range fn.Impls {
-			addScalarImpl(impl)
+			addSignature(impl.Args, impl.Return)
 		}
 	}
 	for _, fn := range s.AggregateFunctions {
@@ -80,5 +82,28 @@ func (s *SimpleExtensionFile) functionTypes() []types.FuncDefArgType {
 			addAggregateImpl(impl.AggregateFunctionImpl)
 		}
 	}
+	for _, fn := range s.TableFunctions {
+		for _, impl := range fn.Impls {
+			addSignature(impl.Args, impl.Schema)
+		}
+	}
 	return out
+}
+
+// validateTableFunctionSchemas ensures every declared table function schema
+// is a non-nullable struct.
+func (s *SimpleExtensionFile) validateTableFunctionSchemas() error {
+	for _, fn := range s.TableFunctions {
+		for _, impl := range fn.Impls {
+			if impl.Schema == nil || impl.Schema.ValueType == nil {
+				continue
+			}
+			schema, ok := impl.Schema.ValueType.(*types.ParameterizedStructType)
+			if !ok || schema.Nullability != types.NullabilityRequired {
+				return fmt.Errorf("%w: table function %q schema must be a non-nullable struct, got %s",
+					substraitgo.ErrInvalidSimpleExtention, fn.Name, impl.Schema.ValueType)
+			}
+		}
+	}
+	return nil
 }

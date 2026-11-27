@@ -118,7 +118,7 @@ func NewCustomScalarFunc(
 }
 
 type variant interface {
-	*extensions.ScalarFunctionVariant | *extensions.AggregateFunctionVariant | *extensions.WindowFunctionVariant
+	*extensions.ScalarFunctionVariant | *extensions.AggregateFunctionVariant | *extensions.WindowFunctionVariant | *extensions.TableFunctionVariant
 	ResolveType([]types.Type, extensions.Set) (types.Type, error)
 }
 
@@ -126,6 +126,23 @@ func resolveVariant[T variant](
 	id extensions.FunctionID, reg ExtensionRegistry, getter func(extensions.FunctionID) (T, bool),
 	args []types.FuncArg,
 ) (T, types.Type, error) {
+	decl, argTypes, err := lookupVariant(id, reg, getter, args)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	outType, err := decl.ResolveType(argTypes, reg.Set)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return decl, outType, nil
+}
+
+func lookupVariant[T variant](
+	id extensions.FunctionID, reg ExtensionRegistry, getter func(extensions.FunctionID) (T, bool),
+	args []types.FuncArg,
+) (T, []types.Type, error) {
 	argTypes := make([]types.Type, 0, len(args))
 	for _, arg := range args {
 		switch a := arg.(type) {
@@ -166,12 +183,7 @@ func resolveVariant[T variant](
 		}
 	}
 
-	outType, err := decl.ResolveType(argTypes, reg.Set)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return decl, outType, nil
+	return decl, argTypes, nil
 }
 
 // NewScalarFunc validates that the specified ID can be found in the

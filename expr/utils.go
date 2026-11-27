@@ -89,3 +89,12 @@ func (e *ExtensionRegistry) LookupAggregateFunction(anchor uint32) (*extensions.
 func (e *ExtensionRegistry) LookupWindowFunction(anchor uint32) (*extensions.WindowFunctionVariant, bool) {
 	return e.Set.LookupWindowFunction(anchor, e.c)
 }
+
+// LookupTableFunction returns a TableFunctionVariant associated with a previously used function's anchor.
+func (e *ExtensionRegistry) LookupTableFunction(anchor uint32) (*extensions.TableFunctionVariant, bool) {
+	id, ok := e.Set.DecodeFunc(anchor)
+	if !ok {
+		return nil, false
+	}
+	return e.c.GetTableFunc(id)
+}

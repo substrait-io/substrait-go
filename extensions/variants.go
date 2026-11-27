@@ -167,6 +167,9 @@ func matchArguments(nullability NullabilityHandling, paramTypeList FuncParameter
 		return false, nil
 	} else if variadicBehavior != nil {
 		numNonVariadicArgs := len(paramTypeList) - 1
+		if len(actualTypes) < numNonVariadicArgs {
+			return false, nil
+		}
 		if !validateVariadicBehaviorForMatch(variadicBehavior, actualTypes[numNonVariadicArgs:]) {
 			return false, nil
 		}
@@ -648,6 +651,76 @@ func (s *WindowFunctionVariant) MinArgumentCount() int {
 }
 
 func (s *WindowFunctionVariant) MaxArgumentCount() int {
+	return maxArgumentCount(s.impl.Args, s.impl.Variadic)
+}
+
+// NewTableFuncVariant constructs a variant with the provided name and urn
+// and uses the defaults for everything else.
+//
+// The schema isn't included here as using this variant to construct a call
+// requires a schema argument. This is for creating an on-the-fly function
+// variant that will not be registered as an extension.
+func NewTableFuncVariant(id FunctionID) *TableFunctionVariant {
+	simpleName, args := parseFuncName(id.Name)
+	return &TableFunctionVariant{
+		name: simpleName,
+		urn:  id.URN,
+		impl: TableFunctionImpl{Args: args},
+	}
+}
+
+type TableFunctionVariant struct {
+	name        string
+	description string
+	urn         string
+	impl        TableFunctionImpl
+	metadata    map[string]any
+}
+
+func (s *TableFunctionVariant) Name() string                { return s.name }
+func (s *TableFunctionVariant) Description() string         { return s.description }
+func (s *TableFunctionVariant) Args() FuncParameterList     { return s.impl.Args }
+func (s *TableFunctionVariant) Options() map[string]Option  { return s.impl.Options }
+func (s *TableFunctionVariant) Variadic() *VariadicBehavior { return s.impl.Variadic }
+func (s *TableFunctionVariant) URN() string                 { return s.urn }
+func (s *TableFunctionVariant) Metadata() map[string]any    { return s.metadata }
+
+// Schema returns the unresolved output schema expression, or nil when the
+// variant leaves the schema to the producer.
+func (s *TableFunctionVariant) Schema() types.FuncDefArgType {
+	if s.impl.Schema == nil {
+		return nil
+	}
+	return s.impl.Schema.ValueType
+}
+
+// ResolveType evaluates the schema expression with the given argument types,
+// following the DECLARED_OUTPUT nullability rules that apply to every table
+// function. It fails when the variant has no schema expression.
+func (s *TableFunctionVariant) ResolveType(argumentTypes []types.Type, registry Set) (types.Type, error) {
+	schema := s.Schema()
+	if schema == nil {
+		return nil, fmt.Errorf("%w: table function %s does not declare a schema, the producer must supply one",
+			substraitgo.ErrInvalidType, s.CompoundName())
+	}
+	return EvaluateTypeExpression(s.urn, DeclaredOutputNullability, schema, s.impl.Args, s.impl.Variadic, argumentTypes, registry)
+}
+func (s *TableFunctionVariant) CompoundName() string {
+	return s.name + ":" + s.impl.signatureKey()
+}
+func (s *TableFunctionVariant) ID() FunctionID {
+	return FunctionID{URN: s.urn, Name: s.CompoundName()}
+}
+func (s *TableFunctionVariant) Match(argumentTypes []types.Type) (bool, error) {
+	return matchArguments(DeclaredOutputNullability, s.impl.Args, s.impl.Variadic, argumentTypes)
+}
+func (s *TableFunctionVariant) MatchAt(typ types.Type, pos int) (bool, error) {
+	return matchArgumentAt(typ, pos, DeclaredOutputNullability, s.impl.Args, s.impl.Variadic)
+}
+func (s *TableFunctionVariant) MinArgumentCount() int {
+	return minArgumentCount(s.impl.Args, s.impl.Variadic)
+}
+func (s *TableFunctionVariant) MaxArgumentCount() int {
 	return maxArgumentCount(s.impl.Args, s.impl.Variadic)
 }
 

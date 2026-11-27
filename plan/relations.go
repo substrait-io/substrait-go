@@ -1993,6 +1993,83 @@ func (wr *NamedTableWriteRel) Remap(mapping ...int32) (Rel, error) {
 	return RemapHelper(wr, mapping)
 }
 
+// TableFunctionRel invokes a table function and returns the rows it
+// generates. It has no input relation, but the function's arguments may
+// reference outer rows in scope, such as the left row of a lateral join.
+type TableFunctionRel struct {
+	RelCommon
+
+	function     *expr.TableFunction
+	advExtension *extensions.AdvancedExtension
+}
+
+// NewTableFunctionRel assembles a TableFunctionRel from already-decoded parts,
+// without the validation the plan Builder performs. Prefer the Builder for new
+// relations. (issue #358)
+func NewTableFunctionRel(function *expr.TableFunction, common RelCommon, advExtension *extensions.AdvancedExtension) *TableFunctionRel {
+	return &TableFunctionRel{RelCommon: common, function: function, advExtension: advExtension}
+}
+
+func (t *TableFunctionRel) Function() *expr.TableFunction { return t.function }
+
+func (t *TableFunctionRel) directOutputSchema() types.RecordType {
+	return *types.NewRecordTypeFromStruct(*t.function.Schema())
+}
+
+func (t *TableFunctionRel) RecordType() types.RecordType {
+	return t.remap(t.directOutputSchema())
+}
+
+func (t *TableFunctionRel) GetAdvancedExtension() *extensions.AdvancedExtension {
+	return t.advExtension
+}
+
+func (t *TableFunctionRel) SetAdvancedExtension(advExtension *extensions.AdvancedExtension) *extensions.AdvancedExtension {
+	existing := t.advExtension
+	t.advExtension = advExtension
+	return existing
+}
+
+func (t *TableFunctionRel) GetInputs() []Rel {
+	return []Rel{}
+}
+
+func (t *TableFunctionRel) Copy(newInputs ...Rel) (Rel, error) {
+	if len(newInputs) != 0 {
+		return nil, substraitgo.ErrInvalidInputCount
+	}
+	out := *t
+	return &out, nil
+}
+
+func (t *TableFunctionRel) CopyWithExpressionRewrite(rewriteFunc RewriteFunc, newInputs ...Rel) (Rel, error) {
+	if len(newInputs) != 0 {
+		return nil, substraitgo.ErrInvalidInputCount
+	}
+	newFunction := t.function.Clone()
+	argsAreEqual := true
+	for i := range t.function.NArgs() {
+		if exp, ok := t.function.Arg(i).(expr.Expression); ok {
+			newExp, err := rewriteFunc(exp)
+			if err != nil {
+				return nil, err
+			}
+			newFunction.SetArg(i, newExp)
+			argsAreEqual = argsAreEqual && exp == newExp
+		}
+	}
+	if argsAreEqual {
+		return t, nil
+	}
+	out := *t
+	out.function = newFunction
+	return &out, nil
+}
+
+func (t *TableFunctionRel) Remap(mapping ...int32) (Rel, error) {
+	return RemapHelper(t, mapping)
+}
+
 var (
 	_ Rel = (*NamedTableReadRel)(nil)
 	_ Rel = (*VirtualTableReadRel)(nil)
@@ -2012,6 +2089,7 @@ var (
 	_ Rel = (*HashJoinRel)(nil)
 	_ Rel = (*MergeJoinRel)(nil)
 	_ Rel = (*NamedTableWriteRel)(nil)
+	_ Rel = (*TableFunctionRel)(nil)
 
 	_ MultiRel = (*SetRel)(nil)
 	_ MultiRel = (*ExtensionMultiRel)(nil)
