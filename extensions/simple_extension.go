@@ -249,8 +249,12 @@ type ScalarFunctionImpl struct {
 }
 
 func (s *ScalarFunctionImpl) signatureKey() string {
+	return signatureKey(s.Args)
+}
+
+func signatureKey(args FuncParameterList) string {
 	var b strings.Builder
-	for i, a := range s.Args {
+	for i, a := range args {
 		if i != 0 {
 			b.WriteByte('_')
 		}
@@ -497,6 +501,50 @@ func (s *WindowFunction) ResolveURN(urn string) []FunctionVariant {
 	return out
 }
 
+type TableFunctionImpl struct {
+	Args     FuncParameterList `yaml:",omitempty"`
+	Options  map[string]Option `yaml:",omitempty"`
+	Variadic *VariadicBehavior `yaml:",omitempty"`
+	// Schema is the output row type, a non-nullable struct. It is nil when
+	// the output columns can't be derived from the argument types, in which
+	// case the producer supplies the schema in each call.
+	Schema *parser.TypeExpression `yaml:",omitempty"`
+}
+
+func (t *TableFunctionImpl) signatureKey() string {
+	return signatureKey(t.Args)
+}
+
+// TableFunction is a function that produces a relation of zero or more rows.
+type TableFunction struct {
+	Name        string              `yaml:",omitempty"`
+	Description string              `yaml:",omitempty,flow"`
+	Impls       []TableFunctionImpl `yaml:",omitempty"`
+	Metadata    map[string]any      `yaml:"metadata,omitempty"`
+}
+
+func (s *TableFunction) GetVariants(urn string) []*TableFunctionVariant {
+	out := make([]*TableFunctionVariant, len(s.Impls))
+	for i, impl := range s.Impls {
+		out[i] = &TableFunctionVariant{
+			name:        s.Name,
+			description: s.Description,
+			urn:         urn,
+			impl:        impl,
+			metadata:    s.Metadata,
+		}
+	}
+	return out
+}
+
+func (s *TableFunction) ResolveURN(urn string) []FunctionVariant {
+	out := make([]FunctionVariant, len(s.Impls))
+	for i, v := range s.GetVariants(urn) {
+		out[i] = v
+	}
+	return out
+}
+
 type SimpleExtensionFile struct {
 	Urn                string              `yaml:"urn"`
 	Dependencies       map[string]string   `yaml:"dependencies,omitempty"`
@@ -506,4 +554,5 @@ type SimpleExtensionFile struct {
 	ScalarFunctions    []ScalarFunction    `yaml:"scalar_functions,omitempty"`
 	AggregateFunctions []AggregateFunction `yaml:"aggregate_functions,omitempty"`
 	WindowFunctions    []WindowFunction    `yaml:"window_functions,omitempty"`
+	TableFunctions     []TableFunction     `yaml:"table_functions,omitempty"`
 }
