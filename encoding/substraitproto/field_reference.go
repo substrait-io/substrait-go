@@ -5,6 +5,7 @@ package substraitproto
 import (
 	"fmt"
 
+	substraitgo "github.com/substrait-io/substrait-go/v9"
 	"github.com/substrait-io/substrait-go/v9/expr"
 	"github.com/substrait-io/substrait-go/v9/types"
 	proto "github.com/substrait-io/substrait-protobuf/go/substraitpb"
@@ -201,7 +202,9 @@ func fieldReferenceRefToProto(f *expr.FieldReference) *proto.Expression_FieldRef
 		case expr.OuterReference:
 			ret.RootType = &proto.Expression_FieldReference_OuterReference_{
 				OuterReference: &proto.Expression_FieldReference_OuterReference{
-					StepsOut: uint32(r),
+					OuterReferenceType: &proto.Expression_FieldReference_OuterReference_StepsOut{
+						StepsOut: uint32(r),
+					},
 				},
 			}
 		case expr.LambdaParameterReference:
@@ -315,7 +318,11 @@ func FieldReferenceFromProto(p *proto.Expression_FieldReference, baseSchema *typ
 			return nil, err
 		}
 	case *proto.Expression_FieldReference_OuterReference_:
-		root = expr.OuterReference(rt.OuterReference.StepsOut)
+		stepsOut, ok := rt.OuterReference.OuterReferenceType.(*proto.Expression_FieldReference_OuterReference_StepsOut)
+		if !ok {
+			return nil, fmt.Errorf("%w: outer reference by rel_reference", substraitgo.ErrNotImplemented)
+		}
+		root = expr.OuterReference(stepsOut.StepsOut)
 	case *proto.Expression_FieldReference_RootReference_:
 		root = expr.RootReference
 	case *proto.Expression_FieldReference_LambdaParameterReference_:

@@ -14,7 +14,7 @@ import (
 )
 
 func TestLiteralFromProtoLiteral(t *testing.T) {
-	intDayToSecVal := &proto.Expression_Literal_IntervalDayToSecond{Days: 1, Seconds: 2, PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{Precision: 5}}
+	intDayToSecVal := &proto.Expression_Literal_IntervalDayToSecond{Days: 1, Seconds: 2, Precision: 5}
 	for _, tc := range []struct {
 		name             string
 		constructedProto *proto.Expression_Literal
@@ -53,8 +53,8 @@ func TestLiteralFromProtoLiteral(t *testing.T) {
 				IntervalCompound: &proto.Expression_Literal_IntervalCompound{
 					IntervalYearToMonth: &proto.Expression_Literal_IntervalYearToMonth{Years: 1234, Months: -5},
 					IntervalDayToSecond: &proto.Expression_Literal_IntervalDayToSecond{Days: 6, Seconds: -7,
-						PrecisionMode: &proto.Expression_Literal_IntervalDayToSecond_Precision{Precision: 8},
-						Subseconds:    -9,
+						Precision:  8,
+						Subseconds: -9,
 					},
 				}}, Nullable: true},
 			expr.IntervalCompoundLiteral{Years: 1234, Months: -5, Days: 6, Seconds: -7, SubSecondPrecision: 8, SubSeconds: -9, Nullability: types.NullabilityNullable},
